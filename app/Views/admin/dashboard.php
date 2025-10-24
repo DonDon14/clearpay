@@ -5,20 +5,36 @@
 <!-- Dashboard Content -->
 <div class="container-fluid mb-4">
     <div class="row g-3">
-        <div class="col-lg-6 col-md-6">
+        <div class="col-xl-3 col-lg-6 col-md-6">
             <?= view('partials/card', [
-                'icon' => 'fas fa-users',
+                'icon' => 'fas fa-database',
                 'iconColor' => 'text-primary',
-                'title' => 'Total Students',
-                'text' => '1,234'
+                'title' => 'Total Collections',
+                'text' => '₱150,000.00'
             ]) ?>
         </div>
-        <div class="col-lg-6 col-md-6">
+        <div class="col-xl-3 col-lg-6 col-md-6">
             <?= view('partials/card', [
-                'icon' => 'fas fa-graduation-cap',
+                'icon' => 'fas fa-check-square',
                 'iconColor' => 'text-success',
-                'title' => 'Active Enrollments',
-                'text' => '987'
+                'title' => 'Verified Payments',
+                'text' => '0'
+            ]) ?>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <?= view('partials/card', [
+                'icon' => 'fas fa-clock',
+                'iconColor' => 'text-warning',
+                'title' => 'Pending Payments',
+                'text' => '0'
+            ]) ?>
+        </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <?= view('partials/card', [
+                'icon' => 'fas fa-calendar-alt',
+                'iconColor' => 'text-info',
+                'title' => 'Today\'s Payments',
+                'text' => '0'
             ]) ?>
         </div>
     </div>
