@@ -114,6 +114,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
                         <h5 class="card-title mb-0">Recent Payments</h5>
+                         <small class="text-muted">Last 30 days</small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <button class="btn btn-sm btn-outline-secondary" title="Refresh">
@@ -217,15 +218,18 @@
         <div class="col-lg-4 col-md-12">
             <div class="card h-100 shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">System Status</h5>
-                    <span class="badge bg-success">
+                    <div>
+                      <h5 class="card-title mb-0">System Status</h5>
+                      <small class="text-muted">Last checked: 2 minutes ago</small>
+                    </div>
+                    <div class="badge bg-success">
                         <i class="fas fa-circle me-1" style="font-size: 8px;"></i>
                         ONLINE
-                    </span>
+                    </div>
                 </div>
                 <div class="card-body">
                     <!-- Database Status -->
-                    <div class="d-flex align-items-center mb-3">
+                    <div class="d-flex align-items-center mb-3 border-bottom pb-3">
                         <div class="me-3">
                             <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                 <i class="fas fa-database"></i>
@@ -239,7 +243,7 @@
                     </div>
 
                     <!-- QR Generation -->
-                    <div class="d-flex align-items-center mb-3">
+                    <div class="d-flex align-items-center mb-3 border-bottom pb-3">
                         <div class="me-3">
                             <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                 <i class="fas fa-qrcode"></i>
@@ -253,7 +257,7 @@
                     </div>
 
                     <!-- Backup System -->
-                    <div class="d-flex align-items-center">
+                    <div class="d-flex align-items-center mb-3 border-bottom pb-3">
                         <div class="me-3">
                             <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                 <i class="fas fa-cloud-upload-alt"></i>
@@ -280,63 +284,10 @@
                 <div class="card-body">
                     <p class="card-text">You are successfully logged in to the ClearPay admin dashboard.</p>
                     <p class="text-muted">Use the sidebar navigation to access different sections of the application.</p>
-                    <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-bullhorn',
-                            'title' => 'Add Announcement',
-                            'subtitle' => 'Create system announcements',
-                            'bgColor' => 'bg-purple',
-                            'link' => '/announcements/add',
-                            'colClass' => 'col-6'
-                        ]) ?>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-.icon-circle {
-    width: 45px;
-    height: 45px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 50%;
-    flex-shrink: 0;
-    font-size: 1.25rem;
-}
-
-.hover-scale:hover {
-    transform: translateY(-3px) scale(1.03);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-}
-
-.text-white-75 {
-    color: rgba(255,255,255,0.75) !important;
-}
-
-.bg-purple {
-    background-color: #6f42c1 !important;
-}
-
-/* Custom badges */
-.badge {
-    font-size: 0.7rem;
-}
-
-/* Payment item hover effect */
-.card-body .border-bottom:hover {
-    background-color: #f8f9fa;
-}
-
-/* Status indicators */
-.badge .fas.fa-circle {
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
-</style>
 
 <?= $this->endSection() ?>
