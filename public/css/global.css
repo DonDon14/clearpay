@@ -11,12 +11,14 @@ body, html {
   font-family: 'Poppins', sans-serif;
   background-color: #f8f9fa;
   height: 100%;
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 /* Main App Layout */
 .app-layout {
   display: flex;
   min-height: 100vh;
+  width: 100%;
 }
 
 /* Sidebar - Fixed on the left */
@@ -47,18 +49,19 @@ body, html {
   border-bottom: 1px solid #e2e8f0;
   height: 70px;
   flex-shrink: 0;
+  width: 100%;
 }
 
-/* Content Area - Flexible space */
+/* Content Area - Flexible space that grows */
 .content {
   flex: 1;
   padding: 2rem;
   background-color: #f8f9fa;
-  min-height: calc(100vh - 140px); /* Account for header and footer */
   overflow-y: auto;
+  width: 100%;
 }
 
-/* Footer - Fixed at bottom */
+/* Footer - Always at bottom */
 .footer {
   background: #fff;
   border-top: 1px solid #e2e8f0;
@@ -68,6 +71,31 @@ body, html {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  margin-top: auto; /* This pushes footer to bottom */
+  position: relative; /* Ensure proper positioning */
+}
+
+/* Ensure proper stacking context */
+.app-layout {
+  position: relative;
+}
+
+/* Debug class - remove after testing */
+.debug-layout * {
+  outline: 1px solid rgba(255,0,0,0.3);
+}
+
+.debug-layout .main-content {
+  outline: 2px solid blue;
+}
+
+.debug-layout .content {
+  outline: 2px solid green;
+}
+
+.debug-layout .footer {
+  outline: 2px solid red;
 }
 
 /* Responsive Design */
