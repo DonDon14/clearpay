@@ -1,5 +1,5 @@
 <?php
-// Variables to pass: $icon, $iconColor, $title, $text
+// Usage variables: $icon, $iconColor, $title, $text
 ?>
 
 <div class="col-lg-3 col-md-6 mb-4">

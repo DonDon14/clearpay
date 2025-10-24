@@ -3,6 +3,26 @@
 <?= $this->section('content') ?>
 
 <!-- Dashboard Content -->
+<div class="container-fluid mb-4">
+    <div class="row g-3">
+        <div class="col-lg-6 col-md-6">
+            <?= view('partials/card', [
+                'icon' => 'fas fa-users',
+                'iconColor' => 'text-primary',
+                'title' => 'Total Students',
+                'text' => '1,234'
+            ]) ?>
+        </div>
+        <div class="col-lg-6 col-md-6">
+            <?= view('partials/card', [
+                'icon' => 'fas fa-graduation-cap',
+                'iconColor' => 'text-success',
+                'title' => 'Active Enrollments',
+                'text' => '987'
+            ]) ?>
+        </div>
+    </div>
+</div>
 <!-- Stats Cards -->
 <div class="container-fluid">
     <div class="row g-3"> <!-- g-3 adds some gap between columns -->
