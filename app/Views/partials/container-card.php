@@ -2,6 +2,9 @@
 // container-card.php - Flexible container that can hold cards or custom content
 $cardClass = $cardClass ?? 'shadow-sm';
 $bodyClass = $bodyClass ?? 'd-flex flex-wrap gap-2';
+$hasContent = isset($content) && !empty($content);
+$hasCards = isset($cards) && !empty($cards) && is_array($cards);
+$hasItems = isset($items) && !empty($items) && is_array($items);
 ?>
 
 <div class="card <?= $cardClass ?> mb-3">
@@ -15,23 +18,26 @@ $bodyClass = $bodyClass ?? 'd-flex flex-wrap gap-2';
     <?php endif; ?>
     
     <div class="card-body <?= $bodyClass ?>">
-        <?php if (!empty($content)) : ?>
+        <?php if ($hasContent) : ?>
             <!-- Custom content -->
             <?= $content ?>
-        <?php elseif (!empty($cards)) : ?>
-            <!-- Default card rendering -->
-            <?php foreach ($cards as $card) : ?>
-                <?= view('partials/card', $card) ?>
-            <?php endforeach; ?>
-        <?php elseif (!empty($items)) : ?>
+        <?php elseif ($hasItems) : ?>
             <!-- Flexible items with custom view -->
             <?php foreach ($items as $item) : ?>
-                <?php if (isset($item['view'])) : ?>
+                <?php if (isset($item['view']) && !empty($item['view'])) : ?>
                     <?= view($item['view'], $item) ?>
                 <?php else : ?>
                     <?= view('partials/card', $item) ?>
                 <?php endif; ?>
             <?php endforeach; ?>
+        <?php elseif ($hasCards) : ?>
+            <!-- Default card rendering -->
+            <?php foreach ($cards as $card) : ?>
+                <?= view('partials/card', $card) ?>
+            <?php endforeach; ?>
+        <?php else : ?>
+            <!-- Fallback: No content provided -->
+            <p class="text-muted">No content available</p>
         <?php endif; ?>
     </div>
 </div>
