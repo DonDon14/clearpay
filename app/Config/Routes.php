@@ -15,7 +15,8 @@ $routes->get('/logout', 'Admin\LoginController::logout');
 
 $routes->get('/dashboard', 'Admin\DashboardController::index', ['filter' => 'auth']);
 
-// Payment Routes
-$routes->get('/payments', 'Admin\PaymentsController::index', ['filter' => 'auth']);
-$routes->get('/payments/history', 'Admin\PaymentsController::history', ['filter' => 'auth']);
-$routes->get('/analytics', 'Admin\PaymentsController::analytics', ['filter' => 'auth']);
+// Sidebar Routes
+$routes->get('/payments', 'Admin\SidebarController::payments', ['filter' => 'auth']);
+$routes->get('/contributions', 'Admin\SidebarController::contributions', ['filter' => 'auth']);
+$routes->get('/students', 'Admin\SidebarController::students', ['filter' => 'auth']);
+$routes->get('/announcements', 'Admin\SidebarController::announcements', ['filter' => 'auth']);

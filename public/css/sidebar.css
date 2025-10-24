@@ -117,6 +117,12 @@
 }
 
 .sidebar-menu li {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sidebar-menu .sidebar-item {
     display: flex;
     align-items: center;
     gap: 15px;
@@ -130,26 +136,26 @@
     text-decoration: none;
 }
 
-.sidebar-menu li:hover,
-.sidebar-menu li.active {
+.sidebar-menu .sidebar-item:hover,
+.sidebar-menu .sidebar-item.active {
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
     transform: translateX(5px);
 }
 
-.sidebar-menu li.active {
+.sidebar-menu .sidebar-item.active {
     background: linear-gradient(135deg, #6a5af9, #836fff);
     box-shadow: 0 4px 12px rgba(106, 90, 249, 0.3);
 }
 
-.sidebar-menu li i {
+.sidebar-menu .sidebar-item i {
     font-size: 1.1rem;
     width: 20px;
     text-align: center;
     flex-shrink: 0;
 }
 
-.sidebar-menu li span {
+.sidebar-menu .sidebar-item span {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
