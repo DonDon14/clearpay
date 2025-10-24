@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Help Center - ClearPay</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-primary: #1a1c23;
+      --bg-secondary: #24262d;
+      --bg-tertiary: #2a2d35;
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --radius-md: 8px;
+      --transition-fast: 0.2s ease;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      line-height: 1.5;
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .help-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+    }
+
+    .search-input {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding-left: 2.5rem;
+    }
+
+    .search-input:focus {
+      border-color: rgba(255, 255, 255, 0.3);
+      background: var(--bg-tertiary);
+      box-shadow: none;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-secondary);
+    }
+
+    .help-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: all var(--transition-fast);
+      padding: 1rem;
+      display: flex;
+      gap: 1rem;
+    }
+
+    .help-card:hover {
+      background: var(--bg-tertiary);
+      transform: translateY(-3px);
+    }
+
+    .help-icon {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: var(--text-primary);
+    }
+
+    .quick-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      padding: 1rem;
+      text-decoration: none;
+      transition: all var(--transition-fast);
+    }
+
+    .quick-link:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .quick-link i {
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container py-5">
+    <header class="help-header">
+      <i class="fas fa-life-ring fs-4"></i>
+      <h1 class="fs-4 fw-semibold">How can we help you?</h1>
+    </header>
+
+    <!-- Search -->
+    <div class="position-relative mb-4 mx-auto" style="max-width: 600px;">
+      <i class="fas fa-search search-icon"></i>
+      <input type="text" class="form-control search-input" placeholder="Search help topics...">
+    </div>
+
+    <!-- Topics -->
+    <section>
+      <h2 class="fs-5 mb-3">Common Topics</h2>
+      <div class="row g-3">
+        <div class="col-md-6 col-lg-4">
+          <a href="/help/account" class="help-card">
+            <div class="help-icon"><i class="fas fa-user"></i></div>
+            <div>
+              <h3 class="fs-6 mb-1">Account Management</h3>
+              <p class="small text-secondary">Profile settings, security, and account access</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+          <a href="/help/payments" class="help-card">
+            <div class="help-icon"><i class="fas fa-credit-card"></i></div>
+            <div>
+              <h3 class="fs-6 mb-1">Payments & Transactions</h3>
+              <p class="small text-secondary">Payment methods, transactions, and receipts</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+          <a href="/help/contributions" class="help-card">
+            <div class="help-icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <div>
+              <h3 class="fs-6 mb-1">Contributions</h3>
+              <p class="small text-secondary">Managing and tracking student contributions</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+          <a href="/help/reports" class="help-card">
+            <div class="help-icon"><i class="fas fa-chart-bar"></i></div>
+            <div>
+              <h3 class="fs-6 mb-1">Reports & Analytics</h3>
+              <p class="small text-secondary">Financial reports and data analysis</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+          <a href="/help/students" class="help-card">
+            <div class="help-icon"><i class="fas fa-users"></i></div>
+            <div>
+              <h3 class="fs-6 mb-1">Student Management</h3>
+              <p class="small text-secondary">Managing student records and information</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="col-md-6 col-lg-4">
+          <a href="/help/troubleshooting" class="help-card">
+            <div class="help-icon"><i class="fas fa-wrench"></i></div>
+            <div>
+              <h3 class="fs-6 mb-1">Troubleshooting</h3>
+              <p class="small text-secondary">Common issues and their solutions</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Links -->
+    <section class="mt-5">
+      <h2 class="fs-5 mb-3">Quick Links</h2>
+      <div class="row g-3">
+        <div class="col-md-6 col-lg-3">
+          <a href="/help/getting-started" class="quick-link">
+            <i class="fas fa-play-circle"></i>
+            <span>Getting Started Guide</span>
+          </a>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <a href="/help/faq" class="quick-link">
+            <i class="fas fa-question-circle"></i>
+            <span>FAQ</span>
+          </a>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <a href="mailto:support@clearpay.com" class="quick-link">
+            <i class="fas fa-envelope"></i>
+            <span>Contact Support</span>
+          </a>
+        </div>
+        <div class="col-md-6 col-lg-3">
+          <a href="/help/documentation" class="quick-link">
+            <i class="fas fa-book"></i>
+            <span>Documentation</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Search Filter -->
+  <script>
+    const searchInput = document.querySelector('.search-input');
+    const helpCards = document.querySelectorAll('.help-card');
+
+    searchInput.addEventListener('input', function () {
+      const searchTerm = this.value.toLowerCase();
+      helpCards.forEach(card => {
+        const title = card.querySelector('h3').textContent.toLowerCase();
+        const desc = card.querySelector('p').textContent.toLowerCase();
+        card.style.display = (title.includes(searchTerm) || desc.includes(searchTerm)) ? 'flex' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>
