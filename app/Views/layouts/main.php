@@ -14,7 +14,7 @@
   <link href="<?= base_url('css/dashboard.css') ?>" rel="stylesheet">
   
   <!-- Sidebar Component - Complete consolidated styles -->
-  <link href="<?= base_url('css/components/sidebar-complete.css') ?>" rel="stylesheet">
+  <link href="<?= base_url('css/sidebar-complete.css') ?>" rel="stylesheet">
 </head>
 <body>
   <div class="app-layout">
@@ -46,14 +46,43 @@
   </div>
   
   <script>
-    // Sidebar Toggle Script
+    // Sidebar Toggle Script with State Persistence
     document.addEventListener('DOMContentLoaded', function() {
       const toggleBtn = document.getElementById('sidebarToggleBtn');
       const sidebar = document.querySelector('.sidebar');
+      const expandBtn = document.querySelector('.sidebar-expand-btn');
 
+      // Function to save sidebar state
+      function saveSidebarState(isCollapsed) {
+        localStorage.setItem('sidebarCollapsed', isCollapsed);
+      }
+
+      // Function to restore sidebar state
+      function restoreSidebarState() {
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed && sidebar) {
+          sidebar.classList.add('collapsed');
+        }
+      }
+
+      // Restore sidebar state on page load
+      restoreSidebarState();
+
+      if (toggleBtn && sidebar) {
         toggleBtn.addEventListener('click', function() {
-            sidebar.classList.toggle('collapsed');
-      });
+          sidebar.classList.toggle('collapsed');
+          const isCollapsed = sidebar.classList.contains('collapsed');
+          saveSidebarState(isCollapsed);
+        });
+      }
+
+      if (expandBtn && sidebar) {
+        expandBtn.addEventListener('click', function() {
+          console.log('Expand button clicked');
+          sidebar.classList.remove('collapsed');
+          saveSidebarState(false);
+        });
+      }
     });
   </script>
 </body>

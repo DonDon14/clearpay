@@ -77,6 +77,11 @@
                 </li>
             </ul>
         </div>
+
+        <!-- Expanding button section -->
+         <button class="sidebar-expand-btn" id="sidebarExpandBtn">
+            <i class="fas fa-arrow-right"></i>
+        </button>
         
         <footer class="sidebar-footer">
             <?= $this->include('partials/help_section') ?>
