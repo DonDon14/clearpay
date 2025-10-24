@@ -31,28 +31,28 @@
                 </a>
             </li>
             <li>
-                <a href="<?= base_url('partial_payments/index.html') ?>" class="sidebar-item <?= ($pageTitle === 'Partial Payments') ? 'active' : '' ?>">
+                <a href="<?= base_url('partial-payments') ?>" class="sidebar-item <?= ($pageTitle === 'Partial Payments') ? 'active' : '' ?>">
                     <i class="fas fa-wallet"></i> 
                     <span>Partial Payments</span>
                 </a>
             </li>
             <li>
-                <a href="<?= base_url('payment_history/index.html') ?>" class="sidebar-item <?= ($pageTitle === 'Payment History') ? 'active' : '' ?>">
+                <a href="<?= base_url('history') ?>" class="sidebar-item <?= ($pageTitle === 'Payment History') ? 'active' : '' ?>">
                     <i class="fas fa-history"></i> 
                     <span>Payment History</span>
                 </a>
             </li>
             <li><hr></li>
             <li>
-                <a href="<?= base_url('analytics/index.html') ?>" class="sidebar-item <?= ($pageTitle === 'Analytics') ? 'active' : '' ?>">
+                <a href="<?= base_url('analytics') ?>" class="sidebar-item <?= ($pageTitle === 'Analytics') ? 'active' : '' ?>">
                     <i class="fas fa-chart-bar"></i> 
                     <span>Analytics</span>
                 </a>
             </li>
             <li>
-                <a href="<?= base_url('students') ?>" class="sidebar-item <?= ($pageTitle === 'Students') ? 'active' : '' ?>">
+                <a href="<?= base_url('payers') ?>" class="sidebar-item <?= ($pageTitle === 'Payers') ? 'active' : '' ?>">
                     <i class="fas fa-users"></i> 
-                    <span>Students</span>
+                    <span>Payers</span>
                 </a>
             </li>
             <li>
@@ -62,13 +62,13 @@
                 </a>
             </li>
             <li>
-                <a href="<?= base_url('profile/index.html') ?>" class="sidebar-item <?= ($pageTitle === 'Profile') ? 'active' : '' ?>">
+                <a href="<?= base_url('profile') ?>" class="sidebar-item <?= ($pageTitle === 'Profile') ? 'active' : '' ?>">
                     <i class="fas fa-user"></i> 
                     <span>Profile</span>
                 </a>
             </li>
             <li>
-                <a href="<?= base_url('settings/index.html') ?>" class="sidebar-item <?= ($pageTitle === 'Settings') ? 'active' : '' ?>">
+                <a href="<?= base_url('settings') ?>" class="sidebar-item <?= ($pageTitle === 'Settings') ? 'active' : '' ?>">
                     <i class="fas fa-cog"></i> 
                     <span>Settings</span>
                 </a>
