@@ -1,9 +1,14 @@
 
-<div class="sidebar">
+<div class="sidebar-inner">
+    <!-- Expand button for collapsed state -->
+    <button class="sidebar-expand-btn" id="sidebarExpand">
+        <i class="fas fa-chevron-right"></i>
+    </button>
+    
     <div class="sidebar-header">
         <div class="logo">
             <i class="fas fa-credit-card"></i>
-            <span>ClearPay</span>
+            <span class="logo-text">ClearPay</span>
         </div>
         <button class="toggle-btn" id="sidebarToggle">
             <i class="fas fa-bars"></i>

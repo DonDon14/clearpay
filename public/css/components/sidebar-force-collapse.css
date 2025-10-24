@@ -1,0 +1,75 @@
+/* Force sidebar collapse - loads last to override everything */
+/* Clean collapse styling - maintains original design consistency */
+
+@media (min-width: 577px) {
+  /* Force collapse with clean styling */
+  html body div.app-layout aside.sidebar.collapsed,
+  html body .app-layout aside.sidebar.collapsed,
+  html body aside.sidebar.collapsed,
+  .app-layout aside.sidebar.collapsed,
+  aside.sidebar.collapsed {
+    width: 60px !important;
+    min-width: 60px !important;
+    max-width: 60px !important;
+    flex: 0 0 60px !important;
+    flex-basis: 60px !important;
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Hide text in collapsed state */
+  html body .app-layout aside.sidebar.collapsed .logo-text,
+  html body .app-layout aside.sidebar.collapsed .sidebar-item span,
+  html body .app-layout aside.sidebar.collapsed .sidebar-footer .sidebar-item span,
+  aside.sidebar.collapsed .logo-text,
+  aside.sidebar.collapsed .sidebar-item span,
+  aside.sidebar.collapsed .sidebar-footer .sidebar-item span {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+  }
+
+  /* Center items in collapsed state */
+  html body .app-layout aside.sidebar.collapsed .sidebar-item,
+  html body .app-layout aside.sidebar.collapsed .sidebar-footer .sidebar-item,
+  aside.sidebar.collapsed .sidebar-item,
+  aside.sidebar.collapsed .sidebar-footer .sidebar-item {
+    justify-content: center !important;
+    padding: 12px 8px !important;
+    margin: 2px 8px !important;
+    border-radius: 8px !important;
+    gap: 0 !important;
+  }
+
+  /* Expand button for collapsed sidebar */
+  aside.sidebar.collapsed .sidebar-expand-btn {
+    position: absolute !important;
+    right: -15px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: #3498db !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 30px !important;
+    height: 30px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+    transition: all 0.3s ease !important;
+    z-index: 1001 !important;
+  }
+
+  aside.sidebar.collapsed .sidebar-expand-btn:hover {
+    background: #2980b9 !important;
+    transform: translateY(-50%) scale(1.1) !important;
+  }
+
+  /* Hide expand button when not collapsed */
+  aside.sidebar:not(.collapsed) .sidebar-expand-btn {
+    display: none !important;
+  }
+}

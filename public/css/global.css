@@ -29,6 +29,7 @@ body, html {
   width: 250px;
   height: 100vh;
   z-index: 1000;
+  transition: width 0.3s ease;
 }
 
 /* Main Content Area - Takes remaining space */
@@ -38,7 +39,16 @@ body, html {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.3s ease, width 0.3s ease;
 }
+
+/* Main content when sidebar is collapsed */
+.app-layout.sidebar-collapsed .main-content {
+  margin-left: 60px;
+  width: calc(100% - 60px);
+}
+
+
 
 /* Header - Fixed at top of main content */
 .header {
@@ -100,7 +110,7 @@ body, html {
 
 /* Responsive Design */
 @media (max-width: 1024px) {
-  .sidebar {
+  .sidebar:not(.collapsed) {
     width: 200px;
   }
   
@@ -108,16 +118,26 @@ body, html {
     margin-left: 200px;
     width: calc(100% - 200px);
   }
+  
+  .app-layout.sidebar-collapsed .main-content {
+    margin-left: 55px;
+    width: calc(100% - 55px);
+  }
 }
 
 @media (max-width: 768px) {
-  .sidebar {
-    width: 70px;
+  .sidebar:not(.collapsed) {
+    width: 180px;
   }
   
   .main-content {
-    margin-left: 70px;
-    width: calc(100% - 70px);
+    margin-left: 180px;
+    width: calc(100% - 180px);
+  }
+  
+  .app-layout.sidebar-collapsed .main-content {
+    margin-left: 55px;
+    width: calc(100% - 55px);
   }
   
   .content {
