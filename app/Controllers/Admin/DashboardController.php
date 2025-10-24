@@ -16,6 +16,8 @@ class DashboardController extends BaseController
         // Example: pass session data to the view
         $data = [
             'title' => 'Admin Dashboard',
+            'pageTitle' => 'Dashboard',
+            'pageSubtitle' => 'Welcome back to your ClearPay dashboard',
             'username' => session()->get('username'),
         ];
 

@@ -1,0 +1,26 @@
+/* Footer Styles */
+.footer {
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    color: #718096;
+    text-align: center;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.footer-content p {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .footer-content p {
+        font-size: 0.8rem;
+    }
+}

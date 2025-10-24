@@ -1,3 +1,3 @@
-<footer class="footer">
-  <p>© <?= date('Y') ?> AquaSync. All rights reserved.</p>
-</footer>
+<div class="footer-content">
+  <p class="mb-0">© <?= date('Y') ?> ClearPay. All rights reserved.</p>
+</div>
