@@ -146,7 +146,13 @@
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: #ffffff;
     box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
-    transform: translateX(2px);
+    transform: translateX(0);
+}
+
+.sidebar-item.active:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    transform: translateX(2px) scale(1.03);
 }
 
 .sidebar-item.active::after {
