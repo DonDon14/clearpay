@@ -3,6 +3,7 @@
 <?= $this->section('content') ?>
 
 <!-- Dashboard Content -->
+<!-- Stats Cards -->
 <div class="container-fluid mb-4">
     <div class="row g-3">
         <div class="col-xl-3 col-lg-6 col-md-6">
@@ -39,41 +40,67 @@
         </div>
     </div>
 </div>
-<!-- Stats Cards -->
+<!--End Stats Cards -->
+
+<!-- Detailed Stats and Welcome Message -->
 <div class="container-fluid">
     <div class="row g-3"> <!-- g-3 adds some gap between columns -->
 
+    <!-- Recent Payments -->
         <div class="col-lg-4 col-md-6">
             <?= view('partials/container-card', [
-                'title' => 'Recent Payments',
+                'title' => 'Quick Actions',
+                'subtitle' => 'Manage your tasks efficiently',
                 'cardClass' => 'h-100',
-                'cards' => [
-                    [
-                        'icon' => 'fas fa-database',
-                        'iconColor' => 'text-success',
-                        'title' => 'Total Collections',
-                        'text' => '₱150,000.00'
-                    ],
-                    [
-                        'icon' => 'fas fa-check-circle',
-                        'iconColor' => 'text-success',
-                        'title' => 'Verified Payments',
-                        'text' => '0'
-                    ]
-                ]
+                'bodyClass' => 'p-2', // Custom body styling
+                'content' => '
+                    <div class="row g-2 w-100">
+                        ' . view('partials/quick-action', [
+                            'icon' => 'fas fa-plus-circle',
+                            'title' => 'Add Payment',
+                            'subtitle' => 'Record new payment',
+                            'bgColor' => 'bg-primary',
+                            'link' => '/payments/add'
+                        ]) . '
+                        ' . view('partials/quick-action', [
+                            'icon' => 'fas fa-eye',
+                            'title' => 'View Reports',
+                            'subtitle' => 'Check analytics',
+                            'bgColor' => 'bg-success',
+                            'link' => '/analytics'
+                        ]) . '
+                        ' . view('partials/quick-action', [
+                            'icon' => 'fas fa-users',
+                            'title' => 'Manage Students',
+                            'subtitle' => 'Student records',
+                            'bgColor' => 'bg-info',
+                            'link' => '/students'
+                        ]) . '
+                        ' . view('partials/quick-action', [
+                            'icon' => 'fas fa-cog',
+                            'title' => 'Settings',
+                            'subtitle' => 'System config',
+                            'bgColor' => 'bg-secondary',
+                            'link' => '/settings'
+                        ]) . '
+                    </div>
+                '
             ]) ?>
         </div>
+      <!-- End Recent Payments -->
 
         <div class="col-lg-4 col-md-6">
             <?= view('partials/container-card', [
                 'title' => 'Payments Summary',
+                'subtitle' => 'Overview of all payments',
                 'cardClass' => 'h-100',
                 'cards' => [
                     [
                         'icon' => 'fas fa-clock',
                         'iconColor' => 'text-warning',
                         'title' => 'Pending Payments',
-                        'text' => '0'
+                        'text' => '0',
+                        'bgColor' => 'bg-warning'
                     ],
                     [
                         'icon' => 'fas fa-money-bill-wave',
@@ -88,6 +115,7 @@
         <div class="col-lg-4 col-md-12">
             <?= view('partials/container-card', [
                 'title' => 'Other Stats',
+                'subtitle' => 'Additional information',
                 'cardClass' => 'h-100',
                 'cards' => [
                     [
