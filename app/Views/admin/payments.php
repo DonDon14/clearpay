@@ -31,42 +31,34 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>STU001</td>
-                    <td>John Doe</td>
-                    <td>₱2,500.00</td>
-                    <td>Tuition Fee</td>
-                    <td>Oct 24, 2025</td>
-                    <td><span class="badge bg-success">Completed</span></td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-primary">View</button>
-                      <button class="btn btn-sm btn-outline-secondary">Edit</button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>STU002</td>
-                    <td>Jane Smith</td>
-                    <td>₱1,800.00</td>
-                    <td>Laboratory Fee</td>
-                    <td>Oct 24, 2025</td>
-                    <td><span class="badge bg-warning">Pending</span></td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-primary">View</button>
-                      <button class="btn btn-sm btn-outline-secondary">Edit</button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>STU003</td>
-                    <td>Mike Johnson</td>
-                    <td>₱3,200.00</td>
-                    <td>Miscellaneous Fee</td>
-                    <td>Oct 23, 2025</td>
-                    <td><span class="badge bg-success">Completed</span></td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-primary">View</button>
-                      <button class="btn btn-sm btn-outline-secondary">Edit</button>
-                    </td>
-                  </tr>
+                    <?php if (!empty($recentPayments)): ?>
+                        <?php foreach ($recentPayments as $payment): ?>
+                            <tr>
+                                <td><?= esc($payment['payer_id']) ?></td>
+                                <td><?= esc($payment['payer_name']) ?></td>
+                                <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
+                                <td><?= esc($payment['contribution_title'] ?? 'N/A') ?></td>
+                                <td><?= date('M d, Y', strtotime($payment['payment_date'])) ?></td>
+                                <td>
+                                    <?php if ($payment['payment_status'] === 'fully paid'): ?>
+                                        <span class="badge bg-success">Completed</span>
+                                    <?php elseif ($payment['payment_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning">Partial</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-danger">Unpaid</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary">View</button>
+                                    <button class="btn btn-sm btn-outline-secondary">Edit</button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">No payment records found.</td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
               </table>
             </div>

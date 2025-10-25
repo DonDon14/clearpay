@@ -47,6 +47,7 @@ class PaymentModel extends Model
     {
         return $this->select('
                     payers.id,
+                    payers.payer_id,
                     payers.payer_name,
                     payers.amount_paid,
                     payers.payment_status,
