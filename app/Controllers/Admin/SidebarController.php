@@ -62,12 +62,17 @@ class SidebarController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Fetch contributions for the modal dropdown
+        $contributionModel = new ContributionModel();
+        $contributions = $contributionModel->where('status', 'active')->findAll();
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Partial Payments',
             'pageTitle' => 'Partial Payments',
             'pageSubtitle' => 'Manage partial payments and transactions',
             'username' => session()->get('username'),
+            'contributions' => $contributions,
         ];
 
         return view('admin/partial_payments', $data);
@@ -80,12 +85,17 @@ class SidebarController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Fetch contributions for the modal dropdown
+        $contributionModel = new ContributionModel();
+        $contributions = $contributionModel->where('status', 'active')->findAll();
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Payment History',
             'pageTitle' => 'Payment History',
             'pageSubtitle' => 'View payment history and details',
             'username' => session()->get('username'),
+            'contributions' => $contributions,
         ];
 
         return view('admin/history', $data);
