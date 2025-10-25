@@ -1,0 +1,54 @@
+/* ===============================
+   Custom Dropdown Styles
+   =============================== */
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown > .btn {
+  border-radius: 8px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hidden by default (smooth animation) */
+.dropdown-menu {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-5px);
+  transition: all 0.2s ease;
+  min-width: 130px;
+  padding: 0.4rem 0;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Bootstrap toggles .show automatically */
+.dropdown-menu.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Dropdown items */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.45rem 1rem;
+  transition: background 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.dropdown-item i {
+  width: 18px;
+  text-align: center;
+  color: #6c757d;
+}

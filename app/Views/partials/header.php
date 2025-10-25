@@ -33,22 +33,20 @@
     
     <!-- Dropdown Menu -->
     <div class="user-dropdown" id="userDropdown">
-      <div class="dropdown-header">
-        <div class="user-info">
+      <header class="dropdown-header">
           <h4><?= session('username') ?? 'User' ?></h4>
           <p>administrator@clearpay.com</p>
-        </div>
-      </div>
-      <div class="dropdown-menu">
-        <a href="#" class="dropdown-item">
+      </header>
+      <main class="dropdown-menu">
+        <a href="<?= base_url('profile') ?>" class="dropdown-item">
           <i class="fas fa-user"></i>
           Profile
         </a>
-        <a href="#" class="dropdown-item">
+        <a href="<?= base_url('settings') ?>" class="dropdown-item">
           <i class="fas fa-cog"></i>
           Settings
         </a>
-        <a href="#" class="dropdown-item">
+        <a href="<?= base_url('help/index.html') ?>" class="dropdown-item" target="_blank">
           <i class="fas fa-question-circle"></i>
           Help & Support
         </a>
@@ -57,28 +55,51 @@
           <i class="fas fa-sign-out-alt"></i>
           Logout
         </a>
-      </div>
+      </main>
     </div>
   </div>
 </div>
 
 <script>
-// User menu toggle
-document.getElementById('userMenuBtn').addEventListener('click', function(e) {
-  e.stopPropagation();
-  const dropdown = document.getElementById('userDropdown');
-  dropdown.classList.toggle('active');
-});
+document.addEventListener('DOMContentLoaded', function() {
+  // User menu toggle
+  const userMenuBtn = document.getElementById('userMenuBtn');
+  const userDropdown = document.getElementById('userDropdown');
+  
+  if (userMenuBtn && userDropdown) {
+    userMenuBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('User menu clicked'); // Debug log
+      console.log('Dropdown element:', userDropdown); // Debug log
+      console.log('Dropdown classes before toggle:', userDropdown.className); // Debug log
+      userDropdown.classList.toggle('active');
+      console.log('Dropdown classes after toggle:', userDropdown.className); // Debug log
+      console.log('Dropdown computed styles:', window.getComputedStyle(userDropdown)); // Debug log
+    });
+  }
 
-// Close dropdown when clicking outside
-document.addEventListener('click', function() {
-  const dropdown = document.getElementById('userDropdown');
-  dropdown.classList.remove('active');
-});
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (userDropdown && !userDropdown.contains(e.target) && !userMenuBtn.contains(e.target)) {
+      userDropdown.classList.remove('active');
+    }
+  });
 
-// Notification toggle (if needed)
-document.getElementById('notificationBtn')?.addEventListener('click', function(e) {
-  e.stopPropagation();
-  // Add notification dropdown logic here
+  // Prevent dropdown from closing when clicking inside it
+  if (userDropdown) {
+    userDropdown.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  }
+
+  // Notification toggle (if needed)
+  const notificationBtn = document.getElementById('notificationBtn');
+  if (notificationBtn) {
+    notificationBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      // Add notification dropdown logic here
+    });
+  }
 });
 </script>

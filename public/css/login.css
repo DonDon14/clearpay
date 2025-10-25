@@ -1,0 +1,152 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f7fafc;
+}
+
+/* === MAIN CONTAINER === */
+.main-container {
+    display: flex;
+    height: 100vh;          /* Fill entire screen height */
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: #f8fafc; /* light neutral background */
+}
+
+/* === LEFT SECTION === */
+.left {
+  flex: 1; /* takes up half the space */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #eef4ff; /* optional: light tone for contrast */
+  border: 1px solid black;
+  margin: 10px;
+}
+
+.left .content {
+  background: #fff;
+  padding: 2rem 3rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 100%;
+  height: 100%;
+}
+
+.left h2 {
+    color: #2d3748;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* === RIGHT SECTION === */
+.right {
+    flex: 1; /* takes up half the space */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid black;
+    margin: 10px;
+}
+
+.right .content {
+    background: #fff;
+    padding: 2rem 3rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    width: 70%;
+    height: 500px;
+    max-width: 500px;
+    min-width: auto;
+}
+
+.right .content h3 {
+    margin-bottom: 2rem;
+    color: #2d3748;
+    font-size: 1.75rem;
+}
+
+form .username-field,
+form .password-field {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.username-field,
+.password-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* === FORM & TEXT STYLES === */
+.text-center {
+  text-align: center;
+  color: #333;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+form .form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+form .form-control {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+form .form-control:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.btn {
+  display: inline-block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn:hover {
+  background-color: #0056b3;
+}
+
+/* === RESPONSIVE DESIGN === */
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column; /* stack vertically on mobile */
+    height: auto;
+  }
+
+  .left, .right {
+    flex: unset;
+    width: 100%;
+    padding: 2rem 0;
+  }
+
+  .left .content, .right .content {
+    width: 90%;
+    max-width: 400px;
+  }
+}

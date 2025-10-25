@@ -1,4 +1,4 @@
-/* Footer Styles 
+/* Footer Styles  */
 .footer {
     background: #fff;
     border-top: 1px solid #e2e8f0;
@@ -32,7 +32,7 @@
     flex-grow: 1;
 }
 
-/* Responsive 
+/* Responsive  */
 @media (max-width: 768px) {
     .footer-content p {
         font-size: 0.8rem;

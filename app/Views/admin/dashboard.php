@@ -1,6 +1,10 @@
 <?= $this->extend('layouts/main') ?>
 
+
+
 <?= $this->section('content') ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
 
 <!-- Dashboard Content -->
 <!-- Stats Cards -->
@@ -60,7 +64,7 @@
                             'title' => 'Record Payment',
                             'subtitle' => 'Add new payment record',
                             'bgColor' => 'bg-primary',
-                            'link' => '/payments/add',
+                            'link' => '/payments',
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
@@ -96,11 +100,11 @@
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-bullhorn',
+                            'icon' => 'fas fa-announcement',
                             'title' => 'Add Announcement',
                             'subtitle' => 'Create system announcements',
                             'bgColor' => 'bg-purple',
-                            'link' => '/announcements/add',
+                            'link' => '/announcements',
                             'colClass' => 'col-6'
                         ]) ?>
                     </div>
@@ -142,7 +146,7 @@
                         </div>
                         <div class="ms-2">
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <ul class="dropdown-menu">
