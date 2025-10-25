@@ -95,4 +95,6 @@
     'content' => view('partials/contributions_list')
 ]) ?>
 
+<script src="<?= base_url('js/contribution.js') ?>"></script>
+
 <?= $this->endSection() ?>
