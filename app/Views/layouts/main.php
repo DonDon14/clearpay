@@ -11,8 +11,7 @@
   <!-- Custom CSS (loads after Bootstrap to override styles) -->
   <link href="<?= base_url('css/header.css') ?>" rel="stylesheet">
   <link href="<?= base_url('css/footer.css') ?>" rel="stylesheet">
-  <link href="<?= base_url('css/dashboard.css') ?>" rel="stylesheet">
-  
+  <link href="<?= base_url('css/dashboard.css') ?>" rel="stylesheet">  
   <!-- Sidebar Component - Complete consolidated styles -->
   <link href="<?= base_url('css/sidebar-complete.css') ?>" rel="stylesheet">
 </head>
@@ -106,5 +105,8 @@
       });
     });
   </script>
+  
+  <!-- Bootstrap JavaScript Bundle (required for modals) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

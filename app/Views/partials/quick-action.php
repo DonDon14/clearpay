@@ -1,11 +1,15 @@
 <?php
-// Variables: $icon, $title, $subtitle, $bgColor (optional), $colClass (optional)
-$bgColor = $bgColor ?? 'bg-primary'; // default background color
-$colClass = $colClass ?? 'col-lg-3 col-md-6'; // default column class
+// Variables: $icon, $title, $subtitle, $bgColor (optional), $colClass (optional), $link (optional), $modalTarget (optional)
+$bgColor = $bgColor ?? 'bg-primary';
+$colClass = $colClass ?? 'col-lg-3 col-md-6';
 ?>
 
 <div class="<?= $colClass ?> mb-3">
-    <a href="<?= $link ?? '#' ?>" class="text-decoration-none h-100 d-block">
+    <a 
+        href="<?= $link ?? '#' ?>" 
+        class="text-decoration-none h-100 d-block"
+        <?= isset($modalTarget) ? 'data-bs-toggle="modal" data-bs-target="' . $modalTarget . '"' : '' ?>
+    >
         <div class="card <?= $bgColor ?> text-white shadow-sm rounded-3 hover-scale h-100" style="transition: transform 0.2s, box-shadow 0.2s; min-height: 120px;">
             <div class="card-body d-flex align-items-center gap-3 h-100">
                 <div class="icon-circle d-flex align-items-center justify-content-center me-2">

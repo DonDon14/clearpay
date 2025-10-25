@@ -2,6 +2,7 @@
 
 <?= $this->section('content') ?>
 
+
 <!-- Stats Cards Row -->
 <div class="container-fluid mb-4">
     <div class="row g-3">
@@ -41,12 +42,50 @@
 </div>
 
 <!-- Quick Actions Section -->
-<?= view('partials/container-card', [
-    'title' => '<i class="fas fa-plus-circle me-2"></i>Quick Actions',
-    'cardClass' => 'shadow-sm border-0',
-    'bodyClass' => 'p-0',
-    'content' => view('partials/quick_actions_content')
+<div class="row mb-4">
+        <!-- Quick Actions -->
+        <div class="col-12">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quick Actions</h5>
+                    <small class="text-muted">Frequently used operations</small>
+                </div>
+                <div class="card-body p-2">
+                    <div class="row g-2">
+                        <?= view('partials/quick-action', [
+                            'icon' => 'fas fa-plus-circle',
+                            'title' => 'Add New Contribution',
+                            'subtitle' => 'Add new contribution type',
+                            'bgColor' => 'bg-primary',
+                            'modalTarget' => '#contributionModal',  // <- triggers modal
+                            'colClass' => 'col-lg-4 col-md-4 col-sm-6'
+                        ]) ?>
+                        <?= view('partials/quick-action', [
+                            'icon' => 'fas fa-plus-square',
+                            'title' => 'Record Payments',
+                            'subtitle' => 'Add new payment record',
+                            'bgColor' => 'bg-success',
+                            'link' => '/admin/payments',
+                            'colClass' => 'col-lg-4 col-md-4 col-sm-6'
+                        ]) ?>
+                        <?= view('partials/quick-action', [
+                            'icon' => 'fas fa-history',
+                            'title' => 'View History',
+                            'subtitle' => 'View contribution history',
+                            'bgColor' => 'bg-info',
+                            'link' => '/admin/history',
+                            'colClass' => 'col-lg-4 col-md-4 col-sm-6'
+                        ]) ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+<?= view('partials/modal-contribution', [
+    'action' => base_url('contributions/save'),
+    'title' => 'Add New Contribution'
 ]) ?>
+
 
 <!-- Active Contributions Section -->
 <?= view('partials/container-card', [
