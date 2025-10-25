@@ -31,6 +31,18 @@ class PaymentModel extends Model
     ];
     protected $useTimestamps = false;
 
+    // Validation rules
+    protected $validationRules = [
+        'payment_status' => 'required|in_list[fully paid,partial]'
+    ];
+
+      protected $validationMessages = [
+        'payment_status' => [
+            'required' => 'Payment status is required.',
+            'in_list'  => 'Payment status must be either Fully Paid or Partial.'
+        ]
+    ];
+
      public function getRecentPayments($limit = 5)
     {
         return $this->select('

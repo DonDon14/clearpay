@@ -15,23 +15,23 @@
                 'icon' => 'fas fa-database',
                 'iconColor' => 'text-primary',
                 'title' => 'Total Collections',
-                'text' => '₱150,000.00'
+                'text' => '₱' . ($totalCollections ?? '0.00')
             ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
             <?= view('partials/card', [
                 'icon' => 'fas fa-check-square',
                 'iconColor' => 'text-success',
-                'title' => 'Verified Payments',
-                'text' => '0'
+                'title' => 'Completed Payments',
+                'text' => ($verifiedPayments ?? '0')
             ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
             <?= view('partials/card', [
                 'icon' => 'fas fa-clock',
                 'iconColor' => 'text-warning',
-                'title' => 'Pending Payments',
-                'text' => '0'
+                'title' => 'Partial Payments',
+                'text' => ($partialPayments ?? '0')
             ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
@@ -39,7 +39,7 @@
                 'icon' => 'fas fa-calendar-alt',
                 'iconColor' => 'text-info',
                 'title' => 'Today\'s Payments',
-                'text' => '0'
+                'text' => ($todayPayments ?? '0')
             ]) ?>
         </div>
     </div>
@@ -127,48 +127,35 @@
                         <button class="btn btn-sm btn-primary">View All</button>
                     </div>
                 </div>
-                            <div class="card-body p-0">
-                            <?php if (!empty($recentPayments)): ?>
-                                <?php foreach ($recentPayments as $payment): ?>
-                                    <div class="d-flex align-items-center p-3 border-bottom">
-                                        <div class="me-3">
-                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                <i class="fas fa-user"></i>
-                                            </div>
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <h6 class="mb-1 fw-semibold"><?= esc($payment['payer_name']) ?></h6>
-                                            <small class="text-muted"><?= esc($payment['contribution_title']) ?></small>
-                                            <div class="text-muted small">
-                                                <?= date('M d, Y h:i A', strtotime($payment['payment_date'])) ?>
-                                            </div>
-                                        </div>
-                                        <div class="text-end">
-                                            <div class="fw-bold">₱<?= number_format($payment['amount_paid'], 2) ?></div>
-                                            <span class="badge 
-                                                <?= $payment['payment_status'] === 'paid' ? 'bg-success' : 
-                                                    ($payment['payment_status'] === 'pending' ? 'bg-warning' : 'bg-danger') ?> 
-                                                small">
-                                                <?= strtoupper($payment['payment_status']) ?>
-                                            </span>
-                                        </div>
-                                        <div class="ms-2">
-                                            <div class="dropdown">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </button>
-                                                <ul class="dropdown-menu">
-                                                    <li><a class="dropdown-item" href="#"><i class="fas fa-eye me-2"></i>View</a></li>
-                                                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                                </ul>
-                                            </div>
+                    <div class="card-body p-0" id="recent-payments-body">
+                        <?php if (!empty($recentPayments)): ?>
+                            <?php foreach ($recentPayments as $payment): ?>
+                                <div class="d-flex align-items-center p-3 border-bottom">
+                                    <div class="me-3">
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user"></i>
                                         </div>
                                     </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <div class="p-3 text-center text-muted">No recent payments found.</div>
-                            <?php endif; ?>
-                        </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1 fw-semibold"><?= esc($payment['payer_name']) ?></h6>
+                                        <small class="text-muted"><?= esc($payment['contribution_title']) ?></small>
+                                        <div class="text-muted small">
+                                            <?= date('M d, Y h:i A', strtotime($payment['payment_date'])) ?>
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-bold">₱<?= number_format($payment['amount_paid'], 2) ?></div>
+                                        <span class="badge <?= $payment['payment_status'] === 'fully paid' ? 'bg-success' : ($payment['payment_status'] === 'partial' ? 'bg-warning' : 'bg-danger') ?> small">
+                                            <?= strtoupper($payment['payment_status']) ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="p-3 text-center text-muted">No recent payments found.</div>
+                        <?php endif; ?>
+                    </div>
+
 
                 </div>
             </div>
