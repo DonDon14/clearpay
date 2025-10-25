@@ -94,7 +94,7 @@ $payerStats = [
     <!-- Statistics Cards -->
     <div class="row mb-4">
         <div class="col-lg-3 col-md-6 mb-4">
-            <?= $this->include('partials/card', [
+            <?= view('partials/card', [
                 'title' => 'Total Payers',
                 'text' => number_format($payerStats['total_payers']),
                 'icon' => 'users',
@@ -102,7 +102,7 @@ $payerStats = [
             ]) ?>
         </div>
         <div class="col-lg-3 col-md-6 mb-4">
-            <?= $this->include('partials/card', [
+            <?= view('partials/card', [
                 'title' => 'Active Payers',
                 'text' => number_format($payerStats['active_payers']),
                 'icon' => 'user-check',
@@ -110,7 +110,7 @@ $payerStats = [
             ]) ?>
         </div>
         <div class="col-lg-3 col-md-6 mb-4">
-            <?= $this->include('partials/card', [
+            <?= view('partials/card', [
                 'title' => 'Total Amount',
                 'text' => '₱' . number_format($payerStats['total_amount'], 2),
                 'icon' => 'peso-sign',
@@ -118,7 +118,7 @@ $payerStats = [
             ]) ?>
         </div>
         <div class="col-lg-3 col-md-6 mb-4">
-            <?= $this->include('partials/card', [
+            <?= view('partials/card', [
                 'title' => 'Average per Student',
                 'text' => '₱' . number_format($payerStats['avg_payment_per_student'], 2),
                 'icon' => 'calculator',
@@ -128,7 +128,7 @@ $payerStats = [
     </div>
 
     <!-- Payers List -->
-    <?= $this->include('partials/container-card', [
+    <?= view('partials/container-card', [
         'title' => 'Student Payers',
         'subtitle' => 'Complete list of all registered payers',
         'content' => '

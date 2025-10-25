@@ -50,6 +50,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       const toggleBtn = document.getElementById('sidebarToggleBtn');
       const sidebar = document.querySelector('.sidebar');
+      const mainContent = document.querySelector('.main-content');
       const expandBtn = document.querySelector('.sidebar-expand-btn');
 
       // Function to save sidebar state
@@ -57,11 +58,23 @@
         localStorage.setItem('sidebarCollapsed', isCollapsed);
       }
 
+      // Function to update main content margin
+      function updateMainContentMargin(isCollapsed) {
+        if (mainContent) {
+          if (window.innerWidth > 768) { // Only adjust margin on desktop
+            mainContent.style.marginLeft = isCollapsed ? '82px' : '280px';
+          }
+        }
+      }
+
       // Function to restore sidebar state
       function restoreSidebarState() {
         const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
         if (isCollapsed && sidebar) {
           sidebar.classList.add('collapsed');
+          updateMainContentMargin(true);
+        } else {
+          updateMainContentMargin(false);
         }
       }
 
@@ -73,6 +86,7 @@
           sidebar.classList.toggle('collapsed');
           const isCollapsed = sidebar.classList.contains('collapsed');
           saveSidebarState(isCollapsed);
+          updateMainContentMargin(isCollapsed);
         });
       }
 
@@ -81,8 +95,15 @@
           console.log('Expand button clicked');
           sidebar.classList.remove('collapsed');
           saveSidebarState(false);
+          updateMainContentMargin(false);
         });
       }
+
+      // Handle window resize
+      window.addEventListener('resize', function() {
+        const isCollapsed = sidebar && sidebar.classList.contains('collapsed');
+        updateMainContentMargin(isCollapsed);
+      });
     });
   </script>
 </body>
