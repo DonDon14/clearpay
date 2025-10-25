@@ -8,47 +8,85 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
-      <form action="<?= esc($action) ?>" method="post">
+      <form id="paymentForm" action="<?= esc($action) ?>" method="post">
         <div class="modal-body">
+          <input type="hidden" name="id" id="paymentId" value="<?= isset($payment['id']) ? $payment['id'] : '' ?>">
+          <input type="hidden" name="parent_payment_id" id="parentPaymentId" value="<?= isset($payment['parent_payment_id']) ? $payment['parent_payment_id'] : '' ?>">
 
           <div class="mb-3">
-            <label for="studentId" class="form-label">Student ID</label>
-            <input type="text" class="form-control" id="studentId" name="student_id" required>
+            <label for="payerName" class="form-label">Payer Name</label>
+            <input type="text" class="form-control" id="payerName" name="payer_name" value="<?= isset($payment['payer_name']) ? $payment['payer_name'] : '' ?>" required>
           </div>
 
           <div class="mb-3">
-            <label for="studentName" class="form-label">Student Name</label>
-            <input type="text" class="form-control" id="studentName" name="student_name" required>
+            <label for="payerId" class="form-label">Payer ID</label>
+            <input type="text" class="form-control" id="payerId" name="payer_id" value="<?= isset($payment['payer_id']) ? $payment['payer_id'] : '' ?>" required>
+          </div>
+
+          <div class="mb-3 row">
+            <div class="col-md-6">
+              <label for="contactNumber" class="form-label">Contact Number</label>
+              <input type="text" class="form-control" id="contactNumber" name="contact_number" value="<?= isset($payment['contact_number']) ? $payment['contact_number'] : '' ?>">
+            </div>
+            <div class="col-md-6">
+              <label for="emailAddress" class="form-label">Email Address</label>
+              <input type="email" class="form-control" id="emailAddress" name="email_address" value="<?= isset($payment['email_address']) ? $payment['email_address'] : '' ?>">
+            </div>
+          </div>
+
+          <div class="mb-3 row">
+            <div class="col-md-6">
+              <label for="contributionId" class="form-label">Contribution</label>
+              <select class="form-select" id="contributionId" name="contribution_id" required>
+                <option value="">Select a contribution...</option>
+                <?php if (isset($contributions) && !empty($contributions)): ?>
+                  <?php foreach($contributions as $contribution): ?>
+                    <option 
+                      value="<?= $contribution['id'] ?>" 
+                      data-amount="<?= $contribution['amount'] ?>"
+                    >
+                      <?= esc($contribution['title']) ?> - ₱<?= number_format($contribution['amount'], 2) ?>
+                    </option>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <option value="" disabled>No active contributions found</option>
+                <?php endif; ?>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label for="paymentMethod" class="form-label">Payment Method</label>
+              <select class="form-select" id="paymentMethod" name="payment_method" required>
+                <option value="cash">Cash</option>
+                <option value="online">Online</option>
+                <option value="check">Check</option>
+                <option value="bank">Bank</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3 row">
+            <div class="col-md-6">
+              <label for="amountPaid" class="form-label">Amount Paid</label>
+              <input type="number" step="0.01" class="form-control" id="amountPaid" name="amount_paid" value="<?= isset($payment['amount_paid']) ? $payment['amount_paid'] : '' ?>" required>
+            </div>
+            <div class="col-md-6">
+              <label for="isPartialPayment" class="form-label">Partial Payment?</label>
+              <select class="form-select" id="isPartialPayment" name="is_partial_payment">
+                <option value="0">No (Full Payment)</option>
+                <option value="1">Yes (Partial Payment)</option>
+              </select>
+            </div>
           </div>
 
           <div class="mb-3">
-            <label for="contributionId" class="form-label">Select Contribution</label>
-            <select id="contributionId" name="contribution_id" class="form-select" required>
-              <option value="">-- Select Contribution --</option>
-              <?php foreach ($contributions as $contribution): ?>
-                <option value="<?= esc($contribution['id']) ?>">
-                  <?= esc($contribution['title']) ?> - ₱<?= number_format($contribution['amount'], 2) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-
-          <div class="mb-3">
-            <label for="amount" class="form-label">Amount</label>
-            <input type="number" class="form-control" id="amount" name="amount" required>
+            <label for="remainingBalance" class="form-label">Remaining Balance</label>
+            <input type="number" step="0.01" class="form-control" id="remainingBalance" name="remaining_balance" readonly value="<?= isset($payment['remaining_balance']) ? $payment['remaining_balance'] : '0.00' ?>">
           </div>
 
           <div class="mb-3">
             <label for="paymentDate" class="form-label">Payment Date</label>
-            <input type="date" class="form-control" id="paymentDate" name="payment_date" required>
-          </div>
-
-          <div class="mb-3">
-            <label for="status" class="form-label">Status</label>
-            <select id="status" name="status" class="form-select" required>
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
-            </select>
+            <input type="datetime-local" class="form-control" id="paymentDate" name="payment_date" value="<?= isset($payment['payment_date']) ? date('Y-m-d\TH:i', strtotime($payment['payment_date'])) : date('Y-m-d\TH:i') ?>" required>
           </div>
 
         </div>
@@ -119,34 +157,51 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Add event listeners
-    document.getElementById('amountPaid').addEventListener('input', updatePaymentStatus);
-    document.getElementById('isPartialPayment').addEventListener('change', updatePaymentStatus);
-    document.getElementById('contributionId').addEventListener('change', updatePaymentStatus);
+    // Add event listeners for payment calculation
+    if (document.getElementById('amountPaid')) {
+        document.getElementById('amountPaid').addEventListener('input', updatePaymentStatus);
+    }
+    if (document.getElementById('isPartialPayment')) {
+        document.getElementById('isPartialPayment').addEventListener('change', updatePaymentStatus);
+    }
+    if (document.getElementById('contributionId')) {
+        document.getElementById('contributionId').addEventListener('change', updatePaymentStatus);
+    }
     
     // Initialize payment status on modal open
-    modal.addEventListener('shown.bs.modal', function() {
-        updatePaymentStatus();
-    });
+    if (modal) {
+        modal.addEventListener('shown.bs.modal', function() {
+            updatePaymentStatus();
+        });
+    }
 });
 
 function updatePaymentStatus() {
-    const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
+    const amountPaidEl = document.getElementById('amountPaid');
     const contributionSelect = document.getElementById('contributionId');
+    const isPartialEl = document.getElementById('isPartialPayment');
+    const remainingBalanceEl = document.getElementById('remainingBalance');
     
-    if (contributionSelect.selectedIndex >= 0) {
-        const contributionAmount = parseFloat(contributionSelect.options[contributionSelect.selectedIndex].dataset.amount) || 0;
-        const isPartial = document.getElementById('isPartialPayment').value == '1';
+    if (!amountPaidEl || !contributionSelect || !isPartialEl || !remainingBalanceEl) {
+        return; // Elements not found
+    }
+    
+    const amountPaid = parseFloat(amountPaidEl.value) || 0;
+    
+    if (contributionSelect.selectedIndex > 0) {
+        const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+        const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+        const isPartial = isPartialEl.value == '1';
 
         let remaining = isPartial ? (contributionAmount - amountPaid) : 0;
         if (remaining < 0) remaining = 0;
 
-        document.getElementById('remainingBalance').value = remaining.toFixed(2);
+        remainingBalanceEl.value = remaining.toFixed(2);
         
-        // Auto-fill amount if not partial payment
-        if (!isPartial && contributionAmount > 0) {
-            document.getElementById('amountPaid').value = contributionAmount.toFixed(2);
-            document.getElementById('remainingBalance').value = '0.00';
+        // Auto-fill amount if not partial payment and amount is empty
+        if (!isPartial && contributionAmount > 0 && amountPaid === 0) {
+            amountPaidEl.value = contributionAmount.toFixed(2);
+            remainingBalanceEl.value = '0.00';
         }
     }
 }
