@@ -1,7 +1,6 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
 
 <!-- Dashboard Content -->
@@ -63,12 +62,18 @@
                             'modalTarget' => '#addPaymentModal',
                             'colClass' => 'col-6'
                         ]) ?>
+                        <?php 
+                        // Explicitly set variables to null to prevent leakage from previous view() call
+                        $tempModalTarget = null;
+                        $tempLink = base_url('/payments');
+                        ?>
                         <?= view('partials/quick-action', [
                             'icon' => 'fas fa-check-square',
                             'title' => 'Verify Payments',
                             'subtitle' => 'Scan QR codes to verify',
                             'bgColor' => 'bg-success',
-                            'link' => '/payments/verify',
+                            'link' => $tempLink,
+                            'modalTarget' => $tempModalTarget,
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
@@ -76,7 +81,7 @@
                             'title' => 'Manage Contributions',
                             'subtitle' => 'Add or edit fee types',
                             'bgColor' => 'bg-info',
-                            'link' => '/contributions',
+                            'link' => base_url('/contributions'),
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
@@ -84,7 +89,7 @@
                             'title' => 'View Analytics',
                             'subtitle' => 'System performance reports',
                             'bgColor' => 'bg-secondary',
-                            'link' => '/analytics',
+                            'link' => base_url('/analytics'),
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
@@ -92,7 +97,7 @@
                             'title' => 'Partial Payments',
                             'subtitle' => 'View installment records',
                             'bgColor' => 'bg-warning',
-                            'link' => '/partial-payments',
+                            'link' => base_url('/partial-payments'),
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
@@ -100,7 +105,7 @@
                             'title' => 'Add Announcements',
                             'subtitle' => 'Create system announcements',
                             'bgColor' => 'bg-danger',
-                            'link' => '/announcements',
+                            'link' => base_url('/announcements'),
                             'colClass' => 'col-6'
                         ]) ?>
                     </div>
@@ -117,9 +122,6 @@
                         <small class="text-muted">Last 30 days</small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-secondary" title="Refresh">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#allPaymentsModal">
                             View All
                         </button>
@@ -223,7 +225,6 @@
     'contributions' => $contributions ?? [],
 ]) ?>
 
-
-<script src="<?= base_url('js/dashboard.js') ?>"></script>
 <script src="<?= base_url('js/payment.js') ?>"></script>
+
 <?= $this->endSection() ?>

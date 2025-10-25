@@ -83,17 +83,5 @@ class DashboardController extends BaseController
         return view('admin/dashboard', $data);
     }
 
-    public function recentPayments($limit = 4)
-    {
-        $paymentModel = new PaymentModel();
-        $recentPayments = $paymentModel
-            ->select('payers.*, contributions.title as contribution_title')
-            ->join('contributions', 'payers.contribution_id = contributions.id', 'left')
-            ->orderBy('payment_date', 'DESC')
-            ->findAll($limit);
-
-        return view('admin/dashboard', ['recentPayments' => $recentPayments]);
-    }
-
 
 }

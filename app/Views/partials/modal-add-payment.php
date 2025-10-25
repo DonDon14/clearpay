@@ -142,67 +142,39 @@
 
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize modal event handlers
-    const modal = document.getElementById('addPaymentModal');
-    const contributionSelect = document.getElementById('contributionId');
-    
-    // Fix dropdown rendering issues
-    if (modal && contributionSelect) {
-        modal.addEventListener('shown.bs.modal', function() {
-            // Force re-render of select dropdown
-            contributionSelect.style.zIndex = '1060';
-            contributionSelect.focus();
-            contributionSelect.blur();
-        });
-    }
-    
-    // Add event listeners for payment calculation
-    if (document.getElementById('amountPaid')) {
-        document.getElementById('amountPaid').addEventListener('input', updatePaymentStatus);
-    }
-    if (document.getElementById('isPartialPayment')) {
-        document.getElementById('isPartialPayment').addEventListener('change', updatePaymentStatus);
-    }
-    if (document.getElementById('contributionId')) {
-        document.getElementById('contributionId').addEventListener('change', updatePaymentStatus);
-    }
-    
-    // Initialize payment status on modal open
-    if (modal) {
-        modal.addEventListener('shown.bs.modal', function() {
-            updatePaymentStatus();
-        });
-    }
+document.addEventListener("DOMContentLoaded", function() {
+  // Bootstrap's data-bs-toggle="modal" handles modal opening automatically
+  // Regular <a> tags will navigate to their href URLs automatically
 });
 
 function updatePaymentStatus() {
-    const amountPaidEl = document.getElementById('amountPaid');
-    const contributionSelect = document.getElementById('contributionId');
-    const isPartialEl = document.getElementById('isPartialPayment');
-    const remainingBalanceEl = document.getElementById('remainingBalance');
-    
-    if (!amountPaidEl || !contributionSelect || !isPartialEl || !remainingBalanceEl) {
-        return; // Elements not found
-    }
-    
-    const amountPaid = parseFloat(amountPaidEl.value) || 0;
-    
-    if (contributionSelect.selectedIndex > 0) {
-        const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
-        const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
-        const isPartial = isPartialEl.value == '1';
+  const amountPaidEl = document.getElementById('amountPaid');
+  const contributionSelect = document.getElementById('contributionId');
+  const isPartialEl = document.getElementById('isPartialPayment');
+  const remainingBalanceEl = document.getElementById('remainingBalance');
 
-        let remaining = isPartial ? (contributionAmount - amountPaid) : 0;
-        if (remaining < 0) remaining = 0;
+  if (!amountPaidEl || !contributionSelect || !isPartialEl || !remainingBalanceEl) {
+    return; // Elements not found
+  }
 
-        remainingBalanceEl.value = remaining.toFixed(2);
-        
-        // Auto-fill amount if not partial payment and amount is empty
-        if (!isPartial && contributionAmount > 0 && amountPaid === 0) {
-            amountPaidEl.value = contributionAmount.toFixed(2);
-            remainingBalanceEl.value = '0.00';
-        }
+  const amountPaid = parseFloat(amountPaidEl.value) || 0;
+
+  if (contributionSelect.selectedIndex > 0) {
+    const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+    const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+    const isPartial = isPartialEl.value == '1';
+
+    let remaining = isPartial ? (contributionAmount - amountPaid) : 0;
+    if (remaining < 0) remaining = 0;
+
+    remainingBalanceEl.value = remaining.toFixed(2);
+
+    // Auto-fill amount if not partial and amount is empty
+    if (!isPartial && contributionAmount > 0 && amountPaid === 0) {
+      amountPaidEl.value = contributionAmount.toFixed(2);
+      remainingBalanceEl.value = '0.00';
     }
+  }
 }
 </script>
+
