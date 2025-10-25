@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Models\PaymentModel;
+use App\Models\ContributionModel;
 
 class DashboardController extends BaseController
 {
@@ -53,6 +54,10 @@ class DashboardController extends BaseController
             ->orderBy('payment_date', 'DESC')
             ->findAll(4); // last 4 payments
 
+        // --- Fetch Contributions for Modal ---
+        $contributionModel = new ContributionModel();
+        $contributions = $contributionModel->where('status', 'active')->findAll();
+
         // --- Prepare Data for View ---
         $data = [
             'totalCollections' => $totalCollections,
@@ -60,6 +65,7 @@ class DashboardController extends BaseController
             'partialPayments'   => $partialPayments,
             'todayPayments'     => $todayPayments,
             'recentPayments'    => $recentPayments,
+            'contributions'     => $contributions,
             'title'             => 'Admin Dashboard',
             'pageTitle'         => 'Dashboard',
             'pageSubtitle'      => 'Welcome back ' . ucwords($user['username'] ?? 'User') . '!',
