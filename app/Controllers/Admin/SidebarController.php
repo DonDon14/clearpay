@@ -4,6 +4,8 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\UserModel;
+use App\Models\ContributionModel;
+use App\Models\PaymentModel;
 
 class SidebarController extends BaseController
 {
@@ -15,12 +17,22 @@ class SidebarController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Fetch contributions for the modal dropdown
+        $contributionModel = new ContributionModel();
+        $contributions = $contributionModel->where('status', 'active')->findAll();
+
+        // Fetch recent payments for display
+        $paymentModel = new PaymentModel();
+        $recentPayments = $paymentModel->getRecentPayments(10);
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Admin Payments',
             'pageTitle' => 'Payments',
             'pageSubtitle' => 'Manage payments and transactions',
             'username' => session()->get('username'),
+            'contributions' => $contributions,
+            'recentPayments' => $recentPayments
         ];
 
         return view('admin/payments', $data);

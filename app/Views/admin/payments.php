@@ -1,15 +1,20 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
+
   <div class="container-fluid">
     <div class="row mb-4">
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="card-title mb-0">Recent Payments</h5>
-            <button class="btn btn-primary btn-sm">
+            <button 
+              class="btn btn-primary btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#addPaymentModal"
+          >
               <i class="fas fa-plus me-2"></i>Add Payment
-            </button>
+          </button>
           </div>
           <div class="card-body">
             <div class="table-responsive">
@@ -129,4 +134,16 @@
       </div>
     </div>
   </div>
+
+  <!-- Add Payment Modal -->
+   <?php $contributions = $contributions ?? []; ?>
+   <?= view('partials/modal-add-payment', [
+    'action' => base_url('payments/save'),  // controller route to handle form submission
+    'title' => 'Add Payment',
+    'contributions' => $contributions // array of contributions for the dropdown
+]) ?>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= base_url('js/payment.js') ?>"></script>
+
 <?= $this->endSection() ?>

@@ -28,6 +28,7 @@ $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'aut
 
 // Payments Management Routes
 $routes->get('dashboard/recentPayments', 'Admin\DashboardController::recentPayments', ['filter' => 'auth']);
+$routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
 
 // Contributions Management Routes
 $routes->post('/contributions/save', 'Admin\ContributionsController::save', ['filter' => 'auth']);
