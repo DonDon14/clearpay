@@ -16,6 +16,13 @@ class DashboardController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        $paymentModel = new PaymentModel();
+        $allPayments = $paymentModel
+            ->select('payers.*, contributions.title as contribution_title')
+            ->join('contributions', 'payers.contribution_id = contributions.id', 'left')
+            ->orderBy('payment_date', 'DESC')
+            ->findAll();
+
         // Get User Information
         $userModel = new UserModel();
         $user = $userModel->select('username')
@@ -65,6 +72,7 @@ class DashboardController extends BaseController
             'partialPayments'   => $partialPayments,
             'todayPayments'     => $todayPayments,
             'recentPayments'    => $recentPayments,
+            'allPayments'       => $allPayments,
             'contributions'     => $contributions,
             'title'             => 'Admin Dashboard',
             'pageTitle'         => 'Dashboard',

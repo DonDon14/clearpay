@@ -120,7 +120,9 @@
                         <button class="btn btn-sm btn-outline-secondary" title="Refresh">
                             <i class="fas fa-sync-alt"></i>
                         </button>
-                        <button class="btn btn-sm btn-primary">View All</button>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#allPaymentsModal">
+                            View All
+                        </button>
                     </div>
                 </div>
                 <div class="card-body p-0" id="recent-payments-body">
@@ -210,6 +212,10 @@
 
     </div>
 </div>
+
+<?= view('partials/all-payments-modal', [
+    'allPayments' => $allPayments ?? [],
+]) ?>
 
 <?= view('partials/modal-add-payment', [
     'title' => 'Add Payment',
