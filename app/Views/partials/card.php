@@ -1,5 +1,9 @@
 <?php
 // Usage variables: $icon, $iconColor, $title, $text
+$iconColor = $iconColor ?? 'text-primary';
+$icon = $icon ?? 'fas fa-info-circle';
+$title = $title ?? 'Card Title';
+$text = $text ?? 'Card description text';
 ?>
 
 <div class="card border-0 shadow-sm h-100">
