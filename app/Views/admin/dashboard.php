@@ -100,11 +100,11 @@
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-announcement',
-                            'title' => 'Add Announcement',
+                            'icon' => 'fas fa-bullhorn',
+                            'title' => 'Add Announcements',
                             'subtitle' => 'Create system announcements',
-                            'bgColor' => 'bg-purple',
-                            'link' => '/announcements',
+                            'bgColor' => 'bg-danger',
+                             'link' => '/announcements',
                             'colClass' => 'col-6'
                         ]) ?>
                     </div>
@@ -127,93 +127,49 @@
                         <button class="btn btn-sm btn-primary">View All</button>
                     </div>
                 </div>
-                <div class="card-body p-0">
-                    <!-- Payment Item 1 -->
-                    <div class="d-flex align-items-center p-3 border-bottom">
-                        <div class="me-3">
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-user"></i>
-                            </div>
+                            <div class="card-body p-0">
+                            <?php if (!empty($recentPayments)): ?>
+                                <?php foreach ($recentPayments as $payment): ?>
+                                    <div class="d-flex align-items-center p-3 border-bottom">
+                                        <div class="me-3">
+                                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-user"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1 fw-semibold"><?= esc($payment['payer_name']) ?></h6>
+                                            <small class="text-muted"><?= esc($payment['contribution_title']) ?></small>
+                                            <div class="text-muted small">
+                                                <?= date('M d, Y h:i A', strtotime($payment['payment_date'])) ?>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="fw-bold">₱<?= number_format($payment['amount_paid'], 2) ?></div>
+                                            <span class="badge 
+                                                <?= $payment['payment_status'] === 'paid' ? 'bg-success' : 
+                                                    ($payment['payment_status'] === 'pending' ? 'bg-warning' : 'bg-danger') ?> 
+                                                small">
+                                                <?= strtoupper($payment['payment_status']) ?>
+                                            </span>
+                                        </div>
+                                        <div class="ms-2">
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li><a class="dropdown-item" href="#"><i class="fas fa-eye me-2"></i>View</a></li>
+                                                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class="p-3 text-center text-muted">No recent payments found.</div>
+                            <?php endif; ?>
                         </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-semibold">Thirdyx</h6>
-                            <small class="text-muted">Uniform</small>
-                            <div class="text-muted small">Oct 22, 2025 1:38 AM</div>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold">₱1,000.00</div>
-                            <span class="badge bg-success small">FULLY_PAID</span>
-                        </div>
-                        <div class="ms-2">
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#"><i class="fas fa-eye me-2"></i>View</a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Payment Item 2 -->
-                    <div class="d-flex align-items-center p-3 border-bottom">
-                        <div class="me-3">
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-user"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-semibold">Floro</h6>
-                            <small class="text-muted">Uniform</small>
-                            <div class="text-muted small">Oct 21, 2025 2:44 PM</div>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold">₱1,000.00</div>
-                            <span class="badge bg-success small">FULLY_PAID</span>
-                        </div>
-                        <div class="ms-2">
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#"><i class="fas fa-eye me-2"></i>View</a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Payment Item 3 -->
-                    <div class="d-flex align-items-center p-3">
-                        <div class="me-3">
-                            <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-user"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-semibold">Floro</h6>
-                            <small class="text-muted">Feast</small>
-                            <div class="text-muted small">Oct 21, 2025 2:40 PM</div>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold">₱500.00</div>
-                            <span class="badge bg-success small">FULLY_PAID</span>
-                        </div>
-                        <div class="ms-2">
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
-                                    <i class="fas fa-ellipsis-v"></i>
-                                </button>
-                                <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="#"><i class="fas fa-eye me-2"></i>View</a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -278,20 +234,6 @@
         </div>
 
     </div>
-
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Welcome, <?= esc($username) ?>!</h5>
-                </div>
-                <div class="card-body">
-                    <p class="card-text">You are successfully logged in to the ClearPay admin dashboard.</p>
-                    <p class="text-muted">Use the sidebar navigation to access different sections of the application.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+    <script src="js/dashboard.js"></script>
 
 <?= $this->endSection() ?>
