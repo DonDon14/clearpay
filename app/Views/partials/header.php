@@ -1,61 +1,122 @@
-<div class="header-left">
-  <h1 class="page-title"><?= esc($pageTitle ?? 'Dashboard') ?></h1>
-  <p class="page-subtitle"><?= esc($pageSubtitle ?? 'Welcome back to your ClearPay dashboard') ?></p>
-</div>
+<div class="header-content">
+  <div class="header-left">
+    <div class="page-header-info">
+      <h1 class="page-title"><?= esc($pageTitle ?? 'Dashboard') ?></h1>
+      <p class="page-subtitle"><?= esc($pageSubtitle ?? 'Welcome back to your ClearPay dashboard') ?></p>
+    </div>
+  </div>
 
-<div class="header-right">
-  <!-- Search Bar -->
-  <div class="search-container">
-    <i class="fas fa-search"></i>
-    <input type="text" class="search-input" placeholder="Search...">
-  </div>
-  
-  <!-- Notifications -->
-  <div class="notification-center">
-    <button class="notification-btn" id="notificationBtn">
-      <i class="fas fa-bell"></i>
-      <span class="notification-count">3</span>
-    </button>
-  </div>
-  
-  <!-- User Menu -->
-  <div class="user-menu">
-    <button class="user-menu-btn" id="userMenuBtn">
-      <div class="user-avatar">
-        <i class="fas fa-user"></i>
+  <div class="header-right">
+    <!-- Search Bar -->
+    <div class="search-container">
+      <div class="search-wrapper">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" class="search-input" placeholder="Search anything...">
+        <div class="search-shortcut">
+          <span>Ctrl+K</span>
+        </div>
       </div>
-      <div class="user-info-preview">
-        <span class="user-name"><?= session('username') ?? 'User' ?></span>
-        <span class="user-role">Administrator</span>
-      </div>
-      <i class="fas fa-chevron-down"></i>
-    </button>
+    </div>
     
-    <!-- Dropdown Menu -->
-    <div class="user-dropdown" id="userDropdown">
-      <header class="dropdown-header">
-          <h4><?= session('username') ?? 'User' ?></h4>
-          <p>administrator@clearpay.com</p>
-      </header>
-      <main class="dropdown-menu">
-        <a href="<?= base_url('profile') ?>" class="dropdown-item">
-          <i class="fas fa-user"></i>
-          Profile
-        </a>
-        <a href="<?= base_url('settings') ?>" class="dropdown-item">
+    <!-- Quick Actions -->
+    <div class="header-actions">
+      <!-- Notifications -->
+      <div class="notification-center">
+        <button class="notification-btn modern-btn" id="notificationBtn" title="Notifications">
+          <i class="fas fa-bell"></i>
+          <span class="notification-count">3</span>
+          <div class="notification-pulse"></div>
+        </button>
+      </div>
+      
+      <!-- Quick Settings -->
+      <div class="quick-settings">
+        <button class="settings-btn modern-btn" title="Quick Settings">
           <i class="fas fa-cog"></i>
-          Settings
-        </a>
-        <a href="<?= base_url('help/index.html') ?>" class="dropdown-item" target="_blank">
-          <i class="fas fa-question-circle"></i>
-          Help & Support
-        </a>
-        <div class="dropdown-divider"></div>
-        <a href="<?= base_url('logout') ?>" class="dropdown-item logout">
-          <i class="fas fa-sign-out-alt"></i>
-          Logout
-        </a>
-      </main>
+        </button>
+      </div>
+    </div>
+    
+    <!-- User Menu -->
+    <div class="user-menu">
+      <button class="user-menu-btn" id="userMenuBtn">
+        <div class="user-avatar">
+          <div class="avatar-circle">
+            <i class="fas fa-user"></i>
+          </div>
+          <div class="status-indicator"></div>
+        </div>
+        <div class="user-info-preview">
+          <span class="user-name"><?= session('username') ?? 'admin' ?></span>
+          <span class="user-role">Administrator</span>
+        </div>
+        <i class="fas fa-chevron-down dropdown-arrow"></i>
+      </button>
+      
+      <!-- Enhanced Dropdown Menu -->
+      <div class="user-dropdown" id="userDropdown">
+        <div class="dropdown-header">
+          <div class="user-profile-info">
+            <div class="user-avatar-large">
+              <i class="fas fa-user"></i>
+            </div>
+            <div class="user-details">
+              <h4 class="user-full-name"><?= session('username') ?? 'Administrator' ?></h4>
+              <p class="user-email">administrator@clearpay.com</p>
+              <span class="user-status">
+                <span class="status-dot"></span>
+                Online
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="dropdown-menu">
+          <div class="dropdown-section">
+            <a href="<?= base_url('profile') ?>" class="dropdown-item">
+              <div class="item-icon">
+                <i class="fas fa-user"></i>
+              </div>
+              <div class="item-content">
+                <span class="item-title">My Profile</span>
+                <span class="item-desc">View and edit profile</span>
+              </div>
+            </a>
+            <a href="<?= base_url('settings') ?>" class="dropdown-item">
+              <div class="item-icon">
+                <i class="fas fa-cog"></i>
+              </div>
+              <div class="item-content">
+                <span class="item-title">Account Settings</span>
+                <span class="item-desc">Manage preferences</span>
+              </div>
+            </a>
+            <a href="<?= base_url('help/index.html') ?>" class="dropdown-item" target="_blank">
+              <div class="item-icon">
+                <i class="fas fa-question-circle"></i>
+              </div>
+              <div class="item-content">
+                <span class="item-title">Help & Support</span>
+                <span class="item-desc">Get assistance</span>
+              </div>
+            </a>
+          </div>
+          
+          <div class="dropdown-divider"></div>
+          
+          <div class="dropdown-section">
+            <a href="<?= base_url('logout') ?>" class="dropdown-item logout">
+              <div class="item-icon">
+                <i class="fas fa-sign-out-alt"></i>
+              </div>
+              <div class="item-content">
+                <span class="item-title">Sign Out</span>
+                <span class="item-desc">Logout from account</span>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
