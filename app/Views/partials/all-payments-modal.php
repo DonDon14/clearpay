@@ -69,12 +69,17 @@ body.modal-open .main-content {
                 <?php if (!empty($allPayments)): ?>
                     <!-- Search Input -->
                     <div class="mb-3">
-                        <input 
+                        <div class="input-group">
+                            <input 
                                 type="text"
                                 id="searchStudent" 
                                 class="form-control" 
-                                placeholder="Search student name..."
-                                >
+                                placeholder="Search by name or scan ID..."
+                            >
+                            <button type="button" class="btn btn-outline-primary" onclick="scanIDInAllPayments()" title="Scan School ID">
+                                <i class="fas fa-qrcode"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="table-responsive">
                         <table class="table table-striped table-hover align-middle" id="paymentsTable">
@@ -89,7 +94,7 @@ body.modal-open .main-content {
                             </thead>
                             <tbody>
                                 <?php foreach ($allPayments as $payment): ?>
-                                    <tr class="payment-row" data-payment-id="<?= esc($payment['id']) ?>" style="cursor: pointer;">
+                                    <tr class="payment-row" data-payment-id="<?= esc($payment['id']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>" style="cursor: pointer;">
                                         <td><?= esc($payment['payer_name']) ?></td>
                                         <td><?= esc($payment['contribution_title']) ?></td>
                                         <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
@@ -122,19 +127,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (searchInput) {
         searchInput.addEventListener('keyup', function() {
-            const searchValue = this.value.toLowerCase().trim();
-            const tableRows = document.querySelectorAll('#paymentsTable tbody tr');
+            filterPayments();
+        });
+    }
+    
+    // Function to filter payments
+    function filterPayments() {
+        const searchValue = searchInput.value.toLowerCase().trim();
+        const tableRows = document.querySelectorAll('#paymentsTable tbody tr');
 
-            tableRows.forEach(row => {
-                const payerName = row.querySelector('td:first-child').textContent.toLowerCase().trim();
+        tableRows.forEach(row => {
+            const payerName = row.querySelector('td:first-child').textContent.toLowerCase().trim();
+            
+            // Also try to get payer ID from data attribute if available
+            const payerId = row.getAttribute('data-payer-id') || '';
+            const payerIdLower = payerId.toLowerCase();
 
-                // ✅ Show only if payer name starts with the typed letters
-                if (payerName.startsWith(searchValue) || searchValue === '') {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
+            // Show if payer name or ID matches
+            if (payerName.includes(searchValue) || payerIdLower.includes(searchValue) || searchValue === '') {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
         });
     }
 
@@ -173,5 +187,107 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+    
+    // Make filterPayments available globally
+    window.filterPayments = filterPayments;
 });
+
+// Function to scan ID in all payments modal
+async function scanIDInAllPayments() {
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('idScannerModal'));
+        modal.show();
+        
+        // Use the existing global ID scanner variables from modal-add-payment
+        let idScannerStream = null;
+        let idScannerCanvas = null;
+        let idScannerContext = null;
+        
+        idScannerStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: 'environment',
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            } 
+        });
+        
+        const video = document.getElementById('idVideo');
+        video.srcObject = idScannerStream;
+        
+        video.onloadedmetadata = () => {
+            video.play();
+            
+            idScannerCanvas = document.createElement('canvas');
+            idScannerCanvas.width = video.videoWidth;
+            idScannerCanvas.height = video.videoHeight;
+            idScannerContext = idScannerCanvas.getContext('2d');
+            
+            function scanIDCode() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    idScannerContext.drawImage(video, 0, 0, idScannerCanvas.width, idScannerCanvas.height);
+                    const imageData = idScannerContext.getImageData(0, 0, idScannerCanvas.width, idScannerCanvas.height);
+                    
+                    if (typeof jsQR !== 'undefined') {
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        if (code) {
+                            console.log('ID QR Code detected:', code.data);
+                            
+                            // Stop scanner
+                            if (idScannerStream) {
+                                idScannerStream.getTracks().forEach(track => track.stop());
+                                idScannerStream = null;
+                            }
+                            
+                            // Close scanner modal
+                            const scannerModal = bootstrap.Modal.getInstance(document.getElementById('idScannerModal'));
+                            if (scannerModal) {
+                                scannerModal.hide();
+                            }
+                            
+                            // Process scanned ID
+                            processScannedIDForSearch(code.data);
+                            return;
+                        }
+                    }
+                }
+                
+                requestAnimationFrame(scanIDCode);
+            }
+            
+            scanIDCode();
+        };
+        
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        showNotification('Unable to access camera. Please check permissions.', 'error');
+    }
+}
+
+// Function to process scanned ID for search
+function processScannedIDForSearch(idText) {
+    // Extract ID number from scanned text
+    const match = idText.match(/^(\d+)/);
+    
+    if (!match) {
+        showNotification('Invalid ID format. Please scan again.', 'error');
+        return;
+    }
+    
+    const idNumber = match[1];
+    console.log('Scanned ID number:', idNumber);
+    
+    // Set the search input and filter
+    const searchInput = document.getElementById('searchStudent');
+    if (searchInput) {
+        searchInput.value = idNumber;
+        
+        // Trigger filter
+        if (window.filterPayments) {
+            window.filterPayments();
+        }
+        
+        showNotification('Filtering by ID: ' + idNumber, 'success');
+    }
+}
 </script>

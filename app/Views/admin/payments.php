@@ -20,7 +20,12 @@
              <!-- Search and Filter Row -->
              <div class="row mb-3">
                  <div class="col-md-6">
-                     <input type="text" id="searchStudentName" class="form-control" placeholder="Search student name or ID...">
+                     <div class="input-group">
+                         <input type="text" id="searchStudentName" class="form-control" placeholder="Search by name or scan ID...">
+                         <button type="button" class="btn btn-outline-primary" onclick="scanIDInPaymentsPage()" title="Scan School ID">
+                             <i class="fas fa-qrcode"></i>
+                         </button>
+                     </div>
                  </div>
                  <div class="col-md-4">
                      <select id="statusFilter" class="form-select">
@@ -36,8 +41,8 @@
                <table class="table table-hover">
                  <thead class="table-light sticky-top">
                    <tr>
-                     <th>Student ID</th>
-                     <th>Student Name</th>
+                     <th>Payer ID</th>
+                     <th>Payer Name</th>
                      <th>Amount</th>
                      <th>Payment Type</th>
                      <th>Date</th>
@@ -48,8 +53,8 @@
                  <tbody id="paymentsTableBody">
                                          <?php if (!empty($recentPayments)): ?>
                          <?php foreach ($recentPayments as $payment): ?>
-                             <tr data-payment-status="<?= esc($payment['payment_status']) ?>">
-                                 <td><?= esc($payment['payer_id']) ?></td>
+                             <tr data-payment-status="<?= esc($payment['payment_status']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>">
+                                 <td><?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?></td>
                                  <td><?= esc($payment['payer_name']) ?></td>
                                  <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
                                  <td><?= esc($payment['contribution_title'] ?? 'N/A') ?></td>
@@ -201,20 +206,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchStudentName');
     const statusFilter = document.getElementById('statusFilter');
     
-         function filterTable() {
+                   function filterTable() {
          const searchValue = searchInput.value.toLowerCase().trim();
          const statusValue = statusFilter.value;
          const tableRows = document.querySelectorAll('#paymentsTableBody tr');
          
          tableRows.forEach(row => {
-             const studentId = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
-             const studentName = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+             const payerId = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
+             const payerName = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+             
+             // Also get payer_id from data attribute
+             const dataPayerId = row.getAttribute('data-payer-id') || '';
+             const dataPayerIdLower = dataPayerId.toLowerCase();
              
              // Get status directly from data attribute
              const rowStatus = row.getAttribute('data-payment-status') || '';
              
              // Check if row matches search and status filter
-             const matchesSearch = searchValue === '' || studentId.includes(searchValue) || studentName.includes(searchValue);
+             const matchesSearch = searchValue === '' || payerId.includes(searchValue) || payerName.includes(searchValue) || dataPayerIdLower.includes(searchValue);
              const matchesStatus = statusValue === '' || rowStatus === statusValue;
              
              if (matchesSearch && matchesStatus) {
@@ -232,7 +241,108 @@ document.addEventListener('DOMContentLoaded', function() {
     if (statusFilter) {
         statusFilter.addEventListener('change', filterTable);
     }
+    
+    // Make filterTable available globally
+    window.filterTablePaymentsPage = filterTable;
 });
+
+// Function to scan ID in payments page
+async function scanIDInPaymentsPage() {
+    try {
+        const modal = new bootstrap.Modal(document.getElementById('idScannerModal'));
+        modal.show();
+        
+        let idScannerStream = null;
+        let idScannerCanvas = null;
+        let idScannerContext = null;
+        
+        idScannerStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: 'environment',
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            } 
+        });
+        
+        const video = document.getElementById('idVideo');
+        video.srcObject = idScannerStream;
+        
+        video.onloadedmetadata = () => {
+            video.play();
+            
+            idScannerCanvas = document.createElement('canvas');
+            idScannerCanvas.width = video.videoWidth;
+            idScannerCanvas.height = video.videoHeight;
+            idScannerContext = idScannerCanvas.getContext('2d');
+            
+            function scanIDCode() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    idScannerContext.drawImage(video, 0, 0, idScannerCanvas.width, idScannerCanvas.height);
+                    const imageData = idScannerContext.getImageData(0, 0, idScannerCanvas.width, idScannerCanvas.height);
+                    
+                    if (typeof jsQR !== 'undefined') {
+                        const code = jsQR(imageData.data, imageData.width, imageData.height);
+                        
+                        if (code) {
+                            console.log('ID QR Code detected:', code.data);
+                            
+                            // Stop scanner
+                            if (idScannerStream) {
+                                idScannerStream.getTracks().forEach(track => track.stop());
+                                idScannerStream = null;
+                            }
+                            
+                            // Close scanner modal
+                            const scannerModal = bootstrap.Modal.getInstance(document.getElementById('idScannerModal'));
+                            if (scannerModal) {
+                                scannerModal.hide();
+                            }
+                            
+                            // Process scanned ID
+                            processScannedIDForPaymentsPage(code.data);
+                            return;
+                        }
+                    }
+                }
+                
+                requestAnimationFrame(scanIDCode);
+            }
+            
+            scanIDCode();
+        };
+        
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        showNotification('Unable to access camera. Please check permissions.', 'error');
+    }
+}
+
+// Function to process scanned ID for payments page search
+function processScannedIDForPaymentsPage(idText) {
+    // Extract ID number from scanned text
+    const match = idText.match(/^(\d+)/);
+    
+    if (!match) {
+        showNotification('Invalid ID format. Please scan again.', 'error');
+        return;
+    }
+    
+    const idNumber = match[1];
+    console.log('Scanned ID number:', idNumber);
+    
+    // Set the search input and filter
+    const searchInput = document.getElementById('searchStudentName');
+    if (searchInput) {
+        searchInput.value = idNumber;
+        
+        // Trigger filter
+        if (window.filterTablePaymentsPage) {
+            window.filterTablePaymentsPage();
+        }
+        
+        showNotification('Filtering by ID: ' + idNumber, 'success');
+    }
+}
 </script>
 
 <script src="<?= base_url('js/payment.js') ?>"></script>

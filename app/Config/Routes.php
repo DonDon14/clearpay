@@ -33,6 +33,7 @@ $routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => '
 $routes->get('/payments/recent', 'Admin\PaymentsController::recent', ['filter' => 'auth']);
 $routes->get('/payments/search-payers', 'Admin\PaymentsController::searchPayers', ['filter' => 'auth']);
 $routes->get('/payments/verify/(:any)', 'Admin\PaymentsController::verify/$1', ['filter' => 'auth']);
+$routes->get('/payments/by-contribution/(:num)', 'Admin\PaymentsController::byContribution/$1', ['filter' => 'auth']);
 
 // Contributions Management Routes
 $routes->post('/contributions/save', 'Admin\ContributionsController::save', ['filter' => 'auth']);

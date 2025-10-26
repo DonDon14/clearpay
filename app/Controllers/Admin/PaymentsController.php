@@ -374,4 +374,48 @@ class PaymentsController extends BaseController
             ]);
         }
     }
+
+    /**
+     * Get payments by contribution ID
+     */
+    public function byContribution($contributionId)
+    {
+        try {
+            $paymentModel = new PaymentModel();
+            
+            // Find all payments for this contribution
+            $payments = $paymentModel->select('
+                payments.id,
+                payments.receipt_number,
+                payments.payment_date,
+                payments.amount_paid,
+                payments.payment_method,
+                payments.payment_status,
+                payments.remaining_balance,
+                payers.payer_id as payer_student_id,
+                payers.payer_id as payer_id,
+                payers.payer_name,
+                payers.contact_number,
+                payers.email_address,
+                contributions.title as contribution_title
+            ')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->where('payments.contribution_id', $contributionId)
+            ->orderBy('payments.payment_date', 'DESC')
+            ->findAll();
+
+            return $this->response->setJSON([
+                'success' => true,
+                'payments' => $payments,
+                'count' => count($payments)
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
 }

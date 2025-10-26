@@ -157,6 +157,19 @@
     ])
 ]) ?>
 
+<!-- Contribution Payments Modal -->
+<?= view('partials/modal-contribution-payments') ?>
+
+<!-- QR Receipt Modal -->
+<?= view('partials/modal-qr-receipt', [
+    'title' => 'Payment Receipt',
+]) ?>
+
+<script>
+// Define base URL for API calls
+window.APP_BASE_URL = '<?= base_url() ?>';
+</script>
+
 <script>
 // Edit Contribution Function
 function editContribution(contributionId) {

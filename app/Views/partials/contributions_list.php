@@ -7,7 +7,8 @@
                  data-status="<?= esc($contribution['status'] ?? 'active') ?>"
                  data-title="<?= strtolower(esc($contribution['title'])) ?>"
                  data-amount="<?= esc($contribution['amount']) ?>">
-                <div class="card border-0 shadow-sm" style="transition: transform 0.2s, box-shadow 0.2s;">
+                <div class="card border-0 shadow-sm" style="transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;" 
+                     onclick="showContributionPayments(<?= $contribution['id'] ?>, '<?= esc($contribution['title']) ?>', <?= esc($contribution['amount']) ?>)">
                     <div class="card-body">
                         <div class="d-flex align-items-center">
                             <div class="contribution-icon me-3">
@@ -31,7 +32,7 @@
                                             </span>
                                         </small>
                                     </div>
-                                    <div class="contribution-actions">
+                                    <div class="contribution-actions" onclick="event.stopPropagation();">
                                         <button class="btn btn-sm btn-outline-warning me-2" 
                                                 style="width: 36px; height: 36px;"
                                                 onclick="editContribution(<?= $contribution['id'] ?>)"
@@ -75,6 +76,14 @@
 .contribution-item:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.contribution-item .card {
+    transition: all 0.3s ease;
+}
+
+.contribution-item:hover .card {
+    background-color: #f8f9fa;
 }
 
 .contribution-actions button {
