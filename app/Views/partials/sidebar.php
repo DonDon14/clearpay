@@ -32,18 +32,6 @@
                         <span class="menu-text">Contributions</span>
                     </a>
                 </li>
-                <li>
-                    <a href="<?= base_url('partial-payments') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Partial Payments') ? 'active' : '' ?>" data-tooltip="Partial Payments">
-                        <i class="fas fa-wallet"></i> 
-                        <span class="menu-text">Partial Payments</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="<?= base_url('history') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payment History') ? 'active' : '' ?>" data-tooltip="Payment History">
-                        <i class="fas fa-history"></i> 
-                        <span class="menu-text">Payment History</span>
-                    </a>
-                </li>
                 <li><hr></li>
                 <li>
                     <a href="<?= base_url('analytics') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Analytics') ? 'active' : '' ?>" data-tooltip="Analytics">

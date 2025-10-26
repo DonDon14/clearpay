@@ -161,16 +161,140 @@ class SidebarController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Load models
+        $payerModel = new \App\Models\PayerModel();
+        $paymentModel = new \App\Models\PaymentModel();
+        
+        // Fetch all payers with payment statistics
+        $payers = $payerModel->findAll();
+        $payments = $paymentModel->findAll();
+        
+        // Calculate statistics for each payer
+        $payersWithStats = [];
+        foreach ($payers as $payer) {
+            // Get all payments for this payer
+            $payerPayments = $paymentModel->where('payer_id', $payer['id'])->findAll();
+            
+            $totalPaid = 0;
+            $lastPaymentDate = null;
+            
+            foreach ($payerPayments as $payment) {
+                $totalPaid += $payment['amount_paid'];
+                if (!$lastPaymentDate || strtotime($payment['payment_date']) > strtotime($lastPaymentDate)) {
+                    $lastPaymentDate = $payment['payment_date'];
+                }
+            }
+            
+            // Determine status based on last payment date (within last 30 days = active)
+            $status = 'inactive';
+            if ($lastPaymentDate) {
+                $daysSinceLastPayment = (time() - strtotime($lastPaymentDate)) / (60 * 60 * 24);
+                if ($daysSinceLastPayment <= 30) {
+                    $status = 'active';
+                } elseif ($daysSinceLastPayment <= 90) {
+                    $status = 'pending';
+                }
+            }
+            
+            $payersWithStats[] = [
+                'id' => $payer['id'],
+                'payer_id' => $payer['payer_id'],
+                'payer_name' => $payer['payer_name'],
+                'email_address' => $payer['email_address'],
+                'contact_number' => $payer['contact_number'],
+                'total_payments' => count($payerPayments),
+                'total_paid' => $totalPaid,
+                'last_payment' => $lastPaymentDate,
+                'status' => $status
+            ];
+        }
+        
+        // Calculate overall statistics
+        $totalPayers = count($payersWithStats);
+        $activePayers = count(array_filter($payersWithStats, fn($p) => $p['status'] === 'active'));
+        $totalAmount = array_sum(array_column($payersWithStats, 'total_paid'));
+        $avgPaymentPerStudent = $totalPayers > 0 ? $totalAmount / $totalPayers : 0;
+        
+        $payerStats = [
+            'total_payers' => $totalPayers,
+            'active_payers' => $activePayers,
+            'total_amount' => $totalAmount,
+            'avg_payment_per_student' => $avgPaymentPerStudent
+        ];
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Students Management',
             'pageTitle' => 'Payers',
             'pageSubtitle' => 'Manage student records and information',
             'username' => session()->get('username'),
+            'payers' => $payersWithStats,
+            'payerStats' => $payerStats
         ];
 
         return view('admin/payers', $data);
     }
+    
+    public function savePayer()
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
+        }
+        
+        try {
+            $payerModel = new \App\Models\PayerModel();
+            
+            // Get form data
+            $data = [
+                'payer_id' => $this->request->getPost('payer_id'),
+                'payer_name' => $this->request->getPost('payer_name'),
+                'contact_number' => $this->request->getPost('contact_number'),
+                'email_address' => $this->request->getPost('email_address')
+            ];
+            
+            // Validate required fields
+            if (empty($data['payer_id']) || empty($data['payer_name'])) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Student ID and Name are required'
+                ]);
+            }
+            
+            // Check if payer_id already exists
+            $existingPayer = $payerModel->where('payer_id', $data['payer_id'])->first();
+            if ($existingPayer) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'A payer with this Student ID already exists'
+                ]);
+            }
+            
+            // Save to database
+            $result = $payerModel->insert($data);
+            
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payer added successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to add payer'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
     public function announcements()
     {
         // Check if user is logged in

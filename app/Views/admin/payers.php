@@ -1,89 +1,13 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<?php
-// Dummy data for UI development - replace with actual controller data later
-$students = [
-    [
-        'student_id' => 'ST001',
-        'student_name' => 'John Doe',
-        'total_payments' => 8,
-        'total_paid' => 4500,
-        'last_payment' => '2024-10-23 14:30:00',
-        'contributions_count' => 3,
-        'payment_status' => 'active',
-        'email' => 'john.doe@email.com'
-    ],
-    [
-        'student_id' => 'ST002',
-        'student_name' => 'Jane Smith',
-        'total_payments' => 12,
-        'total_paid' => 6800,
-        'last_payment' => '2024-10-25 09:15:00',
-        'contributions_count' => 5,
-        'payment_status' => 'active',
-        'email' => 'jane.smith@email.com'
-    ],
-    [
-        'student_id' => 'ST003',
-        'student_name' => 'Mike Johnson',
-        'total_payments' => 5,
-        'total_paid' => 2250,
-        'last_payment' => '2024-10-20 16:45:00',
-        'contributions_count' => 2,
-        'payment_status' => 'pending',
-        'email' => 'mike.johnson@email.com'
-    ],
-    [
-        'student_id' => 'ST004',
-        'student_name' => 'Sarah Wilson',
-        'total_payments' => 15,
-        'total_paid' => 8950,
-        'last_payment' => '2024-10-24 11:20:00',
-        'contributions_count' => 6,
-        'payment_status' => 'active',
-        'email' => 'sarah.wilson@email.com'
-    ],
-    [
-        'student_id' => 'ST005',
-        'student_name' => 'David Brown',
-        'total_payments' => 7,
-        'total_paid' => 3200,
-        'last_payment' => '2024-10-22 13:10:00',
-        'contributions_count' => 4,
-        'payment_status' => 'active',
-        'email' => 'david.brown@email.com'
-    ],
-    [
-        'student_id' => 'ST006',
-        'student_name' => 'Lisa Garcia',
-        'total_payments' => 3,
-        'total_paid' => 1150,
-        'last_payment' => '2024-10-15 08:30:00',
-        'contributions_count' => 2,
-        'payment_status' => 'inactive',
-        'email' => 'lisa.garcia@email.com'
-    ]
-];
-
-$payerStats = [
-    'total_payers' => count($students),
-    'active_payers' => count(array_filter($students, fn($s) => $s['payment_status'] === 'active')),
-    'total_amount' => array_sum(array_column($students, 'total_paid')),
-    'avg_payment_per_student' => array_sum(array_column($students, 'total_paid')) / count($students)
-];
-?>
 <div class="container-fluid">
     <!-- Page Header -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="h3 mb-0 text-gray-800">Payers Management</h1>
-                    <p class="mb-0 text-muted">Manage and track student payments</p>
-                </div>
-                <div>
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
                         <i class="fas fa-plus"></i> Add New Payer
                     </button>
                 </div>
@@ -128,10 +52,12 @@ $payerStats = [
     </div>
 
     <!-- Payers List -->
-    <?= view('partials/container-card', [
-        'title' => 'Student Payers',
-        'subtitle' => 'Complete list of all registered payers',
-        'content' => '
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Student Payers</h5>
+            <p class="text-muted mb-0 small">Complete list of all registered payers</p>
+        </div>
+        <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
@@ -147,62 +73,56 @@ $payerStats = [
                         </tr>
                     </thead>
                     <tbody>
-                        ' . implode('', array_map(function($student) {
-                            $statusBadge = match($student['payment_status']) {
-                                'active' => '<span class="badge bg-success">Active</span>',
-                                'pending' => '<span class="badge bg-warning">Pending</span>',
-                                'inactive' => '<span class="badge bg-secondary">Inactive</span>',
-                                default => '<span class="badge bg-light text-dark">Unknown</span>'
-                            };
-                            
-                            return '<tr>
-                                <td><strong>' . htmlspecialchars($student['student_id']) . '</strong></td>
-                                <td>' . htmlspecialchars($student['student_name']) . '</td>
-                                <td>' . htmlspecialchars($student['email']) . '</td>
-                                <td>' . number_format($student['total_payments']) . '</td>
-                                <td>₱' . number_format($student['total_paid'], 2) . '</td>
-                                <td>' . date('M j, Y', strtotime($student['last_payment'])) . '</td>
-                                <td>' . $statusBadge . '</td>
-                                <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-primary" title="View Details">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-outline-success" title="Edit">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-outline-info" title="Export PDF">
-                                            <i class="fas fa-file-pdf"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>';
-                        }, $students))
-                    . '</tbody>
+                        <?php if (!empty($payers)): ?>
+                            <?php foreach ($payers as $payer): ?>
+                                <?php 
+                                    $statusBadge = match($payer['status']) {
+                                        'active' => '<span class="badge bg-success">Active</span>',
+                                        'pending' => '<span class="badge bg-warning">Pending</span>',
+                                        'inactive' => '<span class="badge bg-secondary">Inactive</span>',
+                                        default => '<span class="badge bg-light text-dark">Unknown</span>'
+                                    };
+                                ?>
+                                <tr>
+                                    <td><strong><?= esc($payer['payer_id']) ?></strong></td>
+                                    <td><?= esc($payer['payer_name']) ?></td>
+                                    <td><?= esc($payer['email_address'] ?? 'N/A') ?></td>
+                                    <td><?= number_format($payer['total_payments']) ?></td>
+                                    <td>₱<?= number_format($payer['total_paid'], 2) ?></td>
+                                    <td><?= $payer['last_payment'] ? date('M j, Y', strtotime($payer['last_payment'])) : 'Never' ?></td>
+                                    <td><?= $statusBadge ?></td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" title="View Details" onclick="viewPayerDetails(<?= $payer['id'] ?>)">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-success" title="Edit" onclick="editPayer(<?= $payer['id'] ?>)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" title="Export PDF" onclick="exportPayerPDF(<?= $payer['id'] ?>)">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">No payers found</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
                 </table>
             </div>
             
             <!-- Pagination -->
             <div class="d-flex justify-content-between align-items-center mt-3">
                 <div class="text-muted">
-                    Showing 1 to ' . count($students) . ' of ' . count($students) . ' entries
+                    Showing <?= !empty($payers) ? '1 to ' . count($payers) . ' of ' . count($payers) : '0' ?> entries
                 </div>
-                <nav>
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item disabled">
-                            <span class="page-link">Previous</span>
-                        </li>
-                        <li class="page-item active">
-                            <span class="page-link">1</span>
-                        </li>
-                        <li class="page-item disabled">
-                            <span class="page-link">Next</span>
-                        </li>
-                    </ul>
-                </nav>
             </div>
-        '
-    ]) ?>
+        </div>
+    </div>
 
     <!-- Quick Actions -->
     <div class="row mt-4">
@@ -243,4 +163,106 @@ $payerStats = [
         </div>
     </div>
 </div>
+
+<!-- Add Payer Modal -->
+<div class="modal fade" id="addPayerModal" tabindex="-1" aria-labelledby="addPayerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPayerModalLabel">
+                    <i class="fas fa-user-plus me-2"></i>Add New Payer
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addPayerForm" onsubmit="savePayer(event)">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="payer_id" class="form-label">Student ID <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="payer_id" name="payer_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="payer_name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="payer_name" name="payer_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_number" class="form-label">Contact Number</label>
+                        <input type="tel" class="form-control" id="contact_number" name="contact_number">
+                    </div>
+                    <div class="mb-3">
+                        <label for="email_address" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email_address" name="email_address">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Save Payer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function savePayer(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    
+    fetch('<?= base_url('payers/save') ?>', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Payer added successfully!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addPayerModal'));
+            modal.hide();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showNotification(data.message || 'Error adding payer', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error adding payer', 'error');
+    });
+}
+
+function viewPayerDetails(payerId) {
+    console.log('View payer details:', payerId);
+    showNotification('View payer details feature coming soon', 'info');
+}
+
+function editPayer(payerId) {
+    console.log('Edit payer:', payerId);
+    showNotification('Edit payer feature coming soon', 'info');
+}
+
+function exportPayerPDF(payerId) {
+    console.log('Export payer PDF:', payerId);
+    showNotification('Export PDF feature coming soon', 'info');
+}
+
+// Helper function for notifications
+function showNotification(message, type) {
+    // Using bootstrap toast or alert
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+</script>
+
 <?= $this->endSection() ?>

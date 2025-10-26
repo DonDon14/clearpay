@@ -93,14 +93,6 @@
                             'colClass' => 'col-6'
                         ]) ?>
                         <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-wallet',
-                            'title' => 'Partial Payments',
-                            'subtitle' => 'View installment records',
-                            'bgColor' => 'bg-warning',
-                            'link' => base_url('/partial-payments'),
-                            'colClass' => 'col-6'
-                        ]) ?>
-                        <?= view('partials/quick-action', [
                             'icon' => 'fas fa-bullhorn',
                             'title' => 'Add Announcements',
                             'subtitle' => 'Create system announcements',

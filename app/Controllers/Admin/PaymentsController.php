@@ -596,4 +596,52 @@ class PaymentsController extends BaseController
             ]);
         }
     }
+
+    /**
+     * Delete a payment
+     */
+    public function delete($paymentId)
+    {
+        try {
+            // Check if user is logged in
+            if (!session()->get('isLoggedIn')) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ]);
+            }
+
+            $paymentModel = new PaymentModel();
+            
+            // Check if payment exists
+            $payment = $paymentModel->find($paymentId);
+            if (!$payment) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment not found'
+                ]);
+            }
+
+            // Delete the payment
+            $deleted = $paymentModel->delete($paymentId);
+
+            if ($deleted) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment deleted successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to delete payment'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
 }

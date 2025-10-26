@@ -37,16 +37,15 @@
              </div>
              
              <!-- Table with scrollable body -->
-             <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
-              <table class="table table-hover">
+             <div class="table-responsive" style="max-height: 600px; overflow-y: auto; overflow-x: hidden;">
+              <table class="table table-hover table-fit">
                  <thead class="table-light sticky-top">
                   <tr>
                      <th>Payer ID</th>
                      <th>Payer Name</th>
                     <th>Amount</th>
-                    <th>Payment Type</th>
+                    <th>Contribution</th>
                     <th>Date</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -60,24 +59,24 @@
                                 <td><?= esc($payment['contribution_title'] ?? 'N/A') ?></td>
                                 <td><?= date('M d, Y', strtotime($payment['payment_date'])) ?></td>
                                 <td>
-                                    <?php if ($payment['payment_status'] === 'fully paid'): ?>
-                                         <span class="badge bg-success">Fully Paid</span>
-                                    <?php elseif ($payment['payment_status'] === 'partial'): ?>
-                                        <span class="badge bg-warning">Partial</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="viewPaymentReceipt(<?= $payment['id'] ?>)">
-                                        <i class="fas fa-eye me-1"></i>View Receipt
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="editPayment(<?= $payment['id'] ?>)">
-                                        <i class="fas fa-edit me-1"></i>Edit
-                                    </button>
-                                    <?php if ($payment['payment_status'] === 'partial'): ?>
-                                        <button class="btn btn-sm btn-outline-info mt-1" onclick="addPaymentToPartial(<?= $payment['id'] ?>)" title="Add Payment">
-                                            <i class="fas fa-plus me-1"></i>Add Payment
-                                        </button>
-                                    <?php endif; ?>
+                                    <div class="btn-group-vertical" role="group">
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="viewPaymentReceipt(<?= $payment['id'] ?>)" title="View Receipt">
+                                                <i class="fas fa-eye me-1"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="editPayment(<?= $payment['id'] ?>)" title="Edit Payment">
+                                                <i class="fas fa-edit me-1"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="confirmDeletePayment(<?= $payment['id'] ?>, '<?= esc($payment['payer_name']) ?>', '<?= date('M d, Y', strtotime($payment['payment_date'])) ?>', <?= $payment['amount_paid'] ?>)" title="Delete Payment">
+                                                <i class="fas fa-trash me-1"></i>
+                                            </button>
+                                        </div>
+                                        <?php if ($payment['payment_status'] === 'partial'): ?>
+                                            <button class="btn btn-sm btn-outline-info mt-1" onclick="addPaymentToPartial(<?= $payment['id'] ?>)" title="Add Payment">
+                                                <i class="fas fa-plus me-1"></i>Add Payment
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -94,66 +93,6 @@
       </div>
     </div>
 
-    <div class="row">
-      <div class="col-lg-4 col-md-6 mb-4">
-        <div class="card border-0 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="flex-shrink-0">
-                <div class="bg-primary text-white rounded p-3">
-                  <i class="fas fa-money-bill-wave fa-lg"></i>
-                </div>
-              </div>
-              <div class="flex-grow-1 ms-3">
-                <h6 class="card-title mb-1">Today's Payments</h6>
-                <h4 class="text-primary mb-0">₱15,750</h4>
-                <small class="text-muted">+12% from yesterday</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="col-lg-4 col-md-6 mb-4">
-        <div class="card border-0 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="flex-shrink-0">
-                <div class="bg-success text-white rounded p-3">
-                  <i class="fas fa-check-circle fa-lg"></i>
-                </div>
-              </div>
-              <div class="flex-grow-1 ms-3">
-                <h6 class="card-title mb-1">Completed</h6>
-                <h4 class="text-success mb-0">25</h4>
-                <small class="text-muted">transactions today</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="col-lg-4 col-md-6 mb-4">
-        <div class="card border-0 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="flex-shrink-0">
-                <div class="bg-warning text-white rounded p-3">
-                  <i class="fas fa-clock fa-lg"></i>
-                </div>
-              </div>
-              <div class="flex-grow-1 ms-3">
-                <h6 class="card-title mb-1">Pending</h6>
-                <h4 class="text-warning mb-0">8</h4>
-                <small class="text-muted">awaiting confirmation</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Add Payment Modal -->
    <?php $contributions = $contributions ?? []; ?>
    <?= view('partials/modal-add-payment', [
@@ -169,6 +108,36 @@
  <?= view('partials/modal-qr-receipt', [
      'title' => 'Payment Receipt',
  ]) ?>
+
+ <!-- Delete Payment Confirmation Modal -->
+ <div class="modal fade" id="deletePaymentModal" tabindex="-1" aria-labelledby="deletePaymentModalLabel" aria-hidden="true">
+     <div class="modal-dialog">
+         <div class="modal-content">
+             <div class="modal-header bg-danger text-white">
+                 <h5 class="modal-title" id="deletePaymentModalLabel">
+                     <i class="fas fa-exclamation-triangle me-2"></i>Confirm Delete Payment
+                 </h5>
+                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+             </div>
+             <div class="modal-body">
+                 <p>Are you sure you want to delete this payment?</p>
+                 <div class="alert alert-warning">
+                     <strong>Payment Details:</strong><br>
+                     Payer: <span id="deletePaymentPayerName"></span><br>
+                     Date: <span id="deletePaymentDate"></span><br>
+                     Amount: <span id="deletePaymentAmount"></span>
+                 </div>
+                 <p class="mb-0"><small class="text-danger">This action cannot be undone.</small></p>
+             </div>
+             <div class="modal-footer">
+                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                 <button type="button" class="btn btn-danger" onclick="deletePayment()">
+                     <i class="fas fa-trash me-2"></i>Delete Payment
+                 </button>
+             </div>
+         </div>
+     </div>
+ </div>
 
 <script>
 // Define base URL for payment.js
@@ -511,7 +480,116 @@ function processScannedIDForPaymentsPage(idText) {
         showNotification('Filtering by ID: ' + idNumber, 'success');
     }
 }
+
+// Store payment ID to delete globally
+let paymentIdToDelete = null;
+
+// Function to show delete confirmation modal
+function confirmDeletePayment(paymentId, payerName, paymentDate, amountPaid) {
+    paymentIdToDelete = paymentId;
+    
+    // Populate modal with payment details
+    document.getElementById('deletePaymentPayerName').textContent = payerName;
+    document.getElementById('deletePaymentDate').textContent = paymentDate;
+    document.getElementById('deletePaymentAmount').textContent = '₱' + parseFloat(amountPaid).toFixed(2);
+    
+    // Show modal
+    const deleteModal = new bootstrap.Modal(document.getElementById('deletePaymentModal'));
+    deleteModal.show();
+}
+
+// Function to delete payment
+function deletePayment() {
+    if (!paymentIdToDelete) {
+        showNotification('No payment selected for deletion', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const deleteBtn = event.target;
+    const originalText = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting...';
+    
+    // Send DELETE request
+    fetch(`${window.APP_BASE_URL}/payments/delete/${paymentIdToDelete}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Payment deleted successfully', 'success');
+            
+            // Close modal
+            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deletePaymentModal'));
+            deleteModal.hide();
+            
+            // Reload page after short delay
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showNotification(data.message || 'Error deleting payment', 'error');
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error deleting payment', 'error');
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalText;
+    });
+}
+
+// Helper function for notifications
+function showNotification(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
 </script>
+
+<style>
+/* Ensure table fits container and removes extra space */
+.table-fit {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.table-fit th,
+.table-fit td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Remove extra padding from card body to eliminate spacing */
+.card-body {
+    padding-right: 15px;
+}
+
+/* Ensure table container has no extra space */
+.table-responsive {
+    width: 100%;
+}
+
+/* Remove default margin from table */
+.table {
+    margin-bottom: 0;
+}
+</style>
 
 <script src="<?= base_url('js/payment.js') ?>"></script>
 

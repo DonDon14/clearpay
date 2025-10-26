@@ -13,7 +13,7 @@ class Auth implements FilterInterface
         // Check if user is logged in
         if (!session()->get('isLoggedIn')) {
             // If not logged in, redirect to login page
-            return redirect()->to('/login');
+            return redirect()->to('/');
         }
     }
 
