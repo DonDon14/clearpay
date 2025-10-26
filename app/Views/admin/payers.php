@@ -54,7 +54,7 @@
     <!-- Payers List -->
     <div class="card shadow-sm mb-4">
         <div class="card-header">
-            <h5 class="card-title mb-0">Student Payers</h5>
+            <h5 class="card-title mb-0">Payers</h5>
             <p class="text-muted mb-0 small">Complete list of all registered payers</p>
         </div>
         <div class="card-body">
@@ -62,13 +62,13 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Student ID</th>
-                            <th>Name</th>
+                            <th>Payer ID</th>
+                            <th>Payer Name</th>
                             <th>Email</th>
+                            <th>Contact Number</th>
                             <th>Total Payments</th>
                             <th>Total Amount</th>
                             <th>Last Payment</th>
-                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -87,10 +87,10 @@
                                     <td><strong><?= esc($payer['payer_id']) ?></strong></td>
                                     <td><?= esc($payer['payer_name']) ?></td>
                                     <td><?= esc($payer['email_address'] ?? 'N/A') ?></td>
+                                    <td><?= esc($payer['contact_number'] ?? 'N/A') ?></td>
                                     <td><?= number_format($payer['total_payments']) ?></td>
                                     <td>₱<?= number_format($payer['total_paid'], 2) ?></td>
                                     <td><?= $payer['last_payment'] ? date('M j, Y', strtotime($payer['last_payment'])) : 'Never' ?></td>
-                                    <td><?= $statusBadge ?></td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
                                             <button class="btn btn-outline-primary" title="View Details" onclick="viewPayerDetails(<?= $payer['id'] ?>)">
@@ -245,7 +245,12 @@ function editPayer(payerId) {
 
 function exportPayerPDF(payerId) {
     console.log('Export payer PDF:', payerId);
-    showNotification('Export PDF feature coming soon', 'info');
+    
+    // Show loading notification
+    showNotification('Generating PDF...', 'info');
+    
+    // Redirect to PDF export endpoint
+    window.location.href = `<?= base_url('payers/export-pdf/') ?>${payerId}`;
 }
 
 // Helper function for notifications

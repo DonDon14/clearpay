@@ -21,6 +21,7 @@ $routes->get('/payments', 'Admin\SidebarController::payments', ['filter' => 'aut
 $routes->get('/contributions', 'Admin\SidebarController::contributions', ['filter' => 'auth']);
 $routes->get('/payers', 'Admin\SidebarController::payers', ['filter' => 'auth']);
 $routes->post('/payers/save', 'Admin\SidebarController::savePayer', ['filter' => 'auth']);
+$routes->get('/payers/export-pdf/(:num)', 'Admin\SidebarController::exportPayerPDF/$1', ['filter' => 'auth']);
 $routes->get('/announcements', 'Admin\SidebarController::announcements', ['filter' => 'auth']);
 $routes->get('/analytics', 'Admin\SidebarController::analytics', ['filter' => 'auth']);
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);

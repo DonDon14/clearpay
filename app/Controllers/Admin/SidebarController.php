@@ -306,6 +306,182 @@ class SidebarController extends BaseController
         }
     }
     
+    public function exportPayerPDF($payerId)
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return redirect()->to('/admin/login');
+        }
+        
+        try {
+            $payerModel = new \App\Models\PayerModel();
+            $paymentModel = new \App\Models\PaymentModel();
+            $contributionModel = new \App\Models\ContributionModel();
+            
+            // Get payer data
+            $payer = $payerModel->find($payerId);
+            
+            if (!$payer) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer not found'
+                ]);
+            }
+            
+            // Get all payments for this payer
+            $payments = $paymentModel
+                ->select('payments.*, contributions.title as contribution_title, contributions.amount as contribution_amount')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->where('payments.payer_id', $payerId)
+                ->orderBy('payments.payment_date', 'DESC')
+                ->findAll();
+            
+            // Calculate totals
+            $totalPaid = array_sum(array_column($payments, 'amount_paid'));
+            $totalPayments = count($payments);
+            
+            // Load TCPDF library
+            require_once ROOTPATH . 'vendor/autoload.php';
+            
+            // Create new PDF document
+            $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+            
+            // Set document information
+            $pdf->SetCreator('ClearPay System');
+            $pdf->SetAuthor('ClearPay');
+            $pdf->SetTitle('Payer Details - ' . $payer['payer_name']);
+            $pdf->SetSubject('Payment Records');
+            
+            // Remove default header/footer
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            
+            // Set margins
+            $pdf->SetMargins(15, 15, 15);
+            $pdf->SetAutoPageBreak(TRUE, 15);
+            
+            // Add a page
+            $pdf->AddPage();
+            
+            // Set font
+            $pdf->SetFont('helvetica', '', 10);
+            
+            // Header Section
+            $pdf->SetFillColor(52, 152, 219);
+            $pdf->Rect(0, 0, 210, 50, 'F');
+            
+            // Logo and Title
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->SetFont('helvetica', 'B', 24);
+            $pdf->SetXY(15, 8);
+            $pdf->Cell(0, 10, 'ClearPay', 0, 1, 'L');
+            
+            $pdf->SetFont('helvetica', '', 12);
+            $pdf->SetXY(15, 18);
+            $pdf->Cell(0, 8, 'Payment Records & Student Details', 0, 1, 'L');
+            
+            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetXY(15, 25);
+            $pdf->Cell(0, 6, date('F j, Y g:i A'), 0, 1, 'L');
+            
+            // Reset text color
+            $pdf->SetTextColor(0, 0, 0);
+            
+            // Payer Information Section
+            $pdf->SetY(60);
+            $pdf->SetFont('helvetica', 'B', 16);
+            $pdf->Cell(0, 10, 'Student Information', 0, 1, 'L');
+            
+            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetFillColor(245, 245, 245);
+            
+            // Payer Details Table
+            $pdf->Cell(95, 8, 'Student ID:', 1, 0, 'L', true);
+            $pdf->Cell(95, 8, $payer['payer_id'], 1, 1, 'L');
+            
+            $pdf->Cell(95, 8, 'Full Name:', 1, 0, 'L', true);
+            $pdf->Cell(95, 8, $payer['payer_name'], 1, 1, 'L');
+            
+            $pdf->Cell(95, 8, 'Email Address:', 1, 0, 'L', true);
+            $pdf->Cell(95, 8, $payer['email_address'] ?? 'N/A', 1, 1, 'L');
+            
+            $pdf->Cell(95, 8, 'Contact Number:', 1, 0, 'L', true);
+            $pdf->Cell(95, 8, $payer['contact_number'] ?? 'N/A', 1, 1, 'L');
+            
+            // Summary Statistics
+            $pdf->Ln(5);
+            $pdf->SetFont('helvetica', 'B', 16);
+            $pdf->Cell(0, 10, 'Payment Summary', 0, 1, 'L');
+            
+            $pdf->SetFont('helvetica', '', 10);
+            $pdf->SetFillColor(245, 245, 245);
+            
+            $pdf->Cell(95, 8, 'Total Payments:', 1, 0, 'L', true);
+            $pdf->Cell(95, 8, number_format($totalPayments), 1, 1, 'L');
+            
+            $pdf->Cell(95, 8, 'Total Amount Paid:', 1, 0, 'L', true);
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->Cell(95, 8, 'PHP ' . number_format($totalPaid, 2), 1, 1, 'L');
+            
+            // Payment History Table
+            $pdf->Ln(5);
+            $pdf->SetFont('helvetica', 'B', 16);
+            $pdf->Cell(0, 10, 'Payment History', 0, 1, 'L');
+            
+            // Table Header
+            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetFillColor(52, 152, 219);
+            $pdf->SetTextColor(255, 255, 255);
+            
+            $pdf->Cell(30, 8, 'Date', 1, 0, 'C', true);
+            $pdf->Cell(75, 8, 'Contribution', 1, 0, 'L', true);
+            $pdf->Cell(40, 8, 'Amount', 1, 0, 'R', true);
+            $pdf->Cell(45, 8, 'Method', 1, 1, 'C', true);
+            
+            // Table Data
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->SetFont('helvetica', '', 9);
+            
+            $fill = false;
+            foreach ($payments as $payment) {
+                $pdf->SetFillColor($fill ? 250 : 255, $fill ? 250 : 255, $fill ? 250 : 255);
+                
+                $paymentDate = date('M j, Y', strtotime($payment['payment_date']));
+                $contribution = substr($payment['contribution_title'], 0, 50);
+                if (strlen($payment['contribution_title']) > 50) {
+                    $contribution .= '...';
+                }
+                $amount = 'PHP ' . number_format($payment['amount_paid'], 2);
+                $method = $payment['payment_method'] ?? 'N/A';
+                
+                $pdf->Cell(30, 7, $paymentDate, 1, 0, 'C', $fill);
+                $pdf->Cell(75, 7, $contribution, 1, 0, 'L', $fill);
+                $pdf->Cell(40, 7, $amount, 1, 0, 'R', $fill);
+                $pdf->Cell(45, 7, $method, 1, 1, 'C', $fill);
+                
+                $fill = !$fill;
+            }
+            
+            // Footer
+            $pdf->SetY(-15);
+            $pdf->SetFont('helvetica', 'I', 8);
+            $pdf->SetTextColor(128, 128, 128);
+            $pdf->Cell(0, 10, 'Generated on ' . date('F j, Y \a\t g:i A') . ' - ClearPay Payment Management System', 0, 0, 'C');
+            
+            // Close and output PDF document
+            $filename = 'Payer_' . str_replace(' ', '_', $payer['payer_name']) . '_' . date('YmdHis') . '.pdf';
+            
+            $pdf->Output($filename, 'D'); // 'D' for download
+            
+        } catch (\Exception $e) {
+            log_message('error', 'PDF Export Error: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error generating PDF: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
     public function announcements()
     {
         // Check if user is logged in
