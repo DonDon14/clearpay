@@ -63,43 +63,56 @@
                             'contributions' => $contributions ?? []
                         ]) ?>
                         <?php 
-                        // Explicitly set variables to prevent leakage from previous view() call
-                        $tempModalTarget = 'qrScannerModal';
-                        $tempLink = null;
+                        unset($modalTarget, $link); // Clear variables
                         ?>
                         <?= view('partials/quick-action', [
                             'icon' => 'fas fa-qrcode',
                             'title' => 'Verify Payments',
                             'subtitle' => 'Scan QR codes to verify',
                             'bgColor' => 'bg-success',
-                            'link' => $tempLink,
-                            'modalTarget' => $tempModalTarget,
+                            'link' => null,
+                            'modalTarget' => 'qrScannerModal',
                             'colClass' => 'col-6'
                         ]) ?>
+                        <?php 
+                        unset($modalTarget, $link); // Clear variables
+                        ?>
                         <?= view('partials/quick-action', [
                             'icon' => 'fas fa-hand-holding-usd',
                             'title' => 'Manage Contributions',
                             'subtitle' => 'Add or edit fee types',
                             'bgColor' => 'bg-info',
                             'link' => base_url('/contributions'),
+                            'modalTarget' => null,
                             'colClass' => 'col-6'
                         ]) ?>
+                        <?php 
+                        unset($modalTarget, $link); // Clear variables
+                        ?>
                         <?= view('partials/quick-action', [
                             'icon' => 'fas fa-chart-bar',
                             'title' => 'View Analytics',
                             'subtitle' => 'System performance reports',
                             'bgColor' => 'bg-secondary',
                             'link' => base_url('/analytics'),
+                            'modalTarget' => null,
                             'colClass' => 'col-6'
                         ]) ?>
+                        <?php 
+                        unset($modalTarget, $link); // Clear variables
+                        ?>
                         <?= view('partials/quick-action', [
                             'icon' => 'fas fa-bullhorn',
                             'title' => 'Add Announcements',
                             'subtitle' => 'Create system announcements',
                             'bgColor' => 'bg-danger',
                             'link' => base_url('/announcements'),
+                            'modalTarget' => null,
                             'colClass' => 'col-6'
                         ]) ?>
+                        <?php 
+                        unset($modalTarget, $link); // Clear variables after last call
+                        ?>
                     </div>
                 </div>
             </div>
