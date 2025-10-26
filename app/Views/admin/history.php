@@ -61,7 +61,9 @@
 ]) ?>
 
 <!-- QR Receipt Modal -->
-<?= view('partials/modal-qr-receipt') ?>
+<?= view('partials/modal-qr-receipt', [
+    'title' => 'Payment Receipt',
+]) ?>
 
 <!-- Payment Details Modal -->
 <div id="paymentDetailsModal" class="modal fade" tabindex="-1" style="display: none;">

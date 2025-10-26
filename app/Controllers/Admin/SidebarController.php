@@ -21,9 +21,12 @@ class SidebarController extends BaseController
         $contributionModel = new ContributionModel();
         $contributions = $contributionModel->where('status', 'active')->findAll();
 
-        // Fetch recent payments for display
+        // Fetch ALL payments (not just recent 10) like dashboard
         $paymentModel = new PaymentModel();
-        $recentPayments = $paymentModel->getRecentPayments(10);
+        $recentPayments = $paymentModel->select('payers.*, contributions.title as contribution_title')
+            ->join('contributions', 'payers.contribution_id = contributions.id', 'left')
+            ->orderBy('payment_date', 'DESC')
+            ->findAll();
 
         // Example: pass session data to the view
         $data = [

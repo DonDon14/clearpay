@@ -39,12 +39,25 @@ $showDownloadButton = $showDownloadButton ?? true;
 .modal-backdrop.show:last-of-type {
     /* QR modal backdrop - should fully cover everything */
     z-index: 1055 !important;
-    background-color: rgba(0, 0, 0, 0.5) !important;
+    background-color: rgba(0, 0, 0, 0.7) !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;
     height: 100% !important;
+}
+
+/* Compress QR receipt modal content to fit on screen */
+#qrReceiptModal .modal-body {
+    padding: 1rem !important;
+}
+
+#qrReceiptModal .card {
+    margin-bottom: 0.75rem !important;
+}
+
+#qrReceiptModal .card-body {
+    padding: 0.75rem !important;
 }
 
 /* Prevent backdrop from blocking clicks on All Payments modal */
@@ -159,16 +172,16 @@ $showDownloadButton = $showDownloadButton ?? true;
                 <!-- QR Code Section -->
                 <div class="text-center">
                     <div class="card border-2 border-primary">
-                        <div class="card-body p-4">
-                            <h6 class="card-title text-primary mb-3">
+                        <div class="card-body p-2">
+                            <h6 class="card-title text-primary mb-2">
                                 <i class="fas fa-qrcode me-2"></i>QR Receipt Code
                             </h6>
-                                                         <div id="qrCodeContainer" class="mb-3" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
-                                 <div class="text-muted">
-                                     <i class="fas fa-qrcode fs-1 mb-2"></i>
-                                     <p class="mb-0">QR Code will appear here</p>
-                                 </div>
-                             </div>
+                            <div id="qrCodeContainer" class="mb-2" style="min-height: 120px; display: flex; align-items: center; justify-content: center;">
+                                <div class="text-muted">
+                                    <i class="fas fa-qrcode fs-1 mb-2"></i>
+                                    <p class="mb-0">QR Code will appear here</p>
+                                </div>
+                            </div>
                             <small class="text-muted">Scan this QR code to verify payment</small>
                         </div>
                     </div>
@@ -281,17 +294,17 @@ function generateQRCode(paymentData) {
     const qrText = `${paymentData.receipt_number || paymentData.id}|${paymentData.payer_name}|${paymentData.amount_paid}|${paymentData.payment_date}`;
     
     // Generate QR code using external API with error correction
-    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=H&data=${encodeURIComponent(qrText)}`;
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=H&data=${encodeURIComponent(qrText)}`;
     
     console.log('Generating QR code for:', paymentData);
     console.log('QR API URL:', qrApiUrl);
     
     // Show loading state
-    qrContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary mb-2" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0">Generating QR code...</p></div>';
+    qrContainer.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-primary mb-2" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0 small">Generating QR code...</p></div>';
     
-    // Create and configure QR image
+    // Create and configure QR image - smaller size
     const qrImage = document.createElement('img');
-    qrImage.style.cssText = 'max-width: 180px; max-height: 180px; width: auto; height: auto; border: 3px solid #0d6efd; border-radius: 8px; padding: 5px; background: white;';
+    qrImage.style.cssText = 'max-width: 120px; max-height: 120px; width: auto; height: auto; border: 2px solid #0d6efd; border-radius: 6px; padding: 3px; background: white;';
     qrImage.alt = 'QR Receipt for Payment #' + paymentData.id;
     qrImage.crossOrigin = 'anonymous';
     
@@ -311,8 +324,8 @@ function generateQRCode(paymentData) {
             triedFallback = true;
             console.log('Trying Google Charts API fallback...');
             
-            // Fallback: use Google Charts API
-            const fallbackUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrText)}&choe=UTF-8`;
+            // Fallback: use Google Charts API with smaller size
+            const fallbackUrl = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(qrText)}&choe=UTF-8`;
             
             qrImage.src = '';
             qrImage.src = fallbackUrl;

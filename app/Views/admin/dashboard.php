@@ -220,7 +220,9 @@
 ]) ?>
 
 <!-- QR Receipt Modal -->
-<?= view('partials/modal-qr-receipt') ?>
+<?= view('partials/modal-qr-receipt', [
+    'title' => 'Payment Receipt',
+]) ?>
 
 <script>
 // Define base URL for payment.js

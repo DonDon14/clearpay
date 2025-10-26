@@ -71,10 +71,10 @@
               <input type="number" step="0.01" class="form-control" id="amountPaid" name="amount_paid" value="<?= isset($payment['amount_paid']) ? $payment['amount_paid'] : '' ?>" required>
             </div>
             <div class="col-md-6">
-              <label for="isPartialPayment" class="form-label">Partial Payment?</label>
-              <select class="form-select" id="isPartialPayment" name="is_partial_payment">
-                <option value="0">No (Full Payment)</option>
-                <option value="1">Yes (Partial Payment)</option>
+              <label for="paymentStatus" class="form-label">Payment Status</label>
+              <select class="form-select" id="paymentStatus" name="payment_status" readonly>
+                <option value="fully paid">Full Payment</option>
+                <option value="partial">Partial Payment</option>
               </select>
             </div>
           </div>
@@ -82,6 +82,11 @@
           <div class="mb-3">
             <label for="remainingBalance" class="form-label">Remaining Balance</label>
             <input type="number" step="0.01" class="form-control" id="remainingBalance" name="remaining_balance" readonly value="<?= isset($payment['remaining_balance']) ? $payment['remaining_balance'] : '0.00' ?>">
+          </div>
+
+          <div class="mb-3">
+            <input type="hidden" id="isPartialPayment" name="is_partial_payment" value="0">
+            <input type="hidden" id="paymentStatusHidden" name="payment_status" value="fully paid">
           </div>
 
           <div class="mb-3">
@@ -138,6 +143,27 @@
 .modal-content {
     overflow: visible;
 }
+
+/* Payment Status Display Styles */
+#paymentStatus {
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+#paymentStatus.bg-success {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+#paymentStatus.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+#paymentStatus option {
+    background-color: white;
+    color: black;
+}
 </style>
 
 
@@ -150,10 +176,12 @@ document.addEventListener("DOMContentLoaded", function() {
 function updatePaymentStatus() {
   const amountPaidEl = document.getElementById('amountPaid');
   const contributionSelect = document.getElementById('contributionId');
+  const paymentStatusEl = document.getElementById('paymentStatus');
+  const paymentStatusHidden = document.getElementById('paymentStatusHidden');
   const isPartialEl = document.getElementById('isPartialPayment');
   const remainingBalanceEl = document.getElementById('remainingBalance');
 
-  if (!amountPaidEl || !contributionSelect || !isPartialEl || !remainingBalanceEl) {
+  if (!amountPaidEl || !contributionSelect || !paymentStatusEl || !remainingBalanceEl) {
     return; // Elements not found
   }
 
@@ -162,19 +190,59 @@ function updatePaymentStatus() {
   if (contributionSelect.selectedIndex > 0) {
     const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
     const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
-    const isPartial = isPartialEl.value == '1';
 
-    let remaining = isPartial ? (contributionAmount - amountPaid) : 0;
+    let remaining = contributionAmount - amountPaid;
     if (remaining < 0) remaining = 0;
 
     remainingBalanceEl.value = remaining.toFixed(2);
 
-    // Auto-fill amount if not partial and amount is empty
-    if (!isPartial && contributionAmount > 0 && amountPaid === 0) {
-      amountPaidEl.value = contributionAmount.toFixed(2);
+    // Determine if payment is partial or full
+    const isPartial = remaining > 0 && amountPaid > 0;
+    
+    // Update payment status
+    if (isPartial) {
+      paymentStatusEl.value = 'partial';
+      paymentStatusEl.className = 'form-select bg-warning text-dark';
+      paymentStatusHidden.value = 'partial';
+      isPartialEl.value = '1';
+    } else if (amountPaid > 0 && amountPaid >= contributionAmount) {
+      paymentStatusEl.value = 'fully paid';
+      paymentStatusEl.className = 'form-select bg-success text-white';
+      paymentStatusHidden.value = 'fully paid';
+      isPartialEl.value = '0';
       remainingBalanceEl.value = '0.00';
+    } else {
+      paymentStatusEl.value = 'fully paid';
+      paymentStatusEl.className = 'form-select bg-success text-white';
+      paymentStatusHidden.value = 'fully paid';
+      isPartialEl.value = '0';
+    }
+
+    // If amount is empty, set remaining balance to contribution amount
+    if (amountPaid === 0 && contributionAmount > 0) {
+      remainingBalanceEl.value = contributionAmount.toFixed(2);
+      paymentStatusEl.value = 'partial';
+      paymentStatusEl.className = 'form-select bg-warning text-dark';
+      paymentStatusHidden.value = 'partial';
+      isPartialEl.value = '1';
     }
   }
 }
+
+// Add event listeners
+document.addEventListener("DOMContentLoaded", function() {
+  const amountPaidEl = document.getElementById('amountPaid');
+  const contributionSelect = document.getElementById('contributionId');
+  
+  if (amountPaidEl) {
+    amountPaidEl.addEventListener('input', updatePaymentStatus);
+  }
+  
+  if (contributionSelect) {
+    contributionSelect.addEventListener('change', updatePaymentStatus);
+  }
+});
 </script>
+
+
 
