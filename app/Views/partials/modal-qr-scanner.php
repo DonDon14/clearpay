@@ -313,7 +313,12 @@ function showPaymentVerificationModal(payment) {
                                 <div class="card border-0 bg-light">
                                     <div class="card-body">
                                         <h6 class="text-muted mb-2">Status</h6>
-                                        <span class="badge bg-success">${(payment.payment_status || 'fully paid').toUpperCase()}</span>
+                                        ${(() => {
+                                            const status = payment.computed_status || payment.payment_status || 'fully paid';
+                                            const statusText = status === 'fully paid' ? 'COMPLETED' : (status === 'partial' ? 'PARTIAL' : status.toUpperCase());
+                                            const badgeClass = status === 'fully paid' ? 'bg-primary text-white' : (status === 'partial' ? 'bg-warning text-dark' : 'bg-danger text-white');
+                                            return `<span class="badge ${badgeClass}">${statusText}</span>`;
+                                        })()}
                                     </div>
                                 </div>
                             </div>

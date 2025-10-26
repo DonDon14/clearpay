@@ -23,11 +23,18 @@ class SidebarController extends BaseController
 
         // Fetch ALL payments (not just recent 10) like dashboard
         $paymentModel = new PaymentModel();
-        $recentPayments = $paymentModel->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title')
+        $recentPayments = $paymentModel->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title, contributions.id as contrib_id')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->orderBy('payments.payment_date', 'DESC')
             ->findAll();
+
+        // Add computed status to each payment
+        foreach ($recentPayments as &$payment) {
+            $payerId = $payment['payer_id'];
+            $contributionId = $payment['contrib_id'] ?? $payment['contribution_id'] ?? null;
+            $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+        }
 
         // Example: pass session data to the view
         $data = [
@@ -185,14 +192,17 @@ class SidebarController extends BaseController
                 }
             }
             
-            // Determine status based on last payment date (within last 30 days = active)
-            $status = 'inactive';
+            // Get computed payment status (fully paid, partial, or unpaid)
+            $paymentStatus = $paymentModel->getPaymentStatus($payer['id']);
+            
+            // Determine activity status based on last payment date (within last 30 days = active)
+            $activityStatus = 'inactive';
             if ($lastPaymentDate) {
                 $daysSinceLastPayment = (time() - strtotime($lastPaymentDate)) / (60 * 60 * 24);
                 if ($daysSinceLastPayment <= 30) {
-                    $status = 'active';
+                    $activityStatus = 'active';
                 } elseif ($daysSinceLastPayment <= 90) {
-                    $status = 'pending';
+                    $activityStatus = 'pending';
                 }
             }
             
@@ -205,7 +215,8 @@ class SidebarController extends BaseController
                 'total_payments' => count($payerPayments),
                 'total_paid' => $totalPaid,
                 'last_payment' => $lastPaymentDate,
-                'status' => $status
+                'payment_status' => $paymentStatus, // Computed: fully paid, partial, unpaid
+                'status' => $activityStatus // Activity: active, pending, inactive
             ];
         }
         

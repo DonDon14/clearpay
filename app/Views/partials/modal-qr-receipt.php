@@ -224,10 +224,11 @@ window.showQRReceipt = function(paymentData) {
     document.getElementById('qrAmountPaid').textContent = '₱' + parseFloat(paymentData.amount_paid || 0).toFixed(2);
     document.getElementById('qrPaymentMethod').textContent = formatPaymentMethod(paymentData.payment_method);
     
-    // Set status badge
+    // Set status badge (use computed_status if available, fall back to payment_status)
     const statusBadge = document.getElementById('qrPaymentStatus');
-    const status = paymentData.payment_status || 'pending';
-    statusBadge.textContent = status.toUpperCase();
+    const status = paymentData.computed_status || paymentData.payment_status || 'pending';
+    const statusText = status === 'fully paid' ? 'COMPLETED' : (status === 'partial' ? 'PARTIAL' : status.toUpperCase());
+    statusBadge.textContent = statusText;
     statusBadge.className = 'badge ' + getStatusBadgeClass(status);
     
     // Generate QR code
@@ -366,13 +367,14 @@ function formatPaymentMethod(method) {
 // Function to get status badge class
 function getStatusBadgeClass(status) {
     const classes = {
-        'fully paid': 'bg-success',
-        'paid': 'bg-success',
-        'partial': 'bg-warning',
-        'pending': 'bg-warning',
-        'failed': 'bg-danger'
+        'fully paid': 'bg-primary text-white',
+        'paid': 'bg-primary text-white',
+        'partial': 'bg-warning text-dark',
+        'pending': 'bg-warning text-dark',
+        'unpaid': 'bg-secondary text-white',
+        'failed': 'bg-danger text-white'
     };
-    return classes[status] || 'bg-secondary';
+    return classes[status] || 'bg-secondary text-white';
 }
 
 // Function to download QR receipt
@@ -604,9 +606,12 @@ function buildReceiptHTML(paymentData) {
                     <div class="info-item">
                         <div class="info-label">Status</div>
                         <div class="info-value">
-                            <span class="badge ${paymentData.payment_status === 'fully paid' ? 'badge-success' : (paymentData.payment_status === 'partial' ? 'badge-warning' : 'badge-danger')}">
-                                ${(paymentData.payment_status || 'PENDING').toUpperCase()}
-                            </span>
+                            ${(() => {
+                                const status = paymentData.computed_status || paymentData.payment_status || 'pending';
+                                const statusText = status === 'fully paid' ? 'COMPLETED' : (status === 'partial' ? 'PARTIAL' : status.toUpperCase());
+                                const badgeClass = status === 'fully paid' ? 'badge-primary' : (status === 'partial' ? 'badge-warning' : 'badge-danger');
+                                return `<span class="badge ${badgeClass}">${statusText}</span>`;
+                            })()}
                         </div>
                     </div>
                 </div>

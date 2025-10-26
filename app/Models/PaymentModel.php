@@ -8,6 +8,8 @@ class PaymentModel extends Model
 {
     protected $table = 'payments';
     protected $primaryKey = 'id';
+    protected $useSoftDeletes = true;
+    protected $deletedField = 'deleted_at';
     protected $allowedFields = [
         'payer_id', // FK to payers table
         'contribution_id',
@@ -24,7 +26,8 @@ class PaymentModel extends Model
         'recorded_by',
         'payment_date',
         'created_at',
-        'updated_at'
+        'updated_at',
+        'deleted_at'
     ];
     protected $useTimestamps = false;
 
@@ -64,5 +67,61 @@ class PaymentModel extends Model
                 ->orderBy('payments.payment_date', 'DESC')
                 ->limit($limit)
                 ->findAll();
+    }
+
+    /**
+     * Calculate payment status dynamically based on total paid vs total due
+     * @param int $payerId The payer ID
+     * @param int|null $contributionId The contribution ID (optional, for specific contribution)
+     * @return string Returns 'fully paid', 'partial', or 'unpaid'
+     */
+    public function getPaymentStatus($payerId, $contributionId = null)
+    {
+        // Get total amount paid for this payer (exclude soft-deleted payments)
+        // Soft deletes automatically exclude records where deleted_at is not null
+        $builder = $this->selectSum('amount_paid', 'total_paid')
+            ->where('payer_id', $payerId);
+            
+        if ($contributionId) {
+            $builder->where('contribution_id', $contributionId);
+        }
+        
+        $result = $builder->get()->getRowArray();
+        $totalPaid = $result['total_paid'] ?? 0;
+
+        // Get total due amount
+        $contributionModel = new ContributionModel();
+        $totalDue = 0;
+        
+        if ($contributionId) {
+            // For specific contribution
+            $contribution = $contributionModel->find($contributionId);
+            $totalDue = $contribution ? (float) $contribution['amount'] : 0;
+        } else {
+            // For all contributions (get sum of all active contributions)
+            $contributionModel->where('status', 'active');
+            $contributions = $contributionModel->findAll();
+            foreach ($contributions as $contribution) {
+                $totalDue += (float) $contribution['amount'];
+            }
+        }
+
+        // Determine status
+        if ($totalPaid == 0) {
+            return 'unpaid';
+        } elseif ($totalPaid >= $totalDue) {
+            return 'fully paid';
+        } else {
+            return 'partial';
+        }
+    }
+
+    /**
+     * Get computed payment status for display
+     * This is an alias that returns formatted status
+     */
+    public function getComputedStatus($payerId, $contributionId = null)
+    {
+        return $this->getPaymentStatus($payerId, $contributionId);
     }
 }

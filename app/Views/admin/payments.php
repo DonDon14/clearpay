@@ -30,8 +30,9 @@
                  <div class="col-md-4">
                      <select id="statusFilter" class="form-select">
                          <option value="">All Status</option>
-                         <option value="fully paid">Fully Paid</option>
+                         <option value="fully paid">Completed</option>
                          <option value="partial">Partial</option>
+                         <option value="unpaid">Unpaid</option>
                      </select>
                  </div>
              </div>
@@ -45,6 +46,8 @@
                      <th>Payer Name</th>
                     <th>Amount</th>
                     <th>Contribution</th>
+                    <th>Payment Method</th>
+                    <th>Status</th>
                     <th>Date</th>
                     <th>Actions</th>
                   </tr>
@@ -52,11 +55,30 @@
                  <tbody id="paymentsTableBody">
                     <?php if (!empty($recentPayments)): ?>
                         <?php foreach ($recentPayments as $payment): ?>
-                             <tr data-payment-status="<?= esc($payment['payment_status']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>">
+                             <tr data-payment-status="<?= esc($payment['computed_status'] ?? 'unpaid') ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>">
                                  <td><?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?></td>
                                 <td><?= esc($payment['payer_name']) ?></td>
                                 <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
                                 <td><?= esc($payment['contribution_title'] ?? 'N/A') ?></td>
+                                <td><?= esc($payment['payment_method'] ?? 'N/A') ?></td>
+                                <td>
+                                    <?php 
+                                        $status = $payment['computed_status'] ?? 'unpaid';
+                                        $badgeClass = match($status) {
+                                            'fully paid' => 'bg-primary text-white',
+                                            'partial' => 'bg-warning text-dark',
+                                            'unpaid' => 'bg-secondary text-white',
+                                            default => 'bg-light text-dark'
+                                        };
+                                        $statusText = match($status) {
+                                            'fully paid' => 'Completed',
+                                            'partial' => 'Partial',
+                                            'unpaid' => 'Unpaid',
+                                            default => ucfirst($status)
+                                        };
+                                    ?>
+                                    <span class="badge <?= $badgeClass ?>"><?= $statusText ?></span>
+                                </td>
                                 <td><?= date('M d, Y', strtotime($payment['payment_date'])) ?></td>
                                 <td>
                                     <div class="btn-group-vertical" role="group">
@@ -71,7 +93,7 @@
                                                 <i class="fas fa-trash me-1"></i>
                                             </button>
                                         </div>
-                                        <?php if ($payment['payment_status'] === 'partial'): ?>
+                                        <?php if (($payment['computed_status'] ?? 'unpaid') === 'partial'): ?>
                                             <button class="btn btn-sm btn-outline-info mt-1" onclick="addPaymentToPartial(<?= $payment['id'] ?>)" title="Add Payment">
                                                 <i class="fas fa-plus me-1"></i>Add Payment
                                             </button>
@@ -82,16 +104,16 @@
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center text-muted">No payment records found.</td>
+                            <td colspan="8" class="text-center text-muted">No payment records found.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
               </table>
-            </div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
   <!-- Add Payment Modal -->
    <?php $contributions = $contributions ?? []; ?>
@@ -312,7 +334,7 @@ function addPaymentToPartial(paymentId) {
                 const payment = data.payments.find(p => p.id == paymentId);
                 console.log('Found payment:', payment);
                 
-                if (payment && payment.payment_status === 'partial') {
+                if (payment && (payment.computed_status === 'partial' || payment.payment_status === 'partial')) {
                     // Open the add payment to partial modal
                     if (typeof openAddPaymentToPartialModal === 'function') {
                         openAddPaymentToPartialModal(payment);
@@ -320,7 +342,7 @@ function addPaymentToPartial(paymentId) {
                         console.error('openAddPaymentToPartialModal function not found');
                         showNotification('Add Payment to Partial modal not available', 'danger');
                     }
-                } else if (payment && payment.payment_status !== 'partial') {
+                } else if (payment && payment.computed_status !== 'partial' && payment.payment_status !== 'partial') {
                     showNotification('Only partial payments can have additional payments added', 'warning');
                 } else {
                     showNotification('Payment not found in records', 'warning');

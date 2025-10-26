@@ -286,9 +286,9 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                     // Status badge
                     let statusBadge = '';
                     if (payerData.status === 'fully paid') {
-                        statusBadge = '<span class="badge bg-success">FULLY PAID</span>';
+                        statusBadge = '<span class="badge bg-primary text-white">COMPLETED</span>';
                     } else {
-                        statusBadge = '<span class="badge bg-warning">PARTIAL</span>';
+                        statusBadge = '<span class="badge bg-warning text-dark">PARTIAL</span>';
                     }
                     
                     // Actions column
@@ -392,12 +392,13 @@ window.showPayerPaymentHistory = function(payerData) {
                     minute: '2-digit'
                 });
                 
-                // Status badge
+                // Status badge (use computed_status if available)
                 let statusBadge = '';
-                if (payment.payment_status === 'fully paid') {
-                    statusBadge = '<span class="badge bg-success">FULLY PAID</span>';
+                const paymentStatus = payment.computed_status || payment.payment_status || 'partial';
+                if (paymentStatus === 'fully paid') {
+                    statusBadge = '<span class="badge bg-primary text-white">COMPLETED</span>';
                 } else {
-                    statusBadge = '<span class="badge bg-warning">PARTIAL</span>';
+                    statusBadge = '<span class="badge bg-warning text-dark">PARTIAL</span>';
                 }
                 
                 item.innerHTML = `

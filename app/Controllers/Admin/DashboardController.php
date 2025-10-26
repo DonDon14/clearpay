@@ -57,12 +57,26 @@ class DashboardController extends BaseController
 
         // --- Fetch Recent Payments ---
         $recentPayments = $paymentModel
-            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title')
+            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title, contributions.id as contrib_id')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->orderBy('payments.payment_date', 'DESC')
             ->limit(4)
             ->findAll(); // last 4 payments
+
+        // Add computed status to each payment
+        foreach ($recentPayments as &$payment) {
+            $payerId = $payment['payer_id'];
+            $contributionId = $payment['contrib_id'] ?? $payment['contribution_id'] ?? null;
+            $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+        }
+
+        // Add computed status to all payments as well
+        foreach ($allPayments as &$payment) {
+            $payerId = $payment['payer_id'];
+            $contributionId = $payment['contribution_id'] ?? null;
+            $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+        }
 
         // --- Fetch Contributions for Modal ---
         $contributionModel = new ContributionModel();

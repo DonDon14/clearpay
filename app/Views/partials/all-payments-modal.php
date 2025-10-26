@@ -109,11 +109,23 @@ body.modal-open .main-content {
                                         <td class="payment-cell-clickable"><?= esc($payment['contribution_title']) ?></td>
                                         <td class="payment-cell-clickable">₱<?= number_format($payment['amount_paid'], 2) ?></td>
                                         <td class="payment-cell-clickable">
-                                            <span class="badge 
-                                                <?= $payment['payment_status'] === 'fully paid' 
-                                                    ? 'bg-success' 
-                                                    : ($payment['payment_status'] === 'partial' ? 'bg-warning' : 'bg-danger') ?>">
-                                                <?= strtoupper($payment['payment_status']) ?>
+                                            <?php 
+                                                $status = $payment['computed_status'] ?? $payment['payment_status'] ?? 'unpaid';
+                                                $badgeClass = match($status) {
+                                                    'fully paid' => 'bg-primary text-white',
+                                                    'partial' => 'bg-warning text-dark',
+                                                    'unpaid' => 'bg-secondary text-white',
+                                                    default => 'bg-danger text-white'
+                                                };
+                                                $statusText = match($status) {
+                                                    'fully paid' => 'COMPLETED',
+                                                    'partial' => 'PARTIAL',
+                                                    'unpaid' => 'UNPAID',
+                                                    default => strtoupper($status)
+                                                };
+                                            ?>
+                                            <span class="badge <?= $badgeClass ?>">
+                                                <?= $statusText ?>
                                             </span>
                                         </td>
                                         <td class="payment-cell-clickable"><?= date('M d, Y h:i A', strtotime($payment['payment_date'])) ?></td>
@@ -409,15 +421,16 @@ function openEditPaymentModal(payment) {
         document.getElementById('amountPaid').value = payment.amount_paid;
     }
     
-    // Set payment status
-    if (payment.payment_status) {
+    // Set payment status (use computed_status if available)
+    const statusToUse = payment.computed_status || payment.payment_status;
+    if (statusToUse) {
         const statusSelect = document.getElementById('paymentStatus');
         if (statusSelect) {
-            statusSelect.value = payment.payment_status;
+            statusSelect.value = statusToUse;
             // Apply the appropriate class
-            if (payment.payment_status === 'fully paid') {
-                statusSelect.className = 'form-select bg-success text-white';
-            } else if (payment.payment_status === 'partial') {
+            if (statusToUse === 'fully paid') {
+                statusSelect.className = 'form-select bg-primary text-white';
+            } else if (statusToUse === 'partial') {
                 statusSelect.className = 'form-select bg-warning text-dark';
             }
         }
@@ -441,9 +454,9 @@ function openEditPaymentModal(payment) {
     }
     
     // Set partial payment flag
-    const isPartialPayment = payment.payment_status === 'partial' && payment.remaining_balance > 0;
+    const isPartialPayment = statusToUse === 'partial' && payment.remaining_balance > 0;
     document.getElementById('isPartialPayment').value = isPartialPayment ? '1' : '0';
-    document.getElementById('paymentStatusHidden').value = payment.payment_status || 'fully paid';
+    document.getElementById('paymentStatusHidden').value = statusToUse || 'fully paid';
     
     // Update form action to edit
     const form = document.getElementById('paymentForm');

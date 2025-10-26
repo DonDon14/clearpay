@@ -598,7 +598,8 @@ class PaymentsController extends BaseController
     }
 
     /**
-     * Delete a payment
+     * Delete a payment (soft delete)
+     * After deletion, computes and returns the updated status
      */
     public function delete($paymentId)
     {
@@ -613,8 +614,8 @@ class PaymentsController extends BaseController
 
             $paymentModel = new PaymentModel();
             
-            // Check if payment exists
-            $payment = $paymentModel->find($paymentId);
+            // Check if payment exists (including soft-deleted)
+            $payment = $paymentModel->withDeleted()->find($paymentId);
             if (!$payment) {
                 return $this->response->setJSON([
                     'success' => false,
@@ -622,13 +623,19 @@ class PaymentsController extends BaseController
                 ]);
             }
 
-            // Delete the payment
+            // Soft delete the payment (sets deleted_at timestamp)
             $deleted = $paymentModel->delete($paymentId);
 
             if ($deleted) {
+                // Get the computed status after deletion
+                $payerId = $payment['payer_id'];
+                $contributionId = $payment['contribution_id'] ?? null;
+                $computedStatus = $paymentModel->getPaymentStatus($payerId, $contributionId);
+                
                 return $this->response->setJSON([
                     'success' => true,
-                    'message' => 'Payment deleted successfully'
+                    'message' => 'Payment deleted successfully',
+                    'updated_status' => $computedStatus
                 ]);
             } else {
                 return $this->response->setJSON([

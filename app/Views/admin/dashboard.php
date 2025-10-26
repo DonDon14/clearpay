@@ -141,8 +141,23 @@
                                 </div>
                                 <div class="text-end">
                                     <div class="fw-bold">₱<?= number_format($payment['amount_paid'], 2) ?></div>
-                                    <span class="badge <?= $payment['payment_status'] === 'fully paid' ? 'bg-success' : ($payment['payment_status'] === 'partial' ? 'bg-warning' : 'bg-danger') ?> small">
-                                        <?= strtoupper($payment['payment_status']) ?>
+                                    <?php 
+                                        $status = $payment['computed_status'] ?? $payment['payment_status'] ?? 'unpaid';
+                                        $badgeClass = match($status) {
+                                            'fully paid' => 'bg-primary',
+                                            'partial' => 'bg-warning text-dark',
+                                            'unpaid' => 'bg-secondary',
+                                            default => 'bg-danger'
+                                        };
+                                        $statusText = match($status) {
+                                            'fully paid' => 'COMPLETED',
+                                            'partial' => 'PARTIAL',
+                                            'unpaid' => 'UNPAID',
+                                            default => strtoupper($status)
+                                        };
+                                    ?>
+                                    <span class="badge <?= $badgeClass ?> small">
+                                        <?= $statusText ?>
                                     </span>
                                 </div>
                             </div>
