@@ -4,6 +4,12 @@
     min-height: 100vh;
 }
 
+/* Prevent flash during initial load */
+body.sidebar-loading .sidebar,
+body.sidebar-loading .main-content {
+    transition: none !important;
+}
+
 /* Modern Sidebar */
 .sidebar {
     width: 260px !important;
@@ -28,9 +34,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px;
+    padding: 0 20px;
+    height: 70px;
     border-bottom: 1px solid #e5e7eb;
     background: #ffffff;
+    flex-shrink: 0;
 }   
 
 .logo {
@@ -277,7 +285,7 @@
 }
 
 .sidebar.collapsed .sidebar-header {
-    padding: 16px 12px;
+    padding: 0 12px;
     justify-content: center;
 }
 
@@ -356,17 +364,20 @@
 
 /* Sidebar Footer */
 .sidebar-footer {
-    padding: 12px;
+    padding: 8px 12px;
     border-top: 1px solid #e5e7eb;
     background: #ffffff;
     flex-shrink: 0;
     margin-top: auto;
+    display: flex;
+    align-items: center;
 }
 
 .sidebar-footer .sidebar-item {
     border-radius: 8px;
     color: #6b7280;
     margin: 0;
+    padding: 10px 14px;
 }
 
 .sidebar-footer .sidebar-item:hover {

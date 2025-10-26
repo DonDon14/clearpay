@@ -15,7 +15,7 @@
   <!-- Sidebar Component - Complete consolidated styles -->
   <link href="<?= base_url('css/sidebar-complete.css') ?>" rel="stylesheet">
 </head>
-<body>
+<body class="sidebar-loading">
   <div class="app-layout">
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -96,6 +96,9 @@
         } else {
           updateMainContentMargin(false);
         }
+        
+        // Remove loading class after state is restored to enable transitions
+        document.body.classList.remove('sidebar-loading');
       }
 
       // Restore sidebar state on page load
