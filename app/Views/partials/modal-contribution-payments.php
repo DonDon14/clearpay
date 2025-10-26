@@ -16,18 +16,29 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <div class="modal-body">
-                <!-- Loading State -->
-                <div id="contributionPaymentsLoading" class="text-center py-5" style="display: none;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="text-muted mt-2">Loading payments...</p>
-                </div>
+                         <div class="modal-body">
+                 <!-- Search Bar -->
+                 <div id="contributionPaymentsSearchBar" style="display: none;" class="mb-3">
+                     <div class="input-group">
+                         <span class="input-group-text"><i class="fas fa-search"></i></span>
+                         <input type="text" class="form-control" id="searchPayersInput" placeholder="Search by Payer ID or Name...">
+                         <button type="button" class="btn btn-outline-secondary" id="clearSearchBtn" style="display: none;">
+                             <i class="fas fa-times"></i>
+                         </button>
+                     </div>
+                 </div>
 
-                <!-- Payments List -->
-                <div id="contributionPaymentsContent">
-                    <div class="table-responsive">
+                 <!-- Loading State -->
+                 <div id="contributionPaymentsLoading" class="text-center py-5" style="display: none;">
+                     <div class="spinner-border text-primary" role="status">
+                         <span class="visually-hidden">Loading...</span>
+                     </div>
+                     <p class="text-muted mt-2">Loading payments...</p>
+                 </div>
+
+                 <!-- Payments List -->
+                 <div id="contributionPaymentsContent">
+                     <div class="table-responsive">
                         <table class="table table-striped table-hover align-middle" id="contributionPaymentsTable">
                             <thead class="table-light">
                                 <tr>
@@ -162,6 +173,10 @@ function showContributionPayments(contributionId, contributionTitle, contributio
     document.getElementById('contributionPaymentsLoading').style.display = 'block';
     document.getElementById('contributionPaymentsContent').style.display = 'none';
     document.getElementById('contributionPaymentsEmpty').style.display = 'none';
+    document.getElementById('contributionPaymentsSearchBar').style.display = 'none';
+    
+    // Clear search
+    document.getElementById('searchPayersInput').value = '';
     
     // Clear previous data
     document.getElementById('contributionPaymentsTableBody').innerHTML = '';
@@ -294,6 +309,10 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                 });
                 
                 document.getElementById('contributionPaymentsContent').style.display = 'block';
+                document.getElementById('contributionPaymentsSearchBar').style.display = 'block';
+                
+                // Setup search functionality
+                setupContributionPaymentsSearch();
             } else {
                 document.getElementById('contributionPaymentsEmpty').style.display = 'block';
             }
@@ -393,7 +412,56 @@ function showPayerPaymentHistory(payerData) {
             document.getElementById('payerHistoryContent').style.display = 'block';
         } else {
             document.getElementById('payerHistoryEmpty').style.display = 'block';
-        }
-    }, 300);
-}
-</script>
+                 }
+     }, 300);
+ }
+
+ // Function to setup search functionality
+ function setupContributionPaymentsSearch() {
+     const searchInput = document.getElementById('searchPayersInput');
+     const clearBtn = document.getElementById('clearSearchBtn');
+     const tableBody = document.getElementById('contributionPaymentsTableBody');
+     
+     if (!searchInput || !clearBtn || !tableBody) return;
+     
+     // Search on input
+     searchInput.addEventListener('input', function() {
+         const searchTerm = this.value.toLowerCase().trim();
+         
+         // Show/hide clear button
+         if (searchTerm.length > 0) {
+             clearBtn.style.display = 'block';
+         } else {
+             clearBtn.style.display = 'none';
+         }
+         
+         // Get all table rows
+         const rows = tableBody.querySelectorAll('tr');
+         
+         rows.forEach(row => {
+             // Get payer ID and name from the row
+             const payerId = row.children[0].textContent.toLowerCase().trim();
+             const payerName = row.children[1].textContent.toLowerCase().trim();
+             
+             // Check if search term matches either payer ID or name
+             if (payerId.includes(searchTerm) || payerName.includes(searchTerm)) {
+                 row.style.display = '';
+             } else {
+                 row.style.display = 'none';
+             }
+         });
+     });
+     
+     // Clear search
+     clearBtn.addEventListener('click', function() {
+         searchInput.value = '';
+         this.style.display = 'none';
+         
+         // Show all rows
+         const rows = tableBody.querySelectorAll('tr');
+         rows.forEach(row => {
+             row.style.display = '';
+         });
+     });
+ }
+ </script>
