@@ -18,9 +18,10 @@ class DashboardController extends BaseController
 
         $paymentModel = new PaymentModel();
         $allPayments = $paymentModel
-            ->select('payers.*, contributions.title as contribution_title')
-            ->join('contributions', 'payers.contribution_id = contributions.id', 'left')
-            ->orderBy('payment_date', 'DESC')
+            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->orderBy('payments.payment_date', 'DESC')
             ->findAll();
 
         // Get User Information
@@ -56,10 +57,12 @@ class DashboardController extends BaseController
 
         // --- Fetch Recent Payments ---
         $recentPayments = $paymentModel
-            ->select('payers.*, contributions.title as contribution_title')
-            ->join('contributions', 'payers.contribution_id = contributions.id', 'left')
-            ->orderBy('payment_date', 'DESC')
-            ->findAll(4); // last 4 payments
+            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->orderBy('payments.payment_date', 'DESC')
+            ->limit(4)
+            ->findAll(); // last 4 payments
 
         // --- Fetch Contributions for Modal ---
         $contributionModel = new ContributionModel();

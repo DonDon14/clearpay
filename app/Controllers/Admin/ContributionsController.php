@@ -33,6 +33,21 @@ class ContributionsController extends BaseController
 
             $model = new ContributionModel();
 
+            // Get user ID from session with proper fallback - use user-id (hyphen) as per LoginController
+            $userId = session()->get('user-id');
+            
+            // If no user ID in session, we need to handle this gracefully
+            // Since the FK constraint allows NULL, we can set it to NULL
+            // But first, let's ensure we're actually logged in
+            if (!$userId && !session()->get('isLoggedIn')) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'You must be logged in to create a contribution'
+                ]);
+            }
+            
+            $createdBy = $userId; // This can be NULL
+
             // Gather POST data
             $data = [
                 'title'       => $this->request->getPost('title'),
@@ -41,7 +56,7 @@ class ContributionsController extends BaseController
                 'cost_price'  => $this->request->getPost('cost_price') ?: 0,
                 'category'    => $this->request->getPost('category'),
                 'status'      => $this->request->getPost('status'),
-                'created_by'  => session()->get('user_id') ?: 1, // fallback to user 1
+                'created_by'  => $createdBy ?: null, // Ensure it's NULL not empty string
                 'created_at'  => date('Y-m-d H:i:s'),
                 'updated_at'  => date('Y-m-d H:i:s')
             ];
@@ -72,6 +87,10 @@ class ContributionsController extends BaseController
             }
 
         } catch (\Exception $e) {
+            // Log the full error for debugging
+            log_message('error', 'Contribution save error: ' . $e->getMessage());
+            log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+            
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'An error occurred: ' . $e->getMessage()
@@ -191,6 +210,49 @@ class ContributionsController extends BaseController
                 return $this->response->setJSON([
                     'success' => false,
                     'message' => 'Failed to delete contribution'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function toggleStatus($id)
+    {
+        try {
+            $model = new ContributionModel();
+
+            // Check if contribution exists
+            $existing = $model->find($id);
+            if (!$existing) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+
+            // Toggle status
+            $newStatus = $existing['status'] === 'active' ? 'inactive' : 'active';
+            
+            $result = $model->update($id, [
+                'status' => $newStatus,
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Contribution status updated successfully.',
+                    'newStatus' => $newStatus
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to update contribution status'
                 ]);
             }
 

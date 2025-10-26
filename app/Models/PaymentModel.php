@@ -6,14 +6,11 @@ use CodeIgniter\Model;
 
 class PaymentModel extends Model
 {
-    protected $table = 'payers';
+    protected $table = 'payments';
     protected $primaryKey = 'id';
     protected $allowedFields = [
+        'payer_id', // FK to payers table
         'contribution_id',
-        'payer_id',
-        'payer_name',
-        'contact_number',
-        'email_address',
         'amount_paid',
         'payment_method',
         'payment_status',
@@ -43,21 +40,28 @@ class PaymentModel extends Model
         ]
     ];
 
-     public function getRecentPayments($limit = 5)
+    public function getRecentPayments($limit = 5)
     {
         return $this->select('
-                    payers.id,
-                    payers.payer_id,
+                    payments.id,
+                    payments.payer_id,
+                    payers.payer_id AS payer_student_id,
                     payers.payer_name,
-                    payers.amount_paid,
-                    payers.payment_status,
-                    payers.payment_date,
+                    payers.contact_number,
+                    payers.email_address,
+                    payments.amount_paid,
+                    payments.payment_method,
+                    payments.payment_status,
+                    payments.payment_date,
+                    payments.receipt_number,
+                    payments.qr_receipt_path,
                     contributions.title AS contribution_title,
                     users.username AS recorded_by_name
                 ')
-                ->join('contributions', 'contributions.id = payers.contribution_id', 'left')
-                ->join('users', 'users.id = payers.recorded_by', 'left')
-                ->orderBy('payers.payment_date', 'DESC')
+                ->join('payers', 'payers.id = payments.payer_id', 'left')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->join('users', 'users.id = payments.recorded_by', 'left')
+                ->orderBy('payments.payment_date', 'DESC')
                 ->limit($limit)
                 ->findAll();
     }

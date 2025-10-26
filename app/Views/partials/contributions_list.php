@@ -1,9 +1,13 @@
 <!-- Active Contributions List -->
-<div class="row g-3">
+<div class="row g-3" id="contributionsContainer">
     <?php if (!empty($contributions)): ?>
         <?php foreach ($contributions as $contribution): ?>
-            <div class="col-12">
-                <div class="card border-0 shadow-sm contribution-item" style="transition: transform 0.2s, box-shadow 0.2s;">
+            <div class="col-12 contribution-item" 
+                 data-category="<?= esc($contribution['category'] ?? 'other') ?>" 
+                 data-status="<?= esc($contribution['status'] ?? 'active') ?>"
+                 data-title="<?= strtolower(esc($contribution['title'])) ?>"
+                 data-amount="<?= esc($contribution['amount']) ?>">
+                <div class="card border-0 shadow-sm" style="transition: transform 0.2s, box-shadow 0.2s;">
                     <div class="card-body">
                         <div class="d-flex align-items-center">
                             <div class="contribution-icon me-3">
@@ -20,6 +24,7 @@
                                     <div class="contribution-amount">
                                         <span class="h5 text-primary fw-bold">₱<?= number_format($contribution['amount'], 2) ?></span>
                                         <small class="text-muted d-block">
+                                            <span class="badge bg-info me-2"><?= ucfirst(esc($contribution['category'] ?? 'other')) ?></span>
                                             Status: 
                                             <span class="badge <?= $contribution['status'] === 'active' ? 'bg-success' : 'bg-secondary' ?>">
                                                 <?= ucfirst($contribution['status']) ?>
@@ -32,6 +37,12 @@
                                                 onclick="editContribution(<?= $contribution['id'] ?>)"
                                                 title="Edit Contribution">
                                             <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm <?= $contribution['status'] === 'active' ? 'btn-outline-success' : 'btn-outline-secondary' ?> me-2" 
+                                                style="width: 36px; height: 36px;"
+                                                onclick="toggleContributionStatus(<?= $contribution['id'] ?>, '<?= esc($contribution['status']) ?>')"
+                                                title="Toggle Status">
+                                            <i class="fas fa-toggle-<?= $contribution['status'] === 'active' ? 'on' : 'off' ?>"></i>
                                         </button>
                                         <button class="btn btn-sm btn-outline-danger" 
                                                 style="width: 36px; height: 36px;"

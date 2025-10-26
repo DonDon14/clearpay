@@ -11,7 +11,7 @@
                 'icon' => 'fas fa-check-circle',
                 'iconColor' => 'text-success',
                 'title' => 'Active',
-                'text' => '10'
+                'text' => (string)($activeCount ?? 0)
             ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
@@ -19,7 +19,7 @@
                 'icon' => 'fas fa-hand-holding-usd',
                 'iconColor' => 'text-primary',
                 'title' => 'Total',
-                'text' => '25'
+                'text' => (string)($totalCount ?? 0)
             ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
@@ -27,7 +27,7 @@
                 'icon' => 'fas fa-times-circle',
                 'iconColor' => 'text-danger',
                 'title' => 'Inactive',
-                'text' => '5'
+                'text' => (string)($inactiveCount ?? 0)
             ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
@@ -35,7 +35,7 @@
                 'icon' => 'fas fa-calendar-day',
                 'iconColor' => 'text-info',
                 'title' => 'Today',
-                'text' => '2'
+                'text' => (string)($todayCount ?? 0)
             ]) ?>
         </div>
     </div>
@@ -91,6 +91,61 @@
                 </div>
             </div>
         </div>
+
+<!-- Search and Filter Section -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label for="searchContribution" class="form-label">
+                            <i class="fas fa-search me-1"></i>Search
+                        </label>
+                        <input type="text" id="searchContribution" class="form-control" placeholder="Search by title or description...">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterCategory" class="form-label">
+                            <i class="fas fa-filter me-1"></i>Category
+                        </label>
+                        <select id="filterCategory" class="form-select">
+                            <option value="">All Categories</option>
+                            <option value="tuition">Tuition Fee</option>
+                            <option value="library">Library Fee</option>
+                            <option value="laboratory">Laboratory Fee</option>
+                            <option value="registration">Registration Fee</option>
+                            <option value="development">Development Fee</option>
+                            <option value="medical">Medical Fee</option>
+                            <option value="guidance">Guidance Fee</option>
+                            <option value="athletic">Athletic Fee</option>
+                            <option value="computer">Computer Fee</option>
+                            <option value="damage">Damage Fee</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterStatus" class="form-label">
+                            <i class="fas fa-toggle-on me-1"></i>Status
+                        </label>
+                        <select id="filterStatus" class="form-select">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
+                            <i class="fas fa-times me-1"></i>Clear Filters
+                        </button>
+                        <span class="ms-2 text-muted" id="resultsCount"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Active Contributions Section -->
 <?= view('partials/container-card', [
@@ -172,6 +227,34 @@ function deleteContribution(contributionId) {
     }
 }
 
+// Toggle Status Function
+function toggleContributionStatus(contributionId, currentStatus) {
+    fetch(`<?= base_url('contributions/toggle-status/') ?>${contributionId}`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show notification
+            showNotification(`Contribution status changed to ${data.newStatus}`, 'success');
+            // Reload the page to show updated list with proper sorting
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            alert('Error updating contribution status: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while updating the contribution status.');
+    });
+}
+
 // Reset form when modal is closed
 document.addEventListener('DOMContentLoaded', function() {
     const contributionModal = document.getElementById('contributionModal');
@@ -193,55 +276,84 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('contributionId').value = '';
         });
     }
+    // Form submission is handled by contribution.js
     
-    // Handle form submission
-    const contributionForm = document.getElementById('contributionForm');
-    if (contributionForm) {
-        contributionForm.addEventListener('submit', function(e) {
-            e.preventDefault();
+    // Search and Filter Functionality
+    const searchInput = document.getElementById('searchContribution');
+    const categoryFilter = document.getElementById('filterCategory');
+    const statusFilter = document.getElementById('filterStatus');
+    const resultsCount = document.getElementById('resultsCount');
+    
+    function filterContributions() {
+        const searchTerm = searchInput.value.toLowerCase().trim();
+        const selectedCategory = categoryFilter.value;
+        const selectedStatus = statusFilter.value;
+        
+        const items = document.querySelectorAll('.contribution-item');
+        let visibleCount = 0;
+        
+        items.forEach(item => {
+            const title = item.getAttribute('data-title') || '';
+            const category = item.getAttribute('data-category') || '';
+            const status = item.getAttribute('data-status') || '';
             
-            const formData = new FormData(this);
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
+            // Check if item matches search term
+            const matchesSearch = searchTerm === '' || title.includes(searchTerm);
             
-            // Show loading state
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            submitBtn.disabled = true;
+            // Check if item matches category filter
+            const matchesCategory = selectedCategory === '' || category === selectedCategory;
             
-            fetch(this.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message || 'Contribution saved successfully!');
-                    // Close modal
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('contributionModal'));
-                    if (modal) {
-                        modal.hide();
-                    }
-                    // Reload page to show updated list
-                    window.location.reload();
-                } else {
-                    alert(data.message || 'An error occurred while saving the contribution.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An unexpected error occurred.');
-            })
-            .finally(() => {
-                // Restore button state
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
-            });
+            // Check if item matches status filter
+            const matchesStatus = selectedStatus === '' || status === selectedStatus;
+            
+            // Show or hide item based on all filters
+            if (matchesSearch && matchesCategory && matchesStatus) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
         });
+        
+        // Update results count
+        const totalCount = items.length;
+        resultsCount.textContent = `Showing ${visibleCount} of ${totalCount} contributions`;
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', filterContributions);
+    }
+    
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', filterContributions);
+    }
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterContributions);
+    }
+    
+    // Initialize results count
+    if (resultsCount) {
+        const items = document.querySelectorAll('.contribution-item');
+        resultsCount.textContent = `Showing ${items.length} of ${items.length} contributions`;
     }
 });
+
+// Clear filters function
+function clearFilters() {
+    document.getElementById('searchContribution').value = '';
+    document.getElementById('filterCategory').value = '';
+    document.getElementById('filterStatus').value = '';
+    
+    // Show all items
+    document.querySelectorAll('.contribution-item').forEach(item => {
+        item.style.display = '';
+    });
+    
+    // Update results count
+    const items = document.querySelectorAll('.contribution-item');
+    document.getElementById('resultsCount').textContent = `Showing ${items.length} of ${items.length} contributions`;
+}
 </script>
 
 <?= $this->endSection() ?>

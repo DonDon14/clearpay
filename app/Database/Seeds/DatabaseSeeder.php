@@ -8,7 +8,10 @@ class DatabaseSeeder extends Seeder
 {
     public function run()
     {
+        // IMPORTANT: UserSeeder MUST be called first as other seeders depend on it
+        $this->call(UserSeeder::class);
         $this->call(ContributionSeeder::class);
-        $this->call(PaymentSeeder::class);
+        // PaymentSeeder disabled - it needs to be updated for the new table structure
+        // $this->call(PaymentSeeder::class);
     }
 }

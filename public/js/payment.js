@@ -46,38 +46,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Reset form
                     paymentForm.reset();
                     
-                    // Show QR receipt if payment ID is provided
-                    if (data.payment_id) {
-                        // Fetch payment data and show QR receipt
+                    // Show QR receipt if payment data is provided
+                    if (data.payment) {
+                        // Wait for payment modal to close, then show QR receipt
+                        setTimeout(() => {
+                            if (typeof showQRReceipt === 'function') {
+                                showQRReceipt(data.payment);
+                            } else {
+                                // Reload page if QR receipt function not available
+                                window.location.reload();
+                            }
+                        }, 800);
+                    } else if (data.payment_id) {
+                        // Fallback: Fetch payment data if not in response
                         const baseUrl = window.APP_BASE_URL || '';
                         fetch(`${baseUrl}/payments/recent`)
                             .then(response => response.json())
                             .then(recentData => {
                                 if (recentData.success) {
-                                    // Find the payment that was just created
                                     const payment = recentData.payments.find(p => p.id == data.payment_id);
                                     if (payment && typeof showQRReceipt === 'function') {
-                                        // Wait for payment modal to close, then show QR receipt
                                         setTimeout(() => {
                                             showQRReceipt(payment);
                                         }, 800);
                                     } else {
-                                        // Reload page if QR receipt function not available
-                                        setTimeout(() => {
-                                            window.location.reload();
-                                        }, 1500);
+                                        window.location.reload();
                                     }
                                 } else {
-                                    setTimeout(() => {
-                                        window.location.reload();
-                                    }, 1500);
+                                    window.location.reload();
                                 }
                             })
                             .catch(error => {
                                 console.error('Error fetching payment data:', error);
-                                setTimeout(() => {
-                                    window.location.reload();
-                                }, 1500);
+                                window.location.reload();
                             });
                     } else {
                         // Reload page to show updated data

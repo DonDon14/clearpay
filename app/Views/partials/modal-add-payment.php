@@ -12,25 +12,53 @@
         <div class="modal-body">
           <input type="hidden" name="id" id="paymentId" value="<?= isset($payment['id']) ? $payment['id'] : '' ?>">
           <input type="hidden" name="parent_payment_id" id="parentPaymentId" value="<?= isset($payment['parent_payment_id']) ? $payment['parent_payment_id'] : '' ?>">
+          <input type="hidden" id="existingPayerId" name="existing_payer_id" value="">
 
+          <!-- Payer Selection: Existing or New -->
           <div class="mb-3">
-            <label for="payerName" class="form-label">Payer Name</label>
-            <input type="text" class="form-control" id="payerName" name="payer_name" value="<?= isset($payment['payer_name']) ? $payment['payer_name'] : '' ?>" required>
-          </div>
-
-          <div class="mb-3">
-            <label for="payerId" class="form-label">Payer ID</label>
-            <input type="text" class="form-control" id="payerId" name="payer_id" value="<?= isset($payment['payer_id']) ? $payment['payer_id'] : '' ?>" required>
-          </div>
-
-          <div class="mb-3 row">
-            <div class="col-md-6">
-              <label for="contactNumber" class="form-label">Contact Number</label>
-              <input type="text" class="form-control" id="contactNumber" name="contact_number" value="<?= isset($payment['contact_number']) ? $payment['contact_number'] : '' ?>">
+            <label class="form-label">Select Payer</label>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="payerType" id="existingPayer" value="existing" checked>
+              <label class="form-check-label" for="existingPayer">
+                Existing Payer
+              </label>
             </div>
-            <div class="col-md-6">
-              <label for="emailAddress" class="form-label">Email Address</label>
-              <input type="email" class="form-control" id="emailAddress" name="email_address" value="<?= isset($payment['email_address']) ? $payment['email_address'] : '' ?>">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="payerType" id="newPayer" value="new">
+              <label class="form-check-label" for="newPayer">
+                New Payer
+              </label>
+            </div>
+          </div>
+
+          <!-- Existing Payer Selection -->
+          <div class="mb-3" id="existingPayerFields">
+            <label for="payerSelect" class="form-label">Search Payer</label>
+            <input type="text" class="form-control" id="payerSelect" placeholder="Type to search payers..." autocomplete="off">
+            <div id="payerDropdown" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto; display: none;"></div>
+          </div>
+
+          <!-- New Payer Fields (Initially Hidden) -->
+          <div id="newPayerFields" style="display: none;">
+            <div class="mb-3">
+              <label for="payerName" class="form-label">Payer Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="payerName" name="payer_name" value="<?= isset($payment['payer_name']) ? $payment['payer_name'] : '' ?>">
+            </div>
+
+            <div class="mb-3">
+              <label for="payerId" class="form-label">Payer ID <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="payerId" name="payer_id" value="<?= isset($payment['payer_id']) ? $payment['payer_id'] : '' ?>">
+            </div>
+
+            <div class="mb-3 row">
+              <div class="col-md-6">
+                <label for="contactNumber" class="form-label">Contact Number</label>
+                <input type="text" class="form-control" id="contactNumber" name="contact_number" value="<?= isset($payment['contact_number']) ? $payment['contact_number'] : '' ?>">
+              </div>
+              <div class="col-md-6">
+                <label for="emailAddress" class="form-label">Email Address</label>
+                <input type="email" class="form-control" id="emailAddress" name="email_address" value="<?= isset($payment['email_address']) ? $payment['email_address'] : '' ?>">
+              </div>
             </div>
           </div>
 
@@ -229,11 +257,94 @@ function updatePaymentStatus() {
   }
 }
 
-// Add event listeners
+// Payer Type Toggle Functionality
 document.addEventListener("DOMContentLoaded", function() {
   const amountPaidEl = document.getElementById('amountPaid');
   const contributionSelect = document.getElementById('contributionId');
-  
+  const existingPayerRadio = document.getElementById('existingPayer');
+  const newPayerRadio = document.getElementById('newPayer');
+  const existingPayerFields = document.getElementById('existingPayerFields');
+  const newPayerFields = document.getElementById('newPayerFields');
+  const payerSelectInput = document.getElementById('payerSelect');
+  const payerDropdown = document.getElementById('payerDropdown');
+
+  // Toggle between existing and new payer
+  if (existingPayerRadio && newPayerRadio) {
+    existingPayerRadio.addEventListener('change', function() {
+      if (this.checked) {
+        existingPayerFields.style.display = 'block';
+        newPayerFields.style.display = 'none';
+        payerSelectInput.required = false;
+        document.getElementById('payerName').required = false;
+        document.getElementById('payerId').required = false;
+      }
+    });
+
+    newPayerRadio.addEventListener('change', function() {
+      if (this.checked) {
+        existingPayerFields.style.display = 'none';
+        newPayerFields.style.display = 'block';
+        payerSelectInput.required = false;
+        document.getElementById('payerName').required = true;
+        document.getElementById('payerId').required = true;
+      }
+    });
+  }
+
+  // Payer Search Functionality
+  let searchTimeout;
+  if (payerSelectInput) {
+    payerSelectInput.addEventListener('input', function() {
+      const searchTerm = this.value.trim();
+      
+      clearTimeout(searchTimeout);
+      
+      if (searchTerm.length < 2) {
+        payerDropdown.style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(function() {
+        // Fetch payers from database
+        fetch(`${window.APP_BASE_URL || ''}/payments/search-payers?term=${encodeURIComponent(searchTerm)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success && data.payers && data.payers.length > 0) {
+              payerDropdown.innerHTML = '';
+              data.payers.forEach(payer => {
+                const item = document.createElement('a');
+                item.className = 'list-group-item list-group-item-action';
+                item.href = '#';
+                item.innerHTML = `<strong>${payer.payer_name}</strong> (ID: ${payer.payer_id})<br><small class="text-muted">${payer.contact_number || 'N/A'} | ${payer.email_address || 'N/A'}</small>`;
+                item.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  payerSelectInput.value = `${payer.payer_name} (${payer.payer_id})`;
+                  document.getElementById('existingPayerId').value = payer.payer_id;
+                  payerDropdown.style.display = 'none';
+                });
+                payerDropdown.appendChild(item);
+              });
+              payerDropdown.style.display = 'block';
+            } else {
+              payerDropdown.innerHTML = '<div class="list-group-item text-muted">No payers found</div>';
+              payerDropdown.style.display = 'block';
+            }
+          })
+          .catch(error => {
+            console.error('Error searching payers:', error);
+          });
+      }, 300);
+    });
+
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!payerSelectInput.contains(e.target) && !payerDropdown.contains(e.target)) {
+        payerDropdown.style.display = 'none';
+      }
+    });
+  }
+
+  // Amount paid and contribution event listeners
   if (amountPaidEl) {
     amountPaidEl.addEventListener('input', updatePaymentStatus);
   }

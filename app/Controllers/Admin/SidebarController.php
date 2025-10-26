@@ -23,9 +23,10 @@ class SidebarController extends BaseController
 
         // Fetch ALL payments (not just recent 10) like dashboard
         $paymentModel = new PaymentModel();
-        $recentPayments = $paymentModel->select('payers.*, contributions.title as contribution_title')
-            ->join('contributions', 'payers.contribution_id = contributions.id', 'left')
-            ->orderBy('payment_date', 'DESC')
+        $recentPayments = $paymentModel->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->orderBy('payments.payment_date', 'DESC')
             ->findAll();
 
         // Example: pass session data to the view
@@ -49,7 +50,30 @@ class SidebarController extends BaseController
 
         // Fetch contributions from database
         $contributionModel = new ContributionModel();
-        $contributions = $contributionModel->findAll();
+        $allContributions = $contributionModel->findAll();
+
+        // Calculate counts
+        $activeCount = 0;
+        $inactiveCount = 0;
+        $totalCount = count($allContributions);
+
+        foreach ($allContributions as $contrib) {
+            if ($contrib['status'] === 'active') {
+                $activeCount++;
+            } else {
+                $inactiveCount++;
+            }
+        }
+
+        // Sort contributions: active first, then by date
+        usort($allContributions, function($a, $b) {
+            // First sort by status (active first)
+            if ($a['status'] === $b['status']) {
+                // If same status, sort by created_at (most recent first)
+                return strtotime($b['created_at']) - strtotime($a['created_at']);
+            }
+            return $a['status'] === 'active' ? -1 : 1;
+        });
 
         // Example: pass session data to the view
         $data = [
@@ -57,7 +81,10 @@ class SidebarController extends BaseController
             'pageTitle' => 'Contributions',
             'pageSubtitle' => 'Manage contributions and donations',
             'username' => session()->get('username'),
-            'contributions' => $contributions,
+            'contributions' => $allContributions,
+            'activeCount' => $activeCount,
+            'inactiveCount' => $inactiveCount,
+            'totalCount' => $totalCount,
         ];
 
         return view('admin/contributions', $data);

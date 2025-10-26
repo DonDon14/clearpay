@@ -31,12 +31,14 @@ $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'aut
 $routes->get('dashboard/recentPayments', 'Admin\DashboardController::recentPayments', ['filter' => 'auth']);
 $routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
 $routes->get('/payments/recent', 'Admin\PaymentsController::recent', ['filter' => 'auth']);
+$routes->get('/payments/search-payers', 'Admin\PaymentsController::searchPayers', ['filter' => 'auth']);
 
 // Contributions Management Routes
 $routes->post('/contributions/save', 'Admin\ContributionsController::save', ['filter' => 'auth']);
 $routes->get('/contributions/get/(:num)', 'Admin\ContributionsController::get/$1', ['filter' => 'auth']);
 $routes->post('/contributions/update/(:num)', 'Admin\ContributionsController::update/$1', ['filter' => 'auth']);
 $routes->delete('/contributions/delete/(:num)', 'Admin\ContributionsController::delete/$1', ['filter' => 'auth']);
+$routes->post('/contributions/toggle-status/(:num)', 'Admin\ContributionsController::toggleStatus/$1', ['filter' => 'auth']);
 
 // QR Receipt Routes
 $routes->post('/qr-receipt/generate/(:num)', 'Admin\QRReceiptController::generate/$1', ['filter' => 'auth']);

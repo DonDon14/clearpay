@@ -67,16 +67,24 @@ class PaymentsController extends BaseController
     public function save()
     {
         try {
-            // Validation rules
+            // Determine if this is a new or existing payer
+            $existingPayerId = $this->request->getPost('existing_payer_id');
+            $isExistingPayer = !empty($existingPayerId);
+            
+            // Validation rules - conditional based on payer type
             $rules = [
-                'payer_name' => 'required|min_length[3]|max_length[255]',
-                'payer_id' => 'required|min_length[3]|max_length[50]',
                 'contribution_id' => 'required|integer',
                 'amount_paid' => 'required|decimal',
                 'payment_method' => 'required|in_list[cash,online,check,bank]',
                 'is_partial_payment' => 'required|in_list[0,1]',
                 'payment_date' => 'required'
             ];
+
+            // Only require payer name/ID if it's a new payer
+            if (!$isExistingPayer) {
+                $rules['payer_name'] = 'required|min_length[3]|max_length[255]';
+                $rules['payer_id'] = 'required|min_length[3]|max_length[50]';
+            }
 
             if (!$this->validate($rules)) {
                 return $this->response->setJSON([
@@ -87,6 +95,45 @@ class PaymentsController extends BaseController
             }
 
             $paymentModel = new PaymentModel();
+            $payerModel = new \App\Models\PayerModel();
+            
+            // For existing payers, fetch their details from the database
+            if ($isExistingPayer) {
+                $existingPayer = $payerModel->where('payer_id', $existingPayerId)->first();
+                
+                if (!$existingPayer) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Payer not found'
+                    ]);
+                }
+                $payerDbId = $existingPayer['id']; // Get the database ID
+            } else {
+                // Check if payer with this ID already exists
+                $payerId = $this->request->getPost('payer_id');
+                $existingPayer = $payerModel->where('payer_id', $payerId)->first();
+                
+                if ($existingPayer) {
+                    // Use existing payer
+                    $payerDbId = $existingPayer['id'];
+                } else {
+                    // Create new payer in payers table
+                    $payerData = [
+                        'payer_id' => $payerId,
+                        'payer_name' => $this->request->getPost('payer_name'),
+                        'contact_number' => $this->request->getPost('contact_number'),
+                        'email_address' => $this->request->getPost('email_address'),
+                    ];
+                    $payerDbId = $payerModel->insert($payerData);
+                    
+                    if (!$payerDbId) {
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Failed to create payer record'
+                        ]);
+                    }
+                }
+            }
 
             // Determine payment status
             $isPartial = $this->request->getPost('is_partial_payment') == '1';
@@ -97,13 +144,10 @@ class PaymentsController extends BaseController
             $referenceNumber = 'REF-' . date('Ymd') . '-' . strtoupper(uniqid());
             $receiptNumber = 'RCPT-' . date('Ymd') . '-' . str_pad(uniqid(), 8, '0', STR_PAD_LEFT);
 
-            // Gather POST data
+            // Gather POST data for payment record (payer info is now in separate payers table)
             $data = [
+                'payer_id' => $payerDbId, // This is the FK to payers.id
                 'contribution_id' => $this->request->getPost('contribution_id'),
-                'payer_id' => $this->request->getPost('payer_id'),
-                'payer_name' => $this->request->getPost('payer_name'),
-                'contact_number' => $this->request->getPost('contact_number'),
-                'email_address' => $this->request->getPost('email_address'),
                 'amount_paid' => $this->request->getPost('amount_paid'),
                 'payment_method' => $this->request->getPost('payment_method'),
                 'payment_status' => $paymentStatus,
@@ -113,7 +157,7 @@ class PaymentsController extends BaseController
                 'payment_sequence' => 1, // Default to 1, can be enhanced later
                 'reference_number' => $referenceNumber,
                 'receipt_number' => $receiptNumber,
-                'recorded_by' => session()->get('user_id') ?: 1,
+                'recorded_by' => session()->get('user-id') ?: session()->get('user_id') ?: null,
                 'payment_date' => $this->request->getPost('payment_date'),
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s')
@@ -158,11 +202,31 @@ class PaymentsController extends BaseController
                 // }
                 
                 session()->setFlashdata('success', $message);
+                
+                // Return the full payment data so frontend can show QR receipt
+                $paymentData = $paymentModel->select('
+                    payments.id,
+                    payments.receipt_number,
+                    payments.payment_date,
+                    payments.amount_paid,
+                    payments.payment_method,
+                    payments.payment_status,
+                    payers.payer_id,
+                    payers.payer_name,
+                    payers.contact_number,
+                    payers.email_address,
+                    contributions.title as contribution_title
+                ')
+                ->join('payers', 'payers.id = payments.payer_id', 'left')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->find($paymentId);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => $message,
                     'reference_number' => $referenceNumber,
-                    'payment_id' => $paymentId
+                    'payment_id' => $paymentId,
+                    'payment' => $paymentData
                 ]);
             } else {
                 return $this->response->setJSON([
@@ -187,27 +251,73 @@ class PaymentsController extends BaseController
         try {
             $paymentModel = new PaymentModel();
             $payments = $paymentModel->select('
-                payers.id,
+                payments.id,
+                payments.receipt_number,
+                payments.payment_date,
+                payments.amount_paid,
+                payments.payment_method,
+                payments.payment_status,
+                payments.payment_date,
                 payers.payer_id,
                 payers.payer_name,
                 payers.contact_number,
                 payers.email_address,
-                payers.amount_paid,
-                payers.payment_method,
-                payers.payment_status,
-                payers.payment_date,
-                payers.receipt_number,
-                payers.qr_receipt_path,
                 contributions.title as contribution_title
             ')
-            ->join('contributions', 'contributions.id = payers.contribution_id', 'left')
-            ->orderBy('payers.payment_date', 'DESC')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->orderBy('payments.payment_date', 'DESC')
             ->limit(20)
             ->findAll();
 
             return $this->response->setJSON([
                 'success' => true,
                 'payments' => $payments
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Search for existing payers
+     */
+    public function searchPayers()
+    {
+        try {
+            $term = $this->request->getGet('term');
+            
+            if (empty($term) || strlen($term) < 2) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'payers' => []
+                ]);
+            }
+
+            $payerModel = new \App\Models\PayerModel();
+            
+            // Search payers in the payers table
+            $payers = $payerModel->select('
+                payer_id,
+                payer_name,
+                contact_number,
+                email_address
+            ')
+            ->groupStart()
+                ->like('payer_name', $term)
+                ->orLike('payer_id', $term)
+            ->groupEnd()
+            ->orderBy('payer_name', 'ASC')
+            ->limit(10)
+            ->findAll();
+
+            return $this->response->setJSON([
+                'success' => true,
+                'payers' => $payers
             ]);
 
         } catch (\Exception $e) {
