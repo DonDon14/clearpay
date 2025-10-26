@@ -1,28 +1,28 @@
 <div class="row g-4">
-    <!-- Recent Payments -->
+    <!-- Top Payers -->
     <div class="col-lg-6">
-        <h6 class="mb-3 fw-semibold">Recent Payments</h6>
+        <h6 class="mb-3 fw-semibold">Top Payers</h6>
         <div class="activity-list">
-            <?php if (!empty($payments['recent_payments'])): ?>
-                <?php foreach (array_slice($payments['recent_payments'], 0, 5) as $payment): ?>
+            <?php if (!empty($payments['top_payers'])): ?>
+                <?php foreach (array_slice($payments['top_payers'], 0, 5) as $index => $payer): ?>
                     <div class="activity-item d-flex align-items-center gap-3 p-3 mb-2 bg-light rounded">
                         <div class="activity-icon">
-                            <i class="fas fa-money-bill-wave text-success"></i>
+                            <span class="badge bg-success rounded-pill"><?= $index + 1 ?></span>
                         </div>
                         <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-semibold"><?= esc($payment['student_name']) ?></h6>
-                            <p class="mb-0 small text-muted"><?= esc($payment['contribution_title']) ?></p>
+                            <h6 class="mb-1 fw-semibold"><?= esc($payer['payer_name']) ?></h6>
+                            <p class="mb-0 small text-muted">ID: <?= esc($payer['payer_id_number']) ?></p>
                         </div>
                         <div class="activity-meta text-end">
-                            <div class="fw-semibold text-success">₱<?= number_format($payment['amount'], 2) ?></div>
-                            <small class="text-muted"><?= date('M j', strtotime($payment['created_at'])) ?></small>
+                            <div class="fw-semibold text-success">₱<?= number_format($payer['total_paid'], 2) ?></div>
+                            <small class="text-muted"><?= $payer['total_transactions'] ?> transactions</small>
                         </div>
                     </div>
                 <?php endforeach; ?>
             <?php else: ?>
                 <div class="text-center py-4 text-muted">
-                    <i class="fas fa-inbox fs-1 mb-3"></i>
-                    <p>No recent payments found</p>
+                    <i class="fas fa-users fs-1 mb-3"></i>
+                    <p>No payer data available</p>
                 </div>
             <?php endif; ?>
         </div>

@@ -194,10 +194,23 @@ class Analytics extends BaseController
                             ->getRow()
                             ->amount_paid ?? 0;
 
+        // Top payers (by total amount paid)
+        $topPayers = $db->table('payments p')
+                       ->join('payers py', 'p.payer_id = py.id', 'left')
+                       ->select('py.payer_name, py.payer_id as payer_id_number, COUNT(p.id) as total_transactions, SUM(p.amount_paid) as total_paid')
+                       ->whereIn('p.payment_status', ['fully paid', 'partial'])
+                       ->where('p.deleted_at IS NULL')
+                       ->groupBy('p.payer_id')
+                       ->orderBy('total_paid', 'DESC')
+                       ->limit(10)
+                       ->get()
+                       ->getResultArray();
+
         return [
             'by_status' => $statusStats,
             'by_method' => $methodStats,
             'recent_payments' => $recentPayments,
+            'top_payers' => $topPayers,
             'avg_transaction' => round($avgTransaction, 2)
         ];
     }
@@ -312,18 +325,18 @@ class Analytics extends BaseController
     }
 
     /**
-     * Export to PDF
+     * Export to PDF (HTML format for browser print/PDF)
      */
     private function exportPDF($data)
     {
-        // Simple HTML to PDF export
-        $filename = 'ClearPay_Analytics_Report_' . date('Y-m-d_H-i-s') . '.pdf';
+        // Generate HTML report that can be printed to PDF from browser
+        $html = $this->generatePDFHTML($data);
         
-        // For now, return a simple response indicating PDF export
+        // Return HTML that browsers can print to PDF
         return $this->response
-            ->setHeader('Content-Type', 'application/pdf')
-            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
-            ->setBody('PDF Export functionality - To be implemented with TCPDF or similar library');
+            ->setHeader('Content-Type', 'text/html; charset=utf-8')
+            ->setHeader('Content-Disposition', 'inline; filename="ClearPay_Analytics_Report_' . date('Y-m-d_H-i-s') . '.html"')
+            ->setBody($html);
     }
 
     /**
@@ -331,82 +344,416 @@ class Analytics extends BaseController
      */
     private function exportCSV($data)
     {
-        $filename = 'analytics_report_' . date('Y-m-d_H-i-s') . '.csv';
+        $filename = 'ClearPay_Analytics_Report_' . date('Y-m-d_H-i-s') . '.csv';
         
         // Set headers for CSV download
-        $this->response->setHeader('Content-Type', 'text/csv');
+        $this->response->setHeader('Content-Type', 'text/csv; charset=utf-8');
         $this->response->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"');
         
         // Start output buffering
         ob_start();
         $output = fopen('php://output', 'w');
         
+        // Add UTF-8 BOM for Excel compatibility
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Report Header
+        fputcsv($output, ['ClearPay Analytics Report']);
+        fputcsv($output, ['Generated:', $data['generated_at']]);
+        fputcsv($output, []);
+        
         // Overview Statistics
         fputcsv($output, ['OVERVIEW STATISTICS']);
         fputcsv($output, ['Metric', 'Value']);
         fputcsv($output, ['Total Revenue', '₱' . number_format($data['overview']['total_revenue'], 2)]);
         fputcsv($output, ['Total Profit', '₱' . number_format($data['overview']['total_profit'], 2)]);
+        fputcsv($output, ['Average Profit Margin', number_format($data['overview']['avg_profit_margin'], 1) . '%']);
         fputcsv($output, ['Active Contributors', $data['overview']['active_contributors']]);
+        fputcsv($output, ['Total Contributions', $data['overview']['total_contributions']]);
         fputcsv($output, ['Monthly Revenue', '₱' . number_format($data['overview']['monthly_revenue'], 2)]);
+        fputcsv($output, ['Monthly Growth', $data['overview']['monthly_growth'] . '%']);
         fputcsv($output, []);
         
-        // Recent Payments
-        if (!empty($data['payments']['recent_payments'])) {
-            fputcsv($output, ['RECENT PAYMENTS']);
-            fputcsv($output, ['Date', 'Student Name', 'Contribution', 'Amount', 'Payment Method']);
-            foreach ($data['payments']['recent_payments'] as $payment) {
+        // Top Payers
+        if (!empty($data['payments']['top_payers'])) {
+            fputcsv($output, ['TOP PAYERS (Top 10)']);
+            fputcsv($output, ['Rank', 'Name', 'ID', 'Total Paid', 'Transactions']);
+            foreach ($data['payments']['top_payers'] as $index => $payer) {
                 fputcsv($output, [
-                    date('Y-m-d H:i:s', strtotime($payment['created_at'])),
-                    $payment['student_name'],
-                    $payment['contribution_title'],
-                    '₱' . number_format($payment['amount'], 2),
-                    ucfirst($payment['payment_method'])
+                    $index + 1,
+                    $payer['payer_name'],
+                    $payer['payer_id_number'],
+                    '₱' . number_format($payer['total_paid'], 2),
+                    $payer['total_transactions']
+                ]);
+            }
+            fputcsv($output, []);
+        }
+        
+        // Top Contributions
+        if (!empty($data['contributions']['top_profitable'])) {
+            fputcsv($output, ['TOP CONTRIBUTIONS (By Profit)']);
+            fputcsv($output, ['Rank', 'Title', 'Category', 'Profit', 'Margin']);
+            foreach ($data['contributions']['top_profitable'] as $index => $contribution) {
+                fputcsv($output, [
+                    $index + 1,
+                    $contribution['title'],
+                    $contribution['category'] ?? 'General',
+                    '₱' . number_format($contribution['profit_amount'], 2),
+                    number_format($contribution['profit_margin'], 1) . '%'
+                ]);
+            }
+            fputcsv($output, []);
+        }
+        
+        // Payment Methods
+        if (!empty($data['payments']['by_method'])) {
+            fputcsv($output, ['PAYMENT METHODS']);
+            fputcsv($output, ['Method', 'Count', 'Total Amount']);
+            foreach ($data['payments']['by_method'] as $method) {
+                fputcsv($output, [
+                    ucfirst($method['payment_method']),
+                    $method['count'],
+                    '₱' . number_format($method['total_amount'], 2)
+                ]);
+            }
+            fputcsv($output, []);
+        }
+        
+        // Payment Status
+        if (!empty($data['payments']['by_status'])) {
+            fputcsv($output, ['PAYMENT STATUS']);
+            fputcsv($output, ['Status', 'Count', 'Total Amount']);
+            foreach ($data['payments']['by_status'] as $status) {
+                fputcsv($output, [
+                    ucwords(str_replace('_', ' ', $status['status'])),
+                    $status['count'],
+                    '₱' . number_format($status['total_amount'], 2)
                 ]);
             }
         }
-        
-        fputcsv($output, []);
-        fputcsv($output, ['Report Generated:', $data['generated_at']]);
         
         fclose($output);
         $csvContent = ob_get_clean();
         
         return $this->response
-            ->setHeader('Content-Type', 'text/csv')
+            ->setHeader('Content-Type', 'text/csv; charset=utf-8')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setBody($csvContent);
     }
 
     /**
-     * Export to Excel
+     * Export to Excel (tab-separated CSV with .xls extension)
      */
     private function exportExcel($data)
     {
-        // For now, create an Excel-compatible CSV
-        $filename = 'analytics_report_' . date('Y-m-d_H-i-s') . '.xls';
+        // Use CSV format with .xls extension (Excel will open it without warning if properly formatted)
+        $filename = 'ClearPay_Analytics_Report_' . date('Y-m-d_H-i-s') . '.xls';
         
-        $this->response->setHeader('Content-Type', 'application/vnd.ms-excel');
+        // Use text/csv content type - Excel will handle it better
+        $this->response->setHeader('Content-Type', 'text/csv; charset=utf-8');
         $this->response->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"');
         
         ob_start();
         $output = fopen('php://output', 'w');
         
-        fputcsv($output, ['ClearPay Analytics Report']);
-        fputcsv($output, ['Generated:', $data['generated_at']]);
-        fputcsv($output, []);
+        // Add UTF-8 BOM for Excel compatibility
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
         
-        // Add summary data
-        fputcsv($output, ['SUMMARY']);
-        fputcsv($output, ['Total Revenue', '₱' . number_format($data['overview']['total_revenue'], 2)]);
-        fputcsv($output, ['Total Profit', '₱' . number_format($data['overview']['total_profit'], 2)]);
-        fputcsv($output, ['Active Contributors', $data['overview']['active_contributors']]);
+        // Report Header
+        fputcsv($output, ['ClearPay Analytics Report'], "\t");
+        fputcsv($output, ['Generated:', $data['generated_at']], "\t");
+        fputcsv($output, [], "\t");
+        
+        // Overview Statistics
+        fputcsv($output, ['OVERVIEW STATISTICS'], "\t");
+        fputcsv($output, ['Metric', 'Value'], "\t");
+        fputcsv($output, ['Total Revenue', '₱' . number_format($data['overview']['total_revenue'], 2)], "\t");
+        fputcsv($output, ['Total Profit', '₱' . number_format($data['overview']['total_profit'], 2)], "\t");
+        fputcsv($output, ['Average Profit Margin', number_format($data['overview']['avg_profit_margin'], 1) . '%'], "\t");
+        fputcsv($output, ['Active Contributors', $data['overview']['active_contributors']], "\t");
+        fputcsv($output, ['Total Contributions', $data['overview']['total_contributions']], "\t");
+        fputcsv($output, ['Monthly Revenue', '₱' . number_format($data['overview']['monthly_revenue'], 2)], "\t");
+        fputcsv($output, ['Monthly Growth', $data['overview']['monthly_growth'] . '%'], "\t");
+        fputcsv($output, [], "\t");
+        
+        // Top Payers
+        if (!empty($data['payments']['top_payers'])) {
+            fputcsv($output, ['TOP PAYERS (Top 10)'], "\t");
+            fputcsv($output, ['Rank', 'Name', 'ID', 'Total Paid', 'Transactions'], "\t");
+            foreach ($data['payments']['top_payers'] as $index => $payer) {
+                fputcsv($output, [
+                    $index + 1,
+                    $payer['payer_name'],
+                    $payer['payer_id_number'],
+                    '₱' . number_format($payer['total_paid'], 2),
+                    $payer['total_transactions']
+                ], "\t");
+            }
+            fputcsv($output, [], "\t");
+        }
+        
+        // Top Contributions
+        if (!empty($data['contributions']['top_profitable'])) {
+            fputcsv($output, ['TOP CONTRIBUTIONS (By Profit)'], "\t");
+            fputcsv($output, ['Rank', 'Title', 'Category', 'Profit', 'Margin'], "\t");
+            foreach ($data['contributions']['top_profitable'] as $index => $contribution) {
+                fputcsv($output, [
+                    $index + 1,
+                    $contribution['title'],
+                    $contribution['category'] ?? 'General',
+                    '₱' . number_format($contribution['profit_amount'], 2),
+                    number_format($contribution['profit_margin'], 1) . '%'
+                ], "\t");
+            }
+            fputcsv($output, [], "\t");
+        }
+        
+        // Payment Methods
+        if (!empty($data['payments']['by_method'])) {
+            fputcsv($output, ['PAYMENT METHODS'], "\t");
+            fputcsv($output, ['Method', 'Count', 'Total Amount'], "\t");
+            foreach ($data['payments']['by_method'] as $method) {
+                fputcsv($output, [
+                    ucfirst($method['payment_method']),
+                    $method['count'],
+                    '₱' . number_format($method['total_amount'], 2)
+                ], "\t");
+            }
+            fputcsv($output, [], "\t");
+        }
+        
+        // Payment Status
+        if (!empty($data['payments']['by_status'])) {
+            fputcsv($output, ['PAYMENT STATUS'], "\t");
+            fputcsv($output, ['Status', 'Count', 'Total Amount'], "\t");
+            foreach ($data['payments']['by_status'] as $status) {
+                fputcsv($output, [
+                    ucwords(str_replace('_', ' ', $status['status'])),
+                    $status['count'],
+                    '₱' . number_format($status['total_amount'], 2)
+                ], "\t");
+            }
+        }
         
         fclose($output);
         $content = ob_get_clean();
         
         return $this->response
-            ->setHeader('Content-Type', 'application/vnd.ms-excel')
+            ->setHeader('Content-Type', 'text/csv; charset=utf-8')
             ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
             ->setBody($content);
+    }
+    
+    /**
+     * Generate HTML for PDF
+     */
+    private function generatePDFHTML($data)
+    {
+        ob_start();
+        ?>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>ClearPay Analytics Report</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: 'Arial', sans-serif;
+                    padding: 20px;
+                    color: #333;
+                    line-height: 1.6;
+                }
+                .header {
+                    text-align: center;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 3px solid #3b82f6;
+                }
+                .header h1 {
+                    color: #3b82f6;
+                    font-size: 28px;
+                    margin-bottom: 5px;
+                }
+                .header p {
+                    color: #666;
+                    font-size: 14px;
+                }
+                .section {
+                    margin-bottom: 30px;
+                }
+                .section-title {
+                    background-color: #f8f9fa;
+                    padding: 10px 15px;
+                    border-left: 4px solid #3b82f6;
+                    margin-bottom: 15px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: #333;
+                }
+                .stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 15px;
+                    margin-bottom: 20px;
+                }
+                .stat-card {
+                    background-color: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 5px;
+                    border-left: 4px solid #3b82f6;
+                }
+                .stat-label {
+                    font-size: 12px;
+                    color: #666;
+                    text-transform: uppercase;
+                    margin-bottom: 5px;
+                }
+                .stat-value {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #333;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                }
+                table th {
+                    background-color: #3b82f6;
+                    color: white;
+                    padding: 12px;
+                    text-align: left;
+                    font-weight: bold;
+                }
+                table td {
+                    padding: 10px 12px;
+                    border-bottom: 1px solid #ddd;
+                }
+                table tr:nth-child(even) {
+                    background-color: #f8f9fa;
+                }
+                .text-right {
+                    text-align: right;
+                }
+                .footer {
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 2px solid #ddd;
+                    text-align: center;
+                    color: #666;
+                    font-size: 12px;
+                }
+                @media print {
+                    body { padding: 0; }
+                    .no-print { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>ClearPay Analytics Report</h1>
+                <p>Generated on <?= date('F j, Y \a\t g:i A', strtotime($data['generated_at'])) ?></p>
+            </div>
+
+            <!-- Overview Statistics -->
+            <div class="section">
+                <div class="section-title">Overview Statistics</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-value">₱<?= number_format($data['overview']['total_revenue'], 2) ?></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Profit</div>
+                        <div class="stat-value">₱<?= number_format($data['overview']['total_profit'], 2) ?></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Active Contributors</div>
+                        <div class="stat-value"><?= number_format($data['overview']['active_contributors']) ?></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Contributions</div>
+                        <div class="stat-value"><?= number_format($data['overview']['total_contributions']) ?></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Average Profit Margin</div>
+                        <div class="stat-value"><?= number_format($data['overview']['avg_profit_margin'], 1) ?>%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Monthly Growth</div>
+                        <div class="stat-value"><?= $data['overview']['monthly_growth'] ?>%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Payers -->
+            <?php if (!empty($data['payments']['top_payers'])): ?>
+            <div class="section">
+                <div class="section-title">Top Payers (Top 10)</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Name</th>
+                            <th>ID</th>
+                            <th class="text-right">Total Paid</th>
+                            <th class="text-right">Transactions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($data['payments']['top_payers'] as $index => $payer): ?>
+                        <tr>
+                            <td><?= $index + 1 ?></td>
+                            <td><?= htmlspecialchars($payer['payer_name']) ?></td>
+                            <td><?= htmlspecialchars($payer['payer_id_number']) ?></td>
+                            <td class="text-right">₱<?= number_format($payer['total_paid'], 2) ?></td>
+                            <td class="text-right"><?= $payer['total_transactions'] ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <!-- Top Contributions -->
+            <?php if (!empty($data['contributions']['top_profitable'])): ?>
+            <div class="section">
+                <div class="section-title">Top Performing Contributions</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th class="text-right">Profit</th>
+                            <th class="text-right">Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($data['contributions']['top_profitable'] as $index => $contribution): ?>
+                        <tr>
+                            <td><?= $index + 1 ?></td>
+                            <td><?= htmlspecialchars($contribution['title']) ?></td>
+                            <td><?= htmlspecialchars($contribution['category'] ?? 'General') ?></td>
+                            <td class="text-right">₱<?= number_format($contribution['profit_amount'] ?? 0, 2) ?></td>
+                            <td class="text-right"><?= number_format($contribution['profit_margin'] ?? 0, 1) ?>%</td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+
+            <div class="footer">
+                <p>This report was generated by ClearPay Analytics System</p>
+                <p>For questions or concerns, please contact the system administrator</p>
+            </div>
+        </body>
+        </html>
+        <?php
+        return ob_get_clean();
     }
 }

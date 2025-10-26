@@ -16,16 +16,20 @@ $trends = $trends ?? [];
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="h3 mb-0 text-gray-800">Analytics Dashboard</h1>
-                    <p class="mb-0 text-muted">Track revenue, payments, and contribution performance</p>
                 </div>
                 <div>
                     <button class="btn btn-outline-primary" onclick="window.location.reload()">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
-                    <button class="btn btn-primary" onclick="exportAnalytics()">
-                        <i class="fas fa-download"></i> Export Report
-                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-download"></i> Export Report
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                            <li><a class="dropdown-item" href="#" onclick="exportAnalytics('pdf'); return false;"><i class="fas fa-file-pdf text-danger"></i> Export as PDF</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="exportAnalytics('csv'); return false;"><i class="fas fa-file-excel text-success"></i> Export as CSV/Excel</a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -118,10 +122,10 @@ $trends = $trends ?? [];
         </div>
     <?php endif; ?>
 
-    <!-- Recent Activity & Summary -->
+    <!-- Top Performers -->
     <?= view('partials/container-card', [
-        'title' => 'Recent Activity & Top Performers',
-        'subtitle' => 'Latest payments and best performing contributions',
+        'title' => 'Top Performers',
+        'subtitle' => 'Top payers and best performing contributions',
         'bodyClass' => '',
         'content' => view('partials/analytics_summary_content', ['payments' => $payments, 'contributions' => $contributions])
     ]) ?>
@@ -313,9 +317,9 @@ function initializePaymentCharts() {
     }
 }
 
-function exportAnalytics() {
-    // Export CSV report
-    window.location.href = '<?= base_url('admin/analytics/export/csv') ?>';
+function exportAnalytics(type = 'csv') {
+    // Export report based on selected type
+    window.location.href = '<?= base_url('admin/analytics/export/') ?>' + type;
 }
 </script>
 
