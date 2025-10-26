@@ -136,11 +136,21 @@ html, body {
 
 .form-control {
     width: 100%;
-    padding: 0.75rem 1rem 0.75rem 1rem;
+    padding: 0.75rem 1rem;
     border: 1px solid #d1d5db;
     border-radius: 8px;
     font-size: 0.9375rem;
     transition: all 0.2s;
+}
+
+/* Input with icon padding */
+#username.form-control {
+    padding-left: 2.75rem;
+}
+
+#password.form-control {
+    padding-left: 2.75rem;
+    padding-right: 2.75rem;
 }
 
 .form-control:focus {
@@ -149,19 +159,22 @@ html, body {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* Input Icon Positioning */
 .input-icon {
     position: absolute;
     left: 1rem;
-    top: 2.5rem;
+    top: 2.75rem;
     color: #9ca3af;
     font-size: 0.875rem;
+    pointer-events: none;
+    z-index: 2;
 }
 
 /* Password Toggle Button */
 .password-toggle {
     position: absolute;
     right: 1rem;
-    top: 2.5rem;
+    top: 2.75rem;
     background: none;
     border: none;
     color: #9ca3af;
@@ -171,6 +184,7 @@ html, body {
     align-items: center;
     justify-content: center;
     transition: color 0.2s;
+    z-index: 2;
 }
 
 .password-toggle:hover {
@@ -366,7 +380,7 @@ html, body {
     color: #ffffff;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .payment-card::before {
@@ -379,7 +393,7 @@ html, body {
     background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
 }
 
-/* Bubbles INSIDE the card */
+/* Bubbles inside card */
 .payment-card::after {
     content: '';
     position: absolute;
@@ -442,7 +456,7 @@ html, body {
     z-index: 1;
 }
 
-/* Floating Icons */
+/* Floating Icons - decorative elements */
 .floating-icon {
     position: absolute;
     width: 60px;
@@ -457,6 +471,7 @@ html, body {
     font-size: 1.5rem;
     animation: floatIcon 4s ease-in-out infinite;
     z-index: 2;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .icon-1 {
@@ -498,7 +513,7 @@ html, body {
     }
 }
 
-/* Abstract Shapes - OUTSIDE the card */
+/* Abstract Shapes - decorative bubbles */
 .abstract-shape {
     position: absolute;
     border-radius: 50%;
@@ -578,4 +593,4 @@ html, body {
     .login-nav {
         padding: 1.5rem 2rem;
     }
-}
+} 

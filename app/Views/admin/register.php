@@ -6,11 +6,12 @@
   <title>Sign Up | ClearPay</title>
   <link
     rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
-    integrity="sha512-KNUXkD2pCK9lEp+vZP1HcFhRmtYCrgS1uqk+OBrWiDEwVKHm2VZCs4wzAHzkCmqkPFrd59KPZoEYL2cbW8M1dA=="
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+    integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA=="
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="<?= base_url('css/login.css') ?>" rel="stylesheet">
 </head>
 <body>
@@ -141,6 +142,7 @@
             <button type="button" class="password-toggle" onclick="togglePassword('confirm_password', 'toggleIcon2')">
               <i class="fas fa-eye" id="toggleIcon2"></i>
             </button>
+            <small id="passwordMatchMsg" style="display: none; font-size: 0.875rem; margin-top: 0.25rem;"></small>
           </div>
 
           <button type="submit" class="btn-login">
@@ -197,6 +199,62 @@
     </div>
   </div>
 
+  <!-- Email Verification Modal -->
+  <div class="modal fade" id="verificationModal" tabindex="-1" aria-labelledby="verificationModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="verificationModalLabel">
+            <i class="fas fa-envelope-circle-check text-primary"></i> Verify Your Email
+          </h5>
+        </div>
+        <div class="modal-body">
+          <div class="text-center mb-4">
+            <div class="mb-3">
+              <i class="fas fa-envelope-open-text fa-3x text-primary"></i>
+            </div>
+            <p class="mb-2">We've sent a verification code to:</p>
+            <p class="fw-bold text-primary" id="pendingEmail"></p>
+          </div>
+          
+          <div class="alert alert-info d-none" id="emailSentAlert">
+            <i class="fas fa-check-circle"></i>
+            <span id="emailSentMessage">Email sent successfully!</span>
+          </div>
+          
+          <div class="alert alert-danger d-none" id="verificationError"></div>
+          
+          <form id="verificationForm">
+            <div class="mb-3">
+              <label for="verification_code" class="form-label">Enter Verification Code</label>
+              <input 
+                type="text" 
+                class="form-control text-center fs-4 fw-bold" 
+                id="verification_code" 
+                name="verification_code" 
+                placeholder="000000"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                autocomplete="off"
+                required
+              >
+              <div class="form-text">Enter the 6-digit code sent to your email</div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check-circle"></i> Verify Email
+              </button>
+              <button type="button" class="btn btn-link text-secondary" id="resendBtn">
+                <i class="fas fa-redo"></i> Resend Code
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     function togglePassword(inputId, iconId) {
       const passwordInput = document.getElementById(inputId);
@@ -212,6 +270,170 @@
         toggleIcon.classList.add('fa-eye');
       }
     }
+
+    // Handle form submission
+    document.querySelector('.login-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+      
+      try {
+        const response = await fetch('<?= base_url('registerPost') ?>', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // Show verification modal
+          document.getElementById('pendingEmail').textContent = result.email || 'your email';
+          const verificationModal = new bootstrap.Modal(document.getElementById('verificationModal'));
+          verificationModal.show();
+          
+          // Show verification code in console for debugging (remove in production)
+          if (result.verification_code) {
+            console.log('🔑 Verification Code (for testing only):', result.verification_code);
+            console.log('📧 Email sent status:', result.email_sent);
+            
+            // Show code in alert if email was not sent (for development)
+            if (!result.email_sent) {
+              alert('Email not configured. Your verification code is: ' + result.verification_code + '\n\nPlease configure SMTP settings in app/Config/Email.php');
+            }
+          }
+          
+          // Show email sent message
+          const emailSentAlert = document.getElementById('emailSentAlert');
+          emailSentAlert.classList.remove('d-none');
+          
+          if (result.email_sent) {
+            emailSentAlert.querySelector('span').textContent = 'Verification code sent to your email!';
+            emailSentAlert.className = 'alert alert-success';
+          } else {
+            emailSentAlert.querySelector('span').textContent = 'Email not configured. Please check console for your verification code.';
+            emailSentAlert.className = 'alert alert-warning';
+          }
+        } else {
+          alert(result.error || 'Registration failed. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+      }
+    });
+
+    // Handle verification form submission
+    document.getElementById('verificationForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+      
+      // Clear previous errors
+      document.getElementById('verificationError').classList.add('d-none');
+      
+      try {
+        const response = await fetch('<?= base_url('verifyEmail') ?>', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert(result.message);
+          window.location.href = result.redirect;
+        } else {
+          document.getElementById('verificationError').classList.remove('d-none');
+          document.getElementById('verificationError').textContent = result.error;
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+      }
+    });
+
+    // Handle resend code button
+    document.getElementById('resendBtn').addEventListener('click', async function() {
+      this.disabled = true;
+      this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      
+      try {
+        const response = await fetch('<?= base_url('resendVerificationCode') ?>', {
+          method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          document.getElementById('emailSentAlert').classList.remove('d-none');
+          document.getElementById('emailSentMessage').textContent = result.message;
+          setTimeout(() => {
+            document.getElementById('emailSentAlert').classList.add('d-none');
+          }, 5000);
+        } else {
+          alert(result.error);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+      } finally {
+        this.disabled = false;
+        this.innerHTML = '<i class="fas fa-redo"></i> Resend Code';
+      }
+    });
+
+    // Auto-format verification code input
+    document.getElementById('verification_code').addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '');
+    });
+
+    // Password match validation
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm_password');
+    const passwordMatchMsg = document.getElementById('passwordMatchMsg');
+
+    function checkPasswordMatch() {
+      const password = passwordInput.value;
+      const confirmPassword = confirmPasswordInput.value;
+
+      if (confirmPassword.length === 0) {
+        passwordMatchMsg.style.display = 'none';
+        return;
+      }
+
+      // Note: Passwords are case-sensitive for security
+      // This is standard practice for password fields
+      if (password === confirmPassword) {
+        passwordMatchMsg.style.display = 'block';
+        passwordMatchMsg.textContent = '✓ Passwords match';
+        passwordMatchMsg.style.color = '#10b981';
+      } else {
+        passwordMatchMsg.style.display = 'block';
+        passwordMatchMsg.textContent = '✗ Passwords do not match';
+        passwordMatchMsg.style.color = '#ef4444';
+      }
+    }
+
+    confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+    passwordInput.addEventListener('input', checkPasswordMatch);
   </script>
+  <!-- Bootstrap JS for Modal -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

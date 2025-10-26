@@ -7,7 +7,6 @@
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
-    integrity="sha512-KNUXkD2pCK9lEp+vZP1HcFhRmtYCrgS1uqk+OBrWiDEwVKHm2VZCs4wzAHzkCmqkPFrd59KPZoEYL2cbW8M1dA=="
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   />

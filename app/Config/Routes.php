@@ -14,6 +14,8 @@ $routes->post('/loginPost', 'Admin\LoginController::loginPost');
 $routes->get('/logout', 'Admin\LoginController::logout');
 $routes->get('/register', 'Admin\LoginController::register');
 $routes->post('/registerPost', 'Admin\LoginController::registerPost');
+$routes->post('/verifyEmail', 'Admin\LoginController::verifyEmail');
+$routes->post('/resendVerificationCode', 'Admin\LoginController::resendVerificationCode');
 
 $routes->get('/dashboard', 'Admin\DashboardController::index', ['filter' => 'auth']);
 $routes->get('/search', 'Admin\DashboardController::search', ['filter' => 'auth']);

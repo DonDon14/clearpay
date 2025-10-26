@@ -16,5 +16,7 @@ class UserModel extends Model
         'password',
         'role',
         'profile_picture',
+        'verification_token',
+        'email_verified',
     ];
 }
