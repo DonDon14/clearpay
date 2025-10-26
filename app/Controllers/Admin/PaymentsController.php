@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\ContributionModel;
 use App\Models\PaymentModel;
+// use App\Services\QRReceiptService; // Disabled for now
 
 class PaymentsController extends BaseController
 {
@@ -92,8 +93,9 @@ class PaymentsController extends BaseController
             $remainingBalance = (float) $this->request->getPost('remaining_balance');
             $paymentStatus = ($isPartial && $remainingBalance > 0) ? 'partial' : 'fully paid';
 
-            // Generate reference number
+            // Generate reference number and receipt number
             $referenceNumber = 'REF-' . date('Ymd') . '-' . strtoupper(uniqid());
+            $receiptNumber = 'RCPT-' . date('Ymd') . '-' . str_pad(uniqid(), 8, '0', STR_PAD_LEFT);
 
             // Gather POST data
             $data = [
@@ -110,6 +112,7 @@ class PaymentsController extends BaseController
                 'parent_payment_id' => $this->request->getPost('parent_payment_id') ?: null,
                 'payment_sequence' => 1, // Default to 1, can be enhanced later
                 'reference_number' => $referenceNumber,
+                'receipt_number' => $receiptNumber,
                 'recorded_by' => session()->get('user_id') ?: 1,
                 'payment_date' => $this->request->getPost('payment_date'),
                 'created_at' => date('Y-m-d H:i:s'),
@@ -129,11 +132,37 @@ class PaymentsController extends BaseController
             }
 
             if ($result) {
+                // Get the payment ID (for new payments)
+                $paymentId = $id ?: $paymentModel->getInsertID();
+                
+                // Generate QR receipt for new payments (disabled temporarily)
+                // if (!$id) {
+                //     try {
+                //         $qrReceiptService = new QRReceiptService();
+                //         $paymentData = $paymentModel->find($paymentId);
+                //         
+                //         // Get contribution details
+                //         $contributionModel = new ContributionModel();
+                //         $contribution = $contributionModel->find($paymentData['contribution_id']);
+                //         $paymentData['contribution_title'] = $contribution['title'] ?? 'N/A';
+                //         
+                //         $qrResult = $qrReceiptService->generateQRReceipt($paymentData);
+                //         
+                //         if ($qrResult['success']) {
+                //             $message .= ' QR receipt generated successfully.';
+                //         }
+                //     } catch (\Exception $e) {
+                //         // Log error but don't fail the payment
+                //         log_message('error', 'QR Receipt Generation Error: ' . $e->getMessage());
+                //     }
+                // }
+                
                 session()->setFlashdata('success', $message);
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => $message,
-                    'reference_number' => $referenceNumber
+                    'reference_number' => $referenceNumber,
+                    'payment_id' => $paymentId
                 ]);
             } else {
                 return $this->response->setJSON([
@@ -141,6 +170,45 @@ class PaymentsController extends BaseController
                     'message' => 'Failed to save payment'
                 ]);
             }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get recent payments for QR receipt selection
+     */
+    public function recent()
+    {
+        try {
+            $paymentModel = new PaymentModel();
+            $payments = $paymentModel->select('
+                payers.id,
+                payers.payer_id,
+                payers.payer_name,
+                payers.contact_number,
+                payers.email_address,
+                payers.amount_paid,
+                payers.payment_method,
+                payers.payment_status,
+                payers.payment_date,
+                payers.receipt_number,
+                payers.qr_receipt_path,
+                contributions.title as contribution_title
+            ')
+            ->join('contributions', 'contributions.id = payers.contribution_id', 'left')
+            ->orderBy('payers.payment_date', 'DESC')
+            ->limit(20)
+            ->findAll();
+
+            return $this->response->setJSON([
+                'success' => true,
+                'payments' => $payments
+            ]);
 
         } catch (\Exception $e) {
             return $this->response->setJSON([

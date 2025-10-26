@@ -78,4 +78,127 @@ class ContributionsController extends BaseController
             ]);
         }
     }
+
+    public function get($id)
+    {
+        try {
+            $model = new ContributionModel();
+            $contribution = $model->find($id);
+
+            if ($contribution) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'contribution' => $contribution
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function update($id)
+    {
+        try {
+            // Validation rules
+            $rules = [
+                'title' => 'required|min_length[3]|max_length[255]',
+                'amount' => 'required|decimal',
+                'status' => 'required|in_list[active,inactive]'
+            ];
+
+            if (!$this->validate($rules)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $this->validator->getErrors()
+                ]);
+            }
+
+            $model = new ContributionModel();
+
+            // Check if contribution exists
+            $existing = $model->find($id);
+            if (!$existing) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+
+            // Gather POST data
+            $data = [
+                'title'       => $this->request->getPost('title'),
+                'description' => $this->request->getPost('description'),
+                'amount'      => $this->request->getPost('amount'),
+                'cost_price'  => $this->request->getPost('cost_price') ?: 0,
+                'category'    => $this->request->getPost('category'),
+                'status'      => $this->request->getPost('status'),
+                'updated_at'  => date('Y-m-d H:i:s')
+            ];
+
+            $result = $model->update($id, $data);
+
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Contribution updated successfully.'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to update contribution'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function delete($id)
+    {
+        try {
+            $model = new ContributionModel();
+
+            // Check if contribution exists
+            $existing = $model->find($id);
+            if (!$existing) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+
+            $result = $model->delete($id);
+
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Contribution deleted successfully.'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to delete contribution'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
 }

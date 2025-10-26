@@ -54,13 +54,13 @@
                 </div>
                 <div class="card-body p-2">
                     <div class="row g-2">
-                        <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-plus-circle',
+                        <?= view('partials/quick-action-add-payment', [
                             'title' => 'Record Payment',
                             'subtitle' => 'Add new payment record',
+                            'icon' => 'fas fa-plus-circle',
                             'bgColor' => 'bg-primary',
-                            'modalTarget' => '#addPaymentModal',
-                            'colClass' => 'col-6'
+                            'colClass' => 'col-6',
+                            'contributions' => $contributions ?? []
                         ]) ?>
                         <?php 
                         // Explicitly set variables to null to prevent leakage from previous view() call
@@ -219,12 +219,12 @@
     'allPayments' => $allPayments ?? [],
 ]) ?>
 
-<?= view('partials/modal-add-payment', [
-    'title' => 'Add Payment',
-    'action' => base_url('/payments/save'),
-    'contributions' => $contributions ?? [],
-]) ?>
+<!-- QR Receipt Modal -->
+<?= view('partials/modal-qr-receipt') ?>
 
-<script src="<?= base_url('js/payment.js') ?>"></script>
+<script>
+// Define base URL for payment.js
+window.APP_BASE_URL = '<?= base_url() ?>';
+</script>
 
 <?= $this->endSection() ?>

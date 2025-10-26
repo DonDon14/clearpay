@@ -44,12 +44,17 @@ class SidebarController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Fetch contributions from database
+        $contributionModel = new ContributionModel();
+        $contributions = $contributionModel->findAll();
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Contributions',
             'pageTitle' => 'Contributions',
             'pageSubtitle' => 'Manage contributions and donations',
             'username' => session()->get('username'),
+            'contributions' => $contributions,
         ];
 
         return view('admin/contributions', $data);

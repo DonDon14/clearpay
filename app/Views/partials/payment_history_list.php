@@ -56,10 +56,10 @@
                                 
                                 <div class="payment-actions">
                                     <div class="btn-group" role="group">
-                                        <button class="btn btn-outline-primary btn-sm" onclick="viewPaymentDetails(<?= htmlspecialchars(json_encode($payment)) ?>)" title="View receipt">
-                                            <i class="fas fa-receipt"></i>
+                                        <button class="btn btn-outline-primary btn-sm" onclick="showQRReceiptForPayment(<?= $payment['id'] ?>)" title="View QR receipt">
+                                            <i class="fas fa-qrcode"></i>
                                         </button>
-                                        <button class="btn btn-outline-success btn-sm" onclick="downloadReceipt(<?= $payment['id'] ?? 0 ?>)" title="Download QR">
+                                        <button class="btn btn-outline-success btn-sm" onclick="downloadQRReceipt()" title="Download QR">
                                             <i class="fas fa-download"></i>
                                         </button>
                                         <?php if ($payment['payment_status'] === 'pending'): ?>

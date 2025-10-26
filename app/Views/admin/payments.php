@@ -135,6 +135,14 @@
     'contributions' => $contributions // array of contributions for the dropdown
 ]) ?>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- QR Receipt Modal -->
+<?= view('partials/modal-qr-receipt') ?>
+
+<script>
+// Define base URL for payment.js
+window.APP_BASE_URL = '<?= base_url() ?>';
+</script>
+
+<script src="<?= base_url('js/payment.js') ?>"></script>
 
 <?= $this->endSection() ?>

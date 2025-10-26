@@ -1,72 +1,63 @@
 <!-- Active Contributions List -->
 <div class="row g-3">
-    <!-- Uniform Payment Contribution -->
-    <div class="col-12">
-        <div class="card border-0 shadow-sm contribution-item" style="transition: transform 0.2s, box-shadow 0.2s;">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="contribution-icon me-3">
-                        <div class="icon-wrapper d-flex align-items-center justify-content-center rounded-3" style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
-                            <i class="fas fa-hand-holding-usd text-white fs-3"></i>
-                        </div>
-                    </div>
-                    
-                    <div class="flex-grow-1">
-                        <h5 class="mb-1 fw-semibold">Uniform Payment</h5>
-                        <p class="text-muted mb-2">Payment for student uniforms.</p>
-                        
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="contribution-amount">
-                                <span class="h5 text-primary fw-bold">₱500.00</span>
+    <?php if (!empty($contributions)): ?>
+        <?php foreach ($contributions as $contribution): ?>
+            <div class="col-12">
+                <div class="card border-0 shadow-sm contribution-item" style="transition: transform 0.2s, box-shadow 0.2s;">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="contribution-icon me-3">
+                                <div class="icon-wrapper d-flex align-items-center justify-content-center rounded-3" style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
+                                    <i class="fas fa-hand-holding-usd text-white fs-3"></i>
+                                </div>
                             </div>
-                            <div class="contribution-actions">
-                                <button class="btn btn-sm btn-outline-warning me-2" style="width: 36px; height: 36px;">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" style="width: 36px; height: 36px;">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Book Fee Contribution -->
-    <div class="col-12">
-        <div class="card border-0 shadow-sm contribution-item" style="transition: transform 0.2s, box-shadow 0.2s;">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <div class="contribution-icon me-3">
-                        <div class="icon-wrapper d-flex align-items-center justify-content-center rounded-3" style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
-                            <i class="fas fa-book text-white fs-3"></i>
-                        </div>
-                    </div>
-                    
-                    <div class="flex-grow-1">
-                        <h5 class="mb-1 fw-semibold">Book Fee</h5>
-                        <p class="text-muted mb-2">Covers learning materials for students.</p>
-                        
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="contribution-amount">
-                                <span class="h5 text-primary fw-bold">₱300.00</span>
-                            </div>
-                            <div class="contribution-actions">
-                                <button class="btn btn-sm btn-outline-warning me-2" style="width: 36px; height: 36px;">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" style="width: 36px; height: 36px;">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                            
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1 fw-semibold"><?= esc($contribution['title']) ?></h5>
+                                <p class="text-muted mb-2"><?= esc($contribution['description'] ?? 'No description available') ?></p>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="contribution-amount">
+                                        <span class="h5 text-primary fw-bold">₱<?= number_format($contribution['amount'], 2) ?></span>
+                                        <small class="text-muted d-block">
+                                            Status: 
+                                            <span class="badge <?= $contribution['status'] === 'active' ? 'bg-success' : 'bg-secondary' ?>">
+                                                <?= ucfirst($contribution['status']) ?>
+                                            </span>
+                                        </small>
+                                    </div>
+                                    <div class="contribution-actions">
+                                        <button class="btn btn-sm btn-outline-warning me-2" 
+                                                style="width: 36px; height: 36px;"
+                                                onclick="editContribution(<?= $contribution['id'] ?>)"
+                                                title="Edit Contribution">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                style="width: 36px; height: 36px;"
+                                                onclick="deleteContribution(<?= $contribution['id'] ?>)"
+                                                title="Delete Contribution">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div class="col-12">
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="fas fa-hand-holding-usd text-muted" style="font-size: 3rem;"></i>
+                </div>
+                <h5 class="text-muted">No contributions found</h5>
+                <p class="text-muted">Start by adding your first contribution type.</p>
+            </div>
         </div>
-    </div>
+    <?php endif; ?>
 </div>
 
 <style>

@@ -53,68 +53,66 @@
         <i class="fas fa-chevron-down dropdown-arrow"></i>
       </button>
       
-      <!-- Enhanced Dropdown Menu -->
+      <!-- Enhanced Dropdown Menu - Unified -->
       <div class="user-dropdown" id="userDropdown">
-        <div class="dropdown-header">
-          <div class="user-profile-info">
-            <div class="user-avatar-large">
-              <i class="fas fa-user"></i>
-            </div>
-            <div class="user-details">
-              <h4 class="user-full-name"><?= session('username') ?? 'Administrator' ?></h4>
-              <p class="user-email">administrator@clearpay.com</p>
-              <span class="user-status">
-                <span class="status-dot"></span>
-                Online
-              </span>
-            </div>
+        <div class="user-profile-info">
+          <div class="user-avatar-large">
+            <i class="fas fa-user"></i>
+          </div>
+          <div class="user-details">
+            <h4 class="user-full-name"><?= session('username') ?? 'Administrator' ?></h4>
+            <p class="user-email">administrator@clearpay.com</p>
+            <span class="user-status">
+              <span class="status-dot"></span>
+              Online
+            </span>
           </div>
         </div>
         
-        <div class="dropdown-menu">
-          <div class="dropdown-section">
-            <a href="<?= base_url('profile') ?>" class="dropdown-item">
-              <div class="item-icon">
-                <i class="fas fa-user"></i>
-              </div>
-              <div class="item-content">
-                <span class="item-title">My Profile</span>
-                <span class="item-desc">View and edit profile</span>
-              </div>
-            </a>
-            <a href="<?= base_url('settings') ?>" class="dropdown-item">
-              <div class="item-icon">
-                <i class="fas fa-cog"></i>
-              </div>
-              <div class="item-content">
-                <span class="item-title">Account Settings</span>
-                <span class="item-desc">Manage preferences</span>
-              </div>
-            </a>
-            <a href="<?= base_url('help/index.html') ?>" class="dropdown-item" target="_blank">
-              <div class="item-icon">
-                <i class="fas fa-question-circle"></i>
-              </div>
-              <div class="item-content">
-                <span class="item-title">Help & Support</span>
-                <span class="item-desc">Get assistance</span>
-              </div>
-            </a>
-          </div>
-          
-          <div class="dropdown-divider"></div>
-          
-          <div class="dropdown-section">
-            <a href="<?= base_url('logout') ?>" class="dropdown-item logout">
-              <div class="item-icon">
-                <i class="fas fa-sign-out-alt"></i>
-              </div>
-              <div class="item-content">
-                <span class="item-title">Sign Out</span>
-                <span class="item-desc">Logout from account</span>
-              </div>
-            </a>
-          </div>
+        <div class="dropdown-divider-top"></div>
+        
+        <div class="dropdown-section">
+          <a href="<?= base_url('profile') ?>" class="dropdown-item">
+            <div class="item-icon">
+              <i class="fas fa-user"></i>
+            </div>
+            <div class="item-content">
+              <span class="item-title">My Profile</span>
+              <span class="item-desc">View and edit profile</span>
+            </div>
+          </a>
+          <a href="<?= base_url('settings') ?>" class="dropdown-item">
+            <div class="item-icon">
+              <i class="fas fa-cog"></i>
+            </div>
+            <div class="item-content">
+              <span class="item-title">Account Settings</span>
+              <span class="item-desc">Manage preferences</span>
+            </div>
+          </a>
+          <a href="<?= base_url('help/index.html') ?>" class="dropdown-item" target="_blank">
+            <div class="item-icon">
+              <i class="fas fa-question-circle"></i>
+            </div>
+            <div class="item-content">
+              <span class="item-title">Help & Support</span>
+              <span class="item-desc">Get assistance</span>
+            </div>
+          </a>
+        </div>
+        
+        <div class="dropdown-divider"></div>
+        
+        <div class="dropdown-section">
+          <a href="<?= base_url('logout') ?>" class="dropdown-item logout">
+            <div class="item-icon">
+              <i class="fas fa-sign-out-alt"></i>
+            </div>
+            <div class="item-content">
+              <span class="item-title">Sign Out</span>
+              <span class="item-desc">Logout from account</span>
+            </div>
+          </a>
         </div>
       </div>
     </div>
@@ -131,12 +129,18 @@ document.addEventListener('DOMContentLoaded', function() {
     userMenuBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
-      console.log('User menu clicked'); // Debug log
-      console.log('Dropdown element:', userDropdown); // Debug log
-      console.log('Dropdown classes before toggle:', userDropdown.className); // Debug log
+      
+      // Calculate position
+      const rect = userMenuBtn.getBoundingClientRect();
+      const isOpen = userDropdown.classList.contains('active');
+      
+      if (!isOpen) {
+        // Position dropdown
+        userDropdown.style.top = (rect.bottom + 12) + 'px';
+        userDropdown.style.right = '20px';
+      }
+      
       userDropdown.classList.toggle('active');
-      console.log('Dropdown classes after toggle:', userDropdown.className); // Debug log
-      console.log('Dropdown computed styles:', window.getComputedStyle(userDropdown)); // Debug log
     });
   }
 

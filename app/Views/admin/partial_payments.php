@@ -60,14 +60,6 @@
     ])
 ]) ?>
 
-<?= view('partials/modal-add-payment', [
-    'title' => 'Add Payment',
-    'action' => base_url('/payments/save'),
-    'contributions' => $contributions ?? [],
-]) ?>
-
-<script src="<?= base_url('js/payment.js') ?>"></script>
-
 <!-- Payment Modal -->
 <div id="partialPaymentModal" class="modal fade" tabindex="-1" style="display: none;">
     <div class="modal-dialog modal-lg">
@@ -220,5 +212,12 @@ document.getElementById('partialPaymentForm').addEventListener('submit', functio
 });
 </script>
 
+<!-- QR Receipt Modal -->
+<?= view('partials/modal-qr-receipt') ?>
+
+<script>
+// Define base URL for payment.js
+window.APP_BASE_URL = '<?= base_url() ?>';
+</script>
 
 <?= $this->endSection() ?>

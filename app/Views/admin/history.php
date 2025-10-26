@@ -60,13 +60,8 @@
     ])
 ]) ?>
 
-<?= view('partials/modal-add-payment', [
-    'title' => 'Add Payment',
-    'action' => base_url('/payments/save'),
-    'contributions' => $contributions ?? [],
-]) ?>
-
-<script src="<?= base_url('js/payment.js') ?>"></script>
+<!-- QR Receipt Modal -->
+<?= view('partials/modal-qr-receipt') ?>
 
 <!-- Payment Details Modal -->
 <div id="paymentDetailsModal" class="modal fade" tabindex="-1" style="display: none;">

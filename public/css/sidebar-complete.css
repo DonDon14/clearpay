@@ -345,6 +345,7 @@
     flex-direction: column;
     margin-left: 280px; /* Account for fixed sidebar width */
     transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-x: visible;
 }
 
 /* Header */
@@ -357,6 +358,7 @@
     flex-grow: 1; /* fills available vertical space */
     padding: 1rem;
     overflow-y: auto;
+    overflow-x: visible;
 }
 
 /* Footer */
