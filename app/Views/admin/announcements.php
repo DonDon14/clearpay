@@ -13,19 +13,6 @@ $status_counts = $stats ?? [
 ?>
 
 <div class="container-fluid">
-    <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal">
-                        <i class="fas fa-plus"></i> Add Announcement
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Statistics Cards -->
     <div class="row mb-4">
         <div class="col-lg-3 col-md-6 mb-4">
@@ -66,6 +53,7 @@ $status_counts = $stats ?? [
     <?= view('partials/container-card', [
         'title' => 'All Announcements',
         'subtitle' => 'Manage your announcements',
+        'headerAction' => '<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal"><i class="fas fa-plus"></i> Add Announcement</button>',
         'bodyClass' => '', // Override default flex-wrap
         'content' => '
             <!-- Search and Filter Controls -->

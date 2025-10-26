@@ -2,19 +2,6 @@
 
 <?= $this->section('content') ?>
 <div class="container-fluid">
-    <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
-                        <i class="fas fa-plus"></i> Add New Payer
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Statistics Cards -->
     <div class="row mb-4">
         <div class="col-lg-3 col-md-6 mb-4">
@@ -53,9 +40,14 @@
 
     <!-- Payers List -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header">
-            <h5 class="card-title mb-0">Payers</h5>
-            <p class="text-muted mb-0 small">Complete list of all registered payers</p>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="card-title mb-0">Payers</h5>
+                <p class="text-muted mb-0 small">Complete list of all registered payers</p>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
+                <i class="fas fa-plus"></i> Add New Payer
+            </button>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -120,46 +112,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Quick Actions -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <button class="btn btn-outline-primary w-100">
-                                <i class="fas fa-user-plus mb-2"></i><br>
-                                Add New Payer
-                            </button>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <button class="btn btn-outline-success w-100">
-                                <i class="fas fa-file-export mb-2"></i><br>
-                                Export All Data
-                            </button>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <button class="btn btn-outline-info w-100">
-                                <i class="fas fa-chart-bar mb-2"></i><br>
-                                Generate Report
-                            </button>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <button class="btn btn-outline-warning w-100">
-                                <i class="fas fa-envelope mb-2"></i><br>
-                                Send Reminders
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Add Payer Modal -->
 <div class="modal fade" id="addPayerModal" tabindex="-1" aria-labelledby="addPayerModalLabel" aria-hidden="true">

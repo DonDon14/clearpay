@@ -9,10 +9,15 @@ $hasItems = isset($items) && !empty($items) && is_array($items);
 
 <div class="card <?= $cardClass ?> mb-3">
     <?php if (!empty($title)) : ?>
-        <div class="card-header">
-            <h5 class="card-title mb-0"><?= $title ?></h5>
-            <?php if (!empty($subtitle)) : ?>
-                <small class="text-muted d-block"><?= $subtitle ?></small>
+        <div class="card-header <?= !empty($headerAction) ? 'd-flex justify-content-between align-items-center' : '' ?>">
+            <div>
+                <h5 class="card-title mb-0"><?= $title ?></h5>
+                <?php if (!empty($subtitle)) : ?>
+                    <small class="text-muted d-block"><?= $subtitle ?></small>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($headerAction)) : ?>
+                <?= $headerAction ?>
             <?php endif; ?>
         </div>
     <?php endif; ?>

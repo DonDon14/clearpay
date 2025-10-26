@@ -72,6 +72,9 @@ class AnnouncementsController extends BaseController
             $id = $this->request->getPost('announcement_id');
 
             if ($id) {
+                // Get existing announcement data for activity logging
+                $existing = $model->find($id);
+                
                 // Update existing announcement
                 // Don't update published_at if already published
                 if ($data['status'] !== 'published') {
@@ -87,6 +90,29 @@ class AnnouncementsController extends BaseController
             }
 
             if ($result) {
+                // Log user activity
+                if ($id && isset($existing)) {
+                    // Build activity description with changes for updates
+                    $changes = [];
+                    if ($data['title'] !== $existing['title']) {
+                        $changes[] = "Title: {$existing['title']} → {$data['title']}";
+                    }
+                    if ($data['type'] !== $existing['type']) {
+                        $changes[] = "Type: {$existing['type']} → {$data['type']}";
+                    }
+                    if ($data['status'] !== $existing['status']) {
+                        $changes[] = "Status: {$existing['status']} → {$data['status']}";
+                    }
+                    
+                    $activityDescription = !empty($changes) 
+                        ? 'Updated announcement (' . implode(', ', $changes) . ')' 
+                        : 'Updated announcement: ' . $data['title'];
+                    $this->logUserActivity('update', 'announcement', $id, $activityDescription);
+                } else {
+                    // For new announcements, just show the title
+                    $this->logUserActivity('create', 'announcement', $result, 'Added new announcement: ' . $data['title']);
+                }
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => $message
@@ -168,6 +194,9 @@ class AnnouncementsController extends BaseController
             $deleted = $model->delete($id);
 
             if ($deleted) {
+                // Log user activity
+                $this->logUserActivity('delete', 'announcement', $id, 'Deleted announcement: ' . $announcement['title']);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Announcement deleted successfully'
@@ -229,6 +258,9 @@ class AnnouncementsController extends BaseController
             $updated = $model->update($id, $data);
 
             if ($updated) {
+                // Log user activity
+                $this->logUserActivity('update', 'announcement', $id, 'Updated announcement status to: ' . $newStatus . ' - ' . $announcement['title']);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Announcement status updated successfully'
@@ -245,6 +277,29 @@ class AnnouncementsController extends BaseController
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    private function logUserActivity($activityType, $entityType, $entityId, $description)
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            $data = [
+                'user_id' => session()->get('user-id'),
+                'activity_type' => $activityType,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'description' => $description,
+                'ip_address' => $this->request->getIPAddress(),
+                'user_agent' => $this->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            
+            $db->table('user_activities')->insert($data);
+        } catch (\Exception $e) {
+            // Log error but don't fail the main operation
+            log_message('error', 'Failed to log user activity: ' . $e->getMessage());
         }
     }
 }
