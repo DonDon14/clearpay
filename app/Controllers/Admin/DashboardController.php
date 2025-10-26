@@ -100,5 +100,109 @@ class DashboardController extends BaseController
         return view('admin/dashboard', $data);
     }
 
+    /**
+     * Global search functionality
+     * Searches across payments, contributions, and payers
+     */
+    public function search()
+    {
+        try {
+            $query = $this->request->getGet('q') ?? '';
+            
+            // Log the search query
+            log_message('debug', 'Search query: ' . $query);
+            
+            if (empty($query) || strlen($query) < 2) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'results' => [],
+                    'message' => 'Query too short'
+                ]);
+            }
+
+            $results = [];
+        
+        // Search payments
+        $paymentModel = new PaymentModel();
+        $payments = $paymentModel
+            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, contributions.title as contribution_title')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->groupStart()
+                ->like('payers.payer_name', $query)
+                ->orLike('payers.payer_id', $query)
+                ->orLike('payments.receipt_number', $query)
+                ->orLike('contributions.title', $query)
+            ->groupEnd()
+            ->limit(5)
+            ->findAll();
+
+        foreach ($payments as $payment) {
+            $results[] = [
+                'type' => 'payment',
+                'id' => $payment['id'],
+                'title' => $payment['payer_name'] . ' - ' . $payment['contribution_title'],
+                'subtitle' => '₱' . number_format($payment['amount_paid'], 2) . ' • ' . date('M d, Y', strtotime($payment['payment_date'])),
+                'icon' => 'fa-money-bill-wave',
+                'url' => base_url('payments') . '#payment-' . $payment['id'],
+                'data' => $payment
+            ];
+        }
+        
+        // Search contributions
+        $contributionModel = new ContributionModel();
+        $contributions = $contributionModel
+            ->like('title', $query)
+            ->orLike('description', $query)
+            ->limit(5)
+            ->findAll();
+
+        foreach ($contributions as $contribution) {
+            $results[] = [
+                'type' => 'contribution',
+                'id' => $contribution['id'],
+                'title' => $contribution['title'],
+                'subtitle' => '₱' . number_format($contribution['amount'], 2) . ' • ' . ucfirst($contribution['status']),
+                'icon' => 'fa-tag',
+                'url' => base_url('contributions') . '#contribution-' . $contribution['id'],
+                'data' => $contribution
+            ];
+        }
+        
+        // Search payers
+        $payerModel = new \App\Models\PayerModel();
+        $payers = $payerModel
+            ->like('payer_name', $query)
+            ->orLike('payer_id', $query)
+            ->orLike('email_address', $query)
+            ->limit(5)
+            ->findAll();
+
+        foreach ($payers as $payer) {
+            $results[] = [
+                'type' => 'payer',
+                'id' => $payer['id'],
+                'title' => $payer['payer_name'],
+                'subtitle' => $payer['payer_id'] . ($payer['email_address'] ? ' • ' . $payer['email_address'] : ''),
+                'icon' => 'fa-user',
+                'url' => base_url('payers') . '#payer-' . $payer['id'],
+                'data' => $payer
+            ];
+        }
+
+            return $this->response->setJSON([
+                'success' => true,
+                'results' => array_slice($results, 0, 10) // Limit to 10 total results
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Search error: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error performing search: ' . $e->getMessage(),
+                'results' => []
+            ]);
+        }
+    }
+
 
 }

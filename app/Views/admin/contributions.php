@@ -353,6 +353,45 @@ document.addEventListener('DOMContentLoaded', function() {
         const items = document.querySelectorAll('.contribution-item');
         resultsCount.textContent = `Showing ${items.length} of ${items.length} contributions`;
     }
+    
+    // Handle hash from URL (for search result navigation)
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#contribution-')) {
+        const contributionId = hash.substring(15); // Remove '#contribution-'
+        
+        // Find the contribution card
+        const contributionCard = document.getElementById('contribution-' + contributionId);
+        
+        if (contributionCard) {
+            // Scroll to the card
+            contributionCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight the card temporarily
+            const card = contributionCard.querySelector('.card');
+            if (card) {
+                card.style.backgroundColor = '#fff3cd';
+                setTimeout(() => {
+                    card.style.backgroundColor = '';
+                }, 2000);
+            }
+            
+            // Get title and amount from the card content
+            const titleElement = contributionCard.querySelector('.fw-semibold');
+            const amountElement = contributionCard.querySelector('.text-primary');
+            
+            if (titleElement && amountElement) {
+                const contributionTitle = titleElement.textContent.trim();
+                const amountText = amountElement.textContent.trim();
+                // Remove the ₱ symbol and parse the number
+                const contributionAmount = parseFloat(amountText.replace('₱', '').replace(/,/g, ''));
+                
+                // Open the payments modal after a short delay
+                setTimeout(() => {
+                    showContributionPayments(contributionId, contributionTitle, contributionAmount);
+                }, 500);
+            }
+        }
+    }
 });
 
 // Clear filters function

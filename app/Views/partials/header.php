@@ -7,17 +7,6 @@
   </div>
 
   <div class="header-right">
-    <!-- Search Bar -->
-    <div class="search-container">
-      <div class="search-wrapper">
-        <i class="fas fa-search search-icon"></i>
-        <input type="text" class="search-input" placeholder="Search anything...">
-        <div class="search-shortcut">
-          <span>Ctrl+K</span>
-        </div>
-      </div>
-    </div>
-    
     <!-- Quick Actions -->
     <div class="header-actions">
       <!-- Notifications -->
@@ -122,6 +111,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // User menu toggle
   // User menu toggle
   const userMenuBtn = document.getElementById('userMenuBtn');
   const userDropdown = document.getElementById('userDropdown');

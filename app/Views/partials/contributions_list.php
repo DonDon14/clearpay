@@ -3,6 +3,7 @@
     <?php if (!empty($contributions)): ?>
         <?php foreach ($contributions as $contribution): ?>
             <div class="col-12 contribution-item" 
+                 id="contribution-<?= $contribution['id'] ?>"
                  data-category="<?= esc($contribution['category'] ?? 'other') ?>" 
                  data-status="<?= esc($contribution['status'] ?? 'active') ?>"
                  data-title="<?= strtolower(esc($contribution['title'])) ?>"

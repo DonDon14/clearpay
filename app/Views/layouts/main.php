@@ -45,6 +45,9 @@
   </div>
   
   <script>
+    // Define base URL globally for all pages
+    window.APP_BASE_URL = '<?= base_url() ?>';
+    
     // Sidebar Toggle Script with State Persistence
     document.addEventListener('DOMContentLoaded', function() {
       const toggleBtn = document.getElementById('sidebarToggleBtn');

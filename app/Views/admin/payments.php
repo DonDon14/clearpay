@@ -55,7 +55,7 @@
                  <tbody id="paymentsTableBody">
                     <?php if (!empty($recentPayments)): ?>
                         <?php foreach ($recentPayments as $payment): ?>
-                             <tr data-payment-status="<?= esc($payment['computed_status'] ?? 'unpaid') ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>">
+                             <tr id="payment-<?= $payment['id'] ?>" data-payment-status="<?= esc($payment['computed_status'] ?? 'unpaid') ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>">
                                  <td><?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?></td>
                                 <td><?= esc($payment['payer_name']) ?></td>
                                 <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
@@ -582,6 +582,33 @@ function showNotification(message, type) {
         alertDiv.remove();
     }, 3000);
 }
+
+// Handle hash from URL (for search result navigation)
+document.addEventListener('DOMContentLoaded', function() {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#payment-')) {
+        const paymentId = hash.substring(10); // Remove '#payment-'
+        
+        // Find the row
+        const paymentRow = document.getElementById('payment-' + paymentId);
+        
+        if (paymentRow) {
+            // Scroll to the row
+            paymentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight the row temporarily
+            paymentRow.style.backgroundColor = '#fff3cd';
+            setTimeout(() => {
+                paymentRow.style.backgroundColor = '';
+            }, 2000);
+            
+            // Open the QR Receipt modal after a short delay
+            setTimeout(() => {
+                viewPaymentReceipt(paymentId);
+            }, 500);
+        }
+    }
+});
 </script>
 
 <style>
