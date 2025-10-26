@@ -42,7 +42,11 @@
       <button class="user-menu-btn" id="userMenuBtn">
         <div class="user-avatar">
           <div class="avatar-circle">
-            <i class="fas fa-user"></i>
+            <?php if (session('profile_picture')): ?>
+              <img src="<?= base_url(session('profile_picture')) ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            <?php else: ?>
+              <i class="fas fa-user"></i>
+            <?php endif; ?>
           </div>
           <div class="status-indicator"></div>
         </div>
@@ -57,11 +61,15 @@
       <div class="user-dropdown" id="userDropdown">
         <div class="user-profile-info">
           <div class="user-avatar-large">
-            <i class="fas fa-user"></i>
+            <?php if (session('profile_picture')): ?>
+              <img src="<?= base_url(session('profile_picture')) ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+            <?php else: ?>
+              <i class="fas fa-user"></i>
+            <?php endif; ?>
           </div>
           <div class="user-details">
-            <h4 class="user-full-name"><?= session('username') ?? 'Administrator' ?></h4>
-            <p class="user-email">administrator@clearpay.com</p>
+            <h4 class="user-full-name"><?= session('name') ?? session('username') ?? 'Administrator' ?></h4>
+            <p class="user-email"><?= session('email') ?? 'administrator@clearpay.com' ?></p>
             <span class="user-status">
               <span class="status-dot"></span>
               Online
@@ -72,7 +80,7 @@
         <div class="dropdown-divider-top"></div>
         
         <div class="dropdown-section">
-          <a href="<?= base_url('profile') ?>" class="dropdown-item">
+          <button type="button" class="dropdown-item" onclick="openProfileModal()">
             <div class="item-icon">
               <i class="fas fa-user"></i>
             </div>
@@ -80,7 +88,7 @@
               <span class="item-title">My Profile</span>
               <span class="item-desc">View and edit profile</span>
             </div>
-          </a>
+          </button>
           <a href="<?= base_url('settings') ?>" class="dropdown-item">
             <div class="item-icon">
               <i class="fas fa-cog"></i>

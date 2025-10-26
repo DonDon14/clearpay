@@ -166,15 +166,127 @@ class SidebarController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Fetch user data
+        $userModel = new UserModel();
+        $user = $userModel->where('id', session()->get('user-id'))->first();
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Profile',
             'pageTitle' => 'Profile',
             'pageSubtitle' => 'View and edit your profile',
             'username' => session()->get('username'),
+            'user' => $user
         ];
 
         return view('admin/profile', $data);
+    }
+
+    public function update()
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
+        }
+
+        $userModel = new UserModel();
+        $userId = session()->get('user-id');
+        $user = $userModel->find($userId);
+
+        if (!$user) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'User not found'
+            ]);
+        }
+
+        // Prepare update data
+        $updateData = [];
+
+        // Update name if provided
+        if ($this->request->getPost('name')) {
+            $updateData['name'] = $this->request->getPost('name');
+        }
+
+        // Update email if provided
+        if ($this->request->getPost('email')) {
+            $updateData['email'] = $this->request->getPost('email');
+        }
+
+        // Update phone if provided
+        if ($this->request->getPost('phone')) {
+            $updateData['phone'] = $this->request->getPost('phone');
+        }
+
+        // Handle password change
+        if ($this->request->getPost('change_password') == '1') {
+            $currentPassword = $this->request->getPost('current_password');
+            $newPassword = $this->request->getPost('new_password');
+
+            // Verify current password
+            if (!password_verify($currentPassword, $user['password'])) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Current password is incorrect'
+                ]);
+            }
+
+            $updateData['password'] = password_hash($newPassword, PASSWORD_DEFAULT);
+        }
+
+        // Handle profile picture upload
+        $profilePicFile = $this->request->getFile('profile_picture');
+        if ($profilePicFile && $profilePicFile->isValid() && !$profilePicFile->hasMoved()) {
+            $newName = $profilePicFile->getRandomName();
+            
+            // Store in both writable and public directories
+            $writablePath = WRITEPATH . 'uploads/profile/';
+            $publicPath = FCPATH . 'uploads/profile/';
+            
+            // Create directories if they don't exist
+            if (!is_dir($writablePath)) {
+                mkdir($writablePath, 0777, true);
+            }
+            if (!is_dir($publicPath)) {
+                mkdir($publicPath, 0777, true);
+            }
+
+            // Move to writable first
+            if ($profilePicFile->move($writablePath, $newName)) {
+                // Copy to public directory for web access
+                copy($writablePath . $newName, $publicPath . $newName);
+                $updateData['profile_picture'] = 'uploads/profile/' . $newName;
+            }
+        }
+
+        // Update user data
+        if (!empty($updateData)) {
+            $userModel->update($userId, $updateData);
+        }
+
+        // Update session data
+        if (isset($updateData['name'])) {
+            session()->set('name', $updateData['name']);
+        }
+        if (isset($updateData['email'])) {
+            session()->set('email', $updateData['email']);
+        }
+        if (isset($updateData['profile_picture'])) {
+            session()->set('profile_picture', $updateData['profile_picture']);
+        }
+
+        // Get updated user data
+        $updatedUser = $userModel->find($userId);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'user' => $updatedUser,
+            'profile_picture_url' => $updatedUser['profile_picture'] ? base_url($updatedUser['profile_picture']) : null
+        ]);
     }
 
     public function settings()

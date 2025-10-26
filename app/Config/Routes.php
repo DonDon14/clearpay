@@ -24,6 +24,7 @@ $routes->get('/payers', 'Admin\SidebarController::payers', ['filter' => 'auth'])
 $routes->get('/announcements', 'Admin\SidebarController::announcements', ['filter' => 'auth']);
 $routes->get('/analytics', 'Admin\SidebarController::analytics', ['filter' => 'auth']);
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);
+$routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
 $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'auth']);
 
 // Payments Management Routes

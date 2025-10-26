@@ -24,10 +24,13 @@ class LoginController extends Controller
 
         if($user && password_verify($password, $user['password'])) {
             $session->set([
-                'user-id'    => $user['id'],
-                'username'   => $user['username'],
-                'role'       => $user['role'],
-                'isLoggedIn' => true,
+                'user-id'         => $user['id'],
+                'username'        => $user['username'],
+                'email'           => $user['email'],
+                'name'            => $user['name'],
+                'role'            => $user['role'],
+                'profile_picture' => $user['profile_picture'] ?? null,
+                'isLoggedIn'      => true,
             ]);
             return redirect()->to('/dashboard');
         } else {
@@ -38,6 +41,6 @@ class LoginController extends Controller
     public function logout()
     {
         session()->destroy();
-        return redirect()->to('/login');
+        return redirect()->to('/');
     }
 }

@@ -12,7 +12,9 @@ class UserModel extends Model
         'name',
         'username',
         'email',
+        'phone',
         'password',
         'role',
+        'profile_picture',
     ];
 }
