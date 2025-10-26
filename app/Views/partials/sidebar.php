@@ -2,10 +2,10 @@
 
     <div class="sidebar-inner">
         <div class="sidebar-header">
-            <div class="logo">
+            <a href="<?= base_url('dashboard') ?>" class="logo" style="text-decoration: none;">
                 <i class="fas fa-credit-card"></i>
                 <span class="logo-text">ClearPay</span>
-            </div>
+            </a>
             <!-- Expand button for collapsed state -->
             <button class="sidebar-toggle-btn" id="sidebarToggleBtn">
                 <i class="fas fa-bars"></i>

@@ -91,6 +91,14 @@ class DashboardController extends BaseController
             ->limit(5)
             ->get()
             ->getResultArray();
+        
+        // Fetch all user activities for the modal
+        $allUserActivities = $db->table('user_activities ua')
+            ->select('ua.*, u.name as user_name, u.username, u.role')
+            ->join('users u', 'u.id = ua.user_id', 'left')
+            ->orderBy('ua.created_at', 'DESC')
+            ->get()
+            ->getResultArray();
 
         // --- Prepare Data for View ---
         $data = [
@@ -102,6 +110,7 @@ class DashboardController extends BaseController
             'allPayments'       => $allPayments,
             'contributions'     => $contributions,
             'userActivities'    => $userActivities,
+            'allUserActivities' => $allUserActivities,
             'title'             => 'Admin Dashboard',
             'pageTitle'         => 'Dashboard',
             'pageSubtitle'      => 'Welcome back ' . ucwords($user['username'] ?? 'User') . '!',

@@ -288,6 +288,9 @@ class SidebarController extends BaseController
             $result = $payerModel->insert($data);
             
             if ($result) {
+                // Log user activity
+                $this->logUserActivity('create', 'payer', $result, 'Added new payer: ' . $data['payer_name']);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Payer added successfully'
@@ -427,10 +430,31 @@ class SidebarController extends BaseController
                 ]);
             }
             
+            // Store old values for activity logging
+            $oldName = $payer['payer_name'];
+            $oldContact = $payer['contact_number'];
+            $oldEmail = $payer['email_address'];
+            
+            // Build activity description with changes
+            $changes = [];
+            if ($data['payer_name'] !== $oldName) {
+                $changes[] = "Name: {$oldName} → {$data['payer_name']}";
+            }
+            if ($data['contact_number'] !== $oldContact) {
+                $changes[] = "Contact: {$oldContact} → {$data['contact_number']}";
+            }
+            if ($data['email_address'] !== $oldEmail) {
+                $changes[] = "Email: {$oldEmail} → {$data['email_address']}";
+            }
+            
             // Update payer
             $result = $payerModel->update($payerId, $data);
             
             if ($result) {
+                // Log user activity with change details
+                $description = !empty($changes) ? 'Updated payer (' . implode(', ', $changes) . ')' : 'Updated payer: ' . $data['payer_name'];
+                $this->logUserActivity('update', 'payer', $payerId, $description);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Payer updated successfully'
@@ -777,5 +801,28 @@ class SidebarController extends BaseController
         ];
 
         return view('admin/settings', $data);
+    }
+
+    private function logUserActivity($activityType, $entityType, $entityId, $description)
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            $data = [
+                'user_id' => session()->get('user-id'),
+                'activity_type' => $activityType,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'description' => $description,
+                'ip_address' => $this->request->getIPAddress(),
+                'user_agent' => $this->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            
+            $db->table('user_activities')->insert($data);
+        } catch (\Exception $e) {
+            // Log error but don't fail the main operation
+            log_message('error', 'Failed to log user activity: ' . $e->getMessage());
+        }
     }
 }

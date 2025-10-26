@@ -190,6 +190,11 @@
                         <h5 class="card-title mb-0">User Activities</h5>
                         <small class="text-muted">Recent user actions</small>
                     </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#allUserActivitiesModal">
+                            View All
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <?php if (!empty($userActivities)): ?>
@@ -245,6 +250,8 @@
 <?= view('partials/all-payments-modal', [
     'allPayments' => $allPayments ?? [],
 ]) ?>
+
+<?= view('partials/all-user-activities-modal') ?>
 
 <!-- QR Receipt Modal -->
 <?= view('partials/modal-qr-receipt', [
