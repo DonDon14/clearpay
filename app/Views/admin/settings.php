@@ -41,10 +41,6 @@ $settings = [
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="h3 mb-0 text-gray-800">System Settings</h1>
-                    <p class="mb-0 text-muted">Manage system configurations and preferences</p>
-                </div>
-                <div>
                     <span class="badge bg-success fs-6">
                         <i class="fas fa-circle me-1"></i>System Online
                     </span>

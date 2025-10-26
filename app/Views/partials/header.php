@@ -28,13 +28,6 @@
           <div class="notification-pulse"></div>
         </button>
       </div>
-      
-      <!-- Quick Settings -->
-      <div class="quick-settings">
-        <button class="settings-btn modern-btn" title="Quick Settings">
-          <i class="fas fa-cog"></i>
-        </button>
-      </div>
     </div>
     
     <!-- User Menu -->

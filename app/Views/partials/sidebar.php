@@ -63,18 +63,6 @@
                         <span class="menu-text">Announcements</span>
                     </a>
                 </li>
-                <li>
-                    <a href="<?= base_url('profile') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Profile') ? 'active' : '' ?>" data-tooltip="Profile">
-                        <i class="fas fa-user"></i> 
-                        <span class="menu-text">Profile</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="<?= base_url('settings') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Settings') ? 'active' : '' ?>" data-tooltip="Settings">
-                        <i class="fas fa-cog"></i> 
-                        <span class="menu-text">Settings</span>
-                    </a>
-                </li>
             </ul>
         </div>
 
