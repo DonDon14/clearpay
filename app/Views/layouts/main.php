@@ -51,9 +51,9 @@
     // Sidebar Toggle Script with State Persistence
     document.addEventListener('DOMContentLoaded', function() {
       const toggleBtn = document.getElementById('sidebarToggleBtn');
+      const sidebarLogo = document.getElementById('sidebarLogo');
       const sidebar = document.querySelector('.sidebar');
       const mainContent = document.querySelector('.main-content');
-      const expandBtn = document.querySelector('.sidebar-expand-btn');
 
       // Function to save sidebar state
       function saveSidebarState(isCollapsed) {
@@ -64,8 +64,26 @@
       function updateMainContentMargin(isCollapsed) {
         if (mainContent) {
           if (window.innerWidth > 768) { // Only adjust margin on desktop
-            mainContent.style.marginLeft = isCollapsed ? '82px' : '280px';
+            mainContent.style.marginLeft = isCollapsed ? '72px' : '260px';
           }
+        }
+      }
+
+      // Function to expand sidebar
+      function expandSidebar() {
+        if (sidebar) {
+          sidebar.classList.remove('collapsed');
+          saveSidebarState(false);
+          updateMainContentMargin(false);
+        }
+      }
+
+      // Function to collapse sidebar
+      function collapseSidebar() {
+        if (sidebar) {
+          sidebar.classList.add('collapsed');
+          saveSidebarState(true);
+          updateMainContentMargin(true);
         }
       }
 
@@ -83,8 +101,10 @@
       // Restore sidebar state on page load
       restoreSidebarState();
 
+      // Toggle button (collapse/expand)
       if (toggleBtn && sidebar) {
-        toggleBtn.addEventListener('click', function() {
+        toggleBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
           sidebar.classList.toggle('collapsed');
           const isCollapsed = sidebar.classList.contains('collapsed');
           saveSidebarState(isCollapsed);
@@ -92,12 +112,17 @@
         });
       }
 
-      if (expandBtn && sidebar) {
-        expandBtn.addEventListener('click', function() {
-          console.log('Expand button clicked');
-          sidebar.classList.remove('collapsed');
-          saveSidebarState(false);
-          updateMainContentMargin(false);
+      // Logo click handler - expand if collapsed
+      if (sidebarLogo && sidebar) {
+        sidebarLogo.addEventListener('click', function(e) {
+          // Check if sidebar is collapsed
+          if (sidebar.classList.contains('collapsed')) {
+            // Expand sidebar and prevent navigation
+            e.preventDefault();
+            e.stopPropagation();
+            expandSidebar();
+          }
+          // If not collapsed, let the default link behavior proceed (navigate to dashboard)
         });
       }
 

@@ -329,6 +329,41 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         saveAnnouncement();
     });
+    
+    // Check if we should open the modal on page load
+    console.log('Page loaded, checking for modal parameter...');
+    const urlParams = new URLSearchParams(window.location.search);
+    const openModal = urlParams.get('open_modal');
+    console.log('open_modal parameter:', openModal);
+    
+    if (openModal === 'true') {
+        console.log('Modal open parameter detected!');
+        
+        // Wait for Bootstrap to be fully loaded
+        const waitForBootstrap = setInterval(function() {
+            console.log('Checking for Bootstrap...');
+            if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                console.log('Bootstrap found!');
+                clearInterval(waitForBootstrap);
+                const modalElement = document.getElementById('announcementModal');
+                if (modalElement) {
+                    console.log('Modal element found, opening...');
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                } else {
+                    console.error('Modal element not found');
+                }
+            }
+        }, 100);
+        
+        // Timeout after 5 seconds
+        setTimeout(function() {
+            clearInterval(waitForBootstrap);
+            console.log('Timeout reached');
+        }, 5000);
+    } else {
+        console.log('No modal parameter found or not set to true');
+    }
 });
 
 // Save announcement (create or update)
@@ -484,6 +519,11 @@ document.getElementById('announcementModal').addEventListener('hidden.bs.modal',
     document.getElementById('announcementForm').reset();
     document.getElementById('announcementId').value = '';
     document.getElementById('announcementModalLabel').textContent = 'Add New Announcement';
+    
+    // Clean up URL if it has the open_modal parameter
+    if (window.location.search.includes('open_modal=true')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 });
 </script>
 <?= $this->endSection() ?>

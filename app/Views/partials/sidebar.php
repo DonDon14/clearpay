@@ -2,11 +2,11 @@
 
     <div class="sidebar-inner">
         <div class="sidebar-header">
-            <a href="<?= base_url('dashboard') ?>" class="logo" style="text-decoration: none;">
+            <a href="<?= base_url('dashboard') ?>" class="logo" id="sidebarLogo" data-hover-text="Open sidebar" style="text-decoration: none;">
                 <i class="fas fa-credit-card"></i>
                 <span class="logo-text">ClearPay</span>
             </a>
-            <!-- Expand button for collapsed state -->
+            <!-- Toggle button for normal state -->
             <button class="sidebar-toggle-btn" id="sidebarToggleBtn">
                 <i class="fas fa-bars"></i>
             </button>
@@ -54,11 +54,6 @@
             </ul>
         </div>
 
-        <!-- Expanding button section -->
-         <button class="sidebar-expand-btn" id="sidebarExpandBtn">
-            <i class="fas fa-arrow-right"></i>
-        </button>
-        
         <footer class="sidebar-footer">
             <?= $this->include('partials/help_section') ?>
         </footer>
