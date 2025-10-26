@@ -169,56 +169,59 @@
             </div>
         </div>
 
-        <!-- System Status -->
+        <!-- User Activities -->
         <div class="col-lg-4 col-md-12">
             <div class="card h-100 shadow-sm">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
-                        <h5 class="card-title mb-0">System Status</h5>
-                        <small class="text-muted">Last checked: 2 minutes ago</small>
-                    </div>
-                    <div class="badge bg-success">
-                        <i class="fas fa-circle me-1" style="font-size: 8px;"></i>
-                        ONLINE
+                        <h5 class="card-title mb-0">User Activities</h5>
+                        <small class="text-muted">Recent user actions</small>
                     </div>
                 </div>
-                <div class="card-body">
-                    <div class="d-flex align-items-center mb-3 border-bottom pb-3">
-                        <div class="me-3">
-                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-database"></i>
+                <div class="card-body p-0">
+                    <?php if (!empty($userActivities)): ?>
+                        <?php foreach ($userActivities as $activity): ?>
+                            <div class="d-flex align-items-start p-3 border-bottom">
+                                <div class="me-3">
+                                    <?php 
+                                        $activityIcon = match($activity['activity_type']) {
+                                            'create' => 'fa-plus-circle',
+                                            'update' => 'fa-edit',
+                                            'delete' => 'fa-trash',
+                                            'login' => 'fa-sign-in-alt',
+                                            'logout' => 'fa-sign-out-alt',
+                                            default => 'fa-circle'
+                                        };
+                                        $activityColor = match($activity['activity_type']) {
+                                            'create' => 'bg-success',
+                                            'update' => 'bg-info',
+                                            'delete' => 'bg-danger',
+                                            'login' => 'bg-primary',
+                                            'logout' => 'bg-secondary',
+                                            default => 'bg-secondary'
+                                        };
+                                    ?>
+                                    <div class="<?= $activityColor ?> text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                        <i class="fas <?= $activityIcon ?>"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 fw-semibold"><?= esc($activity['user_name']) ?? esc($activity['username']) ?></h6>
+                                    <small class="text-muted"><?= esc($activity['description'] ?? 'No description') ?></small>
+                                    <?php if (!empty($activity['entity_type'])): ?>
+                                        <div class="text-muted small">
+                                            <span class="badge bg-secondary"><?= esc(strtoupper($activity['entity_type'])) ?></span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="text-muted small mt-1">
+                                        <?= date('M d, Y h:i A', strtotime($activity['created_at'])) ?>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-semibold">Database</h6>
-                            <small class="text-muted">Connected and operational</small>
-                        </div>
-                        <span class="badge bg-success">HEALTHY</span>
-                    </div>
-                    <div class="d-flex align-items-center mb-3 border-bottom pb-3">
-                        <div class="me-3">
-                            <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-qrcode"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-semibold">QR Generation</h6>
-                            <small class="text-muted">QR extension active</small>
-                        </div>
-                        <span class="badge bg-success">ACTIVE</span>
-                    </div>
-                    <div class="d-flex align-items-center mb-3 border-bottom pb-3">
-                        <div class="me-3">
-                            <div class="bg-warning text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                            </div>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-semibold">Backup System</h6>
-                            <small class="text-muted">Last backup: 2 hours ago</small>
-                        </div>
-                        <span class="badge bg-warning">SCHEDULED</span>
-                    </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="p-3 text-center text-muted">No user activities found.</div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

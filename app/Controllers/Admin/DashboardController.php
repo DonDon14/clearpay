@@ -82,6 +82,16 @@ class DashboardController extends BaseController
         $contributionModel = new ContributionModel();
         $contributions = $contributionModel->where('status', 'active')->findAll();
 
+        // --- Fetch User Activities ---
+        $db = \Config\Database::connect();
+        $userActivities = $db->table('user_activities ua')
+            ->select('ua.*, u.name as user_name, u.username, u.role')
+            ->join('users u', 'u.id = ua.user_id', 'left')
+            ->orderBy('ua.created_at', 'DESC')
+            ->limit(5)
+            ->get()
+            ->getResultArray();
+
         // --- Prepare Data for View ---
         $data = [
             'totalCollections' => $totalCollections,
@@ -91,6 +101,7 @@ class DashboardController extends BaseController
             'recentPayments'    => $recentPayments,
             'allPayments'       => $allPayments,
             'contributions'     => $contributions,
+            'userActivities'    => $userActivities,
             'title'             => 'Admin Dashboard',
             'pageTitle'         => 'Dashboard',
             'pageSubtitle'      => 'Welcome back ' . ucwords($user['username'] ?? 'User') . '!',

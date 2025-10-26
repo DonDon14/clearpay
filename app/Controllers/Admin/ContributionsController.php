@@ -19,7 +19,7 @@ class ContributionsController extends BaseController
             // Validation rules
             $rules = [
                 'title' => 'required|min_length[3]|max_length[255]',
-                'amount' => 'required|decimal',
+                'amount' => 'required|numeric',
                 'status' => 'required|in_list[active,inactive]'
             ];
 
@@ -74,6 +74,13 @@ class ContributionsController extends BaseController
             }
 
             if ($result) {
+                // Log user activity
+                $activityType = $id ? 'update' : 'create';
+                $activityDescription = $id 
+                    ? 'Updated contribution: ' . $data['title'] 
+                    : 'Added new contribution: ' . $data['title'];
+                $this->logUserActivity($activityType, 'contribution', $id ?: $result, $activityDescription);
+                
                 session()->setFlashdata('success', $message);
                 return $this->response->setJSON([
                     'success' => true,
@@ -129,7 +136,7 @@ class ContributionsController extends BaseController
             // Validation rules
             $rules = [
                 'title' => 'required|min_length[3]|max_length[255]',
-                'amount' => 'required|decimal',
+                'amount' => 'required|numeric',
                 'status' => 'required|in_list[active,inactive]'
             ];
 
@@ -166,6 +173,9 @@ class ContributionsController extends BaseController
             $result = $model->update($id, $data);
 
             if ($result) {
+                // Log user activity
+                $this->logUserActivity('update', 'contribution', $id, 'Updated contribution: ' . $data['title']);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Contribution updated successfully.'
@@ -202,6 +212,9 @@ class ContributionsController extends BaseController
             $result = $model->delete($id);
 
             if ($result) {
+                // Log user activity
+                $this->logUserActivity('delete', 'contribution', $id, 'Deleted contribution: ' . $existing['title']);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Contribution deleted successfully.'
@@ -261,6 +274,32 @@ class ContributionsController extends BaseController
                 'success' => false,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Log user activity
+     */
+    private function logUserActivity($activityType, $entityType, $entityId, $description)
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            $data = [
+                'user_id' => session()->get('user-id'),
+                'activity_type' => $activityType,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'description' => $description,
+                'ip_address' => $this->request->getIPAddress(),
+                'user_agent' => $this->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            
+            $db->table('user_activities')->insert($data);
+        } catch (\Exception $e) {
+            // Log error but don't fail the main operation
+            log_message('error', 'Failed to log user activity: ' . $e->getMessage());
         }
     }
 }
