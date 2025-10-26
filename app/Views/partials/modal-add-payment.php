@@ -34,7 +34,12 @@
           <!-- Existing Payer Selection -->
           <div class="mb-3" id="existingPayerFields">
             <label for="payerSelect" class="form-label">Search Payer</label>
-            <input type="text" class="form-control" id="payerSelect" placeholder="Type to search payers..." autocomplete="off">
+            <div class="input-group">
+              <input type="text" class="form-control" id="payerSelect" placeholder="Type to search payers or scan ID..." autocomplete="off">
+              <button type="button" class="btn btn-outline-primary" onclick="scanIDForExistingPayer()" title="Scan School ID">
+                <i class="fas fa-qrcode"></i>
+              </button>
+            </div>
             <div id="payerDropdown" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto; display: none;"></div>
           </div>
 
@@ -47,7 +52,12 @@
 
             <div class="mb-3">
               <label for="payerId" class="form-label">Payer ID <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="payerId" name="payer_id" value="<?= isset($payment['payer_id']) ? $payment['payer_id'] : '' ?>">
+              <div class="input-group">
+                <input type="text" class="form-control" id="payerId" name="payer_id" value="<?= isset($payment['payer_id']) ? $payment['payer_id'] : '' ?>">
+                <button type="button" class="btn btn-outline-primary" onclick="scanIDForNewPayer()" title="Scan School ID">
+                  <i class="fas fa-qrcode"></i>
+                </button>
+              </div>
             </div>
 
             <div class="mb-3 row">
@@ -133,7 +143,36 @@
   </div>
 </div>
 
-
+<!-- ID Scanner Modal -->
+<div class="modal fade" id="idScannerModal" tabindex="-1" aria-labelledby="idScannerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title" id="idScannerModalLabel">
+          <i class="fas fa-id-card me-2"></i>Scan School ID
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="idScannerContainer" style="position: relative;">
+          <video id="idVideo" autoplay playsinline style="width: 100%; border: 2px solid #0d6efd; border-radius: 8px; max-height: 400px;"></video>
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 3px solid #0d6efd; border-radius: 8px; pointer-events: none;"></div>
+        </div>
+        <div id="idScannerStatus" class="text-center mt-3">
+          <p class="text-muted">
+            <i class="fas fa-camera me-2"></i>
+            Point camera at School ID QR code
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="stopIDScanner()" data-bs-dismiss="modal">
+          <i class="fas fa-times me-1"></i>Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <style>
 /* Fix dropdown z-index issues in modals */
@@ -351,6 +390,222 @@ document.addEventListener("DOMContentLoaded", function() {
   
   if (contributionSelect) {
     contributionSelect.addEventListener('change', updatePaymentStatus);
+  }
+});
+
+// ID Scanner Variables
+let idScannerStream = null;
+let idScannerCanvas = null;
+let idScannerContext = null;
+let isScanningForNewPayer = false;
+
+// Function to scan ID for existing payer
+async function scanIDForExistingPayer() {
+  isScanningForNewPayer = false;
+  await startIDScanner();
+}
+
+// Function to scan ID for new payer
+async function scanIDForNewPayer() {
+  isScanningForNewPayer = true;
+  await startIDScanner();
+}
+
+// Start ID Scanner
+async function startIDScanner() {
+  try {
+    const modal = new bootstrap.Modal(document.getElementById('idScannerModal'));
+    modal.show();
+    
+    idScannerStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: 'environment',
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      } 
+    });
+    
+    const video = document.getElementById('idVideo');
+    video.srcObject = idScannerStream;
+    
+    video.onloadedmetadata = () => {
+      video.play();
+      
+      idScannerCanvas = document.createElement('canvas');
+      idScannerCanvas.width = video.videoWidth;
+      idScannerCanvas.height = video.videoHeight;
+      idScannerContext = idScannerCanvas.getContext('2d');
+      
+      scanIDCode();
+    };
+    
+  } catch (error) {
+    console.error('Error accessing camera:', error);
+    showNotification('Unable to access camera. Please check permissions.', 'error');
+  }
+}
+
+// Function to scan for ID codes
+function scanIDCode() {
+  const video = document.getElementById('idVideo');
+  
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    idScannerContext.drawImage(video, 0, 0, idScannerCanvas.width, idScannerCanvas.height);
+    const imageData = idScannerContext.getImageData(0, 0, idScannerCanvas.width, idScannerCanvas.height);
+    
+    if (typeof jsQR !== 'undefined') {
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      
+      if (code) {
+        console.log('ID QR Code detected:', code.data);
+        stopIDScanner();
+        processIDCode(code.data);
+        return;
+      }
+    }
+  }
+  
+  requestAnimationFrame(scanIDCode);
+}
+
+// Stop ID Scanner
+function stopIDScanner() {
+  if (idScannerStream) {
+    idScannerStream.getTracks().forEach(track => track.stop());
+    idScannerStream = null;
+  }
+  
+  const modalElement = document.getElementById('idScannerModal');
+  const modal = bootstrap.Modal.getInstance(modalElement);
+  if (modal) {
+    modal.hide();
+  }
+}
+
+// Parse and process ID code
+function processIDCode(idText) {
+  // Format: IDNUMBERFIRSTNAME MIDDLEINITIAL.LASTNAMECOURSECODE
+  // Example: 154989FLoro C.OceroBSIT
+  
+  console.log('Processing ID:', idText);
+  
+  // Find where the ID number ends (first letter)
+  // Match: ID number (digits) + name and course part
+  const match = idText.match(/^(\d+)(.+)$/);
+  
+  if (!match) {
+    showNotification('Invalid ID format. Please scan again.', 'error');
+    return;
+  }
+  
+  const [, idNumber, restOfText] = match;
+  console.log('ID Number:', idNumber, 'Rest:', restOfText);
+  
+  // Try to match the pattern: FirstName MiddleInitial.LastNameCourseCode
+  // Example: "Floro C.OCEROBSIT" or "Floro C.OceroBSIT"
+  // The last name might be in all caps or have mixed case
+  // The course code is typically 2-4 uppercase letters (possibly with digits)
+  
+  // First, let's try to identify where the course code starts
+  // Look for patterns like 2-4 uppercase letters at the end (course codes like BSIT, IT, CS, etc.)
+  // But be careful not to mistake last names for course codes
+  
+  // Strategy: Work backwards from the end
+  // Course codes are typically short (2-4 characters) and all uppercase
+  
+  // Try matching: FirstName MiddleInitial.LastNameCOURSECODE
+  // Example: "Floro C.OCEROBSIT" - here "OCERO" is part of last name, "BSIT" is course
+  // Example: "Floro C.OceroBSIT" - here "Ocero" is last name, "BSIT" is course
+  
+  // More robust pattern: Look for 2-4 uppercase letters/digits at the very end
+  // This should be the course code
+  const courseCodeMatch = restOfText.match(/([A-Z]{2,4}\d*)$/);
+  
+  let namePart = restOfText;
+  let courseCode = '';
+  
+  if (courseCodeMatch) {
+    // Found a potential course code at the end
+    courseCode = courseCodeMatch[1];
+    namePart = restOfText.slice(0, -courseCode.length);
+    console.log('Detected course code:', courseCode, 'Name part:', namePart);
+  }
+  
+  // Now parse the name part (e.g., "Floro C.OCERO" or "Floro C.Ocero")
+  // Try to match: FirstName MiddleInitial.LastName
+  
+     // Handle both all-caps last name and mixed case
+   // Pattern: FirstName + space + MiddleInitial. + LastName
+   // Last name might be: ALLCAPS, MixedCase, or all lowercase
+   
+  if (isScanningForNewPayer) {
+    // For new payer, parse and populate name and ID
+    const nameMatchDetailed = namePart.match(/^([A-Z][a-z]+)\s+([A-Z])\.(.+)$/);
+    
+    if (nameMatchDetailed) {
+      // Got a match with middle initial
+      const [, firstName, middleInitial, lastName] = nameMatchDetailed;
+      
+      // Format the last name properly (capitalize first letter, rest lowercase)
+      const formattedLastName = lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
+      
+      const fullName = `${firstName} ${middleInitial}. ${formattedLastName}`;
+      console.log('Parsed name:', fullName);
+      
+      document.getElementById('payerId').value = idNumber;
+      document.getElementById('payerName').value = fullName;
+      showNotification('ID scanned successfully!', 'success');
+    } else {
+      // Name doesn't match expected format, use as-is
+      const fullName = namePart.replace(/\s+/g, ' ').trim();
+      
+      document.getElementById('payerId').value = idNumber;
+      document.getElementById('payerName').value = fullName;
+      showNotification('ID scanned successfully!', 'success');
+    }
+  } else {
+    // For existing payer, just use the ID number to search
+    console.log('Searching for existing payer with ID:', idNumber);
+    
+    // Set the ID in the hidden field
+    document.getElementById('existingPayerId').value = idNumber;
+    
+    // Search for the payer by ID
+    fetchPayerById(idNumber);
+  }
+}
+
+// Function to fetch payer by ID
+function fetchPayerById(idNumber) {
+  fetch(`${window.APP_BASE_URL || ''}/payments/search-payers?term=${encodeURIComponent(idNumber)}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.payers && data.payers.length > 0) {
+        const payer = data.payers[0]; // Get first match
+        
+        // Populate the search field and select the payer
+        document.getElementById('payerSelect').value = `${payer.payer_name} (${payer.payer_id})`;
+        document.getElementById('existingPayerId').value = payer.payer_id;
+        
+        showNotification('Payer found!', 'success');
+      } else {
+        showNotification('No payer found with this ID', 'warning');
+      }
+    })
+    .catch(error => {
+      console.error('Error searching payers:', error);
+      showNotification('Error searching for payer', 'error');
+    });
+}
+
+// Event listener for ID scanner modal
+document.addEventListener('DOMContentLoaded', function() {
+  const idScannerModal = document.getElementById('idScannerModal');
+  
+  if (idScannerModal) {
+    idScannerModal.addEventListener('hidden.bs.modal', function() {
+      stopIDScanner();
+    });
   }
 });
 </script>
