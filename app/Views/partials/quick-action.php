@@ -30,23 +30,34 @@ $colClass = $passedColClass;
 <div class="<?= esc($colClass) ?>">
     <?php if (isset($modalTarget) && !empty($modalTarget)): ?>
         <!-- Modal Trigger Button -->
-        <button 
-            type="button"
-            class="btn text-white w-100 py-3 <?= esc($bgColor) ?> shadow-sm d-flex flex-column align-items-center justify-content-center"
-            data-bs-toggle="modal"
-            data-bs-target="#<?= esc($modalTarget) ?>"
-        >
-            <i class="<?= esc($icon ?? 'fas fa-cog') ?> mb-2 fs-4"></i>
-            <strong><?= esc($title ?? 'Action') ?></strong>
-            <small class="text-white-75"><?= esc($subtitle ?? '') ?></small>
-        </button>
+        <div class="card <?= esc($bgColor) ?> text-white shadow-sm rounded-3 hover-scale h-100" 
+             style="transition: transform 0.2s, box-shadow 0.2s; min-height: 120px; cursor: pointer;" 
+             data-bs-toggle="modal" 
+             data-bs-target="#<?= esc($modalTarget) ?>">
+            <div class="card-body d-flex align-items-center gap-3 h-100">
+                <div class="icon-circle d-flex align-items-center justify-content-center">
+                    <i class="<?= esc($icon ?? 'fas fa-cog') ?> fs-4"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1 fw-semibold"><?= esc($title ?? 'Action') ?></h6>
+                    <small class="text-white-75"><?= esc($subtitle ?? '') ?></small>
+                </div>
+            </div>
+        </div>
     <?php else: ?>
         <!-- Regular Link -->
         <a href="<?= esc($link ?? '#') ?>" 
-           class="btn text-white w-100 py-3 <?= esc($bgColor) ?> shadow-sm d-flex flex-column align-items-center justify-content-center text-decoration-none">
-            <i class="<?= esc($icon ?? 'fas fa-cog') ?> mb-2 fs-4"></i>
-            <strong><?= esc($title ?? 'Action') ?></strong>
-            <small class="text-white-75"><?= esc($subtitle ?? '') ?></small>
+           class="card <?= esc($bgColor) ?> text-white shadow-sm rounded-3 hover-scale h-100 text-decoration-none" 
+           style="transition: transform 0.2s, box-shadow 0.2s; min-height: 120px;">
+            <div class="card-body d-flex align-items-center gap-3 h-100">
+                <div class="icon-circle d-flex align-items-center justify-content-center">
+                    <i class="<?= esc($icon ?? 'fas fa-cog') ?> fs-4"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="mb-1 fw-semibold"><?= esc($title ?? 'Action') ?></h6>
+                    <small class="text-white-75"><?= esc($subtitle ?? '') ?></small>
+                </div>
+            </div>
         </a>
     <?php endif; ?>
 </div>
@@ -65,5 +76,9 @@ $colClass = $passedColClass;
 .hover-scale:hover {
     transform: translateY(-3px) scale(1.03);
     box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.text-white-75 {
+    opacity: 0.75;
 }
 </style>
