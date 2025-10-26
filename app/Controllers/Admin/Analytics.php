@@ -22,15 +22,15 @@ class Analytics extends BaseController
     public function index()
     {
         // Check if user is logged in
-        if (!session()->get('logged_in')) {
-            return redirect()->to('/');
+        if (!session()->get('isLoggedIn')) {
+            return redirect()->to('/admin/login');
         }
 
         // Add profile picture for sidebar and header
         $session = session();
-        $userId = $session->get('user_id');
-        $usersModel = new \App\Models\UsersModel();
-        $user = $usersModel->find($userId);
+        $userId = $session->get('user-id');
+        $userModel = new \App\Models\UserModel();
+        $user = $userModel->find($userId);
         
         $profilePictureUrl = '';
         if (!empty($user['profile_picture'])) {
@@ -62,28 +62,34 @@ class Analytics extends BaseController
     {
         $db = \Config\Database::connect();
         
-        // Total revenue (from payments)
+        // Total revenue (from payments) - include soft-deleted
         $totalRevenue = $db->table('payments')
                           ->selectSum('amount_paid')
-                          ->whereIn('payment_status', ['completed', 'fully_paid'])
+                          ->whereIn('payment_status', ['fully paid', 'partial'])
+                          ->where('deleted_at IS NULL')
                           ->get()
-                          ->getRow()
-                          ->amount_paid ?? 0;
+                          ->getRow();
+        
+        log_message('debug', 'Total Revenue Query Result: ' . json_encode($totalRevenue));
+        
+        $totalRevenue = $totalRevenue->amount_paid ?? 0;
 
         // Total contributions
         $totalContributions = $this->contributionModel->countAll();
 
-        // Active contributors (unique students who made payments)
+        // Active contributors (unique payers who made payments)
         $activeContributors = $db->table('payments')
-                                ->select('student_id')
-                                ->whereIn('payment_status', ['completed', 'fully_paid'])
+                                ->select('payer_id')
+                                ->whereIn('payment_status', ['fully paid', 'partial'])
+                                ->where('deleted_at IS NULL')
                                 ->distinct()
                                 ->countAllResults();
 
         // This month's revenue
         $thisMonthRevenue = $db->table('payments')
                               ->selectSum('amount_paid')
-                              ->whereIn('payment_status', ['completed', 'fully_paid'])
+                              ->whereIn('payment_status', ['fully paid', 'partial'])
+                              ->where('deleted_at IS NULL')
                               ->where('MONTH(created_at)', date('m'))
                               ->where('YEAR(created_at)', date('Y'))
                               ->get()
@@ -93,7 +99,8 @@ class Analytics extends BaseController
         // Last month's revenue for comparison
         $lastMonthRevenue = $db->table('payments')
                               ->selectSum('amount_paid')
-                              ->whereIn('payment_status', ['completed', 'fully_paid'])
+                              ->whereIn('payment_status', ['fully paid', 'partial'])
+                              ->where('deleted_at IS NULL')
                               ->where('MONTH(created_at)', date('m', strtotime('-1 month')))
                               ->where('YEAR(created_at)', date('Y', strtotime('-1 month')))
                               ->get()
@@ -129,7 +136,7 @@ class Analytics extends BaseController
         // Category breakdown
         $db = \Config\Database::connect();
         $categoryStats = $db->table('contributions')
-                           ->select('category, COUNT(*) as count, SUM(amount) as total_amount, SUM(profit_amount) as total_profit')
+                           ->select('category, COUNT(*) as count, SUM(amount) as total_amount, SUM((amount - cost_price)) as total_profit')
                            ->where('status', 'active')
                            ->groupBy('category')
                            ->orderBy('total_amount', 'DESC')
@@ -153,6 +160,7 @@ class Analytics extends BaseController
         // Payment status breakdown
         $statusStats = $db->table('payments')
                          ->select('payment_status as status, COUNT(*) as count, SUM(amount_paid) as total_amount')
+                         ->where('deleted_at IS NULL')
                          ->groupBy('payment_status')
                          ->get()
                          ->getResultArray();
@@ -160,15 +168,18 @@ class Analytics extends BaseController
         // Payment method breakdown
         $methodStats = $db->table('payments')
                          ->select('payment_method, COUNT(*) as count, SUM(amount_paid) as total_amount')
-                         ->whereIn('payment_status', ['completed', 'fully_paid'])
+                         ->whereIn('payment_status', ['fully paid', 'partial'])
+                         ->where('deleted_at IS NULL')
                          ->groupBy('payment_method')
                          ->get()
                          ->getResultArray();
 
         // Recent payments
         $recentPayments = $db->table('payments p')
-                            ->join('contributions c', 'p.contribution_id = c.id')
-                            ->select('p.id, p.student_name, c.title as contribution_title, p.amount_paid as amount, p.payment_method, p.payment_status as status, p.created_at')
+                            ->join('contributions c', 'p.contribution_id = c.id', 'left')
+                            ->join('payers py', 'p.payer_id = py.id', 'left')
+                            ->select('p.id, py.payer_name as student_name, c.title as contribution_title, p.amount_paid as amount, p.payment_method, p.payment_status as status, p.created_at')
+                            ->where('p.deleted_at IS NULL')
                             ->orderBy('p.created_at', 'DESC')
                             ->limit(10)
                             ->get()
@@ -177,7 +188,8 @@ class Analytics extends BaseController
         // Average transaction value
         $avgTransaction = $db->table('payments')
                             ->selectAvg('amount_paid')
-                            ->whereIn('payment_status', ['completed', 'fully_paid'])
+                            ->whereIn('payment_status', ['fully paid', 'partial'])
+                            ->where('deleted_at IS NULL')
                             ->get()
                             ->getRow()
                             ->amount_paid ?? 0;
@@ -200,7 +212,8 @@ class Analytics extends BaseController
         // Daily revenue for last 30 days
         $dailyRevenue = $db->table('payments')
                           ->select('DATE(created_at) as date, SUM(amount_paid) as total')
-                          ->whereIn('payment_status', ['completed', 'fully_paid'])
+                          ->whereIn('payment_status', ['fully paid', 'partial'])
+                          ->where('deleted_at IS NULL')
                           ->where('created_at >=', date('Y-m-d H:i:s', strtotime('-30 days')))
                           ->groupBy('DATE(created_at)')
                           ->orderBy('date', 'ASC')
@@ -210,7 +223,8 @@ class Analytics extends BaseController
         // Monthly revenue for last 12 months
         $monthlyRevenue = $db->table('payments')
                             ->select('YEAR(created_at) as year, MONTH(created_at) as month, SUM(amount_paid) as total')
-                            ->whereIn('payment_status', ['completed', 'fully_paid'])
+                            ->whereIn('payment_status', ['fully paid', 'partial'])
+                            ->where('deleted_at IS NULL')
                             ->where('created_at >=', date('Y-m-d H:i:s', strtotime('-12 months')))
                             ->groupBy('YEAR(created_at), MONTH(created_at)')
                             ->orderBy('year, month', 'ASC')
@@ -220,7 +234,8 @@ class Analytics extends BaseController
         // Transaction count trends
         $dailyTransactions = $db->table('payments')
                                ->select('DATE(created_at) as date, COUNT(*) as count')
-                               ->whereIn('payment_status', ['completed', 'fully_paid'])
+                               ->whereIn('payment_status', ['fully paid', 'partial'])
+                               ->where('deleted_at IS NULL')
                                ->where('created_at >=', date('Y-m-d H:i:s', strtotime('-30 days')))
                                ->groupBy('DATE(created_at)')
                                ->orderBy('date', 'ASC')
@@ -272,8 +287,8 @@ class Analytics extends BaseController
     public function export($type = 'pdf')
     {
         // Check if user is logged in
-        if (!session()->get('logged_in')) {
-            return redirect()->to('/');
+        if (!session()->get('isLoggedIn')) {
+            return redirect()->to('/admin/login');
         }
 
         $data = [

@@ -43,8 +43,8 @@
                             <p class="mb-0 small text-muted"><?= esc($contribution['category'] ?? 'General') ?></p>
                         </div>
                         <div class="activity-meta text-end">
-                            <div class="fw-semibold text-success">₱<?= number_format($contribution['profit_amount'], 2) ?></div>
-                            <small class="text-muted"><?= number_format($contribution['profit_margin'], 1) ?>% margin</small>
+                            <div class="fw-semibold text-success">₱<?= number_format($contribution['profit_amount'] ?? 0, 2) ?></div>
+                            <small class="text-muted"><?= number_format($contribution['profit_margin'] ?? 0, 1) ?>% margin</small>
                         </div>
                     </div>
                 <?php endforeach; ?>

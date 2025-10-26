@@ -31,7 +31,8 @@ $routes->post('/announcements/save', 'Admin\AnnouncementsController::save', ['fi
 $routes->get('/announcements/get/(:num)', 'Admin\AnnouncementsController::get/$1', ['filter' => 'auth']);
 $routes->post('/announcements/delete/(:num)', 'Admin\AnnouncementsController::delete/$1', ['filter' => 'auth']);
 $routes->post('/announcements/update-status/(:num)', 'Admin\AnnouncementsController::updateStatus/$1', ['filter' => 'auth']);
-$routes->get('/analytics', 'Admin\SidebarController::analytics', ['filter' => 'auth']);
+$routes->get('/analytics', 'Admin\Analytics::index', ['filter' => 'auth']);
+$routes->get('/admin/analytics/export/(:any)', 'Admin\Analytics::export/$1', ['filter' => 'auth']);
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
 $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'auth']);
