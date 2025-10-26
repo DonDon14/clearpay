@@ -2,88 +2,13 @@
 
 <?= $this->section('content') ?>
 <?php
-// Dummy data for UI development - replace with actual controller data later
-$announcements = [
-    [
-        'id' => 1,
-        'title' => 'System Maintenance Notice',
-        'content' => 'ClearPay will undergo scheduled maintenance this Saturday from 2:00 AM to 6:00 AM. During this time, the system will be temporarily unavailable. We apologize for any inconvenience.',
-        'type' => 'maintenance',
-        'priority' => 'high',
-        'target_audience' => 'all',
-        'status' => 'published',
-        'created_at' => '2024-10-20 10:00:00',
-        'published_at' => '2024-10-20 10:00:00',
-        'expires_at' => '2024-10-27 00:00:00'
-    ],
-    [
-        'id' => 2,
-        'title' => 'New Payment Methods Available',
-        'content' => 'We are excited to announce that GCash and PayMaya are now available as payment methods. Students can now use these convenient options to pay their contributions.',
-        'type' => 'general',
-        'priority' => 'medium',
-        'target_audience' => 'students',
-        'status' => 'published',
-        'created_at' => '2024-10-18 14:30:00',
-        'published_at' => '2024-10-18 14:30:00',
-        'expires_at' => null
-    ],
-    [
-        'id' => 3,
-        'title' => 'Semester End Payment Deadline',
-        'content' => 'Reminder: All semester contributions must be paid by November 30, 2024. Late payments will incur additional charges. Please settle your accounts promptly.',
-        'type' => 'deadline',
-        'priority' => 'critical',
-        'target_audience' => 'students',
-        'status' => 'published',
-        'created_at' => '2024-10-15 09:15:00',
-        'published_at' => '2024-10-15 09:15:00',
-        'expires_at' => '2024-11-30 23:59:59'
-    ],
-    [
-        'id' => 4,
-        'title' => 'Welcome New Students',
-        'content' => 'Welcome to all new students! Please visit the admin office to complete your registration and setup your ClearPay account. Don\'t forget to bring your student ID and enrollment certificate.',
-        'type' => 'general',
-        'priority' => 'low',
-        'target_audience' => 'students',
-        'status' => 'draft',
-        'created_at' => '2024-10-22 16:45:00',
-        'published_at' => null,
-        'expires_at' => null
-    ],
-    [
-        'id' => 5,
-        'title' => 'Staff Training Session',
-        'content' => 'All administrative staff are required to attend the ClearPay training session on October 28, 2024, at 2:00 PM in Conference Room A.',
-        'type' => 'event',
-        'priority' => 'high',
-        'target_audience' => 'staff',
-        'status' => 'published',
-        'created_at' => '2024-10-21 11:20:00',
-        'published_at' => '2024-10-21 11:20:00',
-        'expires_at' => '2024-10-28 17:00:00'
-    ],
-    [
-        'id' => 6,
-        'title' => 'Holiday Schedule Update',
-        'content' => 'Please note the updated holiday schedule for November. The office will be closed on November 1-2 for All Saints\' Day and All Souls\' Day.',
-        'type' => 'general',
-        'priority' => 'medium',
-        'target_audience' => 'all',
-        'status' => 'archived',
-        'created_at' => '2024-10-10 13:00:00',
-        'published_at' => '2024-10-10 13:00:00',
-        'expires_at' => null
-    ]
-];
-
-// Calculate status counts
-$status_counts = [
-    'total' => count($announcements),
-    'published' => count(array_filter($announcements, fn($a) => $a['status'] === 'published')),
-    'draft' => count(array_filter($announcements, fn($a) => $a['status'] === 'draft')),
-    'archived' => count(array_filter($announcements, fn($a) => $a['status'] === 'archived'))
+// Use data from controller
+$announcements = $announcements ?? [];
+$status_counts = $stats ?? [
+    'total' => 0,
+    'published' => 0,
+    'draft' => 0,
+    'archived' => 0
 ];
 ?>
 
@@ -92,10 +17,6 @@ $status_counts = [
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="h3 mb-0 text-gray-800">Announcements Management</h1>
-                    <p class="mb-0 text-muted">Create and manage system announcements for students and staff</p>
-                </div>
                 <div>
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal">
                         <i class="fas fa-plus"></i> Add Announcement
@@ -141,12 +62,14 @@ $status_counts = [
         </div>
     </div>
 
-    <!-- Filters and Search -->
+    <!-- Announcements List -->
     <?= view('partials/container-card', [
-        'title' => 'Filter Announcements',
-        'subtitle' => 'Search and filter announcements by status, priority, or content',
+        'title' => 'All Announcements',
+        'subtitle' => 'Manage your announcements',
+        'bodyClass' => '', // Override default flex-wrap
         'content' => '
-            <div class="row">
+            <!-- Search and Filter Controls -->
+            <div class="row mb-4 pb-3 border-bottom">
                 <div class="col-md-4 mb-3">
                     <label class="form-label">Search</label>
                     <div class="input-group">
@@ -190,15 +113,9 @@ $status_counts = [
                     </button>
                 </div>
             </div>
-        '
-    ]) ?>
-
-    <!-- Announcements List -->
-    <?= view('partials/container-card', [
-        'title' => 'All Announcements',
-        'subtitle' => 'Manage your announcements',
-        'content' => '
-            <div id="announcementsList">
+            
+            <!-- Announcements List -->
+            <div id="announcementsList" class="w-100">
                 ' . implode('', array_map(function($announcement) {
                     $priorityColors = [
                         'critical' => 'danger',
@@ -226,8 +143,8 @@ $status_counts = [
                     $typeIcon = $typeIcons[$announcement['type']] ?? 'bullhorn';
                     
                     return '
-                        <div class="card mb-3 announcement-card" data-status="' . $announcement['status'] . '" 
-                             data-priority="' . $announcement['priority'] . '" data-audience="' . $announcement['target_audience'] . '">
+                        <div class="card mb-3 announcement-card w-100" data-status="' . $announcement['status'] . '" 
+                             data-priority="' . $announcement['priority'] . '" data-audience="' . $announcement['target_audience'] . '" style="max-width: 100%;">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <div>
                                     <h5 class="card-title mb-1">
@@ -256,7 +173,7 @@ $status_counts = [
                             </div>
                             <div class="card-body">
                                 <div class="announcement-content mb-3">
-                                    ' . nl2br(htmlspecialchars($announcement['content'])) . '
+                                    ' . nl2br(htmlspecialchars($announcement['text'] ?? '')) . '
                                 </div>
                                 <div class="d-flex flex-wrap gap-2">
                                     <span class="badge bg-' . $priorityColor . '">' . ucfirst($announcement['priority']) . ' Priority</span>
@@ -279,49 +196,6 @@ $status_counts = [
             </div>
         '
     ]) ?>
-
-    <!-- Quick Actions -->
-    <?= view('partials/container-card', [
-        'title' => 'Quick Actions',
-        'subtitle' => 'Common announcement management tasks',
-        'content' => '
-            <div class="row">
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'plus',
-                        'title' => 'Create Announcement',
-                        'color' => 'primary',
-                        'action' => 'data-bs-toggle="modal" data-bs-target="#announcementModal"'
-                    ]) . '
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'eye',
-                        'title' => 'Publish Drafts',
-                        'color' => 'success',
-                        'action' => 'onclick="publishDrafts()"'
-                    ]) . '
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'file-export',
-                        'title' => 'Export All',
-                        'color' => 'info',
-                        'action' => 'onclick="exportAnnouncements()"'
-                    ]) . '
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'broom',
-                        'title' => 'Cleanup Expired',
-                        'color' => 'warning',
-                        'action' => 'onclick="cleanupExpired()"'
-                    ]) . '
-                </div>
-            </div>
-        '
-    ]) ?>
-</div>
 
 <!-- Add/Edit Announcement Modal -->
 <div class="modal fade" id="announcementModal" tabindex="-1" aria-labelledby="announcementModalLabel" aria-hidden="true">
@@ -465,40 +339,163 @@ document.addEventListener('DOMContentLoaded', function() {
     // Form submission
     document.getElementById('announcementForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        // Add your form submission logic here
-        alert('Form submission would happen here - connect to your controller');
+        saveAnnouncement();
     });
 });
 
-// Placeholder functions for actions
-function editAnnouncement(id) {
-    alert('Edit announcement ' + id + ' - connect to your controller');
+// Save announcement (create or update)
+function saveAnnouncement() {
+    const formData = new FormData(document.getElementById('announcementForm'));
+    const announcementId = document.getElementById('announcementId').value;
+    
+    if (announcementId) {
+        formData.append('announcement_id', announcementId);
+    }
+    
+    fetch('<?= base_url('announcements/save') ?>', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('announcementModal'));
+            modal.hide();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showNotification(data.message || 'Error saving announcement', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error saving announcement', 'error');
+    });
 }
 
+// Edit announcement
+function editAnnouncement(id) {
+    fetch(`<?= base_url('announcements/get/') ?>${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.announcement) {
+                const announcement = data.announcement;
+                
+                // Populate form fields
+                document.getElementById('announcementId').value = announcement.id;
+                document.getElementById('title').value = announcement.title;
+                document.getElementById('content').value = announcement.text; // Note: DB uses 'text', form uses 'content'
+                document.getElementById('type').value = announcement.type;
+                document.getElementById('priority').value = announcement.priority;
+                document.getElementById('target_audience').value = announcement.target_audience;
+                document.getElementById('status').value = announcement.status;
+                document.getElementById('expires_at').value = announcement.expires_at ? announcement.expires_at.substring(0, 16) : '';
+                
+                // Update modal title
+                document.getElementById('announcementModalLabel').textContent = 'Edit Announcement';
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('announcementModal'));
+                modal.show();
+            } else {
+                showNotification(data.message || 'Error loading announcement', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error loading announcement', 'error');
+        });
+}
+
+// Archive announcement
 function archiveAnnouncement(id) {
     if (confirm('Archive this announcement?')) {
-        alert('Archive announcement ' + id + ' - connect to your controller');
+        fetch(`<?= base_url('announcements/update-status/') ?>${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'status=archived'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showNotification(data.message || 'Error archiving announcement', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error archiving announcement', 'error');
+        });
     }
 }
 
+// Delete announcement
 function deleteAnnouncement(id) {
     if (confirm('Delete this announcement? This cannot be undone.')) {
-        alert('Delete announcement ' + id + ' - connect to your controller');
+        fetch(`<?= base_url('announcements/delete/') ?>${id}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showNotification(data.message || 'Error deleting announcement', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error deleting announcement', 'error');
+        });
     }
 }
 
+// Placeholder functions for future implementation
 function publishDrafts() {
-    alert('Publish all drafts - connect to your controller');
+    showNotification('This feature is not yet implemented', 'info');
 }
 
 function exportAnnouncements() {
-    alert('Export announcements - connect to your controller');
+    showNotification('This feature is not yet implemented', 'info');
 }
 
 function cleanupExpired() {
     if (confirm('Remove all expired announcements?')) {
-        alert('Cleanup expired - connect to your controller');
+        showNotification('This feature is not yet implemented', 'info');
     }
 }
+
+// Helper function for notifications
+function showNotification(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 3000);
+}
+
+// Reset form when modal is closed
+document.getElementById('announcementModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('announcementForm').reset();
+    document.getElementById('announcementId').value = '';
+    document.getElementById('announcementModalLabel').textContent = 'Add New Announcement';
+});
 </script>
 <?= $this->endSection() ?>

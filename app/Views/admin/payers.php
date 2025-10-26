@@ -96,9 +96,6 @@
                                             <button class="btn btn-outline-primary" title="View Details" onclick="viewPayerDetails(<?= $payer['id'] ?>)">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <button class="btn btn-outline-success" title="Edit" onclick="editPayer(<?= $payer['id'] ?>)">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
                                             <button class="btn btn-outline-info" title="Export PDF" onclick="exportPayerPDF(<?= $payer['id'] ?>)">
                                                 <i class="fas fa-file-pdf"></i>
                                             </button>
@@ -204,6 +201,11 @@
     </div>
 </div>
 
+<!-- Include Modals -->
+<?= view('partials/modal-view-payer-details') ?>
+<?= view('partials/modal-edit-payer') ?>
+<?= view('partials/modal-qr-receipt') ?>
+
 <script>
 function savePayer(event) {
     event.preventDefault();
@@ -235,12 +237,138 @@ function savePayer(event) {
 
 function viewPayerDetails(payerId) {
     console.log('View payer details:', payerId);
-    showNotification('View payer details feature coming soon', 'info');
+    
+    // Fetch payer details and payment history
+    fetch(`<?= base_url('payers/get-details/') ?>${payerId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const payer = data.payer;
+                const payments = data.payments || [];
+                
+                // Populate payer information
+                document.getElementById('viewPayerId').textContent = payer.payer_id || '-';
+                document.getElementById('viewPayerName').textContent = payer.payer_name || '-';
+                document.getElementById('viewPayerEmail').textContent = payer.email_address || 'N/A';
+                document.getElementById('viewPayerContact').textContent = payer.contact_number || 'N/A';
+                
+                // Calculate and display totals
+                const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount_paid || 0), 0);
+                const totalPayments = payments.length;
+                const lastPayment = payments.length > 0 ? payments[0].payment_date : null;
+                
+                document.getElementById('viewTotalPaid').textContent = '₱' + totalPaid.toFixed(2);
+                document.getElementById('viewTotalPayments').textContent = totalPayments;
+                document.getElementById('viewLastPayment').textContent = lastPayment 
+                    ? new Date(lastPayment).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Never';
+                
+                // Populate payment history
+                const historyTbody = document.getElementById('viewPaymentHistory');
+                if (payments.length > 0) {
+                    historyTbody.innerHTML = payments.map((payment, index) => {
+                        const status = payment.computed_status || payment.payment_status || 'unknown';
+                        const statusBadge = status === 'fully paid' 
+                            ? '<span class="badge bg-primary">Completed</span>'
+                            : status === 'partial'
+                            ? '<span class="badge bg-warning text-dark">Partial</span>'
+                            : '<span class="badge bg-secondary">Unpaid</span>';
+                        
+                        return `
+                            <tr style="cursor: pointer;" onclick="viewPaymentReceiptFromPayer(${payment.id})" 
+                                title="Click to view receipt" onmouseover="this.style.backgroundColor='#f8f9fa'" 
+                                onmouseout="this.style.backgroundColor=''">
+                                <td>${new Date(payment.payment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                                <td>${payment.contribution_title || 'N/A'}</td>
+                                <td>₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
+                                <td>${payment.payment_method || 'N/A'}</td>
+                                <td>${statusBadge}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    historyTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No payment records found</td></tr>';
+                }
+                
+                // Store payer ID for edit button
+                document.getElementById('editPayerFromViewBtn').setAttribute('onclick', `editPayer(${payerId})`);
+            
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('viewPayerDetailsModal'));
+                modal.show();
+            } else {
+                showNotification(data.message || 'Error loading payer details', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error loading payer details', 'error');
+        });
 }
 
 function editPayer(payerId) {
     console.log('Edit payer:', payerId);
-    showNotification('Edit payer feature coming soon', 'info');
+    
+    // Fetch payer details
+    fetch(`<?= base_url('payers/get/') ?>${payerId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.payer) {
+                const payer = data.payer;
+                
+                // Populate form fields
+                document.getElementById('editPayerId').value = payer.id;
+                document.getElementById('editPayerIdField').value = payer.payer_id || '';
+                document.getElementById('editPayerName').value = payer.payer_name || '';
+                document.getElementById('editContactNumber').value = payer.contact_number || '';
+                document.getElementById('editEmailAddress').value = payer.email_address || '';
+                
+                // Show modal
+                const viewModal = bootstrap.Modal.getInstance(document.getElementById('viewPayerDetailsModal'));
+                if (viewModal) {
+                    viewModal.hide();
+                }
+                
+                const editModal = new bootstrap.Modal(document.getElementById('editPayerModal'));
+                editModal.show();
+            } else {
+                showNotification(data.message || 'Error loading payer information', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error loading payer information', 'error');
+        });
+}
+
+function saveEditedPayer(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const payerId = document.getElementById('editPayerId').value;
+    
+    fetch(`<?= base_url('payers/update/') ?>${payerId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Payer updated successfully!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editPayerModal'));
+            modal.hide();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showNotification(data.message || 'Error updating payer', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error updating payer', 'error');
+    });
 }
 
 function exportPayerPDF(payerId) {
@@ -251,6 +379,36 @@ function exportPayerPDF(payerId) {
     
     // Redirect to PDF export endpoint
     window.location.href = `<?= base_url('payers/export-pdf/') ?>${payerId}`;
+}
+
+function viewPaymentReceiptFromPayer(paymentId) {
+    console.log('View payment receipt from payer:', paymentId);
+    
+    // Check if viewPaymentReceipt function exists (from payments page or modal)
+    if (typeof window.viewPaymentReceipt !== 'undefined') {
+        // Call the existing function if available
+        window.viewPaymentReceipt(paymentId);
+    } else {
+        // Fetch payment data and show QR receipt
+        fetch(`<?= base_url('payments/get-details/') ?>${paymentId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.payment) {
+                    // Check if showQRReceipt function exists
+                    if (typeof window.showQRReceipt !== 'undefined') {
+                        window.showQRReceipt(data.payment);
+                    } else {
+                        showNotification('QR Receipt functionality not available', 'error');
+                    }
+                } else {
+                    showNotification('Error loading payment details', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error loading payment details', 'error');
+            });
+    }
 }
 
 // Helper function for notifications

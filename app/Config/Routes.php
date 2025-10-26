@@ -21,8 +21,16 @@ $routes->get('/payments', 'Admin\SidebarController::payments', ['filter' => 'aut
 $routes->get('/contributions', 'Admin\SidebarController::contributions', ['filter' => 'auth']);
 $routes->get('/payers', 'Admin\SidebarController::payers', ['filter' => 'auth']);
 $routes->post('/payers/save', 'Admin\SidebarController::savePayer', ['filter' => 'auth']);
+$routes->get('/payers/get/(:num)', 'Admin\SidebarController::getPayer/$1', ['filter' => 'auth']);
+$routes->get('/payers/get-details/(:num)', 'Admin\SidebarController::getPayerDetails/$1', ['filter' => 'auth']);
+$routes->post('/payers/update/(:num)', 'Admin\SidebarController::updatePayer/$1', ['filter' => 'auth']);
 $routes->get('/payers/export-pdf/(:num)', 'Admin\SidebarController::exportPayerPDF/$1', ['filter' => 'auth']);
 $routes->get('/announcements', 'Admin\SidebarController::announcements', ['filter' => 'auth']);
+$routes->get('/announcements/index', 'Admin\AnnouncementsController::index', ['filter' => 'auth']);
+$routes->post('/announcements/save', 'Admin\AnnouncementsController::save', ['filter' => 'auth']);
+$routes->get('/announcements/get/(:num)', 'Admin\AnnouncementsController::get/$1', ['filter' => 'auth']);
+$routes->post('/announcements/delete/(:num)', 'Admin\AnnouncementsController::delete/$1', ['filter' => 'auth']);
+$routes->post('/announcements/update-status/(:num)', 'Admin\AnnouncementsController::updateStatus/$1', ['filter' => 'auth']);
 $routes->get('/analytics', 'Admin\SidebarController::analytics', ['filter' => 'auth']);
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
@@ -37,6 +45,7 @@ $routes->get('/payments/recent', 'Admin\PaymentsController::recent', ['filter' =
 $routes->get('/payments/search-payers', 'Admin\PaymentsController::searchPayers', ['filter' => 'auth']);
 $routes->get('/payments/verify/(:any)', 'Admin\PaymentsController::verify/$1', ['filter' => 'auth']);
 $routes->delete('/payments/delete/(:num)', 'Admin\PaymentsController::delete/$1', ['filter' => 'auth']);
+$routes->get('/payments/get-details/(:num)', 'Admin\PaymentsController::getDetails/$1', ['filter' => 'auth']);
 $routes->get('/payments/by-contribution/(:num)', 'Admin\PaymentsController::byContribution/$1', ['filter' => 'auth']);
 
 // Contributions Management Routes

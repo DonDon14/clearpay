@@ -306,6 +306,149 @@ class SidebarController extends BaseController
         }
     }
     
+    public function getPayer($payerId)
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
+        }
+        
+        try {
+            $payerModel = new \App\Models\PayerModel();
+            $payer = $payerModel->find($payerId);
+            
+            if (!$payer) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer not found'
+                ]);
+            }
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'payer' => $payer
+            ]);
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    public function getPayerDetails($payerId)
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
+        }
+        
+        try {
+            $payerModel = new \App\Models\PayerModel();
+            $paymentModel = new \App\Models\PaymentModel();
+            
+            // Get payer data
+            $payer = $payerModel->find($payerId);
+            
+            if (!$payer) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer not found'
+                ]);
+            }
+            
+            // Get all payments for this payer
+            $payments = $paymentModel
+                ->select('payments.*, contributions.title as contribution_title')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->where('payments.payer_id', $payerId)
+                ->orderBy('payments.payment_date', 'DESC')
+                ->findAll();
+            
+            // Add computed status to each payment
+            foreach ($payments as &$payment) {
+                $contributionId = $payment['contribution_id'] ?? null;
+                $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+            }
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'payer' => $payer,
+                'payments' => $payments
+            ]);
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
+    public function updatePayer($payerId)
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
+        }
+        
+        try {
+            $payerModel = new \App\Models\PayerModel();
+            
+            // Check if payer exists
+            $payer = $payerModel->find($payerId);
+            if (!$payer) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer not found'
+                ]);
+            }
+            
+            // Get form data
+            $data = [
+                'payer_name' => $this->request->getPost('payer_name'),
+                'contact_number' => $this->request->getPost('contact_number'),
+                'email_address' => $this->request->getPost('email_address')
+            ];
+            
+            // Validate required fields
+            if (empty($data['payer_name'])) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer name is required'
+                ]);
+            }
+            
+            // Update payer
+            $result = $payerModel->update($payerId, $data);
+            
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payer updated successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to update payer'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
     public function exportPayerPDF($payerId)
     {
         // Check if user is logged in
@@ -484,20 +627,8 @@ class SidebarController extends BaseController
     
     public function announcements()
     {
-        // Check if user is logged in
-        if (!session()->get('isLoggedIn')) {
-            return redirect()->to('/admin/login');
-        }
-
-        // Example: pass session data to the view
-        $data = [
-            'title' => 'Announcements',
-            'pageTitle' => 'Announcements',
-            'pageSubtitle' => 'Manage announcements and notifications',
-            'username' => session()->get('username'),
-        ];
-
-        return view('admin/announcements', $data);
+        // Redirect to the AnnouncementsController
+        return redirect()->to('/announcements/index');
     }
 
     public function profile()
