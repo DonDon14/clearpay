@@ -63,12 +63,12 @@
                             'contributions' => $contributions ?? []
                         ]) ?>
                         <?php 
-                        // Explicitly set variables to null to prevent leakage from previous view() call
-                        $tempModalTarget = null;
-                        $tempLink = base_url('/payments');
+                        // Explicitly set variables to prevent leakage from previous view() call
+                        $tempModalTarget = 'qrScannerModal';
+                        $tempLink = null;
                         ?>
                         <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-check-square',
+                            'icon' => 'fas fa-qrcode',
                             'title' => 'Verify Payments',
                             'subtitle' => 'Scan QR codes to verify',
                             'bgColor' => 'bg-success',
@@ -130,7 +130,11 @@
                 <div class="card-body p-0" id="recent-payments-body">
                     <?php if (!empty($recentPayments)): ?>
                         <?php foreach ($recentPayments as $payment): ?>
-                            <div class="d-flex align-items-center p-3 border-bottom">
+                            <div class="d-flex align-items-center p-3 border-bottom recent-payment-item" 
+                                 style="cursor: pointer; transition: background-color 0.2s;" 
+                                 onmouseover="this.style.backgroundColor='#f8f9fa'" 
+                                 onmouseout="this.style.backgroundColor=''" 
+                                 onclick="showPaymentReceipt(<?= htmlspecialchars(json_encode($payment), ENT_QUOTES, 'UTF-8') ?>)">
                                 <div class="me-3">
                                     <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                         <i class="fas fa-user"></i>
@@ -224,9 +228,21 @@
     'title' => 'Payment Receipt',
 ]) ?>
 
+<!-- QR Scanner Modal -->
+<?= view('partials/modal-qr-scanner') ?>
+
 <script>
 // Define base URL for payment.js
 window.APP_BASE_URL = '<?= base_url() ?>';
+
+// Function to show payment receipt from recent payments
+function showPaymentReceipt(paymentData) {
+    if (typeof showQRReceipt === 'function') {
+        showQRReceipt(paymentData);
+    } else {
+        showNotification('QR Receipt modal not available', 'error');
+    }
+}
 </script>
 
 <?= $this->endSection() ?>

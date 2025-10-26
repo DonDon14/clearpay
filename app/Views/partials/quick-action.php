@@ -34,7 +34,7 @@ $colClass = $passedColClass;
             type="button"
             class="btn text-white w-100 py-3 <?= esc($bgColor) ?> shadow-sm d-flex flex-column align-items-center justify-content-center"
             data-bs-toggle="modal"
-            data-bs-target="<?= esc($modalTarget) ?>"
+            data-bs-target="#<?= esc($modalTarget) ?>"
         >
             <i class="<?= esc($icon ?? 'fas fa-cog') ?> mb-2 fs-4"></i>
             <strong><?= esc($title ?? 'Action') ?></strong>

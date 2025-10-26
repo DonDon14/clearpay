@@ -327,4 +327,51 @@ class PaymentsController extends BaseController
             ]);
         }
     }
+
+    /**
+     * Verify payment by receipt number
+     */
+    public function verify($receiptNumber)
+    {
+        try {
+            $paymentModel = new PaymentModel();
+            
+            // Find payment by receipt number
+            $payment = $paymentModel->select('
+                payments.id,
+                payments.receipt_number,
+                payments.payment_date,
+                payments.amount_paid,
+                payments.payment_method,
+                payments.payment_status,
+                payers.payer_id,
+                payers.payer_name,
+                payers.contact_number,
+                payers.email_address,
+                contributions.title as contribution_title
+            ')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->where('payments.receipt_number', $receiptNumber)
+            ->first();
+
+            if ($payment) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'payment' => $payment
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment not found'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
 }

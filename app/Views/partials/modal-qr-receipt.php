@@ -387,18 +387,57 @@ function getStatusBadgeClass(status) {
 
 // Function to download QR receipt
 function downloadQRReceipt() {
-    if (currentReceiptData && currentReceiptData.id) {
-        const baseUrl = window.APP_BASE_URL || '';
-        const downloadUrl = baseUrl + '/receipts/download/' + currentReceiptData.id;
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.target = '_blank';
-        link.download = 'qr_receipt_' + currentReceiptData.id + '.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } else {
+    if (!currentReceiptData) {
         alert('Unable to download QR code. Payment data not available.');
+        return;
+    }
+    
+    // Find the QR code image in the modal
+    const qrImage = document.querySelector('#qrCodeContainer img');
+    
+    if (!qrImage || !qrImage.src) {
+        alert('QR code is still generating. Please wait a moment and try again.');
+        return;
+    }
+    
+    try {
+        // Create a canvas to download the image
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size
+        canvas.width = 150;
+        canvas.height = 150;
+        
+        // Draw the QR code image onto the canvas
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        img.onload = function() {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Convert canvas to blob and download
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'qr_receipt_' + (currentReceiptData.receipt_number || currentReceiptData.id) + '.png';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        };
+        
+        img.onerror = function() {
+            alert('Unable to download QR code. Please try again.');
+        };
+        
+        img.src = qrImage.src;
+        
+    } catch (error) {
+        console.error('Download error:', error);
+        alert('An error occurred while downloading the QR code. Please try again.');
     }
 }
 
