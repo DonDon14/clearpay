@@ -1,9 +1,67 @@
 <!-- All Payments Modal -->
+<style>
+/* Global fix for backdrop z-index issue */
+body.modal-open .modal-backdrop.fade.show {
+    z-index: 1040 !important;
+}
+
+/* Override for All Payments specifically */
+body.modal-open #allPaymentsModal ~ .modal-backdrop.fade.show {
+    z-index: 1045 !important;
+    /* Ensure backdrop is semi-transparent but visible */
+    opacity: 0.5 !important;
+}
+
+/* Ensure dashboard content behind modals is not faded */
+body.modal-open .content,
+body.modal-open .main-content {
+    opacity: 1 !important;
+}
+
+.payment-row {
+    transition: background-color 0.2s ease;
+}
+
+.payment-row:hover {
+    background-color: #f0f9ff !important;
+}
+
+.payment-row:active {
+    background-color: #dbeafe !important;
+}
+
+/* Ensure All Payments modal is above background but below QR modal */
+#allPaymentsModal {
+    z-index: 1055 !important;
+}
+
+#allPaymentsModal .modal-dialog {
+    z-index: 1056 !important;
+    margin: 1rem auto !important;
+}
+
+#allPaymentsModal .modal-content {
+    z-index: 1057 !important;
+    position: relative;
+}
+
+/* Ensure backdrop is below modal content */
+#allPaymentsModal ~ .modal-backdrop {
+    z-index: 9999 !important;
+}
+</style>
+
 <div class="modal fade" id="allPaymentsModal" tabindex="-1" aria-labelledby="allPaymentsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="allPaymentsModalLabel">All Payments</h5>
+                <div>
+                    <h5 class="modal-title" id="allPaymentsModalLabel">All Payments</h5>
+                    <small class="text-white-50">
+                        <i class="fas fa-mouse-pointer me-1"></i>
+                        Click any payment to view QR receipt
+                    </small>
+                </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
@@ -31,7 +89,7 @@
                             </thead>
                             <tbody>
                                 <?php foreach ($allPayments as $payment): ?>
-                                    <tr>
+                                    <tr class="payment-row" data-payment-id="<?= esc($payment['id']) ?>" style="cursor: pointer;">
                                         <td><?= esc($payment['payer_name']) ?></td>
                                         <td><?= esc($payment['contribution_title']) ?></td>
                                         <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
@@ -79,5 +137,41 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Handle payment row clicks to show QR receipt
+    const paymentRows = document.querySelectorAll('.payment-row');
+    paymentRows.forEach(row => {
+        row.addEventListener('click', function() {
+            const paymentId = this.getAttribute('data-payment-id');
+            if (paymentId) {
+                // Don't close the all payments modal - just show QR receipt on top
+                // Fetch payment data and show QR receipt
+                fetch(`${window.APP_BASE_URL}/payments/recent`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.payments) {
+                            // Find the specific payment
+                            const payment = data.payments.find(p => p.id == paymentId);
+                            if (payment) {
+                                // Show QR receipt modal (it will overlay on top)
+                                if (typeof showQRReceipt === 'function') {
+                                    showQRReceipt(payment);
+                                } else {
+                                    console.error('showQRReceipt function not found');
+                                }
+                            } else {
+                                showNotification('Payment not found', 'warning');
+                            }
+                        } else {
+                            showNotification('Error fetching payment data', 'danger');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('Error loading payment', 'danger');
+                    });
+            }
+        });
+    });
 });
 </script>

@@ -14,9 +14,57 @@ $showDownloadButton = $showDownloadButton ?? true;
 ?>
 
 <!-- QR Receipt Modal -->
+<style>
+/* Ensure QR modal appears above All Payments modal when open */
+#qrReceiptModal {
+    z-index: 1060 !important;
+}
+
+#qrReceiptModal .modal-dialog {
+    z-index: 1061 !important;
+    margin: 3rem auto 1rem auto !important;
+}
+
+#qrReceiptModal .modal-content {
+    position: relative;
+    z-index: 1062 !important;
+}
+
+/* Multiple backdrops - ensure proper layering */
+.modal-backdrop.show:nth-last-of-type(2) {
+    /* All Payments modal backdrop */
+    z-index: 1045 !important;
+}
+
+.modal-backdrop.show:last-of-type {
+    /* QR modal backdrop - should fully cover everything */
+    z-index: 1055 !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Prevent backdrop from blocking clicks on All Payments modal */
+.modal-backdrop.show {
+    pointer-events: auto !important;
+}
+
+/* Ensure modal content is always clickable above backdrop */
+.modal.show {
+    pointer-events: none !important;
+}
+
+.modal.show .modal-dialog {
+    pointer-events: auto !important;
+}
+</style>
+
 <div class="modal fade" id="qrReceiptModal" tabindex="-1" aria-labelledby="qrReceiptModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+        <div class="modal-content shadow-lg">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="qrReceiptModalLabel">
                     <i class="fas fa-receipt me-2"></i><?= esc($title) ?>
@@ -182,8 +230,46 @@ function showQRReceipt(paymentData) {
     // Generate QR code
     generateQRCode(paymentData);
     
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('qrReceiptModal'));
+    // Show modal using Bootstrap's modal API
+    const modalEl = document.getElementById('qrReceiptModal');
+    const modal = new bootstrap.Modal(modalEl);
+    
+    // Fade All Payments modal itself (not backdrop) when QR modal is shown
+    const allPaymentsModal = document.getElementById('allPaymentsModal');
+    const allPaymentsModalDialog = allPaymentsModal ? allPaymentsModal.querySelector('.modal-dialog') : null;
+    
+    if (allPaymentsModalDialog) {
+        allPaymentsModalDialog.style.transition = 'opacity 0.3s ease';
+        allPaymentsModalDialog.style.opacity = '0.4'; // Fade the modal content
+    }
+    
+    // Clean up extra backdrops when QR modal is hidden
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        // Restore All Payments modal opacity
+        if (allPaymentsModalDialog) {
+            allPaymentsModalDialog.style.opacity = '1';
+        }
+        
+        // Keep only the first backdrop (for All Payments modal)
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        if (backdrops.length > 1) {
+            // Remove all backdrops except the first one
+            for (let i = 1; i < backdrops.length; i++) {
+                backdrops[i].remove();
+            }
+        }
+        
+        // Ensure body doesn't have duplicate modal-open classes
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        
+        // Re-add modal-open if All Payments is still open
+        if (allPaymentsModal && allPaymentsModal.classList.contains('show')) {
+            document.body.classList.add('modal-open');
+            document.body.style.overflow = 'hidden';
+        }
+    });
+    
     modal.show();
 }
 
