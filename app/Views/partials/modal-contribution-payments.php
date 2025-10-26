@@ -199,11 +199,14 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                             payer_id: payerId,
                             payer_student_id: payment.payer_student_id || payment.payer_id || 'N/A',
                             payer_name: payment.payer_name,
+                            contact_number: payment.contact_number || null,
+                            email_address: payment.email_address || null,
                             total_paid: 0,
                             status: 'fully paid',
                             last_payment_date: null,
                             payments: [],
-                            contribution_amount: null
+                            contribution_amount: null,
+                            contribution_title: null
                         };
                     }
                     
@@ -213,6 +216,19 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                     // Store contribution amount from the first payment
                     if (!payerMap[payerId].contribution_amount && payment.contribution_amount) {
                         payerMap[payerId].contribution_amount = parseFloat(payment.contribution_amount);
+                    }
+                    
+                    // Store contribution title from the first payment
+                    if (!payerMap[payerId].contribution_title && payment.contribution_title) {
+                        payerMap[payerId].contribution_title = payment.contribution_title;
+                    }
+                    
+                    // Store contact info if not already stored
+                    if (!payerMap[payerId].contact_number && payment.contact_number) {
+                        payerMap[payerId].contact_number = payment.contact_number;
+                    }
+                    if (!payerMap[payerId].email_address && payment.email_address) {
+                        payerMap[payerId].email_address = payment.email_address;
                     }
                    
                     // Track latest payment date
@@ -246,11 +262,15 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                 const tbody = document.getElementById('contributionPaymentsTableBody');
                 tbody.innerHTML = '';
                 
+                console.log('Aggregated payerMap:', payerMap);
+                
                 Object.values(payerMap).forEach(payerData => {
                     const row = document.createElement('tr');
                     row.className = 'contribution-payment-row';
                     row.setAttribute('data-payer-id', payerData.payer_id);
                     row.setAttribute('data-payer-data', JSON.stringify(payerData));
+                    
+                    console.log('Payer data for row:', payerData);
                     
                     // Format last payment date
                     let lastPaymentDate = 'N/A';
@@ -325,10 +345,14 @@ function showContributionPayments(contributionId, contributionTitle, contributio
         });
 }
 
-// Function to show payment history for a specific payer
-function showPayerPaymentHistory(payerData) {
-    // Update modal title
-    document.getElementById('payerHistoryTitle').textContent = `Payment History - ${payerData.payer_name}`;
+// Function to show payment history for a specific payer (make it global)
+window.showPayerPaymentHistory = function(payerData) {
+    console.log('showPayerPaymentHistory called with:', payerData);
+    
+    // Update modal title with payer name and contribution name
+    const contributionName = payerData.contribution_title || window.currentContributionData?.title || 'N/A';
+    console.log('Contribution name for title:', contributionName);
+    document.getElementById('payerHistoryTitle').textContent = `Payment History - ${payerData.payer_name} - ${contributionName}`;
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('payerPaymentHistoryModal'));
@@ -354,7 +378,7 @@ function showPayerPaymentHistory(payerData) {
             
             const list = document.getElementById('payerHistoryList');
             
-            sortedPayments.forEach(payment => {
+                         sortedPayments.forEach(payment => {
                 const item = document.createElement('div');
                 item.className = 'list-group-item payment-history-item';
                 
@@ -397,10 +421,22 @@ function showPayerPaymentHistory(payerData) {
                     </div>
                 `;
                 
-                // Add click event to show QR receipt
+                // Add click event to show QR receipt with complete payer data
                 item.addEventListener('click', function() {
                     if (typeof showQRReceipt === 'function') {
-                        showQRReceipt(payment);
+                        // Build complete payment object with payer data
+                        const completePaymentData = {
+                            ...payment,
+                            payer_name: payerData.payer_name,
+                            payer_id: payerData.payer_student_id, // Use payer_student_id as payer_id for display
+                            payer_student_id: payerData.payer_student_id,
+                            // Get payer contact info from the payment if available
+                            contact_number: payment.contact_number || payerData.contact_number || 'N/A',
+                            email_address: payment.email_address || payerData.email_address || 'N/A',
+                            contribution_title: payment.contribution_title || payerData.contribution_title || 'N/A'
+                        };
+                        console.log('Complete payment data for QR receipt:', completePaymentData);
+                        showQRReceipt(completePaymentData);
                     } else {
                         showNotification('QR Receipt modal is loading', 'warning');
                     }
@@ -414,7 +450,7 @@ function showPayerPaymentHistory(payerData) {
             document.getElementById('payerHistoryEmpty').style.display = 'block';
                  }
      }, 300);
- }
+ };
 
  // Function to setup search functionality
  function setupContributionPaymentsSearch() {

@@ -6,17 +6,17 @@
     <div class="row mb-4">
       <div class="col-12">
         <div class="card shadow-sm">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+          <div class="card-header d-flex justify-content-between align-items-center">
              <h5 class="card-title mb-0">All Payments</h5>
-             <button 
-               class="btn btn-primary btn-sm"
-               data-bs-toggle="modal"
-               data-bs-target="#addPaymentModal"
-           >
-               <i class="fas fa-plus me-2"></i>Add Payment
-           </button>
-           </div>
-           <div class="card-body">
+            <button 
+              class="btn btn-primary btn-sm"
+              data-bs-toggle="modal"
+              data-bs-target="#addPaymentModal"
+          >
+              <i class="fas fa-plus me-2"></i>Add Payment
+          </button>
+          </div>
+          <div class="card-body">
              <!-- Search and Filter Row -->
              <div class="row mb-3">
                  <div class="col-md-6">
@@ -38,35 +38,35 @@
              
              <!-- Table with scrollable body -->
              <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
-               <table class="table table-hover">
+              <table class="table table-hover">
                  <thead class="table-light sticky-top">
-                   <tr>
+                  <tr>
                      <th>Payer ID</th>
                      <th>Payer Name</th>
-                     <th>Amount</th>
-                     <th>Payment Type</th>
-                     <th>Date</th>
-                     <th>Status</th>
-                     <th>Actions</th>
-                   </tr>
-                 </thead>
+                    <th>Amount</th>
+                    <th>Payment Type</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
                  <tbody id="paymentsTableBody">
-                                         <?php if (!empty($recentPayments)): ?>
-                         <?php foreach ($recentPayments as $payment): ?>
+                    <?php if (!empty($recentPayments)): ?>
+                        <?php foreach ($recentPayments as $payment): ?>
                              <tr data-payment-status="<?= esc($payment['payment_status']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>">
                                  <td><?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?></td>
-                                 <td><?= esc($payment['payer_name']) ?></td>
-                                 <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
-                                 <td><?= esc($payment['contribution_title'] ?? 'N/A') ?></td>
-                                 <td><?= date('M d, Y', strtotime($payment['payment_date'])) ?></td>
-                                 <td>
-                                     <?php if ($payment['payment_status'] === 'fully paid'): ?>
+                                <td><?= esc($payment['payer_name']) ?></td>
+                                <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
+                                <td><?= esc($payment['contribution_title'] ?? 'N/A') ?></td>
+                                <td><?= date('M d, Y', strtotime($payment['payment_date'])) ?></td>
+                                <td>
+                                    <?php if ($payment['payment_status'] === 'fully paid'): ?>
                                          <span class="badge bg-success">Fully Paid</span>
-                                     <?php elseif ($payment['payment_status'] === 'partial'): ?>
-                                         <span class="badge bg-warning">Partial</span>
-                                     <?php endif; ?>
-                                 </td>
-                                 <td>
+                                    <?php elseif ($payment['payment_status'] === 'partial'): ?>
+                                        <span class="badge bg-warning">Partial</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <button class="btn btn-sm btn-outline-primary" onclick="viewPaymentReceipt(<?= $payment['id'] ?>)">
                                         <i class="fas fa-eye me-1"></i>View Receipt
                                     </button>
@@ -86,9 +86,9 @@
                             <td colspan="7" class="text-center text-muted">No payment records found.</td>
                         </tr>
                     <?php endif; ?>
-                 </tbody>
-               </table>
-             </div>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -154,13 +154,13 @@
     </div>
   </div>
 
-     <!-- Add Payment Modal -->
-    <?php $contributions = $contributions ?? []; ?>
-    <?= view('partials/modal-add-payment', [
-     'action' => base_url('payments/save'),  // controller route to handle form submission
-     'title' => 'Add Payment',
-     'contributions' => $contributions // array of contributions for the dropdown
- ]) ?>
+  <!-- Add Payment Modal -->
+   <?php $contributions = $contributions ?? []; ?>
+   <?= view('partials/modal-add-payment', [
+    'action' => base_url('payments/save'),  // controller route to handle form submission
+    'title' => 'Add Payment',
+    'contributions' => $contributions // array of contributions for the dropdown
+]) ?>
 
  <!-- Add Payment to Partial Payment Modal -->
  <?= view('partials/modal-add-payment-to-partial') ?>

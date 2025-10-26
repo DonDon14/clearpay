@@ -231,6 +231,9 @@
 <!-- QR Scanner Modal -->
 <?= view('partials/modal-qr-scanner') ?>
 
+<!-- Contribution Payments Modal (for payment history) -->
+<?= view('partials/modal-contribution-payments') ?>
+
 <script>
 // Define base URL for payment.js
 window.APP_BASE_URL = '<?= base_url() ?>';

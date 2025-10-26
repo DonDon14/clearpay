@@ -245,6 +245,13 @@ function verifyPayment(qrData) {
 
 // Function to show payment verification details
 function showPaymentVerificationModal(payment) {
+    // Debug: Log the payment data
+    console.log('Payment data received:', payment);
+    
+    // Ensure amount_paid is properly displayed
+    const amountPaid = payment.amount_paid || 0;
+    console.log('Amount to display:', amountPaid);
+    
     const modal = `
         <div class="modal fade" id="paymentVerificationModal" tabindex="-1">
             <div class="modal-dialog modal-lg">
@@ -289,8 +296,8 @@ function showPaymentVerificationModal(payment) {
                             <div class="col-md-6">
                                 <div class="card border-0 bg-light">
                                     <div class="card-body">
-                                        <h6 class="text-muted mb-2">Amount Paid</h6>
-                                        <p class="h5 text-success mb-0">₱${parseFloat(payment.amount_paid).toFixed(2)}</p>
+                                        <h6 class="text-muted mb-2">Total Amount Paid</h6>
+                                        <p class="h5 text-success mb-0">₱${parseFloat(amountPaid).toFixed(2)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -298,7 +305,7 @@ function showPaymentVerificationModal(payment) {
                                 <div class="card border-0 bg-light">
                                     <div class="card-body">
                                         <h6 class="text-muted mb-2">Contribution</h6>
-                                        <p class="h6 mb-0">${payment.contribution_title}</p>
+                                        <p class="h6 mb-0">${payment.contribution_title || 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -306,7 +313,7 @@ function showPaymentVerificationModal(payment) {
                                 <div class="card border-0 bg-light">
                                     <div class="card-body">
                                         <h6 class="text-muted mb-2">Status</h6>
-                                        <span class="badge bg-success">${payment.payment_status.toUpperCase()}</span>
+                                        <span class="badge bg-success">${(payment.payment_status || 'fully paid').toUpperCase()}</span>
                                     </div>
                                 </div>
                             </div>
@@ -316,8 +323,8 @@ function showPaymentVerificationModal(payment) {
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="fas fa-times me-1"></i>Close
                         </button>
-                        <button type="button" class="btn btn-info" onclick="viewPaymentReceipt('${payment.receipt_number}')">
-                            <i class="fas fa-receipt me-1"></i>View Receipt
+                        <button type="button" class="btn btn-primary" onclick="showPaymentHistoryFromVerification()">
+                            <i class="fas fa-history me-1"></i>View Payment History
                         </button>
                     </div>
                 </div>
@@ -343,14 +350,16 @@ function showPaymentVerificationModal(payment) {
     window.paymentForReceipt = payment;
 }
 
-// Function to view payment receipt
-function viewPaymentReceipt(receiptNumber) {
+// Function to show payment history from verification modal
+function showPaymentHistoryFromVerification() {
     if (!window.paymentForReceipt) {
         showNotification('Payment data not available', 'error');
         return;
     }
     
-    // Close both the verification modal AND the scanner modal
+    const payment = window.paymentForReceipt;
+    
+    // Close the verification modal
     const verificationModalEl = document.getElementById('paymentVerificationModal');
     if (verificationModalEl) {
         const verificationModal = bootstrap.Modal.getInstance(verificationModalEl);
@@ -359,7 +368,7 @@ function viewPaymentReceipt(receiptNumber) {
         }
     }
     
-    // Also close the scanner modal if it's still open
+    // Close the scanner modal if it's still open
     const scannerModalEl = document.getElementById('qrScannerModal');
     if (scannerModalEl && scannerModalEl.classList.contains('show')) {
         const scannerModal = bootstrap.Modal.getInstance(scannerModalEl);
@@ -368,14 +377,93 @@ function viewPaymentReceipt(receiptNumber) {
         }
     }
     
-    // Wait a bit for modals to close before showing receipt
+    // Wait a bit for modals to close
     setTimeout(() => {
-        // Show the QR receipt modal
-        if (typeof showQRReceipt === 'function') {
-            showQRReceipt(window.paymentForReceipt);
-        } else {
-            showNotification('QR Receipt modal not available', 'error');
-        }
+        // Fetch all payments for this payer's contribution
+        const baseUrl = window.APP_BASE_URL || '';
+        
+        // First, we need to find all payments for this specific payer and contribution
+        // We'll use the payer_id from the payment and fetch by contribution
+        fetch(`${baseUrl}/payments/by-contribution/${payment.contribution_id || payment.contributionId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.payments && data.payments.length > 0) {
+                    // Filter payments for this specific payer
+                    const payerPayments = data.payments.filter(p => 
+                        p.payer_id === payment.payer_id || p.payer_id === payment.payerId
+                    );
+                    
+                    if (payerPayments.length > 0) {
+                        // Create payer data with all their payments
+                        const payerData = {
+                            payer_name: payment.payer_name,
+                            payer_id: payment.payer_id,
+                            payer_student_id: payment.payer_id_number || payment.payer_id, // Use payer_id_number (student ID) if available
+                            contact_number: payment.contact_number || 'N/A',
+                            email_address: payment.email_address || 'N/A',
+                            contribution_title: payment.contribution_title || 'N/A', // Add contribution title here
+                            payments: payerPayments.map(p => ({
+                                id: p.id,
+                                amount_paid: parseFloat(p.amount_paid || 0),
+                                payment_date: p.payment_date,
+                                payment_method: p.payment_method || 'cash',
+                                payment_status: p.payment_status || 'fully paid',
+                                remaining_balance: parseFloat(p.remaining_balance || 0),
+                                receipt_number: p.receipt_number,
+                                contribution_title: p.contribution_title || payment.contribution_title || 'N/A',
+                                contact_number: p.contact_number || payment.contact_number || 'N/A',
+                                email_address: p.email_address || payment.email_address || 'N/A',
+                                payer_id: p.payer_student_id || p.payer_id || payment.payer_id_number || 'N/A'
+                            }))
+                        };
+                        
+                        console.log('Payer data for payment history:', payerData);
+                        
+                        // Show the payment history modal
+                        if (typeof showPayerPaymentHistory === 'function') {
+                            showPayerPaymentHistory(payerData);
+                        } else {
+                            showNotification('Payment history modal not available', 'error');
+                        }
+                    } else {
+                        // No other payments found, just show the current one
+                        const payerData = {
+                            payer_name: payment.payer_name,
+                            payer_id: payment.payer_id,
+                            payer_student_id: payment.payer_id_number || payment.payer_id, // Use payer_id_number (student ID) if available
+                            contact_number: payment.contact_number || 'N/A',
+                            email_address: payment.email_address || 'N/A',
+                            contribution_title: payment.contribution_title || 'N/A', // Add contribution title here
+                            payments: [{
+                                amount_paid: parseFloat(payment.amount_paid || 0),
+                                payment_date: payment.payment_date,
+                                payment_method: payment.payment_method || 'cash',
+                                payment_status: payment.payment_status || 'fully paid',
+                                remaining_balance: 0,
+                                receipt_number: payment.receipt_number,
+                                contribution_title: payment.contribution_title || 'N/A',
+                                contact_number: payment.contact_number || 'N/A',
+                                email_address: payment.email_address || 'N/A',
+                                payer_id: payment.payer_id_number || payment.payer_id || 'N/A'
+                            }]
+                        };
+                        
+                        console.log('Payer data for single payment:', payerData);
+                        
+                        if (typeof showPayerPaymentHistory === 'function') {
+                            showPayerPaymentHistory(payerData);
+                        } else {
+                            showNotification('Payment history modal not available', 'error');
+                        }
+                    }
+                } else {
+                    showNotification('No payment history found', 'warning');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching payment history:', error);
+                showNotification('Error loading payment history', 'error');
+            });
     }, 100);
 }
 
