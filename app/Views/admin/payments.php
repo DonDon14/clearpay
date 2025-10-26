@@ -73,6 +73,11 @@
                                     <button class="btn btn-sm btn-outline-secondary" onclick="editPayment(<?= $payment['id'] ?>)">
                                         <i class="fas fa-edit me-1"></i>Edit
                                     </button>
+                                    <?php if ($payment['payment_status'] === 'partial'): ?>
+                                        <button class="btn btn-sm btn-outline-info mt-1" onclick="addPaymentToPartial(<?= $payment['id'] ?>)" title="Add Payment">
+                                            <i class="fas fa-plus me-1"></i>Add Payment
+                                        </button>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -149,18 +154,21 @@
     </div>
   </div>
 
-  <!-- Add Payment Modal -->
-   <?php $contributions = $contributions ?? []; ?>
-   <?= view('partials/modal-add-payment', [
-    'action' => base_url('payments/save'),  // controller route to handle form submission
-    'title' => 'Add Payment',
-    'contributions' => $contributions // array of contributions for the dropdown
-]) ?>
+     <!-- Add Payment Modal -->
+    <?php $contributions = $contributions ?? []; ?>
+    <?= view('partials/modal-add-payment', [
+     'action' => base_url('payments/save'),  // controller route to handle form submission
+     'title' => 'Add Payment',
+     'contributions' => $contributions // array of contributions for the dropdown
+ ]) ?>
 
-<!-- QR Receipt Modal -->
-<?= view('partials/modal-qr-receipt', [
-    'title' => 'Payment Receipt',
-]) ?>
+ <!-- Add Payment to Partial Payment Modal -->
+ <?= view('partials/modal-add-payment-to-partial') ?>
+
+ <!-- QR Receipt Modal -->
+ <?= view('partials/modal-qr-receipt', [
+     'title' => 'Payment Receipt',
+ ]) ?>
 
 <script>
 // Define base URL for payment.js
@@ -198,8 +206,168 @@ function viewPaymentReceipt(paymentId) {
 
 // Function to edit payment
 function editPayment(paymentId) {
-    showNotification('Edit payment feature coming soon! Payment ID: ' + paymentId, 'info');
+    // Fetch payment details
+    fetch(`${window.APP_BASE_URL}/payments/recent`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.payments) {
+                const payment = data.payments.find(p => p.id == paymentId);
+                if (payment) {
+                    // Use the shared openEditPaymentModal function if it exists
+                    if (typeof openEditPaymentModal === 'function') {
+                        openEditPaymentModal(payment);
+                    } else {
+                        // Fallback: Open the payment modal with edit mode
+                        openEditPaymentModalLocal(payment);
+                    }
+                } else {
+                    showNotification('Payment not found', 'warning');
+                }
+            } else {
+                showNotification('Error fetching payment data', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error loading payment', 'danger');
+        });
 }
+
+// Local function to open edit payment modal (if shared function not available)
+function openEditPaymentModalLocal(payment) {
+    // Update modal title
+    document.getElementById('addPaymentModalLabel').textContent = 'Edit Payment';
+    
+    // Set payment ID
+    document.getElementById('paymentId').value = payment.id || '';
+    
+    // Populate payer fields
+    if (payment.payer_id) {
+        // Existing payer
+        document.querySelector('input[name="payerType"][value="existing"]').checked = true;
+        document.getElementById('payerSelect').value = `${payment.payer_name} (${payment.payer_id})`;
+        document.getElementById('existingPayerId').value = payment.payer_id;
+        document.getElementById('existingPayerFields').style.display = 'block';
+        document.getElementById('newPayerFields').style.display = 'none';
+    } else {
+        // New payer
+        document.querySelector('input[name="payerType"][value="new"]').checked = true;
+        document.getElementById('payerName').value = payment.payer_name || '';
+        document.getElementById('payerId').value = payment.payer_id || '';
+        document.getElementById('contactNumber').value = payment.contact_number || '';
+        document.getElementById('emailAddress').value = payment.email_address || '';
+        document.getElementById('existingPayerFields').style.display = 'none';
+        document.getElementById('newPayerFields').style.display = 'block';
+    }
+    
+    // Set contribution (this should show the current contribution in the dropdown)
+    if (payment.contribution_id) {
+        const contributionSelect = document.getElementById('contributionId');
+        if (contributionSelect) {
+            contributionSelect.value = payment.contribution_id;
+            // Trigger change to update payment status if needed
+            contributionSelect.dispatchEvent(new Event('change'));
+        }
+    }
+    
+    // Set payment method
+    if (payment.payment_method) {
+        document.getElementById('paymentMethod').value = payment.payment_method;
+    }
+    
+    // Set amount paid
+    if (payment.amount_paid) {
+        document.getElementById('amountPaid').value = payment.amount_paid;
+    }
+    
+    // Set payment status
+    if (payment.payment_status) {
+        const statusSelect = document.getElementById('paymentStatus');
+        if (statusSelect) {
+            statusSelect.value = payment.payment_status;
+            // Apply the appropriate class
+            if (payment.payment_status === 'fully paid') {
+                statusSelect.className = 'form-select bg-success text-white';
+            } else if (payment.payment_status === 'partial') {
+                statusSelect.className = 'form-select bg-warning text-dark';
+            }
+        }
+    }
+    
+    // Set payment date - need to convert to datetime-local format
+    if (payment.payment_date) {
+        const paymentDate = new Date(payment.payment_date);
+        const year = paymentDate.getFullYear();
+        const month = String(paymentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(paymentDate.getDate()).padStart(2, '0');
+        const hours = String(paymentDate.getHours()).padStart(2, '0');
+        const minutes = String(paymentDate.getMinutes()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+        document.getElementById('paymentDate').value = formattedDate;
+    }
+    
+    // Set remaining balance if exists
+    if (payment.remaining_balance !== undefined) {
+        document.getElementById('remainingBalance').value = payment.remaining_balance || '0.00';
+    }
+    
+    // Set partial payment flag
+    const isPartialPayment = payment.payment_status === 'partial' && payment.remaining_balance > 0;
+    document.getElementById('isPartialPayment').value = isPartialPayment ? '1' : '0';
+    document.getElementById('paymentStatusHidden').value = payment.payment_status || 'fully paid';
+    
+    // Update form action to edit
+    const form = document.getElementById('paymentForm');
+    form.action = `${window.APP_BASE_URL}/payments/update/${payment.id}`;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('addPaymentModal'));
+    modal.show();
+}
+
+// Function to add payment to a partial payment
+function addPaymentToPartial(paymentId) {
+    console.log('Adding payment to partial, paymentId:', paymentId);
+    
+    // Fetch the existing payment details
+    fetch(`${window.APP_BASE_URL}/payments/recent`)
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Fetched data:', data);
+            
+            if (data.success && data.payments) {
+                console.log('Total payments fetched:', data.payments.length);
+                const payment = data.payments.find(p => p.id == paymentId);
+                console.log('Found payment:', payment);
+                
+                if (payment && payment.payment_status === 'partial') {
+                    // Open the add payment to partial modal
+                    if (typeof openAddPaymentToPartialModal === 'function') {
+                        openAddPaymentToPartialModal(payment);
+                    } else {
+                        console.error('openAddPaymentToPartialModal function not found');
+                        showNotification('Add Payment to Partial modal not available', 'danger');
+                    }
+                } else if (payment && payment.payment_status !== 'partial') {
+                    showNotification('Only partial payments can have additional payments added', 'warning');
+                } else {
+                    showNotification('Payment not found in records', 'warning');
+                }
+            } else {
+                console.error('Failed to fetch payments:', data);
+                showNotification('Error fetching payment data: ' + (data.message || 'Unknown error'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error loading payment: ' + error.message, 'danger');
+        });
+}
+
+
 
 // Search and Filter Functionality
 document.addEventListener('DOMContentLoaded', function() {

@@ -238,7 +238,60 @@
 document.addEventListener("DOMContentLoaded", function() {
   // Bootstrap's data-bs-toggle="modal" handles modal opening automatically
   // Regular <a> tags will navigate to their href URLs automatically
+  
+  // Add event listener to reset modal when it's closed
+  const addPaymentModal = document.getElementById('addPaymentModal');
+  
+  if (addPaymentModal) {
+    addPaymentModal.addEventListener('hidden.bs.modal', function() {
+      // Reset modal to add mode
+      resetPaymentModal();
+    });
+  }
 });
+
+// Function to reset payment modal to add mode
+function resetPaymentModal() {
+  // Reset modal title
+  document.getElementById('addPaymentModalLabel').textContent = 'Add Payment';
+  
+  // Reset form
+  const form = document.getElementById('paymentForm');
+  form.reset();
+  form.action = '<?= base_url('payments/save') ?>';
+  
+  // Reset modal title
+  document.getElementById('addPaymentModalLabel').textContent = 'Add Payment';
+  
+  // Reset form fields
+  document.getElementById('paymentId').value = '';
+  document.getElementById('existingPayerId').value = '';
+  
+  // Reset payer type to existing
+  document.querySelector('input[name="payerType"][value="existing"]').checked = true;
+  document.getElementById('existingPayerFields').style.display = 'block';
+  document.getElementById('newPayerFields').style.display = 'none';
+  
+  // Reset payment status
+  const statusSelect = document.getElementById('paymentStatus');
+  statusSelect.value = 'fully paid';
+  statusSelect.className = 'form-select';
+  document.getElementById('isPartialPayment').value = '0';
+  document.getElementById('paymentStatusHidden').value = 'fully paid';
+  
+  // Reset contribution dropdown
+  const contributionSelect = document.getElementById('contributionId');
+  contributionSelect.value = '';
+  
+  // Clear backdrop if any
+  const backdrops = document.querySelectorAll('.modal-backdrop');
+  backdrops.forEach(backdrop => backdrop.remove());
+  
+  // Remove modal-open class from body if it exists
+  document.body.classList.remove('modal-open');
+  document.body.style.overflow = '';
+  document.body.style.paddingRight = '';
+}
 
 function updatePaymentStatus() {
   const amountPaidEl = document.getElementById('amountPaid');

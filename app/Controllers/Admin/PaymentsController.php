@@ -257,7 +257,8 @@ class PaymentsController extends BaseController
                 payments.amount_paid,
                 payments.payment_method,
                 payments.payment_status,
-                payments.payment_date,
+                payments.contribution_id,
+                payments.remaining_balance,
                 payers.payer_id,
                 payers.payer_name,
                 payers.contact_number,
@@ -392,12 +393,14 @@ class PaymentsController extends BaseController
                 payments.payment_method,
                 payments.payment_status,
                 payments.remaining_balance,
+                payments.contribution_id,
                 payers.payer_id as payer_student_id,
                 payers.payer_id as payer_id,
                 payers.payer_name,
                 payers.contact_number,
                 payers.email_address,
-                contributions.title as contribution_title
+                contributions.title as contribution_title,
+                contributions.amount as contribution_amount
             ')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
@@ -410,6 +413,179 @@ class PaymentsController extends BaseController
                 'payments' => $payments,
                 'count' => count($payments)
             ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Add payment to a partial payment
+     */
+    public function addToPartial()
+    {
+        try {
+            $json = $this->request->getJSON(true);
+            
+            // Debug logging
+            log_message('info', 'Add to Partial - Received data: ' . print_r($json, true));
+            
+            // Validate required fields
+            if (empty($json['original_payment_id']) || empty($json['contribution_id']) || empty($json['amount_paid'])) {
+                log_message('error', 'Validation failed - Missing fields: ' . print_r([
+                    'original_payment_id' => $json['original_payment_id'] ?? 'MISSING',
+                    'contribution_id' => $json['contribution_id'] ?? 'MISSING',
+                    'amount_paid' => $json['amount_paid'] ?? 'MISSING'
+                ], true));
+                
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Required fields missing: ' . json_encode([
+                        'original_payment_id' => $json['original_payment_id'] ?? 'missing',
+                        'contribution_id' => $json['contribution_id'] ?? 'missing',
+                        'amount_paid' => $json['amount_paid'] ?? 'missing'
+                    ])
+                ]);
+            }
+
+            $paymentModel = new PaymentModel();
+            
+            // Get the original payment
+            $originalPayment = $paymentModel->find($json['original_payment_id']);
+            if (!$originalPayment) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Original payment not found'
+                ]);
+            }
+
+            // Calculate new remaining balance
+            $newPaymentAmount = (float) $json['amount_paid'];
+            $currentRemaining = (float) ($originalPayment['remaining_balance'] ?? 0);
+            $newRemaining = max(0, $currentRemaining - $newPaymentAmount);
+
+            // Generate reference number and receipt number
+            $referenceNumber = 'REF-' . date('Ymd') . '-' . strtoupper(uniqid());
+            $receiptNumber = 'RCPT-' . date('Ymd') . '-' . str_pad(uniqid(), 8, '0', STR_PAD_LEFT);
+
+            // Get the correct payer_id from the original payment
+            $payerId = $originalPayment['payer_id']; // This is the foreign key to payers table
+
+            // Create new payment record
+            $paymentData = [
+                'payer_id' => (int) $payerId,
+                'contribution_id' => (int) $json['contribution_id'],
+                'amount_paid' => $newPaymentAmount,
+                'payment_method' => $json['payment_method'] ?? 'cash',
+                'payment_status' => $newRemaining <= 0.01 ? 'fully paid' : 'partial',
+                'is_partial_payment' => $newRemaining > 0 ? 1 : 0,
+                'remaining_balance' => $newRemaining,
+                'parent_payment_id' => $json['original_payment_id'],
+                'payment_sequence' => 1,
+                'reference_number' => $referenceNumber,
+                'receipt_number' => $receiptNumber,
+                'recorded_by' => session()->get('user-id') ?: session()->get('user_id') ?: null,
+                'payment_date' => $json['payment_date'] ?? date('Y-m-d H:i:s'),
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            // Insert new payment
+            $newPaymentId = $paymentModel->insert($paymentData);
+
+            if ($newPaymentId) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment recorded successfully',
+                    'payment_id' => $newPaymentId,
+                    'new_remaining_balance' => $newRemaining
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to record payment'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Update an existing payment
+     */
+    public function update($paymentId)
+    {
+        try {
+            $paymentModel = new PaymentModel();
+            
+            // Check if payment exists
+            $payment = $paymentModel->find($paymentId);
+            if (!$payment) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment not found'
+                ]);
+            }
+
+            // Validation rules
+            $rules = [
+                'contribution_id' => 'required|integer',
+                'amount_paid' => 'required|decimal',
+                'payment_method' => 'required|in_list[cash,online,check,bank]',
+                'payment_date' => 'required'
+            ];
+
+            if (!$this->validate($rules)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $this->validator->getErrors()
+                ]);
+            }
+
+            // Update payment data
+            $updateData = [
+                'contribution_id' => $this->request->getPost('contribution_id'),
+                'amount_paid' => $this->request->getPost('amount_paid'),
+                'payment_method' => $this->request->getPost('payment_method'),
+                'payment_date' => $this->request->getPost('payment_date'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            // Handle partial payment status
+            $isPartial = $this->request->getPost('is_partial_payment') == '1';
+            $remainingBalance = (float) $this->request->getPost('remaining_balance', 0);
+            
+            if ($isPartial && $remainingBalance > 0) {
+                $updateData['payment_status'] = 'partial';
+                $updateData['remaining_balance'] = $remainingBalance;
+            } else {
+                $updateData['payment_status'] = 'fully paid';
+                $updateData['remaining_balance'] = 0;
+            }
+
+            // Update the payment
+            $updated = $paymentModel->update($paymentId, $updateData);
+
+            if ($updated) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment updated successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to update payment'
+                ]);
+            }
 
         } catch (\Exception $e) {
             return $this->response->setJSON([

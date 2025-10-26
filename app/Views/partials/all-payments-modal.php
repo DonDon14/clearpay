@@ -30,6 +30,15 @@ body.modal-open .main-content {
     background-color: #dbeafe !important;
 }
 
+.payment-cell-clickable {
+    cursor: pointer;
+}
+
+.payment-actions-cell {
+    cursor: default !important;
+    width: 120px;
+}
+
 /* Ensure All Payments modal is above background but below QR modal */
 #allPaymentsModal {
     z-index: 1055 !important;
@@ -90,15 +99,16 @@ body.modal-open .main-content {
                                     <th>Amount Paid</th>
                                     <th>Status</th>
                                     <th>Payment Date</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($allPayments as $payment): ?>
-                                    <tr class="payment-row" data-payment-id="<?= esc($payment['id']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>" style="cursor: pointer;">
-                                        <td><?= esc($payment['payer_name']) ?></td>
-                                        <td><?= esc($payment['contribution_title']) ?></td>
-                                        <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
-                                        <td>
+                                    <tr class="payment-row" data-payment-id="<?= esc($payment['id']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>" data-payment-data="<?= esc(json_encode($payment)) ?>">
+                                        <td class="payment-cell-clickable"><?= esc($payment['payer_name']) ?></td>
+                                        <td class="payment-cell-clickable"><?= esc($payment['contribution_title']) ?></td>
+                                        <td class="payment-cell-clickable">₱<?= number_format($payment['amount_paid'], 2) ?></td>
+                                        <td class="payment-cell-clickable">
                                             <span class="badge 
                                                 <?= $payment['payment_status'] === 'fully paid' 
                                                     ? 'bg-success' 
@@ -106,7 +116,15 @@ body.modal-open .main-content {
                                                 <?= strtoupper($payment['payment_status']) ?>
                                             </span>
                                         </td>
-                                        <td><?= date('M d, Y h:i A', strtotime($payment['payment_date'])) ?></td>
+                                        <td class="payment-cell-clickable"><?= date('M d, Y h:i A', strtotime($payment['payment_date'])) ?></td>
+                                        <td class="payment-actions-cell" onclick="event.stopPropagation();">
+                                            <button class="btn btn-sm btn-outline-primary me-1" onclick="viewPaymentReceiptInAllPayments(<?= $payment['id'] ?>)" title="View Receipt">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning" onclick="editPaymentInAllPayments(<?= $payment['id'] ?>)" title="Edit Payment">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                        </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -152,22 +170,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Handle payment row clicks to show QR receipt
-    const paymentRows = document.querySelectorAll('.payment-row');
-    paymentRows.forEach(row => {
-        row.addEventListener('click', function() {
-            const paymentId = this.getAttribute('data-payment-id');
+    // Handle payment cell clicks to show QR receipt (but not action cells)
+    const clickableCells = document.querySelectorAll('.payment-cell-clickable');
+    clickableCells.forEach(cell => {
+        cell.addEventListener('click', function(e) {
+            const row = this.closest('.payment-row');
+            const paymentId = row.getAttribute('data-payment-id');
+            
             if (paymentId) {
-                // Don't close the all payments modal - just show QR receipt on top
-                // Fetch payment data and show QR receipt
                 fetch(`${window.APP_BASE_URL}/payments/recent`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success && data.payments) {
-                            // Find the specific payment
                             const payment = data.payments.find(p => p.id == paymentId);
                             if (payment) {
-                                // Show QR receipt modal (it will overlay on top)
                                 if (typeof showQRReceipt === 'function') {
                                     showQRReceipt(payment);
                                 } else {
@@ -289,5 +305,152 @@ function processScannedIDForSearch(idText) {
         
         showNotification('Filtering by ID: ' + idNumber, 'success');
     }
+}
+
+// Function to view payment receipt in all payments modal
+function viewPaymentReceiptInAllPayments(paymentId) {
+    event.stopPropagation();
+    
+    fetch(`${window.APP_BASE_URL}/payments/recent`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.payments) {
+                const payment = data.payments.find(p => p.id == paymentId);
+                if (payment) {
+                    if (typeof showQRReceipt === 'function') {
+                        showQRReceipt(payment);
+                    } else {
+                        console.error('showQRReceipt function not found');
+                        showNotification('QR Receipt modal not available', 'danger');
+                    }
+                } else {
+                    showNotification('Payment not found', 'warning');
+                }
+            } else {
+                showNotification('Error fetching payment data', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error loading payment', 'danger');
+        });
+}
+
+// Function to edit payment in all payments modal
+function editPaymentInAllPayments(paymentId) {
+    event.stopPropagation();
+    
+    // Fetch payment details
+    fetch(`${window.APP_BASE_URL}/payments/recent`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.payments) {
+                const payment = data.payments.find(p => p.id == paymentId);
+                if (payment) {
+                    // Open the add payment modal in edit mode
+                    openEditPaymentModal(payment);
+                } else {
+                    showNotification('Payment not found', 'warning');
+                }
+            } else {
+                showNotification('Error fetching payment data', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('Error loading payment', 'danger');
+        });
+}
+
+// Function to open edit payment modal with payment data
+function openEditPaymentModal(payment) {
+    // Update modal title
+    document.getElementById('addPaymentModalLabel').textContent = 'Edit Payment';
+    
+    // Set payment ID
+    document.getElementById('paymentId').value = payment.id || '';
+    
+    // Populate payer fields
+    if (payment.payer_id) {
+        // Existing payer
+        document.querySelector('input[name="payerType"][value="existing"]').checked = true;
+        document.getElementById('payerSelect').value = `${payment.payer_name} (${payment.payer_id})`;
+        document.getElementById('existingPayerId').value = payment.payer_id;
+        document.getElementById('existingPayerFields').style.display = 'block';
+        document.getElementById('newPayerFields').style.display = 'none';
+    } else {
+        // New payer
+        document.querySelector('input[name="payerType"][value="new"]').checked = true;
+        document.getElementById('payerName').value = payment.payer_name || '';
+        document.getElementById('payerId').value = payment.payer_id || '';
+        document.getElementById('contactNumber').value = payment.contact_number || '';
+        document.getElementById('emailAddress').value = payment.email_address || '';
+        document.getElementById('existingPayerFields').style.display = 'none';
+        document.getElementById('newPayerFields').style.display = 'block';
+    }
+    
+    // Set contribution (this should show the current contribution in the dropdown)
+    if (payment.contribution_id) {
+        const contributionSelect = document.getElementById('contributionId');
+        if (contributionSelect) {
+            contributionSelect.value = payment.contribution_id;
+            // Trigger change to update payment status if needed
+            contributionSelect.dispatchEvent(new Event('change'));
+        }
+    }
+    
+    // Set payment method
+    if (payment.payment_method) {
+        document.getElementById('paymentMethod').value = payment.payment_method;
+    }
+    
+    // Set amount paid
+    if (payment.amount_paid) {
+        document.getElementById('amountPaid').value = payment.amount_paid;
+    }
+    
+    // Set payment status
+    if (payment.payment_status) {
+        const statusSelect = document.getElementById('paymentStatus');
+        if (statusSelect) {
+            statusSelect.value = payment.payment_status;
+            // Apply the appropriate class
+            if (payment.payment_status === 'fully paid') {
+                statusSelect.className = 'form-select bg-success text-white';
+            } else if (payment.payment_status === 'partial') {
+                statusSelect.className = 'form-select bg-warning text-dark';
+            }
+        }
+    }
+    
+    // Set payment date - need to convert to datetime-local format
+    if (payment.payment_date) {
+        const paymentDate = new Date(payment.payment_date);
+        const year = paymentDate.getFullYear();
+        const month = String(paymentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(paymentDate.getDate()).padStart(2, '0');
+        const hours = String(paymentDate.getHours()).padStart(2, '0');
+        const minutes = String(paymentDate.getMinutes()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+        document.getElementById('paymentDate').value = formattedDate;
+    }
+    
+    // Set remaining balance if exists
+    if (payment.remaining_balance !== undefined) {
+        document.getElementById('remainingBalance').value = payment.remaining_balance || '0.00';
+    }
+    
+    // Set partial payment flag
+    const isPartialPayment = payment.payment_status === 'partial' && payment.remaining_balance > 0;
+    document.getElementById('isPartialPayment').value = isPartialPayment ? '1' : '0';
+    document.getElementById('paymentStatusHidden').value = payment.payment_status || 'fully paid';
+    
+    // Update form action to edit
+    const form = document.getElementById('paymentForm');
+    form.action = `${window.APP_BASE_URL}/payments/update/${payment.id}`;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('addPaymentModal'));
+    modal.show();
 }
 </script>

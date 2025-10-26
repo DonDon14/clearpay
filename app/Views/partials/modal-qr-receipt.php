@@ -15,41 +15,38 @@ $showDownloadButton = $showDownloadButton ?? true;
 
 <!-- QR Receipt Modal -->
 <style>
-/* Ensure QR modal appears above All Payments modal when open */
+/* Ensure QR Receipt modal has proper z-index above all other modals */
 #qrReceiptModal {
-    z-index: 1060 !important;
+    z-index: 2000 !important;
 }
 
 #qrReceiptModal .modal-dialog {
-    z-index: 1061 !important;
+    z-index: 2001 !important;
     margin: 3rem auto 1rem auto !important;
 }
 
 #qrReceiptModal .modal-content {
     position: relative;
-    z-index: 1062 !important;
+    z-index: 2002 !important;
 }
 
-/* Multiple backdrops - ensure proper layering */
-.modal-backdrop.show:nth-last-of-type(2) {
-    /* All Payments modal backdrop */
-    z-index: 1045 !important;
+/* QR modal backdrop should fully cover everything behind it */
+body:has(#qrReceiptModal.show) .modal-backdrop.show:last-of-type {
+    z-index: 1999 !important;
+    background-color: rgba(0, 0, 0, 0.75) !important;
 }
 
-.modal-backdrop.show:last-of-type {
-    /* QR modal backdrop - should fully cover everything */
-    z-index: 1055 !important;
-    background-color: rgba(0, 0, 0, 0.7) !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
+/* All Payments modal backdrop should fade when QR receipt is shown */
+body:has(#qrReceiptModal.show) #allPaymentsModal ~ .modal-backdrop.show {
+    background-color: rgba(0, 0, 0, 0.35) !important;
+    z-index: 1998 !important;
 }
 
 /* Compress QR receipt modal content to fit on screen */
 #qrReceiptModal .modal-body {
     padding: 1rem !important;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 #qrReceiptModal .card {
@@ -60,18 +57,10 @@ $showDownloadButton = $showDownloadButton ?? true;
     padding: 0.75rem !important;
 }
 
-/* Prevent backdrop from blocking clicks on All Payments modal */
-.modal-backdrop.show {
-    pointer-events: auto !important;
-}
-
-/* Ensure modal content is always clickable above backdrop */
-.modal.show {
+/* Ensure All Payments modal is visible behind QR but faded */
+body:has(#qrReceiptModal.show) #allPaymentsModal {
+    opacity: 0.3 !important;
     pointer-events: none !important;
-}
-
-.modal.show .modal-dialog {
-    pointer-events: auto !important;
 }
 </style>
 
@@ -219,8 +208,9 @@ $showDownloadButton = $showDownloadButton ?? true;
 // Global variable to store current payment data
 let currentReceiptData = null;
 
-// Function to show QR receipt modal
-function showQRReceipt(paymentData) {
+// Make function globally available and log for debugging
+window.showQRReceipt = function(paymentData) {
+    console.log('showQRReceipt called with data:', paymentData);
     currentReceiptData = paymentData;
     
     // Populate receipt data
@@ -284,7 +274,7 @@ function showQRReceipt(paymentData) {
     });
     
     modal.show();
-}
+};
 
 // Function to generate QR code
 function generateQRCode(paymentData) {
@@ -456,10 +446,51 @@ function printReceipt() {
     printWindow.document.write(receiptHTML);
     printWindow.document.close();
     
-    // Wait for content to load then print
-    setTimeout(() => {
-        printWindow.print();
-    }, 250);
+    // Wait for all content including images to load before printing
+    printWindow.addEventListener('load', function() {
+        const qrImage = printWindow.document.querySelector('.qr-code img');
+        
+        if (qrImage) {
+            // Check if image is already loaded
+            if (qrImage.complete && qrImage.naturalHeight !== 0) {
+                // Image already loaded, print immediately
+                setTimeout(() => {
+                    printWindow.print();
+                }, 200);
+            } else {
+                // Wait for image to load
+                const checkImageLoad = setInterval(() => {
+                    if (qrImage.complete && qrImage.naturalHeight !== 0) {
+                        clearInterval(checkImageLoad);
+                        setTimeout(() => {
+                            printWindow.print();
+                        }, 200);
+                    }
+                }, 100);
+                
+                // Timeout after 3 seconds if image doesn't load
+                setTimeout(() => {
+                    clearInterval(checkImageLoad);
+                    printWindow.print();
+                }, 3000);
+            }
+        } else {
+            // No QR image found, print anyway
+            setTimeout(() => {
+                printWindow.print();
+            }, 500);
+        }
+    });
+    
+    // Fallback: If page loads before event listener is attached
+    if (printWindow.document.readyState === 'complete') {
+        setTimeout(() => {
+            const qrImage = printWindow.document.querySelector('.qr-code img');
+            if (qrImage && qrImage.complete) {
+                printWindow.print();
+            }
+        }, 1000);
+    }
 }
 
 // Function to build receipt HTML
@@ -583,7 +614,11 @@ function buildReceiptHTML(paymentData) {
             <div class="qr-section">
                 <h3>🔲 QR Receipt Code</h3>
                 <div class="qr-code">
-                    <img src="${qrUrl}" alt="QR Code for Receipt ${paymentData.receipt_number || paymentData.id}" onerror="this.onerror=null; this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrText)}';" />
+                    <img src="${qrUrl}" alt="QR Code for Receipt ${paymentData.receipt_number || paymentData.id}" 
+                         onerror="console.error('QR image failed to load:', this.src); 
+                                  this.onerror=null; 
+                                  this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrText)}&choe=UTF-8';"
+                         crossorigin="anonymous" />
                 </div>
                 <div class="qr-note">Scan this QR code to verify payment authenticity</div>
             </div>
@@ -599,8 +634,15 @@ function buildReceiptHTML(paymentData) {
 </html>`;
 }
 
-// Reset modal when closed
+// Reset modal when closed and verify function is loaded
 document.addEventListener('DOMContentLoaded', function() {
+    // Verify showQRReceipt function is available
+    if (typeof window.showQRReceipt === 'function') {
+        console.log('✓ showQRReceipt function is loaded and available');
+    } else {
+        console.error('✗ showQRReceipt function is NOT available');
+    }
+    
     const qrReceiptModal = document.getElementById('qrReceiptModal');
     if (qrReceiptModal) {
         qrReceiptModal.addEventListener('hidden.bs.modal', function() {
@@ -608,6 +650,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Also verify immediately (in case DOM is already loaded)
+if (typeof window.showQRReceipt === 'function') {
+    console.log('✓ showQRReceipt function is available (immediate check)');
+} else {
+    console.error('✗ showQRReceipt function is NOT available (immediate check)');
+}
 </script>
 
 <style>

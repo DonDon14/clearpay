@@ -160,6 +160,9 @@
 <!-- Contribution Payments Modal -->
 <?= view('partials/modal-contribution-payments') ?>
 
+<!-- Add Payment to Partial Payment Modal -->
+<?= view('partials/modal-add-payment-to-partial') ?>
+
 <!-- QR Receipt Modal -->
 <?= view('partials/modal-qr-receipt', [
     'title' => 'Payment Receipt',
