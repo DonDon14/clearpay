@@ -214,16 +214,19 @@ class DashboardController extends BaseController
 
     public function checkNewActivities()
     {
+        // Get the current payer ID from session
+        $payerId = session('payer_id');
+        
         // Get the last activity ID that was shown to this payer
         $lastShownId = $this->request->getGet('last_shown_id') ?: 0;
         
         // Debug logging
-        log_message('info', "Checking for new activities. Last shown ID: {$lastShownId}");
+        log_message('info', "Checking for new activities for payer {$payerId}. Last shown ID: {$lastShownId}");
         
-        // Get recent activities for payers (limit to 10 for dropdown)
-        $activities = $this->activityLogModel->getRecentForPayers(10);
+        // Get recent activities for this specific payer (limit to 10 for dropdown)
+        $activities = $this->activityLogModel->getRecentForPayers(10, $payerId);
         
-        log_message('info', "Found " . count($activities) . " activities");
+        log_message('info', "Found " . count($activities) . " activities for payer {$payerId}");
         
         if (!empty($activities)) {
             // Format activities for frontend
@@ -245,7 +248,7 @@ class DashboardController extends BaseController
                 return $activity['id'] > $lastShownId;
             });
             
-            log_message('info', "Found " . count($newActivities) . " new activities");
+            log_message('info', "Found " . count($newActivities) . " new activities for payer {$payerId}");
             
             return $this->response->setJSON([
                 'success' => true,
@@ -255,7 +258,7 @@ class DashboardController extends BaseController
             ]);
         }
         
-        log_message('info', "No activities found");
+        log_message('info', "No activities found for payer {$payerId}");
         
         return $this->response->setJSON([
             'success' => false,
@@ -367,8 +370,11 @@ class DashboardController extends BaseController
     public function getAllActivities()
     {
         try {
-            // Get all activities for payers
-            $activities = $this->activityLogModel->getRecentForPayers(50); // Get more for the full modal
+            // Get the current payer ID from session
+            $payerId = session('payer_id');
+            
+            // Get all activities for this specific payer
+            $activities = $this->activityLogModel->getRecentForPayers(50, $payerId); // Get more for the full modal
             
             if (!empty($activities)) {
                 // Format activities for frontend

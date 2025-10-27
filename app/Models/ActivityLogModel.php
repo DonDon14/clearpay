@@ -23,6 +23,7 @@ class ActivityLogModel extends Model
         'new_values',
         'user_id',
         'user_type',
+        'payer_id',
         'target_audience',
         'is_read',
         'created_at',
@@ -58,33 +59,65 @@ class ActivityLogModel extends Model
     protected $afterDelete = [];
 
     /**
-     * Get unread activities for payers
+     * Get unread activities for a specific payer
      */
-    public function getUnreadForPayers($lastShownId = 0)
+    public function getUnreadForPayers($lastShownId = 0, $payerId = null)
     {
-        return $this->groupStart()
-            ->where('target_audience', 'payers')
-            ->orWhere('target_audience', 'both')
-            ->orWhere('target_audience', 'all')
-            ->groupEnd()
-            ->where('id >', $lastShownId)
-            ->orderBy('created_at', 'DESC')
-            ->first();
+        $query = $this->where('id >', $lastShownId);
+        
+        if ($payerId) {
+            // For specific payer: show general notifications + payer-specific notifications
+            $query->groupStart()
+                ->groupStart()
+                    ->where('target_audience', 'payers')
+                    ->orWhere('target_audience', 'both')
+                    ->orWhere('target_audience', 'all')
+                    ->groupEnd()
+                    ->where('payer_id IS NULL')
+                ->orWhere('payer_id', $payerId)
+                ->groupEnd();
+        } else {
+            // For all payers: show only general notifications
+            $query->groupStart()
+                ->where('target_audience', 'payers')
+                ->orWhere('target_audience', 'both')
+                ->orWhere('target_audience', 'all')
+                ->groupEnd()
+                ->where('payer_id IS NULL');
+        }
+        
+        return $query->orderBy('created_at', 'DESC')->first();
     }
 
     /**
-     * Get recent activities for payers
+     * Get recent activities for a specific payer
      */
-    public function getRecentForPayers($limit = 10)
+    public function getRecentForPayers($limit = 10, $payerId = null)
     {
-        return $this->groupStart()
-            ->where('target_audience', 'payers')
-            ->orWhere('target_audience', 'both')
-            ->orWhere('target_audience', 'all')
-            ->groupEnd()
-            ->orderBy('created_at', 'DESC')
-            ->limit($limit)
-            ->findAll();
+        $query = $this;
+        
+        if ($payerId) {
+            // For specific payer: show general notifications + payer-specific notifications
+            $query->groupStart()
+                ->groupStart()
+                    ->where('target_audience', 'payers')
+                    ->orWhere('target_audience', 'both')
+                    ->orWhere('target_audience', 'all')
+                    ->groupEnd()
+                    ->where('payer_id IS NULL')
+                ->orWhere('payer_id', $payerId)
+                ->groupEnd();
+        } else {
+            // For all payers: show only general notifications
+            $query->groupStart()
+                ->where('target_audience', 'payers')
+                ->orWhere('target_audience', 'both')
+                ->orWhere('target_audience', 'all')
+                ->groupEnd()
+                ->where('payer_id IS NULL');
+        }
+        
+        return $query->orderBy('created_at', 'DESC')->limit($limit)->findAll();
     }
 
     /**

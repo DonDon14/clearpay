@@ -73,6 +73,7 @@ class ActivityLogger
             'new_values' => json_encode($payment),
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
+            'payer_id' => $payment['payer_id'] ?? null, // Specific payer for payment notifications
             'target_audience' => 'payers'
         ];
 
@@ -95,6 +96,7 @@ class ActivityLogger
             'new_values' => json_encode($payer),
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
+            'payer_id' => $payer['id'] ?? null, // Specific payer for payer notifications
             'target_audience' => 'payers'
         ];
 

@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\ContributionModel;
 use App\Models\PaymentModel;
+use App\Services\ActivityLogger;
 // use App\Services\QRReceiptService; // Disabled for now
 
 class PaymentsController extends BaseController
@@ -178,6 +179,20 @@ class PaymentsController extends BaseController
             if ($result) {
                 // Get the payment ID (for new payments)
                 $paymentId = $id ?: $paymentModel->getInsertID();
+                
+                // Log activity using ActivityLogger
+                $activityLogger = new ActivityLogger();
+                
+                if ($id) {
+                    // Update existing payment - get old data first
+                    $oldData = $paymentModel->find($id);
+                    $data['id'] = $id;
+                    $activityLogger->logPayment('updated', $data, $oldData);
+                } else {
+                    // Create new payment - use the insert result as ID
+                    $data['id'] = $result;
+                    $activityLogger->logPayment('created', $data);
+                }
                 
                 // Generate QR receipt for new payments (disabled temporarily)
                 // if (!$id) {
