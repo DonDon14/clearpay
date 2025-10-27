@@ -58,6 +58,14 @@ class ActivityLogModel extends Model
     protected $beforeDelete = [];
     protected $afterDelete = [];
 
+    protected $activityReadStatusModel;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->activityReadStatusModel = new \App\Models\ActivityReadStatusModel();
+    }
+
     /**
      * Get unread activities for a specific payer
      */
@@ -90,7 +98,7 @@ class ActivityLogModel extends Model
     }
 
     /**
-     * Get recent activities for a specific payer
+     * Get recent activities for a specific payer with individual read status
      */
     public function getRecentForPayers($limit = 10, $payerId = null)
     {
@@ -117,15 +125,33 @@ class ActivityLogModel extends Model
                 ->where('payer_id IS NULL');
         }
         
-        return $query->orderBy('created_at', 'DESC')->limit($limit)->findAll();
+        $activities = $query->orderBy('created_at', 'DESC')->limit($limit)->findAll();
+        
+        // Add individual read status for each activity
+        if ($payerId && !empty($activities)) {
+            $activityIds = array_column($activities, 'id');
+            $readStatus = $this->activityReadStatusModel->getReadStatusForPayer($activityIds, $payerId);
+            
+            foreach ($activities as &$activity) {
+                $activity['is_read_by_payer'] = isset($readStatus[$activity['id']]);
+            }
+        }
+        
+        return $activities;
     }
 
     /**
-     * Mark activity as read
+     * Mark activity as read for a specific payer
      */
-    public function markAsRead($id)
+    public function markAsRead($activityId, $payerId = null)
     {
-        return $this->update($id, ['is_read' => 1]);
+        if ($payerId) {
+            // Use individual read status system
+            return $this->activityReadStatusModel->markAsRead($activityId, $payerId);
+        } else {
+            // Fallback to global read status (for backward compatibility)
+            return $this->update($activityId, ['is_read' => 1]);
+        }
     }
 
     /**

@@ -346,7 +346,16 @@ class DashboardController extends BaseController
     public function markActivityAsRead($activityId)
     {
         try {
-            $result = $this->activityLogModel->markAsRead($activityId);
+            $payerId = session('payer_id');
+            
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer not authenticated'
+                ]);
+            }
+            
+            $result = $this->activityLogModel->markAsRead($activityId, $payerId);
             
             if ($result) {
                 return $this->response->setJSON([

@@ -525,12 +525,13 @@ function checkForNewActivities() {
                 unreadActivityIds.clear(); // Clear existing set
                 
                 if (data.activities && data.activities.length > 0) {
-                    // Only mark NEW activities as unread, not all activities
-                    if (data.newActivities && data.newActivities.length > 0) {
-                        data.newActivities.forEach(activity => {
+                    // Mark activities as unread based on individual read status
+                    data.activities.forEach(activity => {
+                        // If activity doesn't have is_read_by_payer property or it's false, mark as unread
+                        if (!activity.is_read_by_payer) {
                             unreadActivityIds.add(activity.id);
-                        });
-                    }
+                        }
+                    });
                     
                     console.log('Initialized unread activities:', unreadActivityIds.size);
                 }
