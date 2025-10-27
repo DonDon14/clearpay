@@ -187,6 +187,9 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="requestPaymentBtn" style="display: none;">
+                    <i class="fas fa-paper-plane me-2"></i>Request Payment
+                </button>
                 <button type="button" class="btn btn-primary" id="viewPaymentHistoryBtn">
                     <i class="fas fa-history me-2"></i>View Payment History
                 </button>
@@ -374,6 +377,26 @@
         const statusBadgeInfo = document.getElementById('modalStatus');
         statusBadgeInfo.textContent = contribution.status.charAt(0).toUpperCase() + contribution.status.slice(1);
         statusBadgeInfo.className = 'badge bg-' + (contribution.status === 'active' ? 'success' : 'secondary');
+        
+        // Show/hide Request Payment button based on remaining balance
+        const requestPaymentBtn = document.getElementById('requestPaymentBtn');
+        const remainingBalance = parseFloat(contribution.remaining_balance) || 0;
+        
+        if (remainingBalance > 0) {
+            requestPaymentBtn.style.display = 'inline-block';
+            requestPaymentBtn.onclick = function() {
+                // Close current modal
+                contributionModal.hide();
+                // Open payment request modal with contribution data
+                if (typeof window.openPaymentRequestModal === 'function') {
+                    window.openPaymentRequestModal(contribution);
+                } else {
+                    console.error('openPaymentRequestModal function not available');
+                }
+            };
+        } else {
+            requestPaymentBtn.style.display = 'none';
+        }
     }
     
     function showPaymentHistory(contribution) {
@@ -488,4 +511,8 @@
     
 });
 </script>
+
+<!-- Include Payment Request Modal -->
+<?= $this->include('partials/modal-payment-request') ?>
+
 <?= $this->endSection() ?>
