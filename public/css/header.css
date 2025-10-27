@@ -261,13 +261,14 @@
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    min-width: 280px;
+    min-width: 300px;
+    max-width: 320px;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
     transition: all 0.2s ease;
     z-index: 99999;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .user-dropdown.active {
@@ -287,8 +288,8 @@
 }
 
 .user-avatar-large {
-    width: 40px;
-    height: 40px;
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     background: #e5e7eb;
     display: flex;
@@ -296,6 +297,7 @@
     justify-content: center;
     border: none;
     flex-shrink: 0;
+    overflow: hidden;
 }
 
 .user-avatar-large i {
@@ -306,6 +308,7 @@
 .user-details {
     flex: 1;
     min-width: 0;
+    overflow: hidden;
 }
 
 .user-full-name {
@@ -313,6 +316,9 @@
     color: #1f2937;
     font-size: 0.875rem;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .user-email {
@@ -320,6 +326,9 @@
     color: #6b7280;
     font-size: 0.75rem;
     font-weight: 400;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Dropdown Sections */
@@ -382,6 +391,7 @@
     gap: 0;
     flex: 1;
     min-width: 0;
+    overflow: hidden;
 }
 
 .item-title {
@@ -389,6 +399,9 @@
     font-weight: 500;
     color: inherit;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .item-desc {
@@ -474,7 +487,8 @@
     }
     
     .user-dropdown {
-        min-width: 260px;
+        min-width: 280px;
+        max-width: 300px;
         right: 10px;
     }
 }

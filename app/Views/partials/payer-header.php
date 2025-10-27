@@ -50,7 +50,13 @@
       <button class="user-menu-btn" id="userMenuBtn">
         <div class="user-avatar">
           <div class="avatar-circle">
-            <i class="fas fa-user"></i>
+            <?php if (isset($payerData) && !empty($payerData['profile_picture'])): ?>
+              <img src="<?= base_url($payerData['profile_picture']) ?>" 
+                   alt="Profile Picture" 
+                   class="avatar-image">
+            <?php else: ?>
+              <i class="fas fa-user"></i>
+            <?php endif; ?>
           </div>
           <div class="status-indicator"></div>
         </div>
@@ -65,7 +71,13 @@
       <div class="user-dropdown" id="userDropdown">
         <div class="user-profile-info">
           <div class="user-avatar-large">
-            <i class="fas fa-user"></i>
+            <?php if (isset($payerData) && !empty($payerData['profile_picture'])): ?>
+              <img src="<?= base_url($payerData['profile_picture']) ?>" 
+                   alt="Profile Picture" 
+                   class="avatar-image-large">
+            <?php else: ?>
+              <i class="fas fa-user"></i>
+            <?php endif; ?>
           </div>
           <div class="user-details">
             <h4 class="user-full-name"><?= session('payer_name') ?? 'Payer' ?></h4>
@@ -239,12 +251,67 @@ document.addEventListener('DOMContentLoaded', function() {
        </script>
        
        <style>
-       /* Notification Dropdown Styles */
-       .notification-dropdown {
+/* Avatar Image Styles */
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-image-large {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Ensure proper sizing for avatar circles */
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+}
+
+.user-avatar-large {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .avatar-circle {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .user-avatar-large {
+    width: 45px;
+    height: 45px;
+  }
+}
+</style>
+
+<style>
+/* Notification Dropdown Styles */
+.notification-dropdown {
          position: absolute;
          top: 100%;
          right: 0;
-         width: 350px;
+         width: 380px;
          background: white;
          border: 1px solid #e5e7eb;
          border-radius: 12px;
@@ -254,8 +321,8 @@ document.addEventListener('DOMContentLoaded', function() {
          visibility: hidden;
          transform: translateY(-10px);
          transition: all 0.3s ease;
-         max-height: 400px;
-         overflow: hidden;
+         max-height: 500px;
+         overflow: visible;
        }
        
        .notification-dropdown.active {
@@ -293,6 +360,8 @@ document.addEventListener('DOMContentLoaded', function() {
          margin-bottom: 0.5rem;
          transition: background-color 0.2s;
          cursor: pointer;
+         position: relative;
+         min-height: 60px;
        }
        
        .notification-item:hover {
@@ -329,15 +398,31 @@ document.addEventListener('DOMContentLoaded', function() {
          color: #6b7280;
          margin-bottom: 0.25rem;
          line-height: 1.4;
+         word-wrap: break-word;
+         word-break: break-word;
+         hyphens: auto;
+         max-height: 2.8em;
+         overflow: hidden;
          display: -webkit-box;
          -webkit-line-clamp: 2;
          -webkit-box-orient: vertical;
-         overflow: hidden;
        }
        
        .notification-time {
          font-size: 0.75rem;
          color: #9ca3af;
+       }
+       
+       .notification-unread-badge {
+         position: absolute;
+         top: 8px;
+         right: 8px;
+         width: 8px;
+         height: 8px;
+         background-color: #dc3545;
+         border-radius: 50%;
+         border: 2px solid white;
+         box-shadow: 0 0 0 1px #e5e7eb;
        }
        
        .notification-action {
@@ -370,8 +455,18 @@ document.addEventListener('DOMContentLoaded', function() {
        /* Responsive adjustments */
        @media (max-width: 768px) {
          .notification-dropdown {
-           width: 300px;
-           right: -50px;
+           width: 320px;
+           right: -40px;
+         }
+         
+         .notification-item {
+           padding: 0.5rem;
+           min-height: 50px;
+         }
+         
+         .notification-text {
+           font-size: 0.75rem;
+           max-height: 2.4em;
          }
        }
        </style>

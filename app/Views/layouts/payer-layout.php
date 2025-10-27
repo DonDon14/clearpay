@@ -26,9 +26,16 @@
     <div class="main-content">
       <!-- Header -->
       <header class="header">
+        <?php 
+        // Get payer data for header
+        $payerId = session('payer_id');
+        $payerModel = new \App\Models\PayerModel();
+        $payerData = $payerId ? $payerModel->find($payerId) : null;
+        ?>
         <?= $this->include('partials/payer-header', [
           'pageTitle' => $pageTitle ?? 'Dashboard',
-          'pageSubtitle' => $pageSubtitle ?? 'Welcome back to ClearPay'
+          'pageSubtitle' => $pageSubtitle ?? 'Welcome back to ClearPay',
+          'payerData' => $payerData
         ]) ?>
       </header>
       

@@ -73,10 +73,134 @@ class DashboardController extends BaseController
             'title' => 'My Data',
             'pageTitle' => 'My Data',
             'pageSubtitle' => 'View your personal information',
-            'payer' => $payer
+            'payer' => $payer,
+            'payerData' => $payer // Pass to layout for header
         ];
         
         return view('payer/my-data', $data);
+    }
+
+    public function updateProfile()
+    {
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer not authenticated'
+            ]);
+        }
+
+        $validation = \Config\Services::validation();
+        $validation->setRules([
+            'email_address' => 'required|valid_email',
+            'contact_number' => 'required|min_length[10]|max_length[15]'
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validation->getErrors()
+            ]);
+        }
+
+        $data = [
+            'email_address' => $this->request->getPost('email_address'),
+            'contact_number' => $this->request->getPost('contact_number')
+        ];
+
+        $result = $this->payerModel->update($payerId, $data);
+
+        if ($result) {
+            // Update session data
+            session()->set([
+                'payer_email' => $data['email_address']
+            ]);
+
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Profile updated successfully'
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Failed to update profile'
+            ]);
+        }
+    }
+
+    public function uploadProfilePicture()
+    {
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer not authenticated'
+            ]);
+        }
+
+        $file = $this->request->getFile('profile_picture');
+        
+        if (!$file || !$file->isValid()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'No valid file uploaded'
+            ]);
+        }
+
+        // Validate file type
+        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+        if (!in_array($file->getMimeType(), $allowedTypes)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid file type. Only JPEG, PNG, and GIF are allowed.'
+            ]);
+        }
+
+        // Validate file size (max 2MB)
+        if ($file->getSize() > 2 * 1024 * 1024) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'File size too large. Maximum 2MB allowed.'
+            ]);
+        }
+
+        // Create upload directory if it doesn't exist
+        $uploadPath = FCPATH . 'uploads/profile/';
+        if (!is_dir($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
+        // Generate unique filename
+        $newName = 'payer_' . $payerId . '_' . time() . '.' . $file->getExtension();
+        
+        if ($file->move($uploadPath, $newName)) {
+            // Get current payer data to delete old profile picture
+            $payer = $this->payerModel->find($payerId);
+            $oldProfilePicture = $payer['profile_picture'] ?? null;
+            
+            // Update database with new profile picture path
+            $profilePicturePath = 'uploads/profile/' . $newName;
+            $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
+            
+            // Delete old profile picture if it exists
+            if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
+                unlink(FCPATH . $oldProfilePicture);
+            }
+
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Profile picture uploaded successfully',
+                'profile_picture' => base_url($profilePicturePath)
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Failed to upload profile picture'
+            ]);
+        }
     }
 
     public function announcements()
