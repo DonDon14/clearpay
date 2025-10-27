@@ -344,13 +344,19 @@
         });
     });
     
-    // Contribution card click
+    // Contribution card click - show payment groups instead of overall contribution
     contributionCards.forEach(card => {
-        card.addEventListener('click', function() {
+        card.addEventListener('click', function(e) {
+            // Don't trigger if clicking on a payment group item
+            if (e.target.closest('.payment-group-item')) {
+                return;
+            }
+            
             const contributionData = JSON.parse(this.getAttribute('data-contribution'));
             currentContribution = contributionData;
-            showContributionDetails(contributionData);
-            contributionModal.show();
+            
+            // Show payment groups modal instead of overall contribution modal
+            showPaymentGroupsModal(contributionData);
         });
     });
     
@@ -548,14 +554,221 @@
         });
     }
     
-    // Handle payment group clicks
-    $(document).on('click', '.payment-group-item', function() {
-        const contributionId = $(this).data('contribution-id');
-        const paymentSequence = $(this).data('payment-sequence');
-        const groupData = $(this).data('group-data');
+    // Function to show payment groups modal for a contribution
+    function showPaymentGroupsModal(contribution) {
+        const modalHtml = `
+            <div class="modal fade" id="paymentGroupsModal" tabindex="-1" aria-labelledby="paymentGroupsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="paymentGroupsModalLabel">
+                                <i class="fas fa-layer-group me-2"></i>${contribution.title} - Payment Groups
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title">Total Amount</h6>
+                                            <h4>₱${parseFloat(contribution.amount).toFixed(2)}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body text-center">
+                                            <h6 class="card-title">Total Paid</h6>
+                                            <h4>₱${parseFloat(contribution.total_paid).toFixed(2)}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6>Payment Groups:</h6>
+                            <div class="row">
+                                ${contribution.payment_groups && contribution.payment_groups.length > 0 ? 
+                                    contribution.payment_groups.map(group => `
+                                        <div class="col-md-6 mb-3">
+                                            <div class="card payment-group-card" 
+                                                 style="cursor: pointer; border: 2px solid ${group.computed_status === 'fully paid' ? '#28a745' : '#ffc107'};"
+                                                 data-contribution-id="${contribution.id}"
+                                                 data-payment-sequence="${group.payment_sequence}"
+                                                 data-group-data='${JSON.stringify(group)}'>
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <h6 class="mb-0">
+                                                            <i class="fas fa-layer-group me-2"></i>
+                                                            Payment Group ${group.payment_sequence}
+                                                        </h6>
+                                                        <span class="badge ${group.computed_status === 'fully paid' ? 'bg-success' : 'bg-warning'}">
+                                                            ${group.computed_status === 'fully paid' ? 'Completed' : 'Partial'}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <div class="row mb-2">
+                                                        <div class="col-6">
+                                                            <small class="text-muted">Amount Paid</small>
+                                                            <div class="fw-bold text-success">₱${parseFloat(group.total_paid).toFixed(2)}</div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <small class="text-muted">Payments</small>
+                                                            <div class="fw-bold">${group.payment_count}</div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    ${group.computed_status !== 'fully paid' ? `
+                                                        <div class="mb-2">
+                                                            <small class="text-muted">Remaining</small>
+                                                            <div class="fw-bold text-danger">₱${parseFloat(group.remaining_balance).toFixed(2)}</div>
+                                                        </div>
+                                                    ` : ''}
+                                                    
+                                                    <div class="mb-2">
+                                                        <small class="text-muted">Last Payment</small>
+                                                        <div class="small">${new Date(group.last_payment_date).toLocaleDateString()}</div>
+                                                    </div>
+                                                    
+                                                    <div class="d-flex justify-content-between">
+                                                        <button class="btn btn-sm btn-outline-primary view-group-details-btn" 
+                                                                data-contribution-id="${contribution.id}"
+                                                                data-payment-sequence="${group.payment_sequence}"
+                                                                data-group-data='${JSON.stringify(group)}'>
+                                                            <i class="fas fa-eye me-1"></i>View Details
+                                                        </button>
+                                                        ${group.computed_status !== 'fully paid' ? `
+                                                            <button class="btn btn-sm btn-success request-payment-btn" 
+                                                                    data-contribution-id="${contribution.id}"
+                                                                    data-payment-sequence="${group.payment_sequence}"
+                                                                    data-group-data='${JSON.stringify(group)}'>
+                                                                <i class="fas fa-paper-plane me-1"></i>Request Payment
+                                                            </button>
+                                                        ` : ''}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('') : 
+                                    '<div class="col-12 text-center py-4"><p class="text-muted">No payment groups found</p></div>'
+                                }
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary" onclick="viewPaymentHistory(${contribution.id})">
+                                <i class="fas fa-history me-2"></i>View Payment History
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
         
-        // Show payment progress modal for this group
-        showPaymentProgressModal(contributionId, paymentSequence, groupData);
+        // Remove existing modal if any
+        const existingModal = document.getElementById('paymentGroupsModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('paymentGroupsModal'));
+        modal.show();
+        
+        // Add event listeners
+        document.getElementById('paymentGroupsModal').addEventListener('click', function(e) {
+            if (e.target.closest('.view-group-details-btn')) {
+                const btn = e.target.closest('.view-group-details-btn');
+                const contributionId = btn.getAttribute('data-contribution-id');
+                const paymentSequence = btn.getAttribute('data-payment-sequence');
+                const groupData = JSON.parse(btn.getAttribute('data-group-data'));
+                
+                // Close current modal
+                modal.hide();
+                
+                // Show payment progress modal for this group
+                showPaymentProgressModal(contributionId, paymentSequence, groupData);
+            }
+            
+            if (e.target.closest('.request-payment-btn')) {
+                const btn = e.target.closest('.request-payment-btn');
+                const contributionId = btn.getAttribute('data-contribution-id');
+                const paymentSequence = btn.getAttribute('data-payment-sequence');
+                const groupData = JSON.parse(btn.getAttribute('data-group-data'));
+                
+                // Close current modal
+                modal.hide();
+                
+                // Open payment request modal for this specific group
+                openPaymentRequestForGroup(contributionId, paymentSequence, groupData);
+            }
+        });
+        
+        // Clean up modal when hidden
+        document.getElementById('paymentGroupsModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+    
+    // Function to open payment request modal for a specific payment group
+    function openPaymentRequestForGroup(contributionId, paymentSequence, groupData) {
+        // First fetch the contribution details to get the correct data
+        fetch(`<?= base_url('payer/get-contribution-payments') ?>/${contributionId}?sequence=${paymentSequence}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.payments.length > 0) {
+                const firstPayment = data.payments[0];
+                
+                // Create a contribution object with the correct data
+                const contributionData = {
+                    id: contributionId,
+                    title: firstPayment.contribution_title || 'Contribution',
+                    amount: parseFloat(firstPayment.contribution_amount || 0),
+                    description: firstPayment.contribution_description || '',
+                    remaining_balance: groupData.remaining_balance || 0,
+                    payment_sequence: paymentSequence
+                };
+                
+                // Pre-fill the payment request modal with correct data
+                if (typeof window.openPaymentRequestModal === 'function') {
+                    window.openPaymentRequestModal(contributionData);
+                } else {
+                    console.error('openPaymentRequestModal function not available');
+                    alert('Payment request functionality not available. Please refresh the page.');
+                }
+            } else {
+                alert('Error loading contribution details');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while loading contribution details.');
+        });
+    }
+    
+    // Handle payment group clicks
+    document.addEventListener('click', function(e) {
+        const paymentGroupItem = e.target.closest('.payment-group-item');
+        if (paymentGroupItem) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const contributionId = paymentGroupItem.getAttribute('data-contribution-id');
+            const paymentSequence = paymentGroupItem.getAttribute('data-payment-sequence');
+            const groupData = JSON.parse(paymentGroupItem.getAttribute('data-group-data'));
+            
+            // Show payment progress modal for this group
+            showPaymentProgressModal(contributionId, paymentSequence, groupData);
+        }
     });
     
     // Function to show payment progress modal
@@ -570,7 +783,14 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
+            if (data.success && data.payments.length > 0) {
+                // Get contribution data from the first payment
+                const firstPayment = data.payments[0];
+                const contributionAmount = parseFloat(firstPayment.contribution_amount || 0);
+                const totalPaid = parseFloat(groupData.total_paid || 0);
+                const remainingBalance = parseFloat(groupData.remaining_balance || 0);
+                const progressPercentage = contributionAmount > 0 ? Math.round((totalPaid / contributionAmount) * 100) : 0;
+                
                 // Create and show payment progress modal
                 const modalHtml = `
                     <div class="modal fade" id="paymentProgressModal" tabindex="-1" aria-labelledby="paymentProgressModalLabel" aria-hidden="true">
@@ -578,7 +798,7 @@
                             <div class="modal-content">
                                 <div class="modal-header">
                                     <h5 class="modal-title" id="paymentProgressModalLabel">
-                                        <i class="fas fa-file-invoice-dollar me-2"></i>${groupData.contribution_title || 'Payment Group'}
+                                        <i class="fas fa-file-invoice-dollar me-2"></i>${firstPayment.contribution_title || 'Payment Group'} - Group ${paymentSequence}
                                     </h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
@@ -588,7 +808,7 @@
                                             <div class="card bg-primary text-white">
                                                 <div class="card-body text-center">
                                                     <h6 class="card-title">Total Amount</h6>
-                                                    <h4>₱${parseFloat(groupData.contribution_amount || 0).toFixed(2)}</h4>
+                                                    <h4>₱${contributionAmount.toFixed(2)}</h4>
                                                 </div>
                                             </div>
                                         </div>
@@ -596,7 +816,7 @@
                                             <div class="card bg-success text-white">
                                                 <div class="card-body text-center">
                                                     <h6 class="card-title">Amount Paid</h6>
-                                                    <h4>₱${parseFloat(groupData.total_paid || 0).toFixed(2)}</h4>
+                                                    <h4>₱${totalPaid.toFixed(2)}</h4>
                                                 </div>
                                             </div>
                                         </div>
@@ -604,7 +824,7 @@
                                             <div class="card bg-danger text-white">
                                                 <div class="card-body text-center">
                                                     <h6 class="card-title">Remaining Balance</h6>
-                                                    <h4>₱${parseFloat(groupData.remaining_balance || 0).toFixed(2)}</h4>
+                                                    <h4>₱${remainingBalance.toFixed(2)}</h4>
                                                 </div>
                                             </div>
                                         </div>
@@ -623,11 +843,11 @@
                                         <div class="progress" style="height: 25px;">
                                             <div class="progress-bar ${groupData.computed_status === 'fully paid' ? 'bg-success' : 'bg-warning'}" 
                                                  role="progressbar" 
-                                                 style="width: ${Math.min(100, (groupData.total_paid / groupData.contribution_amount) * 100)}%"
-                                                 aria-valuenow="${(groupData.total_paid / groupData.contribution_amount) * 100}" 
+                                                 style="width: ${Math.min(100, progressPercentage)}%"
+                                                 aria-valuenow="${progressPercentage}" 
                                                  aria-valuemin="0" 
                                                  aria-valuemax="100">
-                                                ${Math.round((groupData.total_paid / groupData.contribution_amount) * 100)}%
+                                                ${progressPercentage}%
                                             </div>
                                         </div>
                                     </div>
@@ -652,7 +872,7 @@
                                                                 <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
                                                                 <td><strong>₱${parseFloat(payment.amount_paid).toFixed(2)}</strong></td>
                                                                 <td>${payment.payment_method.charAt(0).toUpperCase() + payment.payment_method.slice(1)}</td>
-                                                                <td><span class="badge bg-${payment.payment_status === 'fully paid' ? 'success' : 'warning'}">${payment.payment_status.charAt(0).toUpperCase() + payment.payment_status.slice(1)}</span></td>
+                                                                <td><span class="badge bg-${groupData.computed_status === 'fully paid' ? 'success' : 'warning'}">${groupData.computed_status === 'fully paid' ? 'Completed' : 'Partial'}</span></td>
                                                                 <td>
                                                                     <button class="btn btn-sm btn-outline-primary view-receipt-btn" data-payment='${JSON.stringify(payment)}'>
                                                                         <i class="fas fa-qrcode"></i>
@@ -668,8 +888,8 @@
                                             <h6>Contribution Info</h6>
                                             <div class="card">
                                                 <div class="card-body">
-                                                    <p><strong>Category:</strong> ${groupData.contribution_category || 'other'}</p>
-                                                    <p><strong>Created:</strong> ${new Date(groupData.contribution_created_at || new Date()).toLocaleDateString()}</p>
+                                                    <p><strong>Category:</strong> ${firstPayment.contribution_category || 'other'}</p>
+                                                    <p><strong>Created:</strong> ${new Date(firstPayment.contribution_created_at || new Date()).toLocaleDateString()}</p>
                                                     <p><strong>Status:</strong> <span class="badge bg-success">Active</span></p>
                                                 </div>
                                             </div>
@@ -678,6 +898,14 @@
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    ${groupData.computed_status !== 'fully paid' ? `
+                                        <button type="button" class="btn btn-success request-payment-btn" 
+                                                data-contribution-id="${contributionId}"
+                                                data-payment-sequence="${paymentSequence}"
+                                                data-group-data='${JSON.stringify(groupData)}'>
+                                            <i class="fas fa-paper-plane me-2"></i>Request Payment
+                                        </button>
+                                    ` : ''}
                                     <button type="button" class="btn btn-primary" onclick="viewPaymentHistory(${contributionId})">
                                         <i class="fas fa-history me-2"></i>View Payment History
                                     </button>
@@ -688,25 +916,45 @@
                 `;
                 
                 // Remove existing modal if any
-                $('#paymentProgressModal').remove();
+                const existingModal = document.getElementById('paymentProgressModal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
                 
                 // Add modal to body
-                $('body').append(modalHtml);
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
                 
                 // Show modal
-                $('#paymentProgressModal').modal('show');
+                const modal = new bootstrap.Modal(document.getElementById('paymentProgressModal'));
+                modal.show();
                 
-                // Add event listeners for receipt buttons
-                $('#paymentProgressModal').on('click', '.view-receipt-btn', function() {
-                    const paymentData = JSON.parse($(this).attr('data-payment'));
-                    if (typeof window.showQRReceipt === 'function') {
-                        window.showQRReceipt(paymentData);
+                // Add event listeners for receipt buttons and request payment button
+                document.getElementById('paymentProgressModal').addEventListener('click', function(e) {
+                    if (e.target.closest('.view-receipt-btn')) {
+                        const btn = e.target.closest('.view-receipt-btn');
+                        const paymentData = JSON.parse(btn.getAttribute('data-payment'));
+                        if (typeof window.showQRReceipt === 'function') {
+                            window.showQRReceipt(paymentData);
+                        }
+                    }
+                    
+                    if (e.target.closest('.request-payment-btn')) {
+                        const btn = e.target.closest('.request-payment-btn');
+                        const contributionId = btn.getAttribute('data-contribution-id');
+                        const paymentSequence = btn.getAttribute('data-payment-sequence');
+                        const groupData = JSON.parse(btn.getAttribute('data-group-data'));
+                        
+                        // Close current modal
+                        modal.hide();
+                        
+                        // Open payment request modal for this specific group
+                        openPaymentRequestForGroup(contributionId, paymentSequence, groupData);
                     }
                 });
                 
                 // Clean up modal when hidden
-                $('#paymentProgressModal').on('hidden.bs.modal', function() {
-                    $(this).remove();
+                document.getElementById('paymentProgressModal').addEventListener('hidden.bs.modal', function() {
+                    this.remove();
                 });
                 
             } else {

@@ -309,6 +309,11 @@ class DashboardController extends BaseController
             $paymentId = $this->createPaymentFromRequest($request, $processedBy);
             
             if ($paymentId) {
+                // Get the payment record to get the receipt number
+                $paymentModel = new PaymentModel();
+                $paymentRecord = $paymentModel->find($paymentId);
+                $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
+                
                 // Mark payment request as approved
                 $result = $paymentRequestModel->approveRequest($requestId, $processedBy, $adminNotes);
                 
@@ -318,7 +323,7 @@ class DashboardController extends BaseController
                     $activityLogger->logPaymentRequest('approved', $request);
                     
                     // Log activity for admin dashboard (user_activities table)
-                    $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved and payment recorded (Receipt Number: {$paymentData['receipt_number']})");
+                    $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved and payment recorded (Receipt Number: {$receiptNumber})");
                     
                     return $this->response->setJSON([
                         'success' => true,
@@ -621,9 +626,13 @@ class DashboardController extends BaseController
         $existingTotalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
         $newTotalPaid = $existingTotalPaid + $amountPaid;
         
-        // Determine payment sequence - ensure only one active partial group per contribution type
+        // Determine payment sequence - use from request if provided, otherwise follow grouping logic
         $paymentSequence = 1;
-        if (!empty($existingPayments)) {
+        
+        // If payment request has a specific payment_sequence, use it
+        if (!empty($request['payment_sequence'])) {
+            $paymentSequence = $request['payment_sequence'];
+        } else if (!empty($existingPayments)) {
             // Group payments by sequence to find active partial groups
             $paymentGroups = [];
             foreach ($existingPayments as $payment) {

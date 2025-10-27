@@ -28,8 +28,9 @@
                             </div>
                         </div>
 
-                        <!-- Hidden contribution ID -->
+                        <!-- Hidden contribution ID and payment sequence -->
                         <input type="hidden" id="modal_contribution_id" name="contribution_id">
+                        <input type="hidden" id="modal_payment_sequence" name="payment_sequence">
 
                         <div class="col-md-6">
                             <label for="modal_requested_amount" class="form-label">Requested Amount <span class="text-danger">*</span></label>
@@ -97,6 +98,13 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('modal_contribution_title').textContent = contribution.title;
         document.getElementById('modal_contribution_description').textContent = contribution.description;
         document.getElementById('modal_contribution_amount').textContent = '₱' + parseFloat(contribution.amount).toLocaleString('en-US', {minimumFractionDigits: 2});
+        
+        // Set payment sequence if provided (for payment groups)
+        if (contribution.payment_sequence) {
+            document.getElementById('modal_payment_sequence').value = contribution.payment_sequence;
+        } else {
+            document.getElementById('modal_payment_sequence').value = '';
+        }
         
         const remainingBalance = parseFloat(contribution.remaining_balance || contribution.amount);
         document.getElementById('modal_remaining_balance').textContent = '₱' + remainingBalance.toLocaleString('en-US', {minimumFractionDigits: 2});

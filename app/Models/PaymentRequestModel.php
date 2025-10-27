@@ -15,6 +15,7 @@ class PaymentRequestModel extends Model
     protected $allowedFields = [
         'payer_id',
         'contribution_id',
+        'payment_sequence',
         'requested_amount',
         'payment_method',
         'reference_number',

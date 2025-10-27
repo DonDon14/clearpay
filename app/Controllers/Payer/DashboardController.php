@@ -716,6 +716,7 @@ class DashboardController extends BaseController
             $requestData = [
                 'payer_id' => $payerId,
                 'contribution_id' => $this->request->getPost('contribution_id'),
+                'payment_sequence' => $this->request->getPost('payment_sequence') ?: null,
                 'requested_amount' => $requestedAmount,
                 'payment_method' => $this->request->getPost('payment_method'),
                 'proof_of_payment_path' => $proofOfPaymentPath,

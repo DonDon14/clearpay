@@ -27,6 +27,13 @@ class CreatePaymentRequestsTable extends Migration
                 'unsigned' => true,
                 'null' => false,
             ],
+            'payment_sequence' => [
+                'type' => 'INT',
+                'constraint' => 11,
+                'unsigned' => true,
+                'null' => true,
+                'comment' => 'Payment group sequence for grouping related payments',
+            ],
             'requested_amount' => [
                 'type' => 'DECIMAL',
                 'constraint' => '10,2',

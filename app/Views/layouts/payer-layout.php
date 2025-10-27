@@ -165,6 +165,9 @@
     });
   </script>
   
+         <!-- jQuery (required for payment group interactions) -->
+         <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+         
          <!-- Bootstrap JavaScript Bundle (required for modals) -->
          <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
          
