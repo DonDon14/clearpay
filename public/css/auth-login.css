@@ -1,7 +1,8 @@
 /* Login Page Specific Styles */
 
 /* Input padding for login page only - no left padding since icons are outside */
-#username.form-control {
+#username.form-control,
+#payer_id.form-control {
     padding-left: 1rem;
 }
 

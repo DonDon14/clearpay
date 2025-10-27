@@ -71,3 +71,15 @@ $routes->get('/receipts/qr/(:num)', 'Admin\QRReceiptController::getQRImage/$1');
 $routes->get('/receipts/download/(:num)', 'Admin\QRReceiptController::download/$1', ['filter' => 'auth']);
 $routes->get('/verify/receipt/(:any)', 'Admin\QRReceiptController::verify/$1');
 $routes->get('/qr-receipt/show/(:num)', 'Admin\QRReceiptController::showReceipt/$1', ['filter' => 'auth']);
+
+// Payer Routes
+$routes->get('payer/login', 'Payer\LoginController::index');
+$routes->post('payer/loginPost', 'Payer\LoginController::loginPost');
+
+$routes->group('payer', function($routes) {
+    $routes->get('dashboard', 'Payer\DashboardController::index');
+    $routes->get('my-data', 'Payer\DashboardController::myData');
+    $routes->get('announcements', 'Payer\DashboardController::announcements');
+    $routes->get('payment-history', 'Payer\DashboardController::paymentHistory');
+    $routes->get('logout', 'Payer\LoginController::logout');
+});

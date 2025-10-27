@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | ClearPay</title>
+  <title>Payer Login | ClearPay</title>
   <link
     rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
@@ -17,7 +17,7 @@
   <div class="login-container">
     <!-- Left Column: Login Form -->
     <div class="login-left">
-      <!-- Top Navigation (if needed) -->
+      <!-- Top Navigation -->
       <nav class="login-nav">
         <a href="<?= base_url('/') ?>" class="nav-link active">Home</a>
         <a href="<?= base_url('register') ?>" class="nav-link">Sign Up</a>
@@ -31,10 +31,10 @@
         </div>
 
         <!-- Headline -->
-        <h2 class="headline">Streamline Your Payment Management</h2>
+        <h2 class="headline">Payer Portal</h2>
         
         <!-- Sub-headline -->
-        <p class="sub-headline">Welcome back! Please login to your account.</p>
+        <p class="sub-headline">Access your payment information and history</p>
 
         <!-- Display flashdata error message if exists -->
         <?php if (session()->getFlashdata('error')): ?>
@@ -45,42 +45,33 @@
         <?php endif; ?>
 
         <!-- Login Form -->
-        <form method="post" action="<?= base_url('loginPost') ?>" class="login-form">
+        <form method="post" action="<?= base_url('payer/loginPost') ?>" class="login-form">
           <div class="form-group">
-            <label for="username">Username</label>
+            <label for="payer_id">Payer ID</label>
             <input 
               type="text" 
-              name="username" 
-              id="username" 
+              name="payer_id" 
+              id="payer_id" 
               class="form-control" 
-              placeholder="Enter your username"
+              placeholder="Enter your Payer ID"
+              value="<?= old('payer_id') ?>"
               required
             >
-            <i class="fas fa-user input-icon"></i>
+            <i class="fas fa-id-card input-icon"></i>
           </div>
 
           <div class="form-group">
-            <label for="password">Password</label>
+            <label for="email_address">Email Address</label>
             <input 
-              type="password" 
-              name="password" 
-              id="password" 
+              type="email" 
+              name="email_address" 
+              id="email_address" 
               class="form-control" 
-              placeholder="Enter your password"
+              placeholder="Enter your email address"
+              value="<?= old('email_address') ?>"
               required
             >
-            <i class="fas fa-lock input-icon"></i>
-            <button type="button" class="password-toggle" onclick="togglePassword()">
-              <i class="fas fa-eye" id="toggleIcon"></i>
-            </button>
-          </div>
-
-          <div class="form-options">
-            <label class="remember-me">
-              <input type="checkbox" name="remember" id="remember">
-              <span>Remember Me</span>
-            </label>
-            <a href="<?= base_url('forgotPassword') ?>" class="forgot-password">Forgot Password?</a>
+            <i class="fas fa-envelope input-icon"></i>
           </div>
 
           <button type="submit" class="btn-login">
@@ -89,26 +80,15 @@
           </button>
 
           <div class="signup-link">
-            <span>Don't have an account?</span>
-            <a href="<?= base_url('register') ?>" class="signup-btn">Sign Up</a>
+            <span>Admin Access?</span>
+            <a href="<?= base_url('/') ?>" class="signup-btn">Admin Login</a>
           </div>
         </form>
 
-        <!-- Payer Login Link -->
-        <div class="text-center mt-3">
-          <a href="<?= base_url('payer/login') ?>" style="color: #6b7280; text-decoration: none; font-size: 0.875rem;">
-            <i class="fas fa-user-circle me-1"></i> Payer Login
-          </a>
-        </div>
-
-        <!-- Social Login (Optional) -->
-        <div class="social-login">
-          <span class="social-text">Or login with</span>
-          <div class="social-buttons">
-            <button type="button" class="social-btn gmail" title="Gmail">
-              <i class="fab fa-google"></i>
-            </button>
-          </div>
+        <!-- Note -->
+        <div class="alert alert-info mt-3" style="padding: 0.75rem;">
+          <i class="fas fa-info-circle me-2"></i>
+          <small>Use your Payer ID and Email to access your account</small>
         </div>
       </div>
     </div>
@@ -153,22 +133,5 @@
       </div>
     </div>
   </div>
-
-  <script>
-    function togglePassword() {
-      const passwordInput = document.getElementById('password');
-      const toggleIcon = document.getElementById('toggleIcon');
-      
-      if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleIcon.classList.remove('fa-eye');
-        toggleIcon.classList.add('fa-eye-slash');
-      } else {
-        passwordInput.type = 'password';
-        toggleIcon.classList.remove('fa-eye-slash');
-        toggleIcon.classList.add('fa-eye');
-      }
-    }
-  </script>
 </body>
 </html>
