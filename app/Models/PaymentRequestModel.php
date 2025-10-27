@@ -106,6 +106,7 @@ class PaymentRequestModel extends Model
             payers.email_address,
             payers.profile_picture,
             contributions.title as contribution_title,
+            contributions.description as contribution_description,
             contributions.amount as contribution_amount,
             users.username as processed_by_name
         ')

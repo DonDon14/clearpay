@@ -246,27 +246,28 @@ class DashboardController extends BaseController
 
         $paymentRequestModel = new PaymentRequestModel();
         
-        // Get all payment requests with details
-        $paymentRequests = $paymentRequestModel->getRequestsWithDetails();
+        // Get payment requests by status
+        $pendingRequests = $paymentRequestModel->getRequestsWithDetails('pending');
+        $approvedRequests = $paymentRequestModel->getRequestsWithDetails('approved');
+        $rejectedRequests = $paymentRequestModel->getRequestsWithDetails('rejected');
         
         // Get stats
-        $pendingCount = $paymentRequestModel->where('status', 'pending')->countAllResults();
-        $approvedCount = $paymentRequestModel->where('status', 'approved')->countAllResults();
-        $rejectedCount = $paymentRequestModel->where('status', 'rejected')->countAllResults();
-        $processedCount = $paymentRequestModel->where('status', 'processed')->countAllResults();
+        $stats = [
+            'pending' => count($pendingRequests),
+            'approved' => count($approvedRequests),
+            'rejected' => count($rejectedRequests),
+            'processed' => $paymentRequestModel->where('status', 'processed')->countAllResults(),
+            'total' => count($pendingRequests) + count($approvedRequests) + count($rejectedRequests)
+        ];
 
         $data = [
             'title' => 'Payment Requests',
             'pageTitle' => 'Payment Requests Management',
             'pageSubtitle' => 'Manage online payment requests from payers',
-            'paymentRequests' => $paymentRequests,
-            'stats' => [
-                'pending' => $pendingCount,
-                'approved' => $approvedCount,
-                'rejected' => $rejectedCount,
-                'processed' => $processedCount,
-                'total' => count($paymentRequests)
-            ]
+            'pendingRequests' => $pendingRequests,
+            'approvedRequests' => $approvedRequests,
+            'rejectedRequests' => $rejectedRequests,
+            'stats' => $stats
         ];
 
         return view('admin/payment-requests', $data);
@@ -325,33 +326,12 @@ class DashboardController extends BaseController
                 $result = $paymentRequestModel->approveRequest($requestId, $processedBy, $adminNotes);
                 
                 if ($result) {
-                    // Log the activity for admin (user activities)
+                    // Log activity for payer notification (using ActivityLogger)
                     $activityLogger = new ActivityLogger();
-                    $activityLogger->logActivity(
-                        'approved',
-                        'payment_request',
-                        $requestId,
-                        "Payment request approved and payment recorded (Receipt Number: {$paymentData['receipt_number']})",
-                        $request['payer_id']
-                    );
+                    $activityLogger->logPaymentRequest('approved', $request);
                     
-                    // Log activity for payer notification (using ActivityLogModel directly)
-                    $activityLogModel = new \App\Models\ActivityLogModel();
-                    $activityLogModel->insert([
-                        'activity_type' => 'payment_request',
-                        'entity_type' => 'payment_request',
-                        'entity_id' => $requestId,
-                        'action' => 'approved',
-                        'title' => 'Payment Request Approved',
-                        'description' => "Your payment request for ₱" . number_format($request['requested_amount'], 2) . " has been approved and payment recorded. Receipt Number: {$paymentData['receipt_number']}",
-                        'user_id' => $processedBy,
-                        'user_type' => 'admin',
-                        'payer_id' => $request['payer_id'],
-                        'target_audience' => 'payers',
-                        'is_read' => false,
-                        'created_at' => date('Y-m-d H:i:s'),
-                        'updated_at' => date('Y-m-d H:i:s')
-                    ]);
+                    // Log activity for admin dashboard (user_activities table)
+                    $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved and payment recorded (Receipt Number: {$paymentData['receipt_number']})");
                     
                     return $this->response->setJSON([
                         'success' => true,
@@ -413,33 +393,12 @@ class DashboardController extends BaseController
             $result = $paymentRequestModel->rejectRequest($requestId, $processedBy, $adminNotes);
             
             if ($result) {
-                // Log the activity for admin (user activities)
+                // Log activity for payer notification (using ActivityLogger)
                 $activityLogger = new ActivityLogger();
-                $activityLogger->logActivity(
-                    'rejected',
-                    'payment_request',
-                    $requestId,
-                    "Payment request rejected: {$adminNotes}",
-                    $request['payer_id']
-                );
+                $activityLogger->logPaymentRequest('rejected', $request);
                 
-                // Log activity for payer notification (using ActivityLogModel directly)
-                $activityLogModel = new \App\Models\ActivityLogModel();
-                $activityLogModel->insert([
-                    'activity_type' => 'payment_request',
-                    'entity_type' => 'payment_request',
-                    'entity_id' => $requestId,
-                    'action' => 'rejected',
-                    'title' => 'Payment Request Rejected',
-                    'description' => "Your payment request for ₱" . number_format($request['requested_amount'], 2) . " has been rejected. Reason: {$adminNotes}",
-                    'user_id' => $processedBy,
-                    'user_type' => 'admin',
-                    'payer_id' => $request['payer_id'],
-                    'target_audience' => 'payers',
-                    'is_read' => false,
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s')
-                ]);
+                // Log activity for admin dashboard (user_activities table)
+                $this->logUserActivity('rejected', 'payment_request', $requestId, "Payment request rejected" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -511,33 +470,9 @@ class DashboardController extends BaseController
                 // Mark payment request as processed
                 $paymentRequestModel->processRequest($requestId, $processedBy, $adminNotes);
                 
-                // Log the activity for admin (user activities)
+                // Log activity for payer notification (using ActivityLogger)
                 $activityLogger = new ActivityLogger();
-                $activityLogger->logActivity(
-                    'processed',
-                    'payment_request',
-                    $requestId,
-                    "Payment request processed and payment recorded (Receipt Number: {$paymentData['receipt_number']})",
-                    $request['payer_id']
-                );
-                
-                // Log activity for payer notification (using ActivityLogModel directly)
-                $activityLogModel = new \App\Models\ActivityLogModel();
-                $activityLogModel->insert([
-                    'activity_type' => 'payment_request',
-                    'entity_type' => 'payment_request',
-                    'entity_id' => $requestId,
-                    'action' => 'processed',
-                    'title' => 'Payment Request Processed',
-                    'description' => "Your payment request for ₱" . number_format($request['requested_amount'], 2) . " has been processed and payment recorded. Receipt Number: {$paymentData['receipt_number']}",
-                    'user_id' => $processedBy,
-                    'user_type' => 'admin',
-                    'payer_id' => $request['payer_id'],
-                    'target_audience' => 'payers',
-                    'is_read' => false,
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s')
-                ]);
+                $activityLogger->logPaymentRequest('processed', $request);
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -614,6 +549,102 @@ class DashboardController extends BaseController
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Delete a payment request
+     */
+    public function deletePaymentRequest()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $requestId = $this->request->getPost('request_id');
+
+        if (!$requestId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Request ID is required'
+            ]);
+        }
+
+        try {
+            $paymentRequestModel = new PaymentRequestModel();
+            
+            // Get the payment request details for logging
+            $request = $paymentRequestModel->find($requestId);
+            if (!$request) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment request not found'
+                ]);
+            }
+
+            // Soft delete the payment request
+            $deleted = $paymentRequestModel->delete($requestId);
+            
+            if ($deleted) {
+                // Log activity for admin dashboard
+                $this->logUserActivity('deleted', 'payment_request', $requestId, "Payment request deleted (Reference: {$request['reference_number']})");
+                
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment request deleted successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to delete payment request'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Log user activity to user_activities table for admin dashboard
+     */
+    private function logUserActivity($action, $entityType, $entityId, $description)
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            $userId = session()->get('user-id') ?? 1;
+            
+            $data = [
+                'user_id' => $userId,
+                'activity_type' => 'update', // Use valid enum value
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'description' => $description,
+                'ip_address' => $this->request->getIPAddress(),
+                'user_agent' => $this->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            
+            // Debug logging
+            log_message('info', 'Logging user activity: ' . json_encode($data));
+            
+            $result = $db->table('user_activities')->insert($data);
+            
+            if ($result) {
+                log_message('info', 'User activity logged successfully');
+            } else {
+                log_message('error', 'Failed to insert user activity');
+            }
+            
+        } catch (\Exception $e) {
+            // Log error but don't break the main flow
+            log_message('error', 'Failed to log user activity: ' . $e->getMessage());
         }
     }
 }

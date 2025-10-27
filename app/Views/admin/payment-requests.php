@@ -53,24 +53,25 @@
     </div>
 </div>
 
-<!-- Payment Requests Table -->
+<!-- Payment Requests Management -->
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-paper-plane me-2"></i>Payment Requests Management</h5>
+            <!-- Pending Requests Table -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Pending Payment Requests</h5>
                 </div>
                 <div class="card-body">
-                    <?php if (empty($paymentRequests)): ?>
-                        <div class="text-center py-5">
-                            <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
-                            <h5 class="text-muted">No Payment Requests</h5>
-                            <p class="text-muted">Payment requests from payers will appear here</p>
+                    <?php if (empty($pendingRequests)): ?>
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No Pending Requests</h6>
+                            <p class="text-muted">Pending payment requests will appear here</p>
                         </div>
                     <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-hover">
+                            <table class="table table-hover" id="pendingTable">
                                 <thead>
                                     <tr>
                                         <th>Date</th>
@@ -78,13 +79,12 @@
                                         <th>Contribution</th>
                                         <th>Amount</th>
                                         <th>Method</th>
-                                        <th>Status</th>
                                         <th>Reference</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($paymentRequests as $request): ?>
+                                    <?php foreach ($pendingRequests as $request): ?>
                                         <tr>
                                             <td><?= date('M d, Y H:i', strtotime($request['requested_at'])) ?></td>
                                             <td>
@@ -100,43 +100,182 @@
                                                         </div>
                                                     <?php endif; ?>
                                                     <div>
-                                                        <div class="fw-semibold"><?= esc($request['payer_name']) ?></div>
-                                                        <small class="text-muted"><?= esc($request['email_address']) ?></small>
+                                                        <div class="fw-bold"><?= esc($request['payer_name']) ?></div>
+                                                        <small class="text-muted"><?= esc($request['contact_number']) ?></small>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td>
                                                 <div>
-                                                    <div class="fw-semibold"><?= esc($request['contribution_title']) ?></div>
-                                                    <small class="text-muted">₱<?= number_format($request['contribution_amount'], 2) ?></small>
+                                                    <div class="fw-bold"><?= esc($request['contribution_title']) ?></div>
+                                                    <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
                                                 </div>
                                             </td>
-                                            <td><strong>₱<?= number_format($request['requested_amount'], 2) ?></strong></td>
+                                            <td>₱<?= number_format($request['requested_amount'], 2) ?></td>
                                             <td><?= esc(ucfirst(str_replace('_', ' ', $request['payment_method']))) ?></td>
+                                            <td><?= esc($request['reference_number']) ?></td>
                                             <td>
-                                                <?php
-                                                $statusClass = match($request['status']) {
-                                                    'pending' => 'bg-warning text-dark',
-                                                    'approved' => 'bg-success text-white',
-                                                    'rejected' => 'bg-danger text-white',
-                                                    'processed' => 'bg-primary text-white',
-                                                    default => 'bg-secondary text-white'
-                                                };
-                                                $statusText = match($request['status']) {
-                                                    'pending' => 'PENDING',
-                                                    'approved' => 'APPROVED',
-                                                    'rejected' => 'REJECTED',
-                                                    'processed' => 'PROCESSED',
-                                                    default => strtoupper($request['status'])
-                                                };
-                                                ?>
-                                                <span class="badge <?= $statusClass ?>"><?= $statusText ?></span>
-                                            </td>
-                                            <td><code><?= esc($request['reference_number']) ?></code></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-info" 
-                                                        onclick="viewRequestDetails(<?= $request['id'] ?>)">
+                                                <button type="button" class="btn btn-sm btn-info view-details-btn" data-id="<?= $request['id'] ?>" title="View Details">
                                                     <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger delete-request-btn" data-id="<?= $request['id'] ?>" title="Delete Request">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Approved Requests Table -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Approved Payment Requests</h5>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($approvedRequests)): ?>
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No Approved Requests</h6>
+                            <p class="text-muted">Approved payment requests will appear here</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="approvedTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Payer</th>
+                                        <th>Contribution</th>
+                                        <th>Amount</th>
+                                        <th>Method</th>
+                                        <th>Reference</th>
+                                        <th>Approved By</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($approvedRequests as $request): ?>
+                                        <tr>
+                                            <td><?= date('M d, Y H:i', strtotime($request['requested_at'])) ?></td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <?php if (!empty($request['profile_picture'])): ?>
+                                                        <img src="<?= base_url($request['profile_picture']) ?>" 
+                                                             alt="Profile" class="rounded-circle me-2" 
+                                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                                    <?php else: ?>
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                                             style="width: 32px; height: 32px;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <div>
+                                                        <div class="fw-bold"><?= esc($request['payer_name']) ?></div>
+                                                        <small class="text-muted"><?= esc($request['contact_number']) ?></small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    <div class="fw-bold"><?= esc($request['contribution_title']) ?></div>
+                                                    <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
+                                                </div>
+                                            </td>
+                                            <td>₱<?= number_format($request['requested_amount'], 2) ?></td>
+                                            <td><?= esc(ucfirst(str_replace('_', ' ', $request['payment_method']))) ?></td>
+                                            <td><?= esc($request['reference_number']) ?></td>
+                                            <td>
+                                                <span class="badge bg-success"><?= esc($request['processed_by_name'] ?? 'Admin') ?></span>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-info view-details-btn" data-id="<?= $request['id'] ?>" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger delete-request-btn" data-id="<?= $request['id'] ?>" title="Delete Request">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Rejected Requests Table -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="fas fa-times-circle me-2"></i>Rejected Payment Requests</h5>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($rejectedRequests)): ?>
+                        <div class="text-center py-4">
+                            <i class="fas fa-times-circle fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No Rejected Requests</h6>
+                            <p class="text-muted">Rejected payment requests will appear here</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="rejectedTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Payer</th>
+                                        <th>Contribution</th>
+                                        <th>Amount</th>
+                                        <th>Method</th>
+                                        <th>Reference</th>
+                                        <th>Rejected By</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($rejectedRequests as $request): ?>
+                                        <tr>
+                                            <td><?= date('M d, Y H:i', strtotime($request['requested_at'])) ?></td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <?php if (!empty($request['profile_picture'])): ?>
+                                                        <img src="<?= base_url($request['profile_picture']) ?>" 
+                                                             alt="Profile" class="rounded-circle me-2" 
+                                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                                    <?php else: ?>
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                                             style="width: 32px; height: 32px;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <div>
+                                                        <div class="fw-bold"><?= esc($request['payer_name']) ?></div>
+                                                        <small class="text-muted"><?= esc($request['contact_number']) ?></small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    <div class="fw-bold"><?= esc($request['contribution_title']) ?></div>
+                                                    <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
+                                                </div>
+                                            </td>
+                                            <td>₱<?= number_format($request['requested_amount'], 2) ?></td>
+                                            <td><?= esc(ucfirst(str_replace('_', ' ', $request['payment_method']))) ?></td>
+                                            <td><?= esc($request['reference_number']) ?></td>
+                                            <td>
+                                                <span class="badge bg-danger"><?= esc($request['processed_by_name'] ?? 'Admin') ?></span>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-info view-details-btn" data-id="<?= $request['id'] ?>" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-danger delete-request-btn" data-id="<?= $request['id'] ?>" title="Delete Request">
+                                                    <i class="fas fa-trash"></i>
                                                 </button>
                                             </td>
                                         </tr>
@@ -156,109 +295,214 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="requestDetailsModalLabel">Payment Request Details</h5>
+                <h5 class="modal-title" id="requestDetailsModalLabel">
+                    <i class="fas fa-eye me-2"></i>Payment Request Details
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" id="requestDetailsContent">
-                <!-- Content will be loaded dynamically -->
+                <!-- Content will be loaded here -->
             </div>
-            <div class="modal-footer" id="requestDetailsFooter">
+            <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-success" id="approveFromDetailsBtn" onclick="approveFromDetails()" style="display: none;">
-                    <i class="fas fa-check me-1"></i>Approve
+                <button type="button" class="btn btn-success" id="approveFromDetailsBtn" style="display: none;">
+                    <i class="fas fa-check me-2"></i>Approve
                 </button>
-                <button type="button" class="btn btn-danger" id="rejectFromDetailsBtn" onclick="rejectFromDetails()" style="display: none;">
-                    <i class="fas fa-times me-1"></i>Reject
+                <button type="button" class="btn btn-danger" id="rejectFromDetailsBtn" style="display: none;">
+                    <i class="fas fa-times me-2"></i>Reject
                 </button>
-                <button type="button" class="btn btn-primary" id="processFromDetailsBtn" onclick="processFromDetails()" style="display: none;">
-                    <i class="fas fa-cog me-1"></i>Process
+                <button type="button" class="btn btn-primary" id="processFromDetailsBtn" style="display: none;">
+                    <i class="fas fa-cog me-2"></i>Process
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Action Modal -->
+<!-- Action Confirmation Modal -->
 <div class="modal fade" id="actionModal" tabindex="-1" aria-labelledby="actionModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="actionModalLabel">Action Required</h5>
+                <h5 class="modal-title" id="actionModalLabel">Confirm Action</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <form id="actionForm">
-                    <input type="hidden" id="actionRequestId" name="request_id">
-                    <input type="hidden" id="actionType" name="action_type">
-                    
-                    <div class="mb-3">
-                        <label for="adminNotes" class="form-label">Admin Notes</label>
-                        <textarea class="form-control" id="adminNotes" name="admin_notes" rows="3" 
-                                  placeholder="Add notes about this action..."></textarea>
-                    </div>
-                    
-                    <div class="mb-3" id="confirmationMessage">
-                        <!-- Confirmation message will be inserted here -->
-                    </div>
-                </form>
+            <div class="modal-body" id="actionModalBody">
+                <!-- Content will be loaded here -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn" id="confirmActionBtn" onclick="confirmAction()">
-                    <!-- Button text will be set dynamically -->
+                <button type="button" class="btn btn-primary" id="confirmActionBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Payment Request
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Warning!</strong> This action cannot be undone.
+                </div>
+                <p>Are you sure you want to delete this payment request?</p>
+                <div id="deleteRequestInfo">
+                    <!-- Request details will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="fas fa-trash me-2"></i>Delete Request
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-let currentRequestId = null;
-let currentActionType = null;
+<?= $this->endSection() ?>
 
-function viewRequestDetails(requestId) {
-    fetch(`<?= base_url('admin/get-payment-request-details') ?>?request_id=${requestId}`, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
+<?= $this->section('scripts') ?>
+<script>
+$(document).ready(function() {
+    let currentRequestId = null;
+    let currentAction = null;
+
+    // Initialize DataTables
+    $('#pendingTable').DataTable({
+        "order": [[0, "desc"]], // Order by date descending
+        "pageLength": 10
+    });
+    
+    $('#approvedTable').DataTable({
+        "order": [[0, "desc"]], // Order by date descending
+        "pageLength": 10
+    });
+    
+    $('#rejectedTable').DataTable({
+        "order": [[0, "desc"]], // Order by date descending
+        "pageLength": 10
+    });
+
+    // Handle view details button click
+    $(document).on('click', '.view-details-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const requestId = $(this).data('id');
+        viewRequestDetails(requestId);
+    });
+
+    // Handle delete button click
+    $(document).on('click', '.delete-request-btn', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const requestId = $(this).data('id');
+        showDeleteModal(requestId);
+    });
+
+    // Handle approve from details modal
+    $('#approveFromDetailsBtn').click(function() {
+        showActionModal('Approve Payment Request', 'Are you sure you want to approve this payment request? This will create a payment record.');
+        currentAction = 'approve';
+    });
+
+    // Handle reject from details modal
+    $('#rejectFromDetailsBtn').click(function() {
+        showActionModal('Reject Payment Request', 'Are you sure you want to reject this payment request?');
+        currentAction = 'reject';
+    });
+
+    // Handle process from details modal
+    $('#processFromDetailsBtn').click(function() {
+        showActionModal('Process Payment Request', 'Are you sure you want to process this payment request? This will create a payment record.');
+        currentAction = 'process';
+    });
+
+    // Handle confirm action
+    $('#confirmActionBtn').click(function() {
+        if (currentAction && currentRequestId) {
+            executeAction(currentAction, currentRequestId);
         }
-    })
+    });
+
+    // Handle confirm delete
+    $('#confirmDeleteBtn').click(function() {
+        if (currentRequestId) {
+            deletePaymentRequest(currentRequestId);
+        }
+    });
+
+    function viewRequestDetails(requestId) {
+        fetch('<?= base_url('admin/get-payment-request-details') ?>?request_id=' + requestId, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 const request = data.request;
+                currentRequestId = requestId;
+                
+                let statusBadge = '';
+                switch(request.status) {
+                    case 'pending':
+                        statusBadge = '<span class="badge bg-warning text-dark">Pending</span>';
+                        break;
+                    case 'approved':
+                        statusBadge = '<span class="badge bg-success">Approved</span>';
+                        break;
+                    case 'rejected':
+                        statusBadge = '<span class="badge bg-danger">Rejected</span>';
+                        break;
+                    case 'processed':
+                        statusBadge = '<span class="badge bg-info">Processed</span>';
+                        break;
+                }
+
                 const content = `
-                    <div class="row g-3">
+                    <div class="row">
                         <div class="col-md-6">
                             <h6 class="text-primary">Request Information</h6>
-                            <p><strong>Reference:</strong> ${request.reference_number}</p>
-                            <p><strong>Date:</strong> ${new Date(request.requested_at).toLocaleString()}</p>
-                            <p><strong>Amount:</strong> ₱${parseFloat(request.requested_amount).toFixed(2)}</p>
-                            <p><strong>Method:</strong> ${request.payment_method.replace('_', ' ').toUpperCase()}</p>
-                            <p><strong>Status:</strong> 
-                                <span class="badge ${getStatusClass(request.status)}">${request.status.toUpperCase()}</span>
-                            </p>
+                            <p><strong>Reference Number:</strong> ${request.reference_number}</p>
+                            <p><strong>Status:</strong> ${statusBadge}</p>
+                            <p><strong>Requested Amount:</strong> ₱${parseFloat(request.requested_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</p>
+                            <p><strong>Payment Method:</strong> ${request.payment_method.replace('_', ' ').toUpperCase()}</p>
+                            <p><strong>Requested At:</strong> ${new Date(request.requested_at).toLocaleString()}</p>
                         </div>
                         <div class="col-md-6">
                             <h6 class="text-primary">Payer Information</h6>
                             <p><strong>Name:</strong> ${request.payer_name}</p>
-                            <p><strong>Email:</strong> ${request.email_address}</p>
                             <p><strong>Contact:</strong> ${request.contact_number}</p>
+                            <p><strong>Email:</strong> ${request.email_address}</p>
                         </div>
-                        <div class="col-12">
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
                             <h6 class="text-primary">Contribution Details</h6>
                             <p><strong>Title:</strong> ${request.contribution_title}</p>
-                            <p><strong>Amount:</strong> ₱${parseFloat(request.contribution_amount).toFixed(2)}</p>
+                            <p><strong>Description:</strong> ${request.contribution_description}</p>
+                            <p><strong>Total Amount:</strong> ₱${parseFloat(request.contribution_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</p>
                         </div>
-                        ${request.notes ? `
-                        <div class="col-12">
-                            <h6 class="text-primary">Payer Notes</h6>
-                            <p>${request.notes}</p>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Additional Information</h6>
+                            <p><strong>Notes:</strong> ${request.notes || 'None'}</p>
+                            ${request.admin_notes ? `<p><strong>Admin Notes:</strong> ${request.admin_notes}</p>` : ''}
+                            ${request.processed_by_name ? `<p><strong>Processed By:</strong> ${request.processed_by_name}</p>` : ''}
                         </div>
-                        ` : ''}
-                        ${request.proof_of_payment_path ? `
+                    </div>
+                    ${request.proof_of_payment_path ? `
+                    <div class="row mt-3">
                         <div class="col-12">
                             <h6 class="text-primary">Proof of Payment</h6>
                             <div class="text-center">
@@ -270,180 +514,149 @@ function viewRequestDetails(requestId) {
                                 </div>
                             </div>
                         </div>
-                        ` : ''}
-                        ${request.admin_notes ? `
-                        <div class="col-12">
-                            <h6 class="text-primary">Admin Notes</h6>
-                            <p>${request.admin_notes}</p>
-                        </div>
-                        ` : ''}
-                        ${request.processed_at ? `
-                        <div class="col-12">
-                            <h6 class="text-primary">Processing Information</h6>
-                            <p><strong>Processed:</strong> ${new Date(request.processed_at).toLocaleString()}</p>
-                            <p><strong>By:</strong> ${request.processed_by_name || 'Admin'}</p>
-                        </div>
-                        ` : ''}
                     </div>
+                    ` : ''}
                 `;
                 
-                document.getElementById('requestDetailsContent').innerHTML = content;
+                $('#requestDetailsContent').html(content);
                 
                 // Show/hide action buttons based on status
-                const approveBtn = document.getElementById('approveFromDetailsBtn');
-                const rejectBtn = document.getElementById('rejectFromDetailsBtn');
-                const processBtn = document.getElementById('processFromDetailsBtn');
+                $('#approveFromDetailsBtn, #rejectFromDetailsBtn, #processFromDetailsBtn').hide();
                 
-                // Hide all buttons first
-                approveBtn.style.display = 'none';
-                rejectBtn.style.display = 'none';
-                processBtn.style.display = 'none';
-                
-                // Show appropriate buttons based on status
                 if (request.status === 'pending') {
-                    approveBtn.style.display = 'inline-block';
-                    rejectBtn.style.display = 'inline-block';
+                    $('#approveFromDetailsBtn, #rejectFromDetailsBtn').show();
                 } else if (request.status === 'approved') {
-                    processBtn.style.display = 'inline-block';
+                    $('#processFromDetailsBtn').show();
                 }
                 
-                // Store current request ID for actions
-                currentRequestId = requestId;
-                
-                new bootstrap.Modal(document.getElementById('requestDetailsModal')).show();
+                $('#requestDetailsModal').modal('show');
             } else {
                 alert('Error: ' + data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while loading request details.');
+            alert('An error occurred while fetching request details.');
         });
-}
-
-function approveRequest(requestId) {
-    currentRequestId = requestId;
-    currentActionType = 'approve';
-    
-    document.getElementById('actionRequestId').value = requestId;
-    document.getElementById('actionType').value = 'approve';
-    document.getElementById('actionModalLabel').textContent = 'Approve Payment Request';
-    document.getElementById('confirmationMessage').innerHTML = 
-        '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>Are you sure you want to approve this payment request?</div>';
-    document.getElementById('confirmActionBtn').textContent = 'Approve Request';
-    document.getElementById('confirmActionBtn').className = 'btn btn-success';
-    
-    new bootstrap.Modal(document.getElementById('actionModal')).show();
-}
-
-function rejectRequest(requestId) {
-    currentRequestId = requestId;
-    currentActionType = 'reject';
-    
-    document.getElementById('actionRequestId').value = requestId;
-    document.getElementById('actionType').value = 'reject';
-    document.getElementById('actionModalLabel').textContent = 'Reject Payment Request';
-    document.getElementById('confirmationMessage').innerHTML = 
-        '<div class="alert alert-danger"><i class="fas fa-times-circle me-2"></i>Are you sure you want to reject this payment request?</div>';
-    document.getElementById('confirmActionBtn').textContent = 'Reject Request';
-    document.getElementById('confirmActionBtn').className = 'btn btn-danger';
-    
-    new bootstrap.Modal(document.getElementById('actionModal')).show();
-}
-
-function processRequest(requestId) {
-    currentRequestId = requestId;
-    currentActionType = 'process';
-    
-    document.getElementById('actionRequestId').value = requestId;
-    document.getElementById('actionType').value = 'process';
-    document.getElementById('actionModalLabel').textContent = 'Process Payment Request';
-    document.getElementById('confirmationMessage').innerHTML = 
-        '<div class="alert alert-primary"><i class="fas fa-cog me-2"></i>This will create an actual payment record and mark the request as processed.</div>';
-    document.getElementById('confirmActionBtn').textContent = 'Process Request';
-    document.getElementById('confirmActionBtn').className = 'btn btn-primary';
-    
-    new bootstrap.Modal(document.getElementById('actionModal')).show();
-}
-
-function confirmAction() {
-    const formData = new FormData(document.getElementById('actionForm'));
-    const adminNotes = formData.get('admin_notes');
-    
-    let url = '';
-    if (currentActionType === 'approve') {
-        url = '<?= base_url('admin/approve-payment-request') ?>';
-    } else if (currentActionType === 'reject') {
-        url = '<?= base_url('admin/reject-payment-request') ?>';
-    } else if (currentActionType === 'process') {
-        url = '<?= base_url('admin/process-payment-request') ?>';
     }
-    
-    fetch(url, {
-        method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
-            bootstrap.Modal.getInstance(document.getElementById('actionModal')).hide();
-            location.reload(); // Reload to show updated status
-        } else {
-            alert('Error: ' + data.message);
+
+    function showActionModal(title, message) {
+        $('#actionModalLabel').text(title);
+        $('#actionModalBody').html(`<p>${message}</p>`);
+        $('#actionModal').modal('show');
+    }
+
+    function executeAction(action, requestId) {
+        let url = '';
+        let successMessage = '';
+        
+        switch(action) {
+            case 'approve':
+                url = '<?= base_url('admin/approve-payment-request') ?>';
+                successMessage = 'Payment request approved successfully!';
+                break;
+            case 'reject':
+                url = '<?= base_url('admin/reject-payment-request') ?>';
+                successMessage = 'Payment request rejected successfully!';
+                break;
+            case 'process':
+                url = '<?= base_url('admin/process-payment-request') ?>';
+                successMessage = 'Payment request processed successfully!';
+                break;
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while processing the request.');
-    });
-}
 
-function getStatusClass(status) {
-    const classes = {
-        'pending': 'bg-warning text-dark',
-        'approved': 'bg-success text-white',
-        'rejected': 'bg-danger text-white',
-        'processed': 'bg-primary text-white'
-    };
-    return classes[status] || 'bg-secondary text-white';
-}
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: new URLSearchParams({
+                request_id: requestId,
+                admin_notes: ''
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(successMessage);
+                $('#actionModal').modal('hide');
+                $('#requestDetailsModal').modal('hide');
+                location.reload(); // Reload page to show updated data
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while processing the request.');
+        });
+    }
 
-// Functions to handle actions from details modal
-function approveFromDetails() {
-    currentActionType = 'approve';
-    showActionModal('Approve Payment Request', 'Are you sure you want to approve this payment request? This will create a payment record.');
-}
+    function showDeleteModal(requestId) {
+        // Get request details for display
+        fetch('<?= base_url('admin/get-payment-request-details') ?>?request_id=' + requestId, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const request = data.request;
+                currentRequestId = requestId;
+                
+                const info = `
+                    <div class="border p-3 rounded bg-light">
+                        <p><strong>Reference:</strong> ${request.reference_number}</p>
+                        <p><strong>Payer:</strong> ${request.payer_name}</p>
+                        <p><strong>Amount:</strong> ₱${parseFloat(request.requested_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</p>
+                        <p><strong>Status:</strong> ${request.status.charAt(0).toUpperCase() + request.status.slice(1)}</p>
+                    </div>
+                `;
+                
+                $('#deleteRequestInfo').html(info);
+                $('#deleteModal').modal('show');
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while fetching request details.');
+        });
+    }
 
-function rejectFromDetails() {
-    currentActionType = 'reject';
-    showActionModal('Reject Payment Request', 'Are you sure you want to reject this payment request?');
-}
-
-function processFromDetails() {
-    currentActionType = 'process';
-    showActionModal('Process Payment Request', 'Are you sure you want to process this payment request? This will mark it as completed.');
-}
-
-function showActionModal(title, message) {
-    document.getElementById('actionRequestId').value = currentRequestId;
-    document.getElementById('actionType').value = currentActionType;
-    document.getElementById('actionModalLabel').textContent = title;
-    document.getElementById('confirmationMessage').innerHTML = 
-        `<div class="alert alert-${currentActionType === 'approve' ? 'success' : currentActionType === 'reject' ? 'danger' : 'primary'}"><i class="fas fa-${currentActionType === 'approve' ? 'check-circle' : currentActionType === 'reject' ? 'times-circle' : 'cog'} me-2"></i>${message}</div>`;
-    document.getElementById('confirmActionBtn').textContent = `${currentActionType.charAt(0).toUpperCase() + currentActionType.slice(1)} Request`;
-    document.getElementById('confirmActionBtn').className = `btn btn-${currentActionType === 'approve' ? 'success' : currentActionType === 'reject' ? 'danger' : 'primary'}`;
-    
-    // Close the details modal first
-    bootstrap.Modal.getInstance(document.getElementById('requestDetailsModal')).hide();
-    
-    // Show the action modal
-    new bootstrap.Modal(document.getElementById('actionModal')).show();
-}
+    function deletePaymentRequest(requestId) {
+        fetch('<?= base_url('admin/delete-payment-request') ?>', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: new URLSearchParams({
+                request_id: requestId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Payment request deleted successfully!');
+                $('#deleteModal').modal('hide');
+                location.reload(); // Reload page to show updated data
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the request.');
+        });
+    }
+});
 </script>
-
 <?= $this->endSection() ?>

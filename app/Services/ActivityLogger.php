@@ -110,6 +110,37 @@ class ActivityLogger
     }
 
     /**
+     * Log payment request activity
+     */
+    public function logPaymentRequest($action, $paymentRequest, $oldData = null)
+    {
+        // Determine user type based on session
+        $userType = session('payer_id') ? 'payer' : 'admin';
+        $userId = session('payer_id') ?? session('user-id') ?? 1;
+        
+        // Handle case where ID might not exist yet (for new requests)
+        $entityId = $paymentRequest['id'] ?? null;
+        
+        $data = [
+            'activity_type' => 'payment_request',
+            'entity_type' => 'payment_request',
+            'entity_id' => $entityId,
+            'action' => $action,
+            'title' => $this->getPaymentRequestTitle($action, $paymentRequest),
+            'description' => $this->getPaymentRequestDescription($action, $paymentRequest, $oldData),
+            'old_values' => $oldData ? json_encode($oldData) : null,
+            'new_values' => json_encode($paymentRequest),
+            'user_id' => $userId,
+            'user_type' => $userType,
+            'payer_id' => $paymentRequest['payer_id'] ?? null,
+            'target_audience' => 'payers',
+            'is_read' => 0
+        ];
+
+        return $this->activityLogModel->logActivity($data);
+    }
+
+    /**
      * Generic activity logging method
      */
     public function logActivity($action, $entityType, $entityId, $description, $payerId = null)
@@ -324,6 +355,43 @@ class ActivityLogger
                 return "A payer has been removed from the system.";
             default:
                 return "Payer has been {$action}.";
+        }
+    }
+
+    private function getPaymentRequestTitle($action, $paymentRequest)
+    {
+        switch ($action) {
+            case 'created':
+            case 'submitted':
+                return "Payment Request Submitted";
+            case 'approved':
+                return "Payment Request Approved";
+            case 'rejected':
+                return "Payment Request Rejected";
+            case 'processed':
+                return "Payment Request Processed";
+            default:
+                return "Payment Request {$action}";
+        }
+    }
+
+    private function getPaymentRequestDescription($action, $paymentRequest, $oldData)
+    {
+        $amount = number_format($paymentRequest['requested_amount'], 2);
+        
+        switch ($action) {
+            case 'created':
+            case 'submitted':
+                return "Submitted payment request for ₱{$amount}";
+            case 'approved':
+                return "Payment request for ₱{$amount} has been approved and payment recorded.";
+            case 'rejected':
+                $reason = $paymentRequest['admin_notes'] ? " Reason: {$paymentRequest['admin_notes']}" : "";
+                return "Payment request for ₱{$amount} has been rejected.{$reason}";
+            case 'processed':
+                return "Payment request for ₱{$amount} has been processed and payment recorded.";
+            default:
+                return "Payment request for ₱{$amount} has been {$action}.";
         }
     }
 }

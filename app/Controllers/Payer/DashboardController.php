@@ -697,15 +697,12 @@ class DashboardController extends BaseController
             $requestId = $this->paymentRequestModel->insert($requestData);
             
             if ($requestId) {
+                // Add the ID to the request data for logging
+                $requestData['id'] = $requestId;
+                
                 // Log activity
                 $activityLogger = new \App\Services\ActivityLogger();
-                $activityLogger->logActivity(
-                    'create',
-                    'payment_request',
-                    $requestId,
-                    "Submitted payment request for {$contribution['title']} - ₱" . number_format($requestedAmount, 2),
-                    $payerId
-                );
+                $activityLogger->logPaymentRequest('submitted', $requestData);
 
                 return $this->response->setJSON([
                     'success' => true,

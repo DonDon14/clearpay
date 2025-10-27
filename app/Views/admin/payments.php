@@ -47,7 +47,7 @@
                     <th>Amount</th>
                     <th>Contribution</th>
                     <th>Payment Method</th>
-                    <th>Status</th>
+                    <th>Payment Status</th>
                     <th>Date</th>
                     <th>Actions</th>
                   </tr>

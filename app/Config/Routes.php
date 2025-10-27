@@ -52,6 +52,7 @@ $routes->post('/admin/approve-payment-request', 'Admin\DashboardController::appr
 $routes->post('/admin/reject-payment-request', 'Admin\DashboardController::rejectPaymentRequest', ['filter' => 'auth']);
 $routes->post('/admin/process-payment-request', 'Admin\DashboardController::processPaymentRequest', ['filter' => 'auth']);
 $routes->get('/admin/get-payment-request-details', 'Admin\DashboardController::getPaymentRequestDetails', ['filter' => 'auth']);
+$routes->post('/admin/delete-payment-request', 'Admin\DashboardController::deletePaymentRequest', ['filter' => 'auth']);
 
 // Payments Management Routes
 $routes->get('dashboard/recentPayments', 'Admin\DashboardController::recentPayments', ['filter' => 'auth']);

@@ -158,6 +158,14 @@
     });
       </script>
   
+  <!-- jQuery (required for DataTables and other functionality) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  
+  <!-- DataTables CSS and JS -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+  <script type="text/javascript" src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+  <script type="text/javascript" src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+  
   <!-- jsQR Library for QR Code Scanning -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   
@@ -189,5 +197,8 @@
       }, 5000);
     }
   </script>
+  
+  <!-- Render page-specific scripts -->
+  <?= $this->renderSection('scripts') ?>
 </body>
 </html>
