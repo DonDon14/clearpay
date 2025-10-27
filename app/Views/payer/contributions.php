@@ -123,6 +123,14 @@
                                                     <?= date('M d, Y', strtotime($contribution['created_at'])) ?>
                                                 </small>
                                             </div>
+                                            
+                                            <!-- Add Payment Button -->
+                                            <div class="mt-3">
+                                                <button class="btn btn-primary btn-sm w-100 add-payment-btn" 
+                                                        data-contribution='<?= json_encode($contribution) ?>'>
+                                                    <i class="fas fa-plus me-2"></i>Add Payment
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -770,6 +778,134 @@
             showPaymentProgressModal(contributionId, paymentSequence, groupData);
         }
     });
+    
+    // Handle Add Payment button clicks
+    document.addEventListener('click', function(e) {
+        const addPaymentBtn = e.target.closest('.add-payment-btn');
+        if (addPaymentBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const contributionData = JSON.parse(addPaymentBtn.getAttribute('data-contribution'));
+            
+            // Open payment request modal for this contribution
+            openPaymentRequestForContribution(contributionData);
+        }
+    });
+    
+    // Function to open payment request modal for a contribution
+    function openPaymentRequestForContribution(contributionData) {
+        // Check if this contribution is fully paid
+        const totalPaid = parseFloat(contributionData.total_paid || 0);
+        const contributionAmount = parseFloat(contributionData.amount || 0);
+        
+        if (totalPaid >= contributionAmount) {
+            // Contribution is fully paid - show confirmation modal
+            showDuplicatePaymentConfirmation(contributionData);
+        } else {
+            // Contribution is not fully paid - open payment request modal directly
+            if (typeof window.openPaymentRequestModal === 'function') {
+                window.openPaymentRequestModal(contributionData);
+            } else {
+                console.error('openPaymentRequestModal function not available');
+                alert('Payment request functionality not available. Please refresh the page.');
+            }
+        }
+    }
+    
+    // Function to show duplicate payment confirmation modal
+    function showDuplicatePaymentConfirmation(contributionData) {
+        const modalHtml = `
+            <div class="modal fade" id="duplicatePaymentModal" tabindex="-1" aria-labelledby="duplicatePaymentModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header bg-warning text-dark">
+                            <h5 class="modal-title" id="duplicatePaymentModalLabel">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Contribution Already Fully Paid
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Contribution Details</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <strong>Contribution:</strong> ${contributionData.title}<br>
+                                        <strong>Description:</strong> ${contributionData.description || 'No description'}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>Total Amount:</strong> ₱${parseFloat(contributionData.amount).toFixed(2)}<br>
+                                        <strong>Total Paid:</strong> ₱${parseFloat(contributionData.total_paid).toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <p class="mb-3">
+                                <strong>⚠️ Contribution Already Fully Paid</strong><br>
+                                You already have fully paid contribution groups for "${contributionData.title}" (₱${parseFloat(contributionData.total_paid).toFixed(2)} total).
+                            </p>
+                            
+                            <p class="mb-3">
+                                <strong>Add another payment group for this contribution?</strong><br>
+                                This will create a new, separate payment group for the same contribution type.
+                            </p>
+                            
+                            <div class="alert alert-warning">
+                                <i class="fas fa-lightbulb me-2"></i>
+                                <strong>Note:</strong> Each payment group is independent and tracked separately in your payment history.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, Cancel</button>
+                            <button type="button" class="btn btn-primary confirm-duplicate-payment-btn" data-contribution='${JSON.stringify(contributionData)}'>
+                                Yes, Add Another Payment Group
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('duplicatePaymentModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('duplicatePaymentModal'));
+        modal.show();
+        
+        // Add event listener for confirm button
+        document.getElementById('duplicatePaymentModal').addEventListener('click', function(e) {
+            if (e.target.closest('.confirm-duplicate-payment-btn')) {
+                const btn = e.target.closest('.confirm-duplicate-payment-btn');
+                const contributionData = JSON.parse(btn.getAttribute('data-contribution'));
+                
+                // Close the confirmation modal
+                modal.hide();
+                
+                // Open payment request modal for new payment group
+                if (typeof window.openPaymentRequestModal === 'function') {
+                    // Set remaining balance to the full contribution amount for new group
+                    contributionData.remaining_balance = contributionData.amount;
+                    window.openPaymentRequestModal(contributionData);
+                } else {
+                    console.error('openPaymentRequestModal function not available');
+                    alert('Payment request functionality not available. Please refresh the page.');
+                }
+            }
+        });
+        
+        // Clean up modal when hidden
+        document.getElementById('duplicatePaymentModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+    
     
     // Function to show payment progress modal
     function showPaymentProgressModal(contributionId, paymentSequence, groupData) {
