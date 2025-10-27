@@ -184,6 +184,11 @@ document.addEventListener('DOMContentLoaded', function() {
              e.preventDefault();
              e.stopPropagation();
              
+             // Mark all notifications as seen (Facebook-like behavior)
+             if (typeof markAllAsSeen === 'function') {
+               markAllAsSeen();
+             }
+             
              // Calculate position
              const rect = notificationBtn.getBoundingClientRect();
              const isOpen = notificationDropdown.classList.contains('active');

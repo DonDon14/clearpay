@@ -490,9 +490,10 @@ function closeNotificationDropdown() {
     }
 }
 
-// Global variables for notification management
+// Global variables for notification management - Facebook-like logic
 let currentActivities = [];
-let unreadActivityIds = new Set();
+let unreadActivityIds = new Set(); // Activities that haven't been individually clicked (read)
+let unseenActivityIds = new Set(); // Activities that haven't been seen (bell not clicked)
 let lastShownActivityId = 0;
 
 // Function to check for new activities
@@ -520,20 +521,32 @@ function checkForNewActivities() {
             if (data.success && data.activities) {
                 currentActivities = data.activities;
                 
-                // Initialize unread activities set with ALL activities that are unread
-                // This ensures we track all unread activities, not just new ones
-                unreadActivityIds.clear(); // Clear existing set
+                // DON'T clear the unread set - preserve user's read status
+                // Only add new activities that are truly unread
                 
                 if (data.activities && data.activities.length > 0) {
-                    // Mark activities as unread based on individual read status
+                    // Process activities for Facebook-like logic
                     data.activities.forEach(activity => {
-                        // If activity doesn't have is_read_by_payer property or it's false, mark as unread
-                        if (!activity.is_read_by_payer) {
-                            unreadActivityIds.add(activity.id);
+                        const activityIdStr = String(activity.id);
+                        
+                        // Only add to unseen set if it's a NEW activity (not already processed)
+                        // This prevents adding all existing activities as "unseen"
+                        if (data.newActivities && data.newActivities.some(newActivity => String(newActivity.id) === activityIdStr)) {
+                            if (!unseenActivityIds.has(activityIdStr)) {
+                                unseenActivityIds.add(activityIdStr);
+                                console.log('Added new unseen activity:', activityIdStr);
+                            }
+                        }
+                        
+                        // Add to unread set if not individually read
+                        if (!activity.is_read_by_payer && !unreadActivityIds.has(activityIdStr)) {
+                            unreadActivityIds.add(activityIdStr);
+                            console.log('Added new unread activity:', activityIdStr);
                         }
                     });
                     
-                    console.log('Initialized unread activities:', unreadActivityIds.size);
+                    console.log('Current unseen activities:', unseenActivityIds.size);
+                    console.log('Current unread activities:', unreadActivityIds.size);
                 }
                 
                 // Update unread activities set with new activities (if any)
@@ -547,8 +560,8 @@ function checkForNewActivities() {
                     // The user will see notifications in the dropdown
                 } else {
                     console.log('No new activities found');
-                    // Still show badge if there are unread activities
-                    if (unreadActivityIds.size > 0) {
+                    // Still show badge if there are unseen activities (Facebook-like)
+                    if (unseenActivityIds.size > 0) {
                         showNotificationBadge();
                     }
                 }
@@ -688,7 +701,7 @@ function showActivityNotification(activityData) {
     playNotificationSound();
 }
 
-// Function to update notification dropdown with multiple activities
+// Function to update notification dropdown with multiple activities - Facebook-like logic
 function updateNotificationDropdown(activities) {
     const noNotifications = document.getElementById('noNotifications');
     const dropdownContent = document.getElementById('notificationContent');
@@ -698,25 +711,24 @@ function updateNotificationDropdown(activities) {
         return;
     }
     
-    // Filter to only show unread activities
-    const unreadActivities = activities.filter(activity => unreadActivityIds.has(activity.id));
-    
-    if (unreadActivities.length === 0) {
-        if (noNotifications) noNotifications.style.display = 'block';
-        return;
-    }
-    
     // Hide no notifications message
     if (noNotifications) noNotifications.style.display = 'none';
     
-    // Create multiple notification items (only unread ones)
+    // Show 5+ most recent notifications (Facebook-like behavior)
+    const recentActivities = activities.slice(0, 5); // Show 5 most recent
+    
+    // Create notification items for recent activities
     let html = '';
-    unreadActivities.slice(0, 4).forEach(activity => { // Show max 4 in dropdown
+    recentActivities.forEach(activity => {
+        const activityIdStr = String(activity.id);
+        const isUnread = unreadActivityIds.has(activityIdStr);
+        
         html += `
-            <div class="notification-item unread-notification" 
+            <div class="notification-item ${isUnread ? 'unread-notification' : ''}" 
                  data-activity-id="${activity.id}"
-                 onclick="handleNotificationClick(${activity.id}, '${activity.activity_type}', ${activity.entity_id})"
-                 onmouseover="markActivityAsRead(${activity.id})"
+                 data-activity-type="${activity.activity_type}"
+                 data-entity-id="${activity.entity_id}"
+                 onclick="console.log('Click on activity ${activity.id}'); handleNotificationClick(${activity.id}, '${activity.activity_type}', ${activity.entity_id});"
                  style="cursor: pointer;">
                 <div class="notification-icon">
                     <i class="${activity.activity_icon} text-${activity.activity_color}"></i>
@@ -726,68 +738,139 @@ function updateNotificationDropdown(activities) {
                     <p class="notification-text">${activity.description}</p>
                     <small class="notification-time">${activity.created_at_date}</small>
                 </div>
-                <div class="unread-indicator"></div>
+                ${isUnread ? '<div class="unread-indicator"></div>' : ''}
             </div>
         `;
     });
     
-    // Add "show more" if there are more than 4 unread activities
-    if (unreadActivities.length > 4) {
+    // Add "show more" if there are more than 5 activities
+    if (activities.length > 5) {
         html += `
             <div class="notification-item show-more" onclick="showAllNotificationsModal()" style="cursor: pointer;">
                 <div class="notification-icon">
                     <i class="fas fa-ellipsis-h text-muted"></i>
                 </div>
                 <div class="notification-body">
-                    <h6 class="notification-title">Show ${unreadActivities.length - 4} more notifications</h6>
+                    <h6 class="notification-title">Show ${activities.length - 5} more notifications</h6>
                 </div>
             </div>
         `;
     }
     
     dropdownContent.innerHTML = html;
+    
+    console.log('Dropdown updated with', recentActivities.length, 'recent activities');
+    console.log('Unread count:', unreadActivityIds.size);
+}
+
+// Function to add event listeners to notification items
+function addNotificationEventListeners() {
+    const notificationItems = document.querySelectorAll('.notification-item[data-activity-id]');
+    console.log('Adding event listeners to', notificationItems.length, 'notification items');
+    
+    notificationItems.forEach(item => {
+        const activityId = parseInt(item.getAttribute('data-activity-id'));
+        const activityType = item.getAttribute('data-activity-type');
+        const entityId = parseInt(item.getAttribute('data-entity-id'));
+        
+        console.log('Setting up events for activity:', activityId);
+        
+        // Add hover event listener
+        item.addEventListener('mouseenter', function() {
+            console.log('Hover detected on activity:', activityId);
+            markActivityAsRead(activityId);
+        });
+        
+        // Add click event listener
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Click detected on activity:', activityId);
+            handleNotificationClick(activityId, activityType, entityId);
+        });
+        
+        // Add a visual test - change background on hover to confirm events work
+        item.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#e3f2fd';
+        });
+        
+        item.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+    });
 }
 
 // Function to handle notification click
 function handleNotificationClick(activityId, activityType, entityId) {
     console.log('Notification clicked:', activityId, activityType, entityId);
     
-    // Mark as read immediately
+    // Mark as read immediately and wait for UI update
     markActivityAsRead(activityId);
     
     // Close the dropdown
     closeNotificationDropdown();
     
-    // Navigate based on activity type
-    switch(activityType) {
-        case 'announcement':
-            window.location.href = `${window.APP_BASE_URL}payer/announcements`;
-            break;
-        case 'contribution':
-            window.location.href = `${window.APP_BASE_URL}payer/contributions`;
-            break;
-        case 'payment':
-            window.location.href = `${window.APP_BASE_URL}payer/payment-history`;
-            break;
-        case 'payer':
-            window.location.href = `${window.APP_BASE_URL}payer/my-data`;
-            break;
-        default:
-            window.location.href = `${window.APP_BASE_URL}payer/dashboard`;
-    }
+    // Small delay to ensure UI updates before redirect
+    setTimeout(() => {
+        // Navigate based on activity type
+        switch(activityType) {
+            case 'announcement':
+                window.location.href = `${window.APP_BASE_URL}payer/announcements`;
+                break;
+            case 'contribution':
+                window.location.href = `${window.APP_BASE_URL}payer/contributions`;
+                break;
+            case 'payment':
+                window.location.href = `${window.APP_BASE_URL}payer/payment-history`;
+                break;
+            case 'payer':
+                window.location.href = `${window.APP_BASE_URL}payer/my-data`;
+                break;
+            default:
+                window.location.href = `${window.APP_BASE_URL}payer/dashboard`;
+        }
+    }, 100);
 }
 
 // Function to mark activity as read
 function markActivityAsRead(activityId) {
-    console.log('Marking activity as read:', activityId);
+    console.log('=== MARKING ACTIVITY AS READ ===');
+    console.log('Activity ID:', activityId);
+    console.log('Type of activityId:', typeof activityId);
     console.log('Current unread activities:', Array.from(unreadActivityIds));
     
-    if (unreadActivityIds.has(activityId)) {
-        unreadActivityIds.delete(activityId);
+    // Convert activityId to string to match the set's data type
+    const activityIdStr = String(activityId);
+    console.log('Activity ID as string:', activityIdStr);
+    console.log('Is activity in unread set?', unreadActivityIds.has(activityIdStr));
+    
+    if (unreadActivityIds.has(activityIdStr)) {
+        unreadActivityIds.delete(activityIdStr);
         console.log('Activity marked as read. Remaining unread:', unreadActivityIds.size);
         
-        // Update badge
-        updateNotificationBadge();
+        // DON'T update badge here - badge shows unseen count, not unread count
+        // updateNotificationBadge();
+        
+        // Update UI immediately - remove unread styling and red dot
+        const notificationItem = document.querySelector(`[data-activity-id="${activityId}"]`);
+        console.log('Found notification item:', notificationItem);
+        
+        if (notificationItem) {
+            notificationItem.classList.remove('unread-notification');
+            const unreadIndicator = notificationItem.querySelector('.unread-indicator');
+            console.log('Found unread indicator:', unreadIndicator);
+            
+            if (unreadIndicator) {
+                unreadIndicator.remove();
+                console.log('Unread indicator removed');
+            }
+            console.log('UI updated for activity:', activityId);
+            
+            // Add a visual feedback that it was read
+            notificationItem.style.opacity = '0.6';
+            notificationItem.style.transition = 'opacity 0.3s ease';
+        } else {
+            console.log('Notification item not found for activity:', activityId);
+        }
         
         // Refresh the dropdown to hide the read notification
         updateNotificationDropdown(currentActivities);
@@ -805,30 +888,47 @@ function markActivityAsRead(activityId) {
         });
     } else {
         console.log('Activity not found in unread set:', activityId);
+        console.log('Available unread activities:', Array.from(unreadActivityIds));
     }
+    console.log('=== END MARKING ACTIVITY AS READ ===');
 }
 
 // Function to update notification badge
 function updateNotificationBadge() {
     const badge = document.getElementById('notificationBadge');
-    const count = unreadActivityIds.size;
+    const count = unseenActivityIds.size; // Show unseen count (Facebook-like)
     
-    console.log('Updating notification badge. Count:', count);
-    console.log('Unread activity IDs:', Array.from(unreadActivityIds));
+    console.log('Updating notification badge. Unseen count:', count);
+    console.log('Unseen activity IDs:', Array.from(unseenActivityIds));
     
     if (count > 0) {
         badge.textContent = count;
         badge.style.display = 'inline-block';
-        console.log('Badge shown with count:', count);
+        console.log('Badge shown with unseen count:', count);
     } else {
         badge.style.display = 'none';
-        console.log('Badge hidden');
+        console.log('Badge hidden - no unseen activities');
     }
 }
 
 // Function to show notification badge
 function showNotificationBadge() {
     updateNotificationBadge();
+}
+
+// Function to mark all notifications as seen (Facebook-like bell click behavior)
+function markAllAsSeen() {
+    console.log('=== MARKING ALL AS SEEN ===');
+    console.log('Unseen activities before:', Array.from(unseenActivityIds));
+    
+    // Clear unseen set (Facebook-like behavior)
+    unseenActivityIds.clear();
+    
+    // Update badge (should disappear)
+    updateNotificationBadge();
+    
+    console.log('All notifications marked as seen');
+    console.log('=== END MARKING ALL AS SEEN ===');
 }
 
 // Function to hide notification badge
@@ -913,9 +1013,42 @@ function showAllNotificationsModal() {
 
 // Function to mark all notifications as read
 function markAllAsRead() {
-    unreadActivityIds.forEach(activityId => {
-        markActivityAsRead(activityId);
+    console.log('Marking all notifications as read');
+    
+    // Get all current unread activity IDs
+    const unreadIds = Array.from(unreadActivityIds);
+    
+    if (unreadIds.length === 0) {
+        console.log('No unread notifications to mark');
+        return;
+    }
+    
+    // Clear the unread set
+    unreadActivityIds.clear();
+    
+    // Update badge
+    updateNotificationBadge();
+    
+    // Refresh dropdown to show "no notifications"
+    updateNotificationDropdown(currentActivities);
+    
+    // Send to server for each notification
+    const promises = unreadIds.map(activityId => {
+        return fetch(`${window.APP_BASE_URL}payer/mark-activity-read/${activityId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
     });
+    
+    Promise.all(promises)
+        .then(responses => {
+            console.log('All notifications marked as read on server');
+        })
+        .catch(error => {
+            console.error('Error marking all notifications as read:', error);
+        });
     
     // Close modal
     const modal = bootstrap.Modal.getInstance(document.getElementById('allNotificationsModal'));
@@ -957,14 +1090,11 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeNotificationSystem() {
     console.log('Initializing notification system...');
     
-    // Clear any existing unread activities
+    // Clear both sets to start fresh
+    unseenActivityIds.clear();
     unreadActivityIds.clear();
     
-    // Don't reset last shown ID - let it persist to avoid showing old notifications
-    // localStorage.removeItem('lastShownActivityId');
-    // lastShownActivityId = 0;
-    
-    console.log('Notification system initialized');
+    console.log('Notification system initialized with empty sets');
 }
 
 // Function to show activity notification (replaces announcement notification)
@@ -1120,6 +1250,7 @@ window.showActivityNotification = showActivityNotification;
 window.showAnnouncementNotification = showAnnouncementNotification;
 window.checkForNewActivities = checkForNewActivities;
 window.showNotificationBadge = showNotificationBadge;
+window.markAllAsSeen = markAllAsSeen;
 window.hideNotificationBadge = hideNotificationBadge;
 window.updateNotificationDropdown = updateNotificationDropdown;
 window.viewAnnouncement = viewAnnouncement;
