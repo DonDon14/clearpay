@@ -16,8 +16,8 @@
               <i class="fas fa-plus me-2"></i>Add Payment
           </button>
           </div>
-                <div class="card-body">
-                    <!-- Search and Filter Row -->
+          <div class="card-body">
+             <!-- Search and Filter Row -->
              <div class="row mb-3">
                  <div class="col-md-6">
                      <div class="input-group">
@@ -57,6 +57,7 @@
                                         <tr class="payment-group-row" 
                                             data-payer-id="<?= esc($group['payer_id']) ?>" 
                                             data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                            data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
                                             data-payment-status="<?= esc($group['computed_status']) ?>"
                                             data-payer-name="<?= esc($group['payer_name']) ?>"
                                             data-contribution-title="<?= esc($group['contribution_title']) ?>"
@@ -81,7 +82,12 @@
                                             </td>
                                             <td>
                                                 <div>
-                                                    <div class="fw-bold"><?= esc($group['contribution_title']) ?></div>
+                                                    <div class="fw-bold">
+                                                        <?= esc($group['contribution_title']) ?>
+                                                        <?php if (isset($group['payment_sequence']) && $group['payment_sequence'] > 1): ?>
+                                                            <span class="badge bg-info ms-1">Group <?= $group['payment_sequence'] ?></span>
+                                                        <?php endif; ?>
+                                                    </div>
                                                     <small class="text-muted">₱<?= number_format($group['contribution_amount'], 2) ?></small>
                                                 </div>
                                             </td>
@@ -117,6 +123,7 @@
                                                 <button class="btn btn-sm btn-outline-primary view-payment-history-btn" 
                                                         data-payer-id="<?= esc($group['payer_id']) ?>" 
                                                         data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                                        data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
                                                         title="View Payment History">
                                                     <i class="fas fa-history me-1"></i>History
                                             </button>
@@ -250,7 +257,8 @@ $(document).ready(function() {
         
         const payerId = $(this).data('payer-id');
         const contributionId = $(this).data('contribution-id');
-        viewPaymentHistory(payerId, contributionId);
+        const paymentSequence = $(this).data('payment-sequence') || 1;
+        viewPaymentHistory(payerId, contributionId, paymentSequence);
     });
 
     // Handle view payment history button click
@@ -258,7 +266,8 @@ $(document).ready(function() {
         e.stopPropagation();
         const payerId = $(this).data('payer-id');
         const contributionId = $(this).data('contribution-id');
-        viewPaymentHistory(payerId, contributionId);
+        const paymentSequence = $(this).data('payment-sequence') || 1;
+        viewPaymentHistory(payerId, contributionId, paymentSequence);
     });
 
     // Handle individual payment click in history modal
@@ -311,8 +320,8 @@ $(document).ready(function() {
         }
     });
 
-    function viewPaymentHistory(payerId, contributionId) {
-        fetch(`<?= base_url('payments/get-payment-history') ?>?payer_id=${payerId}&contribution_id=${contributionId}`, {
+    function viewPaymentHistory(payerId, contributionId, paymentSequence = 1) {
+        fetch(`<?= base_url('payments/get-payment-history') ?>?payer_id=${payerId}&contribution_id=${contributionId}&payment_sequence=${paymentSequence}`, {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -334,8 +343,8 @@ $(document).ready(function() {
         });
     }
 
-    function displayPaymentHistory(payments) {
-        if (payments.length === 0) {
+    function displayPaymentHistory(paymentGroups) {
+        if (paymentGroups.length === 0) {
             $('#paymentHistoryContent').html(`
                 <div class="text-center py-4">
                     <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
@@ -346,50 +355,77 @@ $(document).ready(function() {
             return;
         }
 
-        const payerName = payments[0].payer_name;
-        const contributionTitle = payments[0].contribution_title;
+        const payerName = paymentGroups[0].payments[0].payer_name;
+        const contributionTitle = paymentGroups[0].payments[0].contribution_title;
         
         let html = `
             <div class="mb-3">
                 <h6 class="text-primary">${payerName}</h6>
                 <p class="text-muted mb-0">${contributionTitle}</p>
             </div>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Payment Date</th>
-                            <th>Amount</th>
-                            <th>Method</th>
-                            <th>Reference</th>
-                            <th>Receipt</th>
-                            <th>Recorded By</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
         `;
 
-        payments.forEach(payment => {
-            const statusBadge = getStatusBadge(payment.payment_status);
+        // Display each payment group
+        paymentGroups.forEach((group, groupIndex) => {
             html += `
-                <tr class="payment-item-row" data-payment-id="${payment.id}" style="cursor: pointer;">
-                    <td>${formatDate(payment.payment_date)}</td>
-                    <td class="fw-bold text-success">₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
-                    <td>${formatPaymentMethod(payment.payment_method)}</td>
-                    <td>${payment.reference_number || 'N/A'}</td>
-                    <td>${payment.receipt_number || 'N/A'}</td>
-                    <td>${payment.recorded_by_name || 'N/A'}</td>
-                    <td>
-                        <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
-                    </td>
-                </tr>
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="fas fa-layer-group me-2"></i>
+                            Payment Group ${group.sequence}
+                            <span class="badge bg-primary ms-2">${group.payment_count} payment${group.payment_count > 1 ? 's' : ''}</span>
+                            <span class="badge bg-success ms-1">₱${parseFloat(group.total_amount).toFixed(2)} total</span>
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Payment Date</th>
+                                        <th>Amount</th>
+                                        <th>Method</th>
+                                        <th>Reference</th>
+                                        <th>Receipt</th>
+                                        <th>Recorded By</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+
+            group.payments.forEach(payment => {
+                const statusBadge = getStatusBadge(payment.payment_status);
+                html += `
+                    <tr class="payment-item-row" data-payment-id="${payment.id}" style="cursor: pointer;">
+                        <td>${formatDate(payment.payment_date)}</td>
+                        <td class="fw-bold text-success">₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
+                        <td>${formatPaymentMethod(payment.payment_method)}</td>
+                        <td>${payment.reference_number || 'N/A'}</td>
+                        <td>${payment.receipt_number || 'N/A'}</td>
+                        <td>${payment.recorded_by_name || 'N/A'}</td>
+                        <td>
+                            <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             `;
         });
 
         html += `
-                    </tbody>
-                </table>
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Click any payment to view QR receipt
+                </small>
             </div>
         `;
 
@@ -466,7 +502,7 @@ $(document).ready(function() {
         return methods[method] || method;
     }
 
-    function searchPayers(query) {
+    window.searchPayers = function(query) {
         fetch(`<?= base_url('payments/search-payers') ?>?q=${encodeURIComponent(query)}`, {
             method: 'GET',
             headers: {
@@ -478,6 +514,8 @@ $(document).ready(function() {
         .then(data => {
             if (data.success) {
                 displayPayerResults(data.results);
+            } else {
+                console.error('Search failed:', data.message);
             }
         })
         .catch(error => {
@@ -485,7 +523,7 @@ $(document).ready(function() {
         });
     }
 
-    function displayPayerResults(results) {
+    window.displayPayerResults = function(results) {
         const resultsContainer = $('#payerSearchResults');
         resultsContainer.empty();
 
@@ -506,17 +544,25 @@ $(document).ready(function() {
                 selectedPayer = payer;
                 $('#payerSearch').val(payer.payer_name);
                 resultsContainer.empty();
+                
+                // Check for unpaid contributions and show warning
+                checkPayerUnpaidContributions(payer.id);
             });
 
             resultsContainer.append(payerItem);
         });
     }
 
-    function submitPayment() {
+    window.submitPayment = function() {
         if (!selectedPayer) {
             alert('Please select a payer');
-                            return;
+            return;
         }
+
+        // Calculate remaining balance
+        const contributionAmount = parseFloat($('#contributionSelect option:selected').data('amount')) || 0;
+        const amountPaid = parseFloat($('#amountPaid').val()) || 0;
+        const remainingBalance = contributionAmount - amountPaid;
 
         const formData = {
             payer_id: selectedPayer.id,
@@ -524,37 +570,218 @@ $(document).ready(function() {
             amount_paid: $('#amountPaid').val(),
             payment_method: $('#paymentMethod').val(),
             payment_date: $('#paymentDate').val(),
-            reference_number: $('#referenceNumber').val()
+            reference_number: $('#referenceNumber').val(),
+            is_partial_payment: remainingBalance > 0 ? '1' : '0',
+            remaining_balance: remainingBalance
         };
 
         // Validate required fields
         if (!formData.contribution_id || !formData.amount_paid || !formData.payment_method || !formData.payment_date) {
             alert('Please fill in all required fields');
-        return;
-        }
+                            return;
+                        }
 
         fetch('<?= base_url('payments/save') ?>', {
             method: 'POST',
-        headers: {
+            headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'Accept': 'application/json'
             },
             body: new URLSearchParams(formData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
                 alert('Payment added successfully!');
                 $('#addPaymentModal').modal('hide');
                 location.reload(); // Reload to show updated data
-        } else {
+            } else {
+                // Check if this is a duplicate payment that requires confirmation
+                if (data.requires_confirmation) {
+                    showDuplicatePaymentConfirmation(data, formData);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while adding the payment.');
+        });
+    }
+
+    window.showDuplicatePaymentConfirmation = function(data, formData) {
+        // Create confirmation modal
+        const modalHtml = `
+            <div class="modal fade" id="duplicatePaymentModal" tabindex="-1" aria-labelledby="duplicatePaymentModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header ${data.message.includes('Already Fully Paid') ? 'bg-warning text-dark' : 'bg-info text-white'}">
+                            <h5 class="modal-title" id="duplicatePaymentModalLabel">
+                                <i class="fas ${data.message.includes('Already Fully Paid') ? 'fa-exclamation-triangle' : 'fa-info-circle'} me-2"></i>
+                                ${data.message.includes('Already Fully Paid') ? 'Contribution Already Fully Paid' : 'Duplicate Payment Confirmation'}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert ${data.message.includes('Already Fully Paid') ? 'alert-warning' : 'alert-info'}">
+                                <h6><i class="fas ${data.message.includes('Already Fully Paid') ? 'fa-exclamation-triangle' : 'fa-info-circle'} me-2"></i>
+                                ${data.message.includes('Already Fully Paid') ? 'Fully Paid Contribution' : 'Duplicate Payment Detected'}</h6>
+                                <p class="mb-0">${data.message.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            
+                            ${data.existing_payments && data.existing_payments.length > 0 ? `
+                                <div class="mt-3">
+                                    <h6>Existing Payments:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Amount</th>
+                                                    <th>Method</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${data.existing_payments.map(payment => `
+                                                    <tr>
+                                                        <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
+                                                        <td>₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
+                                                        <td>${payment.payment_method || 'N/A'}</td>
+                                                        <td><span class="badge bg-${payment.payment_status === 'fully paid' ? 'success' : 'warning'}">${payment.payment_status}</span></td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="mt-3">
+                                <h6>New Payment Details:</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Amount:</strong> ₱${parseFloat(formData.amount_paid).toFixed(2)}</li>
+                                    <li><strong>Method:</strong> ${formData.payment_method}</li>
+                                    <li><strong>Date:</strong> ${new Date(formData.payment_date).toLocaleDateString()}</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn ${data.message.includes('Already Fully Paid') ? 'btn-warning' : 'btn-info'}" onclick="confirmDuplicatePayment()">
+                                <i class="fas fa-check me-2"></i>${data.message.includes('Already Fully Paid') ? 'Yes, Add Another Payment' : 'Yes, Add Payment Anyway'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        $('#duplicatePaymentModal').remove();
+        
+        // Add modal to body
+        $('body').append(modalHtml);
+        
+        // Store form data for confirmation
+        window.pendingPaymentData = formData;
+    
+    // Show modal
+        $('#duplicatePaymentModal').modal('show');
+    }
+
+    window.confirmDuplicatePayment = function() {
+        console.log('confirmDuplicatePayment called'); // Debug log
+        
+        if (!window.pendingPaymentData) {
+            alert('No payment data found');
+            return;
+        }
+        
+        console.log('Pending payment data:', window.pendingPaymentData); // Debug log
+        
+        const formData = window.pendingPaymentData;
+        
+        // Add confirmation flag
+        formData.confirmed = '1';
+        
+        // Ensure required fields are present
+        if (!formData.is_partial_payment) {
+            const contributionAmount = parseFloat($('#contributionSelect option:selected').data('amount')) || 0;
+            const amountPaid = parseFloat(formData.amount_paid) || 0;
+            const remainingBalance = contributionAmount - amountPaid;
+            formData.is_partial_payment = remainingBalance > 0 ? '1' : '0';
+            formData.remaining_balance = remainingBalance;
+        }
+        
+        console.log('Form data being sent:', formData); // Debug log
+
+        fetch('<?= base_url('payments/save-with-confirmation') ?>', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: new URLSearchParams(formData)
+        })
+        .then(response => {
+            console.log('Response status:', response.status); // Debug log
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data); // Debug log
+            if (data.success) {
+                alert('Payment added successfully!');
+                $('#duplicatePaymentModal').modal('hide');
+                $('#addPaymentModal').modal('hide');
+                location.reload(); // Reload to show updated data
+            } else {
                 alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while adding the payment.');
+        });
+        
+        // Clean up
+        window.pendingPaymentData = null;
+    }
+
+    window.checkPayerUnpaidContributions = function(payerId) {
+        // Remove existing warning if any
+        $('#payerUnpaidWarning').remove();
+        
+        fetch(`<?= base_url('payments/check-unpaid-contributions') ?>?payer_id=${payerId}`, {
+            method: 'GET',
+        headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+            if (data.success && data.unpaid_contributions && data.unpaid_contributions.length > 0) {
+                const warningHtml = `
+                    <div id="payerUnpaidWarning" class="alert alert-info mt-2">
+                        <h6><i class="fas fa-info-circle me-2"></i>Existing Contributions</h6>
+                        <p class="mb-1">This payer has unpaid contributions:</p>
+                        <ul class="mb-0">
+                            ${data.unpaid_contributions.map(contrib => 
+                                `<li>${contrib.title} (₱${parseFloat(contrib.remaining_amount).toFixed(2)} remaining)</li>`
+                            ).join('')}
+                        </ul>
+                        <small class="text-muted">Note: You can add payments to any contribution, but duplicate payments within the same contribution will require confirmation.</small>
+                    </div>
+                `;
+                $('#payerSearch').after(warningHtml);
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-            alert('An error occurred while adding the payment.');
+            console.error('Error checking unpaid contributions:', error);
         });
     }
 

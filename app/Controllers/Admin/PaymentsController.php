@@ -77,6 +77,7 @@ class PaymentsController extends BaseController
 
         $payerId = $this->request->getGet('payer_id');
         $contributionId = $this->request->getGet('contribution_id');
+        $paymentSequence = $this->request->getGet('payment_sequence') ?? 1;
 
         if (!$payerId || !$contributionId) {
             return $this->response->setJSON([
@@ -87,7 +88,7 @@ class PaymentsController extends BaseController
 
         try {
             $paymentModel = new PaymentModel();
-            $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId);
+            $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
 
             return $this->response->setJSON([
                 'success' => true,
@@ -123,8 +124,8 @@ class PaymentsController extends BaseController
     {
         try {
             // Determine if this is a new or existing payer
-            $existingPayerId = $this->request->getPost('existing_payer_id');
-            $isExistingPayer = !empty($existingPayerId);
+            $payerId = $this->request->getPost('payer_id');
+            $isExistingPayer = !empty($payerId);
             
             // Validation rules - conditional based on payer type
             $rules = [
@@ -154,7 +155,7 @@ class PaymentsController extends BaseController
             
             // For existing payers, fetch their details from the database
             if ($isExistingPayer) {
-                $existingPayer = $payerModel->where('payer_id', $existingPayerId)->first();
+                $existingPayer = $payerModel->where('id', $payerId)->first();
                 
                 if (!$existingPayer) {
                     return $this->response->setJSON([
@@ -165,7 +166,6 @@ class PaymentsController extends BaseController
                 $payerDbId = $existingPayer['id']; // Get the database ID
             } else {
                 // Check if payer with this ID already exists
-                $payerId = $this->request->getPost('payer_id');
                 $existingPayer = $payerModel->where('payer_id', $payerId)->first();
                 
                 if ($existingPayer) {
@@ -190,10 +190,48 @@ class PaymentsController extends BaseController
                 }
             }
 
-            // Determine payment status
+            // Check for existing payments to prevent duplicates
+            $duplicateCheck = $this->checkForDuplicatePayments($payerDbId, $this->request->getPost('contribution_id'));
+            if (!$duplicateCheck['allowed'] && !$this->request->getPost('bypass_duplicate_check')) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => $duplicateCheck['message'],
+                    'requires_confirmation' => $duplicateCheck['requires_confirmation'] ?? false,
+                    'existing_payments' => $duplicateCheck['existing_payments'] ?? []
+                ]);
+            }
+
+            // Determine payment status and sequence for duplicate payments
             $isPartial = $this->request->getPost('is_partial_payment') == '1';
             $remainingBalance = (float) $this->request->getPost('remaining_balance');
-            $paymentStatus = ($isPartial && $remainingBalance > 0) ? 'partial' : 'fully paid';
+            $isDuplicatePayment = $this->request->getPost('bypass_duplicate_check') == '1';
+            
+            // Get contribution amount to calculate proper status
+            $contributionModel = new \App\Models\ContributionModel();
+            $contribution = $contributionModel->find($this->request->getPost('contribution_id'));
+            $contributionAmount = $contribution ? $contribution['amount'] : 0;
+            $amountPaid = (float) $this->request->getPost('amount_paid');
+            
+            // Calculate actual remaining balance
+            $actualRemainingBalance = $contributionAmount - $amountPaid;
+            
+            // For duplicate payments, treat as separate payment group
+            if ($isDuplicatePayment) {
+                $paymentStatus = 'fully paid'; // Always fully paid for duplicate payments
+                $remainingBalance = 0; // No remaining balance for duplicate payments
+                $isPartial = false;
+            } else {
+                // Calculate status based on actual contribution amount
+                if ($amountPaid >= $contributionAmount) {
+                    $paymentStatus = 'fully paid';
+                    $remainingBalance = 0;
+                    $isPartial = false;
+                } else {
+                    $paymentStatus = 'partial';
+                    $remainingBalance = $actualRemainingBalance;
+                    $isPartial = true;
+                }
+            }
 
             // Generate reference number and receipt number
             $referenceNumber = 'REF-' . date('Ymd') . '-' . strtoupper(uniqid());
@@ -209,7 +247,7 @@ class PaymentsController extends BaseController
                 'is_partial_payment' => $isPartial ? 1 : 0,
                 'remaining_balance' => $remainingBalance,
                 'parent_payment_id' => $this->request->getPost('parent_payment_id') ?: null,
-                'payment_sequence' => 1, // Default to 1, can be enhanced later
+                'payment_sequence' => $isDuplicatePayment ? $this->getNextPaymentSequence($payerDbId, $this->request->getPost('contribution_id')) : 1,
                 'reference_number' => $referenceNumber,
                 'receipt_number' => $receiptNumber,
                 'recorded_by' => session()->get('user-id') ?: session()->get('user_id') ?: null,
@@ -359,12 +397,12 @@ class PaymentsController extends BaseController
     public function searchPayers()
     {
         try {
-            $term = $this->request->getGet('term');
+            $term = $this->request->getGet('q') ?: $this->request->getGet('term');
             
             if (empty($term) || strlen($term) < 2) {
                 return $this->response->setJSON([
                     'success' => true,
-                    'payers' => []
+                    'results' => []
                 ]);
             }
 
@@ -372,6 +410,7 @@ class PaymentsController extends BaseController
             
             // Search payers in the payers table
             $payers = $payerModel->select('
+                id,
                 payer_id,
                 payer_name,
                 contact_number,
@@ -387,7 +426,7 @@ class PaymentsController extends BaseController
 
             return $this->response->setJSON([
                 'success' => true,
-                'payers' => $payers
+                'results' => $payers
             ]);
 
         } catch (\Exception $e) {
@@ -852,5 +891,179 @@ class PaymentsController extends BaseController
         }
         
         return array_values($grouped);
+    }
+
+    /**
+     * Check for duplicate payments and validate payment rules
+     */
+    private function checkForDuplicatePayments($payerId, $contributionId)
+    {
+        $paymentModel = new PaymentModel();
+        $contributionModel = new \App\Models\ContributionModel();
+        
+        // Get contribution details
+        $contribution = $contributionModel->find($contributionId);
+        if (!$contribution) {
+            return [
+                'allowed' => false,
+                'message' => 'Contribution not found'
+            ];
+        }
+        
+        // Get all existing payments for this payer and contribution
+        $existingPayments = $paymentModel
+            ->where('payer_id', $payerId)
+            ->where('contribution_id', $contributionId)
+            ->where('deleted_at', null)
+            ->findAll();
+        
+        if (empty($existingPayments)) {
+            // No existing payments, allow new payment
+            return ['allowed' => true];
+        }
+        
+        // Calculate total paid for this contribution
+        $totalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
+        $contributionAmount = $contribution['amount'];
+        
+        // Debug logging
+        log_message('info', "Duplicate check - Total paid: {$totalPaid}, Contribution amount: {$contributionAmount}");
+        
+        // Check if contribution is fully paid - show confirmation instead of blocking
+        if ($totalPaid >= $contributionAmount) {
+            log_message('info', "Contribution is fully paid - showing confirmation");
+            return [
+                'allowed' => false,
+                'message' => "⚠️ Contribution Already Fully Paid\n\nYou already paid this contribution '" . $contribution['title'] . "' (₱" . number_format($totalPaid, 2) . ").\n\nYou want to add another for this contribution?",
+                'requires_confirmation' => true,
+                'existing_payments' => $existingPayments
+            ];
+        }
+        
+        // Contribution is partially paid - allow additional payments without confirmation
+        log_message('info', "Contribution is partially paid - allowing additional payment");
+        return ['allowed' => true];
+    }
+    
+    /**
+     * Get other unpaid contributions for a payer
+     */
+    private function getOtherUnpaidContributions($payerId, $excludeContributionId)
+    {
+        $paymentModel = new PaymentModel();
+        $contributionModel = new \App\Models\ContributionModel();
+        
+        // Get all contributions except the one being paid (if specified)
+        if ($excludeContributionId) {
+            $allContributions = $contributionModel->where('id !=', $excludeContributionId)->findAll();
+        } else {
+            $allContributions = $contributionModel->findAll();
+        }
+        
+        $unpaidContributions = [];
+        
+        foreach ($allContributions as $contribution) {
+            // Get payments for this contribution
+            $payments = $paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contribution['id'])
+                ->where('deleted_at', null)
+                ->findAll();
+            
+            if (empty($payments)) {
+                // No payments at all - unpaid
+                $unpaidContributions[] = [
+                    'id' => $contribution['id'],
+                    'title' => $contribution['title'],
+                    'amount' => $contribution['amount'],
+                    'remaining_amount' => $contribution['amount'],
+                    'total_paid' => 0
+                ];
+            } else {
+                // Calculate total paid
+                $totalPaid = array_sum(array_column($payments, 'amount_paid'));
+                if ($totalPaid < $contribution['amount']) {
+                    $unpaidContributions[] = [
+                        'id' => $contribution['id'],
+                        'title' => $contribution['title'],
+                        'amount' => $contribution['amount'],
+                        'remaining_amount' => $contribution['amount'] - $totalPaid,
+                        'total_paid' => $totalPaid
+                    ];
+                }
+            }
+        }
+        
+        return $unpaidContributions;
+    }
+
+    /**
+     * Save payment with confirmation (for duplicate payments)
+     */
+    public function saveWithConfirmation()
+    {
+        // Debug: Log confirmation request
+        log_message('info', 'Save with confirmation request data: ' . json_encode($this->request->getPost()));
+        
+        // Add a flag to bypass duplicate check
+        $this->request->setGlobal('post', array_merge($this->request->getPost(), ['bypass_duplicate_check' => true]));
+        
+        // Call the regular save method
+        return $this->save();
+    }
+
+    /**
+     * Check unpaid contributions for a payer
+     */
+    public function checkUnpaidContributions()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = $this->request->getGet('payer_id');
+
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID is required'
+            ]);
+        }
+
+        try {
+            $unpaidContributions = $this->getOtherUnpaidContributions($payerId, null);
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'unpaid_contributions' => $unpaidContributions
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get next payment sequence for duplicate payments
+     */
+    private function getNextPaymentSequence($payerId, $contributionId)
+    {
+        $paymentModel = new PaymentModel();
+        
+        // Get the highest sequence number for this payer and contribution
+        $maxSequence = $paymentModel
+            ->select('MAX(payment_sequence) as max_seq')
+            ->where('payer_id', $payerId)
+            ->where('contribution_id', $contributionId)
+            ->where('deleted_at', null)
+            ->first();
+        
+        return ($maxSequence['max_seq'] ?? 0) + 1;
     }
 }

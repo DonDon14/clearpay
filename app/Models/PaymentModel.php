@@ -136,6 +136,7 @@ class PaymentModel extends Model
             SELECT 
                 p.payer_id,
                 p.contribution_id,
+                COALESCE(p.payment_sequence, 1) as payment_sequence,
                 payers.payer_name,
                 payers.payer_id as payer_student_id,
                 payers.contact_number,
@@ -158,7 +159,7 @@ class PaymentModel extends Model
             LEFT JOIN payers ON payers.id = p.payer_id
             LEFT JOIN contributions ON contributions.id = p.contribution_id
             WHERE p.deleted_at IS NULL
-            GROUP BY p.payer_id, p.contribution_id
+            GROUP BY p.payer_id, p.contribution_id, COALESCE(p.payment_sequence, 1)
             ORDER BY last_payment_date DESC, payers.payer_name ASC
         ");
         
@@ -172,9 +173,9 @@ class PaymentModel extends Model
     /**
      * Get individual payments for a specific payer and contribution
      */
-    public function getPaymentsByPayerAndContribution($payerId, $contributionId)
+    public function getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence = null)
     {
-        return $this->select('
+        $builder = $this->select('
             payments.*,
             payers.payer_name,
             payers.payer_id as payer_student_id,
@@ -191,8 +192,47 @@ class PaymentModel extends Model
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
         ->where('payments.contribution_id', $contributionId)
-        ->where('payments.deleted_at', null)
-        ->orderBy('payments.payment_date', 'DESC')
-        ->findAll();
+        ->where('payments.deleted_at', null);
+        
+        // Filter by payment sequence if provided
+        if ($paymentSequence !== null) {
+            $builder->where('payments.payment_sequence', $paymentSequence);
+        }
+        
+        $payments = $builder->orderBy('payments.payment_sequence', 'ASC')
+            ->orderBy('payments.payment_date', 'DESC')
+            ->findAll();
+        
+        // Group payments by sequence
+        $groupedPayments = [];
+        foreach ($payments as $payment) {
+            $sequence = $payment['payment_sequence'];
+            if (!isset($groupedPayments[$sequence])) {
+                $groupedPayments[$sequence] = [
+                    'sequence' => $sequence,
+                    'payments' => [],
+                    'total_amount' => 0,
+                    'payment_count' => 0,
+                    'first_payment_date' => null,
+                    'last_payment_date' => null
+                ];
+            }
+            
+            $groupedPayments[$sequence]['payments'][] = $payment;
+            $groupedPayments[$sequence]['total_amount'] += $payment['amount_paid'];
+            $groupedPayments[$sequence]['payment_count']++;
+            
+            if (!$groupedPayments[$sequence]['first_payment_date'] || 
+                $payment['payment_date'] < $groupedPayments[$sequence]['first_payment_date']) {
+                $groupedPayments[$sequence]['first_payment_date'] = $payment['payment_date'];
+            }
+            
+            if (!$groupedPayments[$sequence]['last_payment_date'] || 
+                $payment['payment_date'] > $groupedPayments[$sequence]['last_payment_date']) {
+                $groupedPayments[$sequence]['last_payment_date'] = $payment['payment_date'];
+            }
+        }
+        
+        return array_values($groupedPayments);
     }
 }

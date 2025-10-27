@@ -65,7 +65,7 @@ body.modal-open .main-content {
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <div>
-                    <h5 class="modal-title" id="allPaymentsModalLabel">All Payments</h5>
+                    <h5 class="modal-title" id="allPaymentsModalLabel">Recent Payments</h5>
                     <small class="text-white-50">
                         <i class="fas fa-mouse-pointer me-1"></i>
                         Click any payment to view QR receipt

@@ -55,10 +55,11 @@ $routes->post('/admin/delete-payment-request', 'Admin\DashboardController::delet
 
 // Payments Management Routes
 $routes->get('/payments', 'Admin\PaymentsController::index', ['filter' => 'auth']);
-$routes->get('dashboard/recentPayments', 'Admin\DashboardController::recentPayments', ['filter' => 'auth']);
-$routes->get('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
+$routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
+$routes->post('/payments/save-with-confirmation', 'Admin\PaymentsController::saveWithConfirmation', ['filter' => 'auth']);
 $routes->post('/payments/add-to-partial', 'Admin\PaymentsController::addToPartial', ['filter' => 'auth']);
 $routes->get('/payments/get-payment-history', 'Admin\PaymentsController::getPaymentHistory', ['filter' => 'auth']);
+$routes->get('/payments/check-unpaid-contributions', 'Admin\PaymentsController::checkUnpaidContributions', ['filter' => 'auth']);
 $routes->post('/payments/update/(:num)', 'Admin\PaymentsController::update/$1', ['filter' => 'auth']);
 $routes->get('/payments/recent', 'Admin\PaymentsController::recent', ['filter' => 'auth']);
 $routes->get('/payments/search-payers', 'Admin\PaymentsController::searchPayers', ['filter' => 'auth']);
