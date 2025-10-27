@@ -164,6 +164,69 @@
         opacity: 1;
     }
 }
+
+/* Enhanced Notification Styles */
+.unread-notification {
+    background-color: #f8f9fa;
+    border-left: 3px solid #007bff;
+}
+
+.unread-indicator {
+    width: 8px;
+    height: 8px;
+    background-color: #dc3545;
+    border-radius: 50%;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+.notification-item {
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.notification-item:hover {
+    background-color: #e9ecef;
+    transform: translateX(2px);
+}
+
+.notification-item.show-more {
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    font-style: italic;
+}
+
+.notification-item.show-more:hover {
+    background-color: #e9ecef;
+}
+
+.notifications-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notifications-list .notification-item {
+    border-bottom: 1px solid #f1f3f4;
+    padding: 12px;
+}
+
+.notifications-list .notification-item:last-child {
+    border-bottom: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .notification-dropdown {
+        width: 300px;
+        right: -50px;
+    }
+    
+    .notifications-list {
+        max-height: 300px;
+    }
+}
 </style>
 
 <script>
@@ -427,16 +490,23 @@ function closeNotificationDropdown() {
     }
 }
 
-// Function to check for new announcements
-function checkForNewAnnouncements() {
-    console.log('Checking for new announcements...');
+// Global variables for notification management
+let currentActivities = [];
+let unreadActivityIds = new Set();
+let lastShownActivityId = 0;
+
+// Function to check for new activities
+function checkForNewActivities() {
+    console.log('Checking for new activities...');
     
-    // Get the last shown announcement ID from localStorage
-    const lastShownId = localStorage.getItem('lastShownAnnouncementId');
-    console.log('Last shown announcement ID:', lastShownId);
+    // Get the last shown activity ID from localStorage
+    const storedLastShownId = localStorage.getItem('lastShownActivityId');
+    lastShownActivityId = storedLastShownId ? parseInt(storedLastShownId) : 0;
+    
+    console.log('Last shown activity ID:', lastShownActivityId);
     
     // Build URL with last shown ID
-    const url = `${window.APP_BASE_URL}payer/check-new-announcements?last_shown_id=${lastShownId || 0}`;
+    const url = `${window.APP_BASE_URL}payer/check-new-activities?last_shown_id=${lastShownActivityId}`;
     console.log('Checking URL:', url);
     
     fetch(url)
@@ -445,64 +515,609 @@ function checkForNewAnnouncements() {
             return response.json();
         })
         .then(data => {
-            console.log('Announcement check response:', data);
+            console.log('Activity check response:', data);
             
-            if (data.success && data.announcement) {
-                console.log('New announcement found:', data.announcement);
-                console.log('Last shown ID:', lastShownId, 'Current ID:', data.announcement.id);
+            if (data.success && data.activities) {
+                currentActivities = data.activities;
                 
-                if (lastShownId !== data.announcement.id.toString()) {
-                    console.log('Showing new announcement notification');
-                    showAnnouncementNotification(data.announcement);
-                    localStorage.setItem('lastShownAnnouncementId', data.announcement.id.toString());
+                // Initialize unread activities set with ALL activities that are unread
+                // This ensures we track all unread activities, not just new ones
+                unreadActivityIds.clear(); // Clear existing set
+                
+                if (data.activities && data.activities.length > 0) {
+                    // Only mark NEW activities as unread, not all activities
+                    if (data.newActivities && data.newActivities.length > 0) {
+                        data.newActivities.forEach(activity => {
+                            unreadActivityIds.add(activity.id);
+                        });
+                    }
+                    
+                    console.log('Initialized unread activities:', unreadActivityIds.size);
+                }
+                
+                // Update unread activities set with new activities (if any)
+                if (data.newActivities && data.newActivities.length > 0) {
+                    console.log('New activities found:', data.newActivities.length);
+                    
+                    // Show notification badge
+                    showNotificationBadge();
+                    
+                    // DON'T show popup - just update dropdown
+                    // The user will see notifications in the dropdown
                 } else {
-                    console.log('Announcement already shown (IDs match)');
+                    console.log('No new activities found');
+                    // Still show badge if there are unread activities
+                    if (unreadActivityIds.size > 0) {
+                        showNotificationBadge();
+                    }
+                }
+                
+                // Update dropdown with all activities
+                updateNotificationDropdown(data.activities);
+                
+                // Update last shown ID to the highest activity ID
+                if (data.activities.length > 0) {
+                    const maxId = Math.max(...data.activities.map(a => a.id));
+                    localStorage.setItem('lastShownActivityId', maxId.toString());
+                    lastShownActivityId = maxId;
                 }
             } else {
-                console.log('No new announcements found:', data.message);
+                console.log('No activities found:', data.message);
+                hideNotificationBadge();
             }
         })
         .catch(error => {
-            console.error('Error checking for new announcements:', error);
+            console.error('Error checking for new activities:', error);
         });
 }
 
-// Start checking for new announcements every 30 seconds
+// Function to show activity notification (popup)
+function showActivityNotification(activityData) {
+    console.log('Showing activity notification:', activityData);
+    
+    // Populate modal content
+    document.getElementById('announcementTitle').textContent = activityData.title || 'New Activity';
+    document.getElementById('announcementText').textContent = activityData.description || 'No details available.';
+    
+    // Use backend-formatted date if available, otherwise format on frontend
+    const dateElement = document.getElementById('announcementDate');
+    if (activityData.created_at_date) {
+        dateElement.textContent = activityData.created_at_date;
+    } else {
+        dateElement.textContent = formatAnnouncementDate(activityData.created_at);
+    }
+    
+    document.getElementById('announcementAuthor').textContent = 'System';
+    
+    // Use backend-formatted time if available, otherwise format on frontend
+    const timeElement = document.getElementById('announcementTime');
+    if (activityData.created_at_time) {
+        timeElement.textContent = activityData.created_at_time;
+    } else {
+        timeElement.textContent = formatAnnouncementTime(activityData.created_at);
+    }
+    
+    // Set activity type and action
+    const activityType = activityData.activity_type || 'general';
+    const action = activityData.action || 'created';
+    
+    // Update type badge
+    const typeBadge = document.getElementById('announcementType');
+    const typeText = document.getElementById('announcementTypeText');
+    
+    let typeDisplay, alertClass;
+    switch(activityType) {
+        case 'announcement':
+            typeDisplay = 'Announcement Update';
+            alertClass = 'alert-info';
+            break;
+        case 'contribution':
+            typeDisplay = 'Contribution Update';
+            alertClass = 'alert-success';
+            break;
+        case 'payment':
+            typeDisplay = 'Payment Update';
+            alertClass = 'alert-warning';
+            break;
+        case 'payer':
+            typeDisplay = 'Account Update';
+            alertClass = 'alert-primary';
+            break;
+        default:
+            typeDisplay = 'System Update';
+            alertClass = 'alert-secondary';
+    }
+    
+    typeBadge.className = `alert ${alertClass} border-0 mb-3`;
+    typeText.textContent = typeDisplay;
+    
+    // Update priority badge based on action
+    const priorityBadge = document.getElementById('announcementPriority');
+    const priorityBadgeFooter = document.getElementById('announcementPriorityBadge');
+    
+    let priorityClass, priorityText;
+    switch(action) {
+        case 'created':
+            priorityClass = 'bg-success';
+            priorityText = 'NEW';
+            break;
+        case 'updated':
+            priorityClass = 'bg-warning';
+            priorityText = 'UPDATED';
+            break;
+        case 'deleted':
+            priorityClass = 'bg-danger';
+            priorityText = 'REMOVED';
+            break;
+        case 'published':
+            priorityClass = 'bg-primary';
+            priorityText = 'PUBLISHED';
+            break;
+        default:
+            priorityClass = 'bg-info';
+            priorityText = 'CHANGE';
+    }
+    
+    priorityBadge.className = `badge ${priorityClass}`;
+    priorityBadgeFooter.className = `badge ${priorityClass}`;
+    priorityBadge.textContent = priorityText;
+    priorityBadgeFooter.textContent = priorityText;
+    
+    // Add activity class to modal for styling
+    const modalContent = document.querySelector('#announcementNotificationModal .modal-content');
+    modalContent.className = `modal-content border-0 shadow-lg activity-${activityType}`;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('announcementNotificationModal'));
+    modal.show();
+    
+    // Add event listener for modal close
+    document.getElementById('announcementNotificationModal').addEventListener('hidden.bs.modal', function() {
+        // Check if user clicked "View All Notifications" button
+        const clickedViewAll = localStorage.getItem('announcementViewed');
+        if (clickedViewAll === 'true') {
+            // User read the activity, hide the badge
+            hideNotificationBadge();
+            localStorage.removeItem('announcementViewed');
+        }
+        // If user just closed without reading, badge stays visible
+    });
+    
+    // Play notification sound (optional)
+    playNotificationSound();
+}
+
+// Function to update notification dropdown with multiple activities
+function updateNotificationDropdown(activities) {
+    const noNotifications = document.getElementById('noNotifications');
+    const dropdownContent = document.getElementById('notificationContent');
+    
+    if (!activities || activities.length === 0) {
+        if (noNotifications) noNotifications.style.display = 'block';
+        return;
+    }
+    
+    // Filter to only show unread activities
+    const unreadActivities = activities.filter(activity => unreadActivityIds.has(activity.id));
+    
+    if (unreadActivities.length === 0) {
+        if (noNotifications) noNotifications.style.display = 'block';
+        return;
+    }
+    
+    // Hide no notifications message
+    if (noNotifications) noNotifications.style.display = 'none';
+    
+    // Create multiple notification items (only unread ones)
+    let html = '';
+    unreadActivities.slice(0, 4).forEach(activity => { // Show max 4 in dropdown
+        html += `
+            <div class="notification-item unread-notification" 
+                 data-activity-id="${activity.id}"
+                 onclick="handleNotificationClick(${activity.id}, '${activity.activity_type}', ${activity.entity_id})"
+                 onmouseover="markActivityAsRead(${activity.id})"
+                 style="cursor: pointer;">
+                <div class="notification-icon">
+                    <i class="${activity.activity_icon} text-${activity.activity_color}"></i>
+                </div>
+                <div class="notification-body">
+                    <h6 class="notification-title">${activity.title}</h6>
+                    <p class="notification-text">${activity.description}</p>
+                    <small class="notification-time">${activity.created_at_date}</small>
+                </div>
+                <div class="unread-indicator"></div>
+            </div>
+        `;
+    });
+    
+    // Add "show more" if there are more than 4 unread activities
+    if (unreadActivities.length > 4) {
+        html += `
+            <div class="notification-item show-more" onclick="showAllNotificationsModal()" style="cursor: pointer;">
+                <div class="notification-icon">
+                    <i class="fas fa-ellipsis-h text-muted"></i>
+                </div>
+                <div class="notification-body">
+                    <h6 class="notification-title">Show ${unreadActivities.length - 4} more notifications</h6>
+                </div>
+            </div>
+        `;
+    }
+    
+    dropdownContent.innerHTML = html;
+}
+
+// Function to handle notification click
+function handleNotificationClick(activityId, activityType, entityId) {
+    console.log('Notification clicked:', activityId, activityType, entityId);
+    
+    // Mark as read immediately
+    markActivityAsRead(activityId);
+    
+    // Close the dropdown
+    closeNotificationDropdown();
+    
+    // Navigate based on activity type
+    switch(activityType) {
+        case 'announcement':
+            window.location.href = `${window.APP_BASE_URL}payer/announcements`;
+            break;
+        case 'contribution':
+            window.location.href = `${window.APP_BASE_URL}payer/contributions`;
+            break;
+        case 'payment':
+            window.location.href = `${window.APP_BASE_URL}payer/payment-history`;
+            break;
+        case 'payer':
+            window.location.href = `${window.APP_BASE_URL}payer/my-data`;
+            break;
+        default:
+            window.location.href = `${window.APP_BASE_URL}payer/dashboard`;
+    }
+}
+
+// Function to mark activity as read
+function markActivityAsRead(activityId) {
+    console.log('Marking activity as read:', activityId);
+    console.log('Current unread activities:', Array.from(unreadActivityIds));
+    
+    if (unreadActivityIds.has(activityId)) {
+        unreadActivityIds.delete(activityId);
+        console.log('Activity marked as read. Remaining unread:', unreadActivityIds.size);
+        
+        // Update badge
+        updateNotificationBadge();
+        
+        // Refresh the dropdown to hide the read notification
+        updateNotificationDropdown(currentActivities);
+        
+        // Send to server
+        fetch(`${window.APP_BASE_URL}payer/mark-activity-read/${activityId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        }).then(response => {
+            console.log('Server response for marking as read:', response.status);
+        }).catch(error => {
+            console.error('Error marking activity as read:', error);
+        });
+    } else {
+        console.log('Activity not found in unread set:', activityId);
+    }
+}
+
+// Function to update notification badge
+function updateNotificationBadge() {
+    const badge = document.getElementById('notificationBadge');
+    const count = unreadActivityIds.size;
+    
+    console.log('Updating notification badge. Count:', count);
+    console.log('Unread activity IDs:', Array.from(unreadActivityIds));
+    
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-block';
+        console.log('Badge shown with count:', count);
+    } else {
+        badge.style.display = 'none';
+        console.log('Badge hidden');
+    }
+}
+
+// Function to show notification badge
+function showNotificationBadge() {
+    updateNotificationBadge();
+}
+
+// Function to hide notification badge
+function hideNotificationBadge() {
+    unreadActivityIds.clear();
+    updateNotificationBadge();
+}
+
+// Function to show all notifications modal
+function showAllNotificationsModal() {
+    fetch(`${window.APP_BASE_URL}payer/get-all-activities`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.activities) {
+                // Create modal content
+                let html = `
+                    <div class="modal fade" id="allNotificationsModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">
+                                        <i class="fas fa-bell me-2"></i>All Notifications
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="notifications-list">
+                `;
+                
+                data.activities.forEach(activity => {
+                    const isUnread = unreadActivityIds.has(activity.id);
+                    const unreadClass = isUnread ? 'unread-notification' : '';
+                    
+                    html += `
+                        <div class="notification-item ${unreadClass}" 
+                             data-activity-id="${activity.id}"
+                             onclick="handleNotificationClick(${activity.id}, '${activity.activity_type}', ${activity.entity_id})"
+                             onmouseover="markActivityAsRead(${activity.id})">
+                            <div class="notification-icon">
+                                <i class="${activity.activity_icon} text-${activity.activity_color}"></i>
+                            </div>
+                            <div class="notification-body">
+                                <h6 class="notification-title">${activity.title}</h6>
+                                <p class="notification-text">${activity.description}</p>
+                                <small class="notification-time">${activity.created_at_date} at ${activity.created_at_time}</small>
+                            </div>
+                            ${isUnread ? '<div class="unread-indicator"></div>' : ''}
+                        </div>
+                    `;
+                });
+                
+                html += `
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    <button type="button" class="btn btn-primary" onclick="markAllAsRead()">Mark All as Read</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Remove existing modal if any
+                const existingModal = document.getElementById('allNotificationsModal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+                
+                // Add modal to body
+                document.body.insertAdjacentHTML('beforeend', html);
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('allNotificationsModal'));
+                modal.show();
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching all activities:', error);
+        });
+}
+
+// Function to mark all notifications as read
+function markAllAsRead() {
+    unreadActivityIds.forEach(activityId => {
+        markActivityAsRead(activityId);
+    });
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('allNotificationsModal'));
+    if (modal) {
+        modal.hide();
+    }
+}
+
+// Function to view announcement (for backward compatibility)
+function viewAnnouncement() {
+    localStorage.setItem('announcementViewed', 'true');
+    window.location.href = `${window.APP_BASE_URL}payer/announcements`;
+}
+
+// Function to close notification dropdown
+function closeNotificationDropdown() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown) {
+        dropdown.classList.remove('active');
+    }
+}
+
+// Start checking for new activities every 30 seconds
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Notification system initialized');
+    
+    // Initialize notification system
+    initializeNotificationSystem();
+    
     // Check immediately on page load
-    setTimeout(checkForNewAnnouncements, 2000);
+    setTimeout(checkForNewActivities, 2000);
     
     // Then check every 30 seconds
-    setInterval(checkForNewAnnouncements, 30000);
+    setInterval(checkForNewActivities, 30000);
     
-    // Add manual test buttons for debugging (remove in production)
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        // Test Announcement Button
-        const testButton = document.createElement('button');
-        testButton.textContent = 'Test Announcement';
-        testButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; background: red; color: white; padding: 10px; border: none; border-radius: 5px; cursor: pointer;';
-        testButton.onclick = function() {
-            console.log('Manual test triggered');
-            checkForNewAnnouncements();
-        };
-        document.body.appendChild(testButton);
-        
-        // Clear localStorage Button
-        const clearButton = document.createElement('button');
-        clearButton.textContent = 'Clear Cache';
-        clearButton.style.cssText = 'position: fixed; top: 50px; right: 10px; z-index: 9999; background: orange; color: white; padding: 10px; border: none; border-radius: 5px; cursor: pointer;';
-        clearButton.onclick = function() {
-            console.log('Clearing localStorage...');
-            localStorage.removeItem('lastShownAnnouncementId');
-            console.log('localStorage cleared. Next check should show new announcements.');
-        };
-        document.body.appendChild(clearButton);
-    }
 });
 
+// Function to initialize notification system
+function initializeNotificationSystem() {
+    console.log('Initializing notification system...');
+    
+    // Clear any existing unread activities
+    unreadActivityIds.clear();
+    
+    // Don't reset last shown ID - let it persist to avoid showing old notifications
+    // localStorage.removeItem('lastShownActivityId');
+    // lastShownActivityId = 0;
+    
+    console.log('Notification system initialized');
+}
+
+// Function to show activity notification (replaces announcement notification)
+function showActivityNotification(activityData) {
+    console.log('Showing activity notification:', activityData);
+    
+    // Show notification badge
+    showNotificationBadge();
+    
+    // Update dropdown content
+    updateActivityDropdown(activityData);
+    
+    // Populate modal content
+    document.getElementById('announcementTitle').textContent = activityData.title || 'New Activity';
+    document.getElementById('announcementText').textContent = activityData.description || 'No details available.';
+    
+    // Use backend-formatted date if available, otherwise format on frontend
+    const dateElement = document.getElementById('announcementDate');
+    if (activityData.created_at_date) {
+        dateElement.textContent = activityData.created_at_date;
+    } else {
+        dateElement.textContent = formatAnnouncementDate(activityData.created_at);
+    }
+    
+    document.getElementById('announcementAuthor').textContent = 'System';
+    
+    // Use backend-formatted time if available, otherwise format on frontend
+    const timeElement = document.getElementById('announcementTime');
+    if (activityData.created_at_time) {
+        timeElement.textContent = activityData.created_at_time;
+    } else {
+        timeElement.textContent = formatAnnouncementTime(activityData.created_at);
+    }
+    
+    // Set activity type and action
+    const activityType = activityData.activity_type || 'general';
+    const action = activityData.action || 'created';
+    
+    // Update type badge
+    const typeBadge = document.getElementById('announcementType');
+    const typeText = document.getElementById('announcementTypeText');
+    
+    let typeDisplay, alertClass;
+    switch(activityType) {
+        case 'announcement':
+            typeDisplay = 'Announcement Update';
+            alertClass = 'alert-info';
+            break;
+        case 'contribution':
+            typeDisplay = 'Contribution Update';
+            alertClass = 'alert-success';
+            break;
+        case 'payment':
+            typeDisplay = 'Payment Update';
+            alertClass = 'alert-warning';
+            break;
+        case 'payer':
+            typeDisplay = 'Account Update';
+            alertClass = 'alert-primary';
+            break;
+        default:
+            typeDisplay = 'System Update';
+            alertClass = 'alert-secondary';
+    }
+    
+    typeBadge.className = `alert ${alertClass} border-0 mb-3`;
+    typeText.textContent = typeDisplay;
+    
+    // Update priority badge based on action
+    const priorityBadge = document.getElementById('announcementPriority');
+    const priorityBadgeFooter = document.getElementById('announcementPriorityBadge');
+    
+    let priorityClass, priorityText;
+    switch(action) {
+        case 'created':
+            priorityClass = 'bg-success';
+            priorityText = 'NEW';
+            break;
+        case 'updated':
+            priorityClass = 'bg-warning';
+            priorityText = 'UPDATED';
+            break;
+        case 'deleted':
+            priorityClass = 'bg-danger';
+            priorityText = 'REMOVED';
+            break;
+        case 'published':
+            priorityClass = 'bg-primary';
+            priorityText = 'PUBLISHED';
+            break;
+        default:
+            priorityClass = 'bg-info';
+            priorityText = 'CHANGE';
+    }
+    
+    priorityBadge.className = `badge ${priorityClass}`;
+    priorityBadgeFooter.className = `badge ${priorityClass}`;
+    priorityBadge.textContent = priorityText;
+    priorityBadgeFooter.textContent = priorityText;
+    
+    // Add activity class to modal for styling
+    const modalContent = document.querySelector('#announcementNotificationModal .modal-content');
+    modalContent.className = `modal-content border-0 shadow-lg activity-${activityType}`;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('announcementNotificationModal'));
+    modal.show();
+    
+    // Add event listener for modal close
+    document.getElementById('announcementNotificationModal').addEventListener('hidden.bs.modal', function() {
+        // Check if user clicked "View All Announcements" button
+        const clickedViewAll = localStorage.getItem('announcementViewed');
+        if (clickedViewAll === 'true') {
+            // User read the activity, hide the badge
+            hideNotificationBadge();
+            localStorage.removeItem('announcementViewed');
+        }
+        // If user just closed without reading, badge stays visible
+    });
+    
+    // Play notification sound (optional)
+    playNotificationSound();
+}
+
+// Function to update activity dropdown
+function updateActivityDropdown(activityData) {
+    const latestAnnouncement = document.getElementById('latestAnnouncement');
+    const noNotifications = document.getElementById('noNotifications');
+    const dropdownTitle = document.getElementById('dropdownAnnouncementTitle');
+    const dropdownText = document.getElementById('dropdownAnnouncementText');
+    const dropdownTime = document.getElementById('dropdownAnnouncementTime');
+    
+    if (latestAnnouncement && dropdownTitle && dropdownText && dropdownTime) {
+        dropdownTitle.textContent = activityData.title || 'New Activity';
+        dropdownText.textContent = activityData.description || 'Click to view details';
+        
+        // Use backend-formatted date if available, otherwise format on frontend
+        if (activityData.created_at_date) {
+            dropdownTime.textContent = activityData.created_at_date;
+        } else {
+            dropdownTime.textContent = formatAnnouncementDate(activityData.created_at);
+        }
+        
+        latestAnnouncement.style.display = 'flex';
+        if (noNotifications) {
+            noNotifications.style.display = 'none';
+        }
+    }
+}
+
 // Make functions globally available
+window.showActivityNotification = showActivityNotification;
 window.showAnnouncementNotification = showAnnouncementNotification;
-window.checkForNewAnnouncements = checkForNewAnnouncements;
+window.checkForNewActivities = checkForNewActivities;
 window.showNotificationBadge = showNotificationBadge;
 window.hideNotificationBadge = hideNotificationBadge;
 window.updateNotificationDropdown = updateNotificationDropdown;

@@ -7,6 +7,7 @@ use App\Models\PayerModel;
 use App\Models\PaymentModel;
 use App\Models\AnnouncementModel;
 use App\Models\ContributionModel;
+use App\Models\ActivityLogModel;
 
 class DashboardController extends BaseController
 {
@@ -14,6 +15,7 @@ class DashboardController extends BaseController
     protected $paymentModel;
     protected $announcementModel;
     protected $contributionModel;
+    protected $activityLogModel;
 
     public function __construct()
     {
@@ -21,6 +23,7 @@ class DashboardController extends BaseController
         $this->paymentModel = new PaymentModel();
         $this->announcementModel = new AnnouncementModel();
         $this->contributionModel = new ContributionModel();
+        $this->activityLogModel = new ActivityLogModel();
     }
 
     public function index()
@@ -209,61 +212,189 @@ class DashboardController extends BaseController
         ]);
     }
 
-    public function checkNewAnnouncements()
+    public function checkNewActivities()
     {
-        // Get the last announcement ID that was shown to this payer
+        // Get the last activity ID that was shown to this payer
         $lastShownId = $this->request->getGet('last_shown_id') ?: 0;
         
         // Debug logging
-        log_message('info', "Checking for new announcements. Last shown ID: {$lastShownId}");
+        log_message('info', "Checking for new activities. Last shown ID: {$lastShownId}");
         
-        // Get the most recent announcement for payers with author information
-        $announcement = $this->announcementModel->select('
-            announcements.*,
-            users.username as created_by_name
-        ')
-        ->join('users', 'users.id = announcements.created_by', 'left')
-        ->where('announcements.status', 'published')
-        ->where("(announcements.target_audience = 'payers' OR announcements.target_audience = 'both' OR announcements.target_audience = 'all')")
-        ->orderBy('announcements.created_at', 'DESC')
-        ->first();
+        // Get recent activities for payers (limit to 10 for dropdown)
+        $activities = $this->activityLogModel->getRecentForPayers(10);
         
-        log_message('info', "Found announcement: " . json_encode($announcement));
+        log_message('info', "Found " . count($activities) . " activities");
         
-        if ($announcement && $announcement['id'] > $lastShownId) {
-            // Format author name
-            if (!empty($announcement['created_by_name'])) {
-                $announcement['author'] = $announcement['created_by_name'];
-            } else {
-                $announcement['author'] = 'Administrator';
+        if (!empty($activities)) {
+            // Format activities for frontend
+            foreach ($activities as &$activity) {
+                // Format the created_at time for Philippines timezone (UTC+8)
+                $createdAt = new \DateTime($activity['created_at'], new \DateTimeZone('UTC'));
+                $createdAt->setTimezone(new \DateTimeZone('Asia/Manila'));
+                $activity['created_at_formatted'] = $createdAt->format('Y-m-d H:i:s');
+                $activity['created_at_time'] = $createdAt->format('g:i A');
+                $activity['created_at_date'] = $createdAt->format('M d, Y');
+                
+                // Format activity data for frontend
+                $activity['activity_icon'] = $this->getActivityIcon($activity['activity_type'], $activity['action']);
+                $activity['activity_color'] = $this->getActivityColor($activity['activity_type'], $activity['action']);
             }
             
-            // Format the created_at time for Philippines timezone (UTC+8)
-            $createdAt = new \DateTime($announcement['created_at'], new \DateTimeZone('UTC'));
-            $createdAt->setTimezone(new \DateTimeZone('Asia/Manila'));
-            $announcement['created_at_formatted'] = $createdAt->format('Y-m-d H:i:s');
-            $announcement['created_at_time'] = $createdAt->format('g:i A');
-            $announcement['created_at_date'] = $createdAt->format('M d, Y');
+            // Check if there are new activities (greater than last shown ID)
+            $newActivities = array_filter($activities, function($activity) use ($lastShownId) {
+                return $activity['id'] > $lastShownId;
+            });
             
-            log_message('info', "Returning announcement with ID: {$announcement['id']}");
+            log_message('info', "Found " . count($newActivities) . " new activities");
             
             return $this->response->setJSON([
                 'success' => true,
-                'announcement' => $announcement
+                'activities' => $activities,
+                'newActivities' => array_values($newActivities),
+                'hasNew' => !empty($newActivities)
             ]);
         }
         
-        log_message('info', "No new announcements found");
+        log_message('info', "No activities found");
         
         return $this->response->setJSON([
             'success' => false,
-            'message' => 'No new announcements'
+            'message' => 'No activities',
+            'activities' => [],
+            'newActivities' => [],
+            'hasNew' => false
         ]);
     }
 
-    public function logout()
+    /**
+     * Get icon for activity type and action
+     */
+    private function getActivityIcon($activityType, $action)
     {
-        session()->destroy();
-        return redirect()->to('/');
+        $icons = [
+            'announcement' => [
+                'created' => 'fas fa-bullhorn',
+                'updated' => 'fas fa-edit',
+                'published' => 'fas fa-check-circle',
+                'unpublished' => 'fas fa-times-circle'
+            ],
+            'contribution' => [
+                'created' => 'fas fa-plus-circle',
+                'updated' => 'fas fa-edit',
+                'deleted' => 'fas fa-trash'
+            ],
+            'payment' => [
+                'created' => 'fas fa-money-bill-wave',
+                'updated' => 'fas fa-edit',
+                'deleted' => 'fas fa-trash'
+            ],
+            'payer' => [
+                'created' => 'fas fa-user-plus',
+                'updated' => 'fas fa-user-edit',
+                'deleted' => 'fas fa-user-times'
+            ],
+            'user' => [
+                'created' => 'fas fa-user-plus',
+                'updated' => 'fas fa-user-edit',
+                'deleted' => 'fas fa-user-times'
+            ]
+        ];
+        
+        return $icons[$activityType][$action] ?? 'fas fa-info-circle';
+    }
+
+    /**
+     * Get color for activity type and action
+     */
+    private function getActivityColor($activityType, $action)
+    {
+        $colors = [
+            'announcement' => [
+                'created' => 'primary',
+                'updated' => 'warning',
+                'published' => 'success',
+                'unpublished' => 'danger'
+            ],
+            'contribution' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger'
+            ],
+            'payment' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger'
+            ],
+            'payer' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger'
+            ],
+            'user' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger'
+            ]
+        ];
+        
+        return $colors[$activityType][$action] ?? 'info';
+    }
+
+    public function markActivityAsRead($activityId)
+    {
+        try {
+            $result = $this->activityLogModel->markAsRead($activityId);
+            
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Activity marked as read'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to mark activity as read'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function getAllActivities()
+    {
+        try {
+            // Get all activities for payers
+            $activities = $this->activityLogModel->getRecentForPayers(50); // Get more for the full modal
+            
+            if (!empty($activities)) {
+                // Format activities for frontend
+                foreach ($activities as &$activity) {
+                    // Format the created_at time for Philippines timezone (UTC+8)
+                    $createdAt = new \DateTime($activity['created_at'], new \DateTimeZone('UTC'));
+                    $createdAt->setTimezone(new \DateTimeZone('Asia/Manila'));
+                    $activity['created_at_formatted'] = $createdAt->format('Y-m-d H:i:s');
+                    $activity['created_at_time'] = $createdAt->format('g:i A');
+                    $activity['created_at_date'] = $createdAt->format('M d, Y');
+                    
+                    // Format activity data for frontend
+                    $activity['activity_icon'] = $this->getActivityIcon($activity['activity_type'], $activity['action']);
+                    $activity['activity_color'] = $this->getActivityColor($activity['activity_type'], $activity['action']);
+                }
+            }
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'activities' => $activities
+            ]);
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
     }
 }

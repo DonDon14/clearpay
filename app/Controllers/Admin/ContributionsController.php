@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\ContributionModel;
+use App\Services\ActivityLogger;
 
 class ContributionsController extends BaseController
 {
@@ -74,12 +75,19 @@ class ContributionsController extends BaseController
             }
 
             if ($result) {
-                // Log user activity
-                $activityType = $id ? 'update' : 'create';
-                $activityDescription = $id 
-                    ? 'Updated contribution: ' . $data['title'] 
-                    : 'Added new contribution: ' . $data['title'];
-                $this->logUserActivity($activityType, 'contribution', $id ?: $result, $activityDescription);
+                // Log activity using new ActivityLogger
+                $activityLogger = new ActivityLogger();
+                
+                if ($id) {
+                    // Update existing contribution - get old data first and include ID
+                    $oldData = $model->find($id);
+                    $data['id'] = $id;
+                    $activityLogger->logContribution('updated', $data, $oldData);
+                } else {
+                    // Create new contribution - use the insert result as ID
+                    $data['id'] = $result;
+                    $activityLogger->logContribution('created', $data);
+                }
                 
                 session()->setFlashdata('success', $message);
                 return $this->response->setJSON([

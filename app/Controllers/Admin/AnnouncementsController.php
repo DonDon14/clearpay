@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\AnnouncementModel;
+use App\Services\ActivityLogger;
 
 class AnnouncementsController extends BaseController
 {
@@ -90,27 +91,17 @@ class AnnouncementsController extends BaseController
             }
 
             if ($result) {
-                // Log user activity
+                // Log activity using new ActivityLogger
+                $activityLogger = new ActivityLogger();
+                
                 if ($id && isset($existing)) {
-                    // Build activity description with changes for updates
-                    $changes = [];
-                    if ($data['title'] !== $existing['title']) {
-                        $changes[] = "Title: {$existing['title']} → {$data['title']}";
-                    }
-                    if ($data['type'] !== $existing['type']) {
-                        $changes[] = "Type: {$existing['type']} → {$data['type']}";
-                    }
-                    if ($data['status'] !== $existing['status']) {
-                        $changes[] = "Status: {$existing['status']} → {$data['status']}";
-                    }
-                    
-                    $activityDescription = !empty($changes) 
-                        ? 'Updated announcement (' . implode(', ', $changes) . ')' 
-                        : 'Updated announcement: ' . $data['title'];
-                    $this->logUserActivity('update', 'announcement', $id, $activityDescription);
+                    // Update existing announcement - include the ID
+                    $data['id'] = $id;
+                    $activityLogger->logAnnouncement('updated', $data, $existing);
                 } else {
-                    // For new announcements, just show the title
-                    $this->logUserActivity('create', 'announcement', $result, 'Added new announcement: ' . $data['title']);
+                    // Create new announcement - use the insert result as ID
+                    $data['id'] = $result;
+                    $activityLogger->logAnnouncement('created', $data);
                 }
                 
                 return $this->response->setJSON([
@@ -194,8 +185,9 @@ class AnnouncementsController extends BaseController
             $deleted = $model->delete($id);
 
             if ($deleted) {
-                // Log user activity
-                $this->logUserActivity('delete', 'announcement', $id, 'Deleted announcement: ' . $announcement['title']);
+                // Log activity using new ActivityLogger
+                $activityLogger = new ActivityLogger();
+                $activityLogger->logAnnouncement('deleted', $announcement);
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -258,8 +250,11 @@ class AnnouncementsController extends BaseController
             $updated = $model->update($id, $data);
 
             if ($updated) {
-                // Log user activity
-                $this->logUserActivity('update', 'announcement', $id, 'Updated announcement status to: ' . $newStatus . ' - ' . $announcement['title']);
+                // Log activity using new ActivityLogger
+                $activityLogger = new ActivityLogger();
+                $updatedData = array_merge($announcement, $data);
+                $action = ($newStatus === 'published') ? 'published' : 'unpublished';
+                $activityLogger->logAnnouncement($action, $updatedData, $announcement);
                 
                 return $this->response->setJSON([
                     'success' => true,

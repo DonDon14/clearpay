@@ -21,40 +21,25 @@
                <div class="notification-dropdown" id="notificationDropdown">
                  <div class="dropdown-header">
                    <h6 class="mb-0">
-                     <i class="fas fa-bell me-2"></i>Announcements
+                     <i class="fas fa-bell me-2"></i>Notifications
                    </h6>
                    <button class="btn-close btn-close-sm" onclick="closeNotificationDropdown()"></button>
                  </div>
                  
                  <div class="dropdown-content" id="notificationContent">
-                   <div class="notification-item" id="latestAnnouncement" style="display: none;">
-                     <div class="notification-icon">
-                       <i class="fas fa-bullhorn text-primary"></i>
-                     </div>
-                     <div class="notification-body">
-                       <h6 class="notification-title" id="dropdownAnnouncementTitle">New Announcement</h6>
-                       <p class="notification-text" id="dropdownAnnouncementText">Click to view details</p>
-                       <small class="notification-time" id="dropdownAnnouncementTime">Just now</small>
-                     </div>
-                     <div class="notification-action">
-                       <button class="btn btn-sm btn-outline-primary" onclick="viewAnnouncement()">
-                         <i class="fas fa-eye"></i>
-                       </button>
-                     </div>
-                   </div>
-                   
+                   <!-- Dynamic notification items will be inserted here -->
                    <div class="no-notifications" id="noNotifications">
                      <div class="text-center py-3">
                        <i class="fas fa-bell-slash fa-2x text-muted mb-2"></i>
-                       <p class="text-muted mb-0">No new announcements</p>
+                       <p class="text-muted mb-0">No new notifications</p>
                      </div>
                    </div>
                  </div>
                  
                  <div class="dropdown-footer">
-                   <a href="<?= base_url('payer/announcements') ?>" class="btn btn-sm btn-primary w-100">
-                     <i class="fas fa-list me-1"></i>View All Announcements
-                   </a>
+                   <button class="btn btn-sm btn-primary w-100" onclick="showAllNotificationsModal()">
+                     <i class="fas fa-list me-1"></i>View All Notifications
+                   </button>
                  </div>
                </div>
              </div>
