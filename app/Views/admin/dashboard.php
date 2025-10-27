@@ -39,6 +39,25 @@
                 'text' => ($todayPayments ?? '0')
             ]) ?>
         </div>
+        <div class="col-xl-3 col-lg-6 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="text-warning mb-2 position-relative">
+                        <i class="fas fa-clock fa-2x"></i>
+                        <?php if (($pendingPaymentRequests ?? 0) > 0): ?>
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark">
+                                <?= $pendingPaymentRequests ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+                    <h5 class="card-title">Payment Requests</h5>
+                    <p class="card-text text-muted"><?= $pendingPaymentRequests ?? '0' ?> pending</p>
+                    <?php if (($pendingPaymentRequests ?? 0) > 0): ?>
+                        <small class="text-warning fw-bold">Action Required</small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -144,9 +163,16 @@
                                  onmouseout="this.style.backgroundColor=''" 
                                  onclick="showPaymentReceipt(<?= htmlspecialchars(json_encode($payment), ENT_QUOTES, 'UTF-8') ?>)">
                                 <div class="me-3">
-                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                        <i class="fas fa-user"></i>
-                                    </div>
+                                    <?php if (!empty($payment['profile_picture'])): ?>
+                                        <img src="<?= base_url($payment['profile_picture']) ?>" 
+                                             alt="Profile Picture" 
+                                             class="rounded-circle" 
+                                             style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
+                                    <?php else: ?>
+                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1 fw-semibold"><?= esc($payment['payer_name']) ?></h6>
@@ -204,27 +230,34 @@
                         <?php foreach ($userActivities as $activity): ?>
                             <div class="d-flex align-items-start p-3 border-bottom">
                                 <div class="me-3">
-                                    <?php 
-                                        $activityIcon = match($activity['activity_type']) {
-                                            'create' => 'fa-plus-circle',
-                                            'update' => 'fa-edit',
-                                            'delete' => 'fa-trash',
-                                            'login' => 'fa-sign-in-alt',
-                                            'logout' => 'fa-sign-out-alt',
-                                            default => 'fa-circle'
-                                        };
-                                        $activityColor = match($activity['activity_type']) {
-                                            'create' => 'bg-success',
-                                            'update' => 'bg-info',
-                                            'delete' => 'bg-danger',
-                                            'login' => 'bg-primary',
-                                            'logout' => 'bg-secondary',
-                                            default => 'bg-secondary'
-                                        };
-                                    ?>
-                                    <div class="<?= $activityColor ?> text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                        <i class="fas <?= $activityIcon ?>"></i>
-                                    </div>
+                                    <?php if (!empty($activity['profile_picture'])): ?>
+                                        <img src="<?= base_url($activity['profile_picture']) ?>" 
+                                             alt="Profile Picture" 
+                                             class="rounded-circle" 
+                                             style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
+                                    <?php else: ?>
+                                        <?php 
+                                            $activityIcon = match($activity['activity_type']) {
+                                                'create' => 'fa-plus-circle',
+                                                'update' => 'fa-edit',
+                                                'delete' => 'fa-trash',
+                                                'login' => 'fa-sign-in-alt',
+                                                'logout' => 'fa-sign-out-alt',
+                                                default => 'fa-circle'
+                                            };
+                                            $activityColor = match($activity['activity_type']) {
+                                                'create' => 'bg-success',
+                                                'update' => 'bg-info',
+                                                'delete' => 'bg-danger',
+                                                'login' => 'bg-primary',
+                                                'logout' => 'bg-secondary',
+                                                default => 'bg-secondary'
+                                            };
+                                        ?>
+                                        <div class="<?= $activityColor ?> text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas <?= $activityIcon ?>"></i>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1 fw-semibold"><?= esc($activity['user_name']) ?? esc($activity['username']) ?></h6>

@@ -69,7 +69,7 @@ body:has(#qrReceiptModal.show) #allPaymentsModal {
         <div class="modal-content shadow-lg">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="qrReceiptModalLabel">
-                    <i class="fas fa-receipt me-2"></i><?= esc($title) ?>
+                    <i class="fas fa-qrcode me-2"></i>Payment Receipts
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

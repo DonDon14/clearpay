@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Models\PaymentModel;
 use App\Models\ContributionModel;
+use App\Models\PaymentRequestModel;
 
 class DashboardController extends BaseController
 {
@@ -18,7 +19,7 @@ class DashboardController extends BaseController
 
         $paymentModel = new PaymentModel();
         $allPayments = $paymentModel
-            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title')
+            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, payers.profile_picture, contributions.title as contribution_title')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->orderBy('payments.payment_date', 'DESC')
@@ -57,12 +58,12 @@ class DashboardController extends BaseController
 
         // --- Fetch Recent Payments ---
         $recentPayments = $paymentModel
-            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title, contributions.id as contrib_id')
+            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, payers.profile_picture, contributions.title as contribution_title, contributions.id as contrib_id')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->orderBy('payments.payment_date', 'DESC')
-            ->limit(4)
-            ->findAll(); // last 4 payments
+            ->limit(6)
+            ->findAll(); // last 6 payments
 
         // Add computed status to each payment
         foreach ($recentPayments as &$payment) {
@@ -85,7 +86,7 @@ class DashboardController extends BaseController
         // --- Fetch User Activities ---
         $db = \Config\Database::connect();
         $userActivities = $db->table('user_activities ua')
-            ->select('ua.*, u.name as user_name, u.username, u.role')
+            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture')
             ->join('users u', 'u.id = ua.user_id', 'left')
             ->orderBy('ua.created_at', 'DESC')
             ->limit(5)
@@ -94,11 +95,15 @@ class DashboardController extends BaseController
         
         // Fetch all user activities for the modal
         $allUserActivities = $db->table('user_activities ua')
-            ->select('ua.*, u.name as user_name, u.username, u.role')
+            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture')
             ->join('users u', 'u.id = ua.user_id', 'left')
             ->orderBy('ua.created_at', 'DESC')
             ->get()
             ->getResultArray();
+
+        // --- Fetch Payment Requests Count ---
+        $paymentRequestModel = new PaymentRequestModel();
+        $pendingPaymentRequests = $paymentRequestModel->getPendingCount();
 
         // --- Prepare Data for View ---
         $data = [
@@ -106,6 +111,7 @@ class DashboardController extends BaseController
             'verifiedPayments'  => $verifiedPayments,
             'partialPayments'   => $partialPayments,
             'todayPayments'     => $todayPayments,
+            'pendingPaymentRequests' => $pendingPaymentRequests,
             'recentPayments'    => $recentPayments,
             'allPayments'       => $allPayments,
             'contributions'     => $contributions,
@@ -230,4 +236,254 @@ class DashboardController extends BaseController
         return $this->response->setJSON(['success' => true]);
     }
 
+    public function paymentRequests()
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return redirect()->to('/admin/login');
+        }
+
+        $paymentRequestModel = new PaymentRequestModel();
+        
+        // Get all payment requests with details
+        $paymentRequests = $paymentRequestModel->getRequestsWithDetails();
+        
+        // Get stats
+        $pendingCount = $paymentRequestModel->where('status', 'pending')->countAllResults();
+        $approvedCount = $paymentRequestModel->where('status', 'approved')->countAllResults();
+        $rejectedCount = $paymentRequestModel->where('status', 'rejected')->countAllResults();
+        $processedCount = $paymentRequestModel->where('status', 'processed')->countAllResults();
+
+        $data = [
+            'title' => 'Payment Requests',
+            'pageTitle' => 'Payment Requests Management',
+            'pageSubtitle' => 'Manage online payment requests from payers',
+            'paymentRequests' => $paymentRequests,
+            'stats' => [
+                'pending' => $pendingCount,
+                'approved' => $approvedCount,
+                'rejected' => $rejectedCount,
+                'processed' => $processedCount,
+                'total' => count($paymentRequests)
+            ]
+        ];
+
+        return view('admin/payment-requests', $data);
+    }
+
+    public function approvePaymentRequest()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $requestId = $this->request->getPost('request_id');
+        $adminNotes = $this->request->getPost('admin_notes');
+        $processedBy = session()->get('user-id');
+
+        if (!$requestId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Request ID is required'
+            ]);
+        }
+
+        try {
+            $paymentRequestModel = new PaymentRequestModel();
+            $result = $paymentRequestModel->approveRequest($requestId, $processedBy, $adminNotes);
+            
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment request approved successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to approve payment request'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function rejectPaymentRequest()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $requestId = $this->request->getPost('request_id');
+        $adminNotes = $this->request->getPost('admin_notes');
+        $processedBy = session()->get('user-id');
+
+        if (!$requestId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Request ID is required'
+            ]);
+        }
+
+        try {
+            $paymentRequestModel = new PaymentRequestModel();
+            $result = $paymentRequestModel->rejectRequest($requestId, $processedBy, $adminNotes);
+            
+            if ($result) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment request rejected'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to reject payment request'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function processPaymentRequest()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $requestId = $this->request->getPost('request_id');
+        $adminNotes = $this->request->getPost('admin_notes');
+        $processedBy = session()->get('user-id');
+
+        if (!$requestId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Request ID is required'
+            ]);
+        }
+
+        try {
+            $paymentRequestModel = new PaymentRequestModel();
+            
+            // Get the payment request details
+            $request = $paymentRequestModel->find($requestId);
+            if (!$request) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment request not found'
+                ]);
+            }
+
+            // Create actual payment record
+            $paymentModel = new PaymentModel();
+            $paymentData = [
+                'payer_id' => $request['payer_id'],
+                'contribution_id' => $request['contribution_id'],
+                'amount_paid' => $request['requested_amount'],
+                'payment_method' => $request['payment_method'],
+                'payment_status' => 'fully paid',
+                'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId), 0, 12)),
+                'receipt_number' => 'RCPT-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId . time()), 0, 12)),
+                'payment_date' => date('Y-m-d H:i:s'),
+                'recorded_by' => $processedBy
+            ];
+
+            $paymentId = $paymentModel->insert($paymentData);
+            
+            if ($paymentId) {
+                // Mark payment request as processed
+                $paymentRequestModel->processRequest($requestId, $processedBy, $adminNotes);
+                
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment request processed and payment recorded successfully',
+                    'payment_id' => $paymentId
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to create payment record'
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function getPaymentRequestDetails()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $requestId = $this->request->getGet('request_id');
+        
+        if (!$requestId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Request ID is required'
+            ]);
+        }
+
+        try {
+            $paymentRequestModel = new PaymentRequestModel();
+            
+            // Get the specific request by ID with all details
+            $request = $paymentRequestModel->select('
+                payment_requests.*,
+                payers.payer_name,
+                payers.contact_number,
+                payers.email_address,
+                payers.profile_picture,
+                contributions.title as contribution_title,
+                contributions.description as contribution_description,
+                contributions.amount as contribution_amount,
+                users.username as processed_by_name
+            ')
+            ->join('payers', 'payers.id = payment_requests.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payment_requests.contribution_id', 'left')
+            ->join('users', 'users.id = payment_requests.processed_by', 'left')
+            ->where('payment_requests.id', $requestId)
+            ->first();
+            
+            if (!$request) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment request not found'
+                ]);
+            }
+
+            return $this->response->setJSON([
+                'success' => true,
+                'request' => $request
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
 }

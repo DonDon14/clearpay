@@ -27,6 +27,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= base_url('payment-requests') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payment Requests') ? 'active' : '' ?>" data-tooltip="Payment Requests">
+                        <i class="fas fa-paper-plane"></i> 
+                        <span class="menu-text">Payment Requests</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= base_url('contributions') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Contributions') ? 'active' : '' ?>" data-tooltip="Contributions">
                         <i class="fas fa-hand-holding-usd"></i> 
                         <span class="menu-text">Contributions</span>

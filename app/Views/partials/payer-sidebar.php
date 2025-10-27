@@ -45,6 +45,12 @@
                     <span class="menu-text">Payment History</span>
                 </a>
             </li>
+            <li>
+                <a href="<?= base_url('payer/payment-requests') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payment Requests') ? 'active' : '' ?>" data-tooltip="Payment Requests">
+                    <i class="fas fa-paper-plane"></i> 
+                    <span class="menu-text">Payment Requests</span>
+                </a>
+            </li>
         </ul>
     </div>
 

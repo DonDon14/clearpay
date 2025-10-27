@@ -46,6 +46,13 @@ $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth'
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
 $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'auth']);
 
+// Payment Requests Management Routes
+$routes->get('/payment-requests', 'Admin\DashboardController::paymentRequests', ['filter' => 'auth']);
+$routes->post('/admin/approve-payment-request', 'Admin\DashboardController::approvePaymentRequest', ['filter' => 'auth']);
+$routes->post('/admin/reject-payment-request', 'Admin\DashboardController::rejectPaymentRequest', ['filter' => 'auth']);
+$routes->post('/admin/process-payment-request', 'Admin\DashboardController::processPaymentRequest', ['filter' => 'auth']);
+$routes->get('/admin/get-payment-request-details', 'Admin\DashboardController::getPaymentRequestDetails', ['filter' => 'auth']);
+
 // Payments Management Routes
 $routes->get('dashboard/recentPayments', 'Admin\DashboardController::recentPayments', ['filter' => 'auth']);
 $routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
@@ -85,6 +92,9 @@ $routes->post('payer/loginPost', 'Payer\LoginController::loginPost');
         $routes->get('contributions', 'Payer\DashboardController::contributions');
         $routes->get('get-contribution-payments/(:num)', 'Payer\DashboardController::getContributionPayments/$1');
         $routes->get('payment-history', 'Payer\DashboardController::paymentHistory');
+        $routes->get('payment-requests', 'Payer\DashboardController::paymentRequests');
+        $routes->post('submit-payment-request', 'Payer\DashboardController::submitPaymentRequest');
+        $routes->get('get-contribution-details', 'Payer\DashboardController::getContributionDetails');
         $routes->get('check-new-activities', 'Payer\DashboardController::checkNewActivities');
         $routes->post('mark-activity-read/(:num)', 'Payer\DashboardController::markActivityAsRead/$1');
         $routes->get('get-all-activities', 'Payer\DashboardController::getAllActivities');

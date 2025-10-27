@@ -27,15 +27,36 @@
       <!-- Header -->
       <header class="header">
         <?php 
-        // Get payer data for header
+        // Get payer data for header from session
+        $payerData = [
+            'profile_picture' => session('payer_profile_picture')
+        ];
+        
+        // Debug: Check session data
         $payerId = session('payer_id');
-        $payerModel = new \App\Models\PayerModel();
-        $payerData = $payerId ? $payerModel->find($payerId) : null;
+        $profilePicture = session('payer_profile_picture');
+        
+        // If no profile picture in session, try to get from database
+        if (!$profilePicture && $payerId) {
+            $payerModel = new \App\Models\PayerModel();
+            $payer = $payerModel->find($payerId);
+            if ($payer && !empty($payer['profile_picture'])) {
+                $payerData['profile_picture'] = $payer['profile_picture'];
+                // Update session for future requests
+                session()->set('payer_profile_picture', $payer['profile_picture']);
+            }
+        }
+        
+        // Debug logging
+        log_message('info', 'Layout Debug - Payer ID: ' . $payerId);
+        log_message('info', 'Layout Debug - Profile Picture from session: ' . ($profilePicture ?? 'null'));
+        log_message('info', 'Layout Debug - Final Profile Picture: ' . ($payerData['profile_picture'] ?? 'null'));
         ?>
         <?= $this->include('partials/payer-header', [
           'pageTitle' => $pageTitle ?? 'Dashboard',
           'pageSubtitle' => $pageSubtitle ?? 'Welcome back to ClearPay',
-          'payerData' => $payerData
+          'payerData' => $payerData,
+          'debug_profile_picture' => $payerData['profile_picture'] ?? 'null'
         ]) ?>
       </header>
       

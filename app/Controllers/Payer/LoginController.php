@@ -57,6 +57,7 @@ class LoginController extends BaseController
             'payer_id' => $payer['id'],
             'payer_name' => $payer['payer_name'],
             'payer_email' => $payer['email_address'],
+            'payer_profile_picture' => $payer['profile_picture'] ?? null,
             'payer_logged_in' => true,
         ]);
 

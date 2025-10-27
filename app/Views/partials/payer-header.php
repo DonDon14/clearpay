@@ -50,8 +50,18 @@
       <button class="user-menu-btn" id="userMenuBtn">
         <div class="user-avatar">
           <div class="avatar-circle">
-            <?php if (isset($payerData) && !empty($payerData['profile_picture'])): ?>
-              <img src="<?= base_url($payerData['profile_picture']) ?>" 
+            <?php 
+            // Get profile picture directly from session as fallback
+            $profilePicture = $payerData['profile_picture'] ?? session('payer_profile_picture');
+            
+            // Debug: Log what we're receiving
+            log_message('info', 'Header Debug - PayerData: ' . json_encode($payerData ?? 'null'));
+            log_message('info', 'Header Debug - Profile Picture from payerData: ' . ($payerData['profile_picture'] ?? 'null'));
+            log_message('info', 'Header Debug - Profile Picture from session: ' . (session('payer_profile_picture') ?? 'null'));
+            log_message('info', 'Header Debug - Final Profile Picture: ' . ($profilePicture ?? 'null'));
+            ?>
+            <?php if (!empty($profilePicture)): ?>
+              <img src="<?= base_url($profilePicture) ?>" 
                    alt="Profile Picture" 
                    class="avatar-image">
             <?php else: ?>
@@ -71,8 +81,12 @@
       <div class="user-dropdown" id="userDropdown">
         <div class="user-profile-info">
           <div class="user-avatar-large">
-            <?php if (isset($payerData) && !empty($payerData['profile_picture'])): ?>
-              <img src="<?= base_url($payerData['profile_picture']) ?>" 
+            <?php 
+            // Use the same profile picture logic as header avatar
+            $dropdownProfilePicture = $payerData['profile_picture'] ?? session('payer_profile_picture');
+            ?>
+            <?php if (!empty($dropdownProfilePicture)): ?>
+              <img src="<?= base_url($dropdownProfilePicture) ?>" 
                    alt="Profile Picture" 
                    class="avatar-image-large">
             <?php else: ?>

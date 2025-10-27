@@ -15,6 +15,24 @@
                         <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Student Information</h6>
                     </div>
                     <div class="card-body">
+                        <!-- Profile Picture Section -->
+                        <div class="row mb-4">
+                            <div class="col-12 text-center">
+                                <div class="profile-picture-container d-inline-block">
+                                    <div class="profile-picture-wrapper" style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; border: 4px solid #e9ecef; display: flex; align-items: center; justify-content: center; background: #f8f9fa;">
+                                        <img id="viewPayerProfilePicture" 
+                                             src="" 
+                                             alt="Profile Picture" 
+                                             style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                                        <i class="fas fa-user fa-3x text-muted" id="viewPayerProfileIcon"></i>
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">Profile Picture</small>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="text-muted small mb-1">Student ID</label>

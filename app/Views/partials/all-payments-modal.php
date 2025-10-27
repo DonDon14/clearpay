@@ -94,6 +94,7 @@ body.modal-open .main-content {
                         <table class="table table-striped table-hover align-middle" id="paymentsTable">
                             <thead>
                                 <tr>
+                                    <th>Profile</th>
                                     <th>Payer Name</th>
                                     <th>Contribution</th>
                                     <th>Amount Paid</th>
@@ -105,6 +106,18 @@ body.modal-open .main-content {
                             <tbody>
                                 <?php foreach ($allPayments as $payment): ?>
                                     <tr class="payment-row" data-payment-id="<?= esc($payment['id']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>" data-payment-data="<?= esc(json_encode($payment)) ?>">
+                                        <td class="payment-cell-clickable">
+                                            <?php if (!empty($payment['profile_picture'])): ?>
+                                                <img src="<?= base_url($payment['profile_picture']) ?>" 
+                                                     alt="Profile Picture" 
+                                                     class="rounded-circle" 
+                                                     style="width: 35px; height: 35px; object-fit: cover; border: 2px solid #e9ecef;">
+                                            <?php else: ?>
+                                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 35px; height: 35px;">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                            <?php endif; ?>
+                                        </td>
                                         <td class="payment-cell-clickable"><?= esc($payment['payer_name']) ?></td>
                                         <td class="payment-cell-clickable"><?= esc($payment['contribution_title']) ?></td>
                                         <td class="payment-cell-clickable">₱<?= number_format($payment['amount_paid'], 2) ?></td>
@@ -167,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const tableRows = document.querySelectorAll('#paymentsTable tbody tr');
 
         tableRows.forEach(row => {
-            const payerName = row.querySelector('td:first-child').textContent.toLowerCase().trim();
+            const payerName = row.querySelector('td:nth-child(2)').textContent.toLowerCase().trim();
             
             // Also try to get payer ID from data attribute if available
             const payerId = row.getAttribute('data-payer-id') || '';

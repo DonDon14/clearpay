@@ -8,6 +8,7 @@ use App\Models\PaymentModel;
 use App\Models\AnnouncementModel;
 use App\Models\ContributionModel;
 use App\Models\ActivityLogModel;
+use App\Models\PaymentRequestModel;
 
 class DashboardController extends BaseController
 {
@@ -16,6 +17,7 @@ class DashboardController extends BaseController
     protected $announcementModel;
     protected $contributionModel;
     protected $activityLogModel;
+    protected $paymentRequestModel;
 
     public function __construct()
     {
@@ -24,6 +26,7 @@ class DashboardController extends BaseController
         $this->announcementModel = new AnnouncementModel();
         $this->contributionModel = new ContributionModel();
         $this->activityLogModel = new ActivityLogModel();
+        $this->paymentRequestModel = new PaymentRequestModel();
     }
 
     public function index()
@@ -176,25 +179,28 @@ class DashboardController extends BaseController
         // Generate unique filename
         $newName = 'payer_' . $payerId . '_' . time() . '.' . $file->getExtension();
         
-        if ($file->move($uploadPath, $newName)) {
-            // Get current payer data to delete old profile picture
-            $payer = $this->payerModel->find($payerId);
-            $oldProfilePicture = $payer['profile_picture'] ?? null;
-            
-            // Update database with new profile picture path
-            $profilePicturePath = 'uploads/profile/' . $newName;
-            $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
-            
-            // Delete old profile picture if it exists
-            if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
-                unlink(FCPATH . $oldProfilePicture);
-            }
+                if ($file->move($uploadPath, $newName)) {
+                    // Get current payer data to delete old profile picture
+                    $payer = $this->payerModel->find($payerId);
+                    $oldProfilePicture = $payer['profile_picture'] ?? null;
+                    
+                    // Update database with new profile picture path
+                    $profilePicturePath = 'uploads/profile/' . $newName;
+                    $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
+                    
+                    // Update session with new profile picture path
+                    session()->set('payer_profile_picture', $profilePicturePath);
+                    
+                    // Delete old profile picture if it exists
+                    if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
+                        unlink(FCPATH . $oldProfilePicture);
+                    }
 
-            return $this->response->setJSON([
-                'success' => true,
-                'message' => 'Profile picture uploaded successfully',
-                'profile_picture' => base_url($profilePicturePath)
-            ]);
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'message' => 'Profile picture uploaded successfully',
+                        'profile_picture' => base_url($profilePicturePath)
+                    ]);
         } else {
             return $this->response->setJSON([
                 'success' => false,
@@ -243,20 +249,54 @@ class DashboardController extends BaseController
             payers.contact_number,
             payers.email_address,
             contributions.title as contribution_title,
+            contributions.description as contribution_description,
+            contributions.amount as contribution_amount,
             users.username as recorded_by_name
         ')
         ->join('payers', 'payers.id = payments.payer_id', 'left')
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
+        ->orderBy('contributions.title', 'ASC')
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
+        
+        // Group payments by contribution
+        $contributionsWithPayments = [];
+        foreach ($payments as $payment) {
+            $contributionId = $payment['contribution_id'];
+            $contributionTitle = $payment['contribution_title'];
+            
+            if (!isset($contributionsWithPayments[$contributionId])) {
+                $contributionsWithPayments[$contributionId] = [
+                    'id' => $contributionId,
+                    'title' => $contributionTitle,
+                    'description' => $payment['contribution_description'],
+                    'amount' => $payment['contribution_amount'],
+                    'payments' => []
+                ];
+            }
+            
+            $contributionsWithPayments[$contributionId]['payments'][] = $payment;
+        }
+        
+        // Calculate total paid for each contribution
+        foreach ($contributionsWithPayments as &$contribution) {
+            $totalPaid = 0;
+            foreach ($contribution['payments'] as $payment) {
+                $totalPaid += $payment['amount_paid'];
+            }
+            $contribution['total_paid'] = $totalPaid;
+            $contribution['remaining_amount'] = $contribution['amount'] - $totalPaid;
+            $contribution['is_fully_paid'] = $totalPaid >= $contribution['amount'];
+            $contribution['is_partially_paid'] = $totalPaid > 0 && $totalPaid < $contribution['amount'];
+        }
         
         $data = [
             'title' => 'Payment History',
             'pageTitle' => 'Payment History',
             'pageSubtitle' => 'View all your payment transactions',
-            'payments' => $payments
+            'contributions' => $contributionsWithPayments
         ];
         
         return view('payer/payment-history', $data);
@@ -529,6 +569,205 @@ class DashboardController extends BaseController
                 'success' => true,
                 'activities' => $activities
             ]);
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function paymentRequests()
+    {
+        $payerId = session('payer_id');
+        
+        // Get active contributions for the dropdown
+        $contributions = $this->contributionModel->where('status', 'active')
+            ->orderBy('title', 'ASC')
+            ->findAll();
+        
+        // Get payer's payment requests
+        $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
+        
+        $data = [
+            'title' => 'Payment Requests',
+            'pageTitle' => 'Payment Requests',
+            'pageSubtitle' => 'Submit online payment requests',
+            'contributions' => $contributions,
+            'paymentRequests' => $paymentRequests
+        ];
+        
+        return view('payer/payment-requests', $data);
+    }
+
+    public function submitPaymentRequest()
+    {
+        // Check if it's an AJAX request or if it's a POST request (more flexible)
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+            log_message('error', 'Invalid request method for payment request submission');
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            log_message('error', 'No payer ID in session for payment request submission');
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Please log in to submit payment requests'
+            ]);
+        }
+
+        $validation = \Config\Services::validation();
+        $validation->setRules([
+            'contribution_id' => 'required|integer',
+            'requested_amount' => 'required|decimal|greater_than[0]',
+            'payment_method' => 'required|in_list[online,bank_transfer,gcash,paymaya]',
+            'notes' => 'permit_empty|max_length[500]'
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validation->getErrors()
+            ]);
+        }
+
+        try {
+            // Get contribution details
+            $contribution = $this->contributionModel->find($this->request->getPost('contribution_id'));
+            if (!$contribution) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+
+            // Check if amount is valid
+            $requestedAmount = (float)$this->request->getPost('requested_amount');
+            if ($requestedAmount > $contribution['amount']) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Requested amount cannot exceed contribution amount (₱' . number_format($contribution['amount'], 2) . ')'
+                ]);
+            }
+
+            // Handle file upload for proof of payment
+            $proofOfPaymentPath = null;
+            $file = $this->request->getFile('proof_of_payment');
+            
+            if ($file && $file->isValid() && !$file->hasMoved()) {
+                $uploadPath = FCPATH . 'uploads/payment_proofs/';
+                
+                // Create directory if it doesn't exist
+                if (!is_dir($uploadPath)) {
+                    mkdir($uploadPath, 0755, true);
+                }
+                
+                $newName = 'proof_' . $payerId . '_' . time() . '.' . $file->getExtension();
+                $file->move($uploadPath, $newName);
+                $proofOfPaymentPath = 'uploads/payment_proofs/' . $newName;
+            }
+
+            // Create payment request
+            $requestData = [
+                'payer_id' => $payerId,
+                'contribution_id' => $this->request->getPost('contribution_id'),
+                'requested_amount' => $requestedAmount,
+                'payment_method' => $this->request->getPost('payment_method'),
+                'proof_of_payment_path' => $proofOfPaymentPath,
+                'notes' => $this->request->getPost('notes'),
+                'status' => 'pending'
+            ];
+
+            $requestId = $this->paymentRequestModel->insert($requestData);
+            
+            if ($requestId) {
+                // Log activity
+                $activityLogger = new \App\Services\ActivityLogger();
+                $activityLogger->logActivity(
+                    'create',
+                    'payment_request',
+                    $requestId,
+                    "Submitted payment request for {$contribution['title']} - ₱" . number_format($requestedAmount, 2),
+                    $payerId
+                );
+
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment request submitted successfully! Reference: REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId), 0, 12)),
+                    'request_id' => $requestId
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to submit payment request. Please try again.'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function getContributionDetails()
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $contributionId = $this->request->getGet('contribution_id');
+        
+        if (!$contributionId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Contribution ID is required'
+            ]);
+        }
+
+        try {
+            $contribution = $this->contributionModel->find($contributionId);
+            
+            if (!$contribution) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+
+            // Get payer's current payments for this contribution
+            $payerId = session('payer_id');
+            $totalPaid = $this->paymentModel->where('payer_id', $payerId)
+                ->where('contribution_id', $contributionId)
+                ->selectSum('amount_paid')
+                ->first();
+
+            $totalPaidAmount = $totalPaid['amount_paid'] ?? 0;
+            $remainingAmount = $contribution['amount'] - $totalPaidAmount;
+
+            return $this->response->setJSON([
+                'success' => true,
+                'contribution' => [
+                    'id' => $contribution['id'],
+                    'title' => $contribution['title'],
+                    'description' => $contribution['description'],
+                    'amount' => $contribution['amount'],
+                    'total_paid' => $totalPaidAmount,
+                    'remaining_amount' => $remainingAmount,
+                    'is_fully_paid' => $remainingAmount <= 0
+                ]
+            ]);
+
         } catch (\Exception $e) {
             return $this->response->setJSON([
                 'success' => false,

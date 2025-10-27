@@ -204,6 +204,19 @@ function viewPayerDetails(payerId) {
                 document.getElementById('viewPayerEmail').textContent = payer.email_address || 'N/A';
                 document.getElementById('viewPayerContact').textContent = payer.contact_number || 'N/A';
                 
+                // Populate profile picture
+                const profilePicture = document.getElementById('viewPayerProfilePicture');
+                const profileIcon = document.getElementById('viewPayerProfileIcon');
+                
+                if (payer.profile_picture && payer.profile_picture.trim() !== '') {
+                    profilePicture.src = `<?= base_url() ?>${payer.profile_picture}`;
+                    profilePicture.style.display = 'block';
+                    profileIcon.style.display = 'none';
+                } else {
+                    profilePicture.style.display = 'none';
+                    profileIcon.style.display = 'block';
+                }
+                
                 // Calculate and display totals
                 const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount_paid || 0), 0);
                 const totalPayments = payments.length;

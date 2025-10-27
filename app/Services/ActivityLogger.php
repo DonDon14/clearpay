@@ -103,6 +103,29 @@ class ActivityLogger
         return $this->activityLogModel->logActivity($data);
     }
 
+    /**
+     * Generic activity logging method
+     */
+    public function logActivity($action, $entityType, $entityId, $description, $payerId = null)
+    {
+        $data = [
+            'activity_type' => $entityType,
+            'entity_type' => $entityType,
+            'entity_id' => $entityId,
+            'action' => $action,
+            'title' => ucfirst($action) . ' ' . ucfirst($entityType),
+            'description' => $description,
+            'old_values' => null,
+            'new_values' => null,
+            'user_id' => session('user-id') ?? 1,
+            'user_type' => 'payer',
+            'payer_id' => $payerId,
+            'target_audience' => 'payers'
+        ];
+
+        return $this->activityLogModel->logActivity($data);
+    }
+
     // Helper methods for generating titles and descriptions
 
     private function getAnnouncementTitle($action, $announcement)

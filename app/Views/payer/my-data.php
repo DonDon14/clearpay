@@ -470,6 +470,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 dropdownAvatarLarge.innerHTML = `<img src="${profilePictureUrl}" alt="Profile Picture" class="avatar-image-large">`;
             }
         }
+        
+        // Update session data (this will persist across page loads)
+        // The backend already updates the session, so this is just for immediate UI update
     }
 
     function updateDisplayedValues() {
