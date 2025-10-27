@@ -63,6 +63,15 @@
                <span class="item-desc">View your information</span>
              </div>
            </a>
+           <a href="<?= base_url('payer/contributions') ?>" class="dropdown-item">
+             <div class="item-icon">
+               <i class="fas fa-hand-holding-usd"></i>
+             </div>
+             <div class="item-content">
+               <span class="item-title">Contributions</span>
+               <span class="item-desc">View active contributions</span>
+             </div>
+           </a>
            <a href="<?= base_url('payer/payment-history') ?>" class="dropdown-item">
              <div class="item-icon">
                <i class="fas fa-history"></i>

@@ -6,18 +6,21 @@ use App\Controllers\BaseController;
 use App\Models\PayerModel;
 use App\Models\PaymentModel;
 use App\Models\AnnouncementModel;
+use App\Models\ContributionModel;
 
 class DashboardController extends BaseController
 {
     protected $payerModel;
     protected $paymentModel;
     protected $announcementModel;
+    protected $contributionModel;
 
     public function __construct()
     {
         $this->payerModel = new PayerModel();
         $this->paymentModel = new PaymentModel();
         $this->announcementModel = new AnnouncementModel();
+        $this->contributionModel = new ContributionModel();
     }
 
     public function index()
@@ -107,6 +110,80 @@ class DashboardController extends BaseController
         ];
         
         return view('payer/payment-history', $data);
+    }
+
+    public function contributions()
+    {
+        $payerId = session('payer_id');
+        
+        // Get active contributions
+        $contributions = $this->contributionModel->where('status', 'active')
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+        
+        // Get payment status for each contribution
+        foreach ($contributions as &$contribution) {
+            $paymentStatus = $this->paymentModel->getPaymentStatus($payerId, $contribution['id']);
+            $contribution['payment_status'] = $paymentStatus;
+            
+            // Get total paid for this contribution
+            $totalPaid = $this->paymentModel->where('payer_id', $payerId)
+                ->where('contribution_id', $contribution['id'])
+                ->selectSum('amount_paid')
+                ->first();
+            $contribution['total_paid'] = $totalPaid['amount_paid'] ?? 0;
+            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $contribution['total_paid']);
+        }
+        
+        $data = [
+            'title' => 'Contributions',
+            'pageTitle' => 'Contributions',
+            'pageSubtitle' => 'View active contributions and payment status',
+            'contributions' => $contributions
+        ];
+        
+        return view('payer/contributions', $data);
+    }
+
+    public function getContributionPayments($contributionId)
+    {
+        $payerId = session('payer_id');
+        
+        // Get payments for this specific contribution and payer with all necessary fields
+        $payments = $this->paymentModel->select('
+            payments.id,
+            payments.payer_id,
+            payments.contribution_id,
+            payments.amount_paid,
+            payments.payment_method,
+            payments.payment_status,
+            payments.reference_number,
+            payments.receipt_number,
+            payments.qr_receipt_path,
+            payments.payment_date,
+            payments.created_at,
+            payments.updated_at,
+            payers.payer_name,
+            payers.contact_number,
+            payers.email_address,
+            contributions.title as contribution_title,
+            users.username as recorded_by_name
+        ')
+        ->join('payers', 'payers.id = payments.payer_id', 'left')
+        ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->join('users', 'users.id = payments.recorded_by', 'left')
+        ->where('payments.payer_id', $payerId)
+        ->where('payments.contribution_id', $contributionId)
+        ->orderBy('payments.payment_date', 'DESC')
+        ->findAll();
+        
+        // Debug: Log the payments data to see what's being returned
+        log_message('info', 'Payer payments for contribution ' . $contributionId . ': ' . json_encode($payments));
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'payments' => $payments
+        ]);
     }
 
     public function logout()

@@ -80,6 +80,8 @@ $routes->group('payer', function($routes) {
     $routes->get('dashboard', 'Payer\DashboardController::index');
     $routes->get('my-data', 'Payer\DashboardController::myData');
     $routes->get('announcements', 'Payer\DashboardController::announcements');
+    $routes->get('contributions', 'Payer\DashboardController::contributions');
+    $routes->get('get-contribution-payments/(:num)', 'Payer\DashboardController::getContributionPayments/$1');
     $routes->get('payment-history', 'Payer\DashboardController::paymentHistory');
     $routes->get('logout', 'Payer\LoginController::logout');
 });
