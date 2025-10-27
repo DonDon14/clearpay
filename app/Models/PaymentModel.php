@@ -124,4 +124,75 @@ class PaymentModel extends Model
     {
         return $this->getPaymentStatus($payerId, $contributionId);
     }
+
+    /**
+     * Get payments grouped by payer and contribution
+     */
+    public function getGroupedPayments()
+    {
+        $db = \Config\Database::connect();
+        
+        $query = $db->query("
+            SELECT 
+                p.payer_id,
+                p.contribution_id,
+                payers.payer_name,
+                payers.payer_id as payer_student_id,
+                payers.contact_number,
+                payers.email_address,
+                payers.profile_picture,
+                COALESCE(contributions.title, 'Unknown Contribution') as contribution_title,
+                COALESCE(contributions.description, '') as contribution_description,
+                COALESCE(contributions.amount, 0) as contribution_amount,
+                SUM(p.amount_paid) as total_paid,
+                COUNT(p.id) as payment_count,
+                MAX(p.payment_date) as last_payment_date,
+                MIN(p.payment_date) as first_payment_date,
+                CASE 
+                    WHEN SUM(p.amount_paid) >= COALESCE(contributions.amount, 0) THEN 'fully paid'
+                    WHEN SUM(p.amount_paid) > 0 THEN 'partial'
+                    ELSE 'unpaid'
+                END as computed_status,
+                COALESCE(contributions.amount, 0) - SUM(p.amount_paid) as remaining_balance
+            FROM payments p
+            LEFT JOIN payers ON payers.id = p.payer_id
+            LEFT JOIN contributions ON contributions.id = p.contribution_id
+            WHERE p.deleted_at IS NULL
+            GROUP BY p.payer_id, p.contribution_id
+            ORDER BY last_payment_date DESC, payers.payer_name ASC
+        ");
+        
+        if (!$query) {
+            return [];
+        }
+        
+        return $query->getResultArray();
+    }
+
+    /**
+     * Get individual payments for a specific payer and contribution
+     */
+    public function getPaymentsByPayerAndContribution($payerId, $contributionId)
+    {
+        return $this->select('
+            payments.*,
+            payers.payer_name,
+            payers.payer_id as payer_student_id,
+            payers.contact_number,
+            payers.email_address,
+            payers.profile_picture,
+            contributions.title as contribution_title,
+            contributions.description as contribution_description,
+            contributions.amount as contribution_amount,
+            users.username as recorded_by_name
+        ')
+        ->join('payers', 'payers.id = payments.payer_id', 'left')
+        ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->join('users', 'users.id = payments.recorded_by', 'left')
+        ->where('payments.payer_id', $payerId)
+        ->where('payments.contribution_id', $contributionId)
+        ->where('payments.deleted_at', null)
+        ->orderBy('payments.payment_date', 'DESC')
+        ->findAll();
+    }
 }

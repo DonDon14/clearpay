@@ -18,7 +18,21 @@ class PaymentsController extends BaseController
         }
 
         $contributionModel = new ContributionModel();
+        $paymentModel = new PaymentModel();
+        
+        // Get all contributions
         $contributions = $contributionModel->findAll();
+        
+        // Get grouped payments (grouped by payer and contribution)
+        $groupedPayments = $paymentModel->getGroupedPayments();
+        
+        if (empty($groupedPayments)) {
+            // Fallback: Get individual payments if grouped query fails
+            $individualPayments = $paymentModel->getRecentPayments(100);
+            
+            // Convert individual payments to grouped format for display
+            $groupedPayments = $this->convertIndividualToGrouped($individualPayments);
+        }
 
         $data = [
             'title' => 'Payments Management',
@@ -26,6 +40,7 @@ class PaymentsController extends BaseController
             'pageSubtitle' => 'Manage student payments and transactions',
             'username' => session()->get('username'),
             'contributions' => $contributions,
+            'groupedPayments' => $groupedPayments,
         ];
 
         return view('admin/payments', $data);
@@ -46,6 +61,45 @@ class PaymentsController extends BaseController
         ];
 
         return view('admin/payment-history', $data);
+    }
+
+    /**
+     * Get individual payments for a specific payer and contribution
+     */
+    public function getPaymentHistory()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = $this->request->getGet('payer_id');
+        $contributionId = $this->request->getGet('contribution_id');
+
+        if (!$payerId || !$contributionId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID and Contribution ID are required'
+            ]);
+        }
+
+        try {
+            $paymentModel = new PaymentModel();
+            $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId);
+
+            return $this->response->setJSON([
+                'success' => true,
+                'payments' => $payments
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
     }
 
     public function analytics()
@@ -739,5 +793,64 @@ class PaymentsController extends BaseController
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Convert individual payments to grouped format
+     */
+    private function convertIndividualToGrouped($individualPayments)
+    {
+        $grouped = [];
+        
+        foreach ($individualPayments as $payment) {
+            $key = $payment['payer_id'] . '_' . $payment['contribution_id'];
+            
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'payer_id' => $payment['payer_id'],
+                    'contribution_id' => $payment['contribution_id'],
+                    'payer_name' => $payment['payer_name'],
+                    'payer_student_id' => $payment['payer_student_id'] ?? $payment['payer_id'],
+                    'contact_number' => $payment['contact_number'] ?? '',
+                    'email_address' => $payment['email_address'] ?? '',
+                    'profile_picture' => $payment['profile_picture'] ?? '',
+                    'contribution_title' => $payment['contribution_title'] ?? 'N/A',
+                    'contribution_description' => $payment['contribution_description'] ?? '',
+                    'contribution_amount' => $payment['contribution_amount'] ?? $payment['amount_paid'] ?? 0,
+                    'total_paid' => 0,
+                    'payment_count' => 0,
+                    'last_payment_date' => null,
+                    'first_payment_date' => null,
+                    'computed_status' => 'unpaid',
+                    'remaining_balance' => 0
+                ];
+            }
+            
+            $grouped[$key]['total_paid'] += $payment['amount_paid'];
+            $grouped[$key]['payment_count']++;
+            
+            if (!$grouped[$key]['last_payment_date'] || $payment['payment_date'] > $grouped[$key]['last_payment_date']) {
+                $grouped[$key]['last_payment_date'] = $payment['payment_date'];
+            }
+            
+            if (!$grouped[$key]['first_payment_date'] || $payment['payment_date'] < $grouped[$key]['first_payment_date']) {
+                $grouped[$key]['first_payment_date'] = $payment['payment_date'];
+            }
+        }
+        
+        // Calculate status and remaining balance
+        foreach ($grouped as &$group) {
+            if ($group['total_paid'] >= $group['contribution_amount']) {
+                $group['computed_status'] = 'fully paid';
+            } elseif ($group['total_paid'] > 0) {
+                $group['computed_status'] = 'partial';
+            } else {
+                $group['computed_status'] = 'unpaid';
+            }
+            
+            $group['remaining_balance'] = $group['contribution_amount'] - $group['total_paid'];
+        }
+        
+        return array_values($grouped);
     }
 }

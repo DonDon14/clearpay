@@ -26,7 +26,6 @@ $routes->get('/dashboard', 'Admin\DashboardController::index', ['filter' => 'aut
 $routes->get('/search', 'Admin\DashboardController::search', ['filter' => 'auth']);
 
 // Sidebar Routes
-$routes->get('/payments', 'Admin\SidebarController::payments', ['filter' => 'auth']);
 $routes->get('/contributions', 'Admin\SidebarController::contributions', ['filter' => 'auth']);
 $routes->get('/payers', 'Admin\SidebarController::payers', ['filter' => 'auth']);
 $routes->post('/payers/save', 'Admin\SidebarController::savePayer', ['filter' => 'auth']);
@@ -55,9 +54,11 @@ $routes->get('/admin/get-payment-request-details', 'Admin\DashboardController::g
 $routes->post('/admin/delete-payment-request', 'Admin\DashboardController::deletePaymentRequest', ['filter' => 'auth']);
 
 // Payments Management Routes
+$routes->get('/payments', 'Admin\PaymentsController::index', ['filter' => 'auth']);
 $routes->get('dashboard/recentPayments', 'Admin\DashboardController::recentPayments', ['filter' => 'auth']);
-$routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
+$routes->get('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
 $routes->post('/payments/add-to-partial', 'Admin\PaymentsController::addToPartial', ['filter' => 'auth']);
+$routes->get('/payments/get-payment-history', 'Admin\PaymentsController::getPaymentHistory', ['filter' => 'auth']);
 $routes->post('/payments/update/(:num)', 'Admin\PaymentsController::update/$1', ['filter' => 'auth']);
 $routes->get('/payments/recent', 'Admin\PaymentsController::recent', ['filter' => 'auth']);
 $routes->get('/payments/search-payers', 'Admin\PaymentsController::searchPayers', ['filter' => 'auth']);

@@ -16,8 +16,8 @@
               <i class="fas fa-plus me-2"></i>Add Payment
           </button>
           </div>
-          <div class="card-body">
-             <!-- Search and Filter Row -->
+                <div class="card-body">
+                    <!-- Search and Filter Row -->
              <div class="row mb-3">
                  <div class="col-md-6">
                      <div class="input-group">
@@ -37,33 +37,63 @@
                  </div>
              </div>
              
-             <!-- Table with scrollable body -->
+                    <!-- Grouped Payments Table -->
              <div class="table-responsive" style="max-height: 600px; overflow-y: auto; overflow-x: hidden;">
               <table class="table table-hover table-fit">
                  <thead class="table-light sticky-top">
                   <tr>
-                     <th>Payer ID</th>
-                     <th>Payer Name</th>
-                    <th>Amount</th>
+                                    <th>Payer</th>
                     <th>Contribution</th>
-                    <th>Payment Method</th>
-                    <th>Payment Status</th>
-                    <th>Date</th>
+                                    <th>Total Paid</th>
+                                    <th>Status</th>
+                                    <th>Payment Count</th>
+                                    <th>Last Payment</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                  <tbody id="paymentsTableBody">
-                    <?php if (!empty($recentPayments)): ?>
-                        <?php foreach ($recentPayments as $payment): ?>
-                             <tr id="payment-<?= $payment['id'] ?>" data-payment-status="<?= esc($payment['computed_status'] ?? 'unpaid') ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>">
-                                 <td><?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?></td>
-                                <td><?= esc($payment['payer_name']) ?></td>
-                                <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
-                                <td><?= esc($payment['contribution_title'] ?? 'N/A') ?></td>
-                                <td><?= esc($payment['payment_method'] ?? 'N/A') ?></td>
+                                <?php if (!empty($groupedPayments)): ?>
+                                    <?php foreach ($groupedPayments as $group): ?>
+                                        <tr class="payment-group-row" 
+                                            data-payer-id="<?= esc($group['payer_id']) ?>" 
+                                            data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                            data-payment-status="<?= esc($group['computed_status']) ?>"
+                                            data-payer-name="<?= esc($group['payer_name']) ?>"
+                                            data-contribution-title="<?= esc($group['contribution_title']) ?>"
+                                            style="cursor: pointer;">
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <?php if (!empty($group['profile_picture'])): ?>
+                                                        <img src="<?= base_url($group['profile_picture']) ?>" 
+                                                             alt="Profile" class="rounded-circle me-2" 
+                                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                                    <?php else: ?>
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                                             style="width: 32px; height: 32px;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                    <div>
+                                                        <div class="fw-bold"><?= esc($group['payer_name']) ?></div>
+                                                        <small class="text-muted"><?= esc($group['payer_student_id']) ?></small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    <div class="fw-bold"><?= esc($group['contribution_title']) ?></div>
+                                                    <small class="text-muted">₱<?= number_format($group['contribution_amount'], 2) ?></small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-bold text-success">₱<?= number_format($group['total_paid'], 2) ?></div>
+                                                <?php if ($group['remaining_balance'] > 0): ?>
+                                                    <small class="text-muted">Remaining: ₱<?= number_format($group['remaining_balance'], 2) ?></small>
+                                                <?php endif; ?>
+                                            </td>
                                 <td>
                                     <?php 
-                                        $status = $payment['computed_status'] ?? 'unpaid';
+                                                    $status = $group['computed_status'];
                                         $badgeClass = match($status) {
                                             'fully paid' => 'bg-primary text-white',
                                             'partial' => 'bg-warning text-dark',
@@ -79,567 +109,465 @@
                                     ?>
                                     <span class="badge <?= $badgeClass ?>"><?= $statusText ?></span>
                                 </td>
-                                <td><?= date('M d, Y', strtotime($payment['payment_date'])) ?></td>
-                                <td>
-                                    <div class="btn-group-vertical" role="group">
-                                        <div class="btn-group" role="group">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="viewPaymentReceipt(<?= $payment['id'] ?>)" title="View Receipt">
-                                                <i class="fas fa-eye me-1"></i>
+                                            <td>
+                                                <span class="badge bg-info"><?= $group['payment_count'] ?> payment<?= $group['payment_count'] > 1 ? 's' : '' ?></span>
+                                            </td>
+                                            <td><?= date('M d, Y', strtotime($group['last_payment_date'])) ?></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary view-payment-history-btn" 
+                                                        data-payer-id="<?= esc($group['payer_id']) ?>" 
+                                                        data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                                        title="View Payment History">
+                                                    <i class="fas fa-history me-1"></i>History
                                             </button>
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="editPayment(<?= $payment['id'] ?>)" title="Edit Payment">
-                                                <i class="fas fa-edit me-1"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" onclick="confirmDeletePayment(<?= $payment['id'] ?>, '<?= esc($payment['payer_name']) ?>', '<?= date('M d, Y', strtotime($payment['payment_date'])) ?>', <?= $payment['amount_paid'] ?>)" title="Delete Payment">
-                                                <i class="fas fa-trash me-1"></i>
-                                            </button>
-                                        </div>
-                                        <?php if (($payment['computed_status'] ?? 'unpaid') === 'partial'): ?>
-                                            <button class="btn btn-sm btn-outline-info mt-1" onclick="addPaymentToPartial(<?= $payment['id'] ?>)" title="Add Payment">
-                                                <i class="fas fa-plus me-1"></i>Add Payment
-                                            </button>
-                                        <?php endif; ?>
-                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center text-muted">No payment records found.</td>
+                                        <td colspan="7" class="text-center py-4">
+                                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                            <h6 class="text-muted">No Payments Found</h6>
+                                            <p class="text-muted">Payments will appear here once they are recorded</p>
+                                        </td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
               </table>
+                    </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Add Payment Modal -->
-   <?php $contributions = $contributions ?? []; ?>
-   <?= view('partials/modal-add-payment', [
-    'action' => base_url('payments/save'),  // controller route to handle form submission
-    'title' => 'Add Payment',
-    'contributions' => $contributions // array of contributions for the dropdown
-]) ?>
+<!-- Payment History Modal -->
+<div class="modal fade" id="paymentHistoryModal" tabindex="-1" aria-labelledby="paymentHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="paymentHistoryModalLabel">
+                    <i class="fas fa-history me-2"></i>Payment History
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="paymentHistoryContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
- <!-- Add Payment to Partial Payment Modal -->
- <?= view('partials/modal-add-payment-to-partial') ?>
+<!-- Include QR Receipt Modal -->
+<?= $this->include('partials/modal-qr-receipt') ?>
 
- <!-- QR Receipt Modal -->
- <?= view('partials/modal-qr-receipt', [
-     'title' => 'Payment Receipt',
- ]) ?>
-
- <!-- Delete Payment Confirmation Modal -->
- <div class="modal fade" id="deletePaymentModal" tabindex="-1" aria-labelledby="deletePaymentModalLabel" aria-hidden="true">
-     <div class="modal-dialog">
+<!-- Add Payment Modal (existing) -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
          <div class="modal-content">
-             <div class="modal-header bg-danger text-white">
-                 <h5 class="modal-title" id="deletePaymentModalLabel">
-                     <i class="fas fa-exclamation-triangle me-2"></i>Confirm Delete Payment
+            <div class="modal-header">
+                <h5 class="modal-title" id="addPaymentModalLabel">
+                    <i class="fas fa-plus me-2"></i>Add New Payment
                  </h5>
-                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
              </div>
              <div class="modal-body">
-                 <p>Are you sure you want to delete this payment?</p>
-                 <div class="alert alert-warning">
-                     <strong>Payment Details:</strong><br>
-                     Payer: <span id="deletePaymentPayerName"></span><br>
-                     Date: <span id="deletePaymentDate"></span><br>
-                     Amount: <span id="deletePaymentAmount"></span>
+                <form id="addPaymentForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="payerSearch" class="form-label">Search Payer</label>
+                            <div class="input-group">
+                                <input type="text" id="payerSearch" class="form-control" placeholder="Search by name or ID...">
+                                <button type="button" class="btn btn-outline-primary" onclick="scanIDForPayment()" title="Scan School ID">
+                                    <i class="fas fa-qrcode"></i>
+                                </button>
+                            </div>
+                            <div id="payerSearchResults" class="mt-2"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="contributionSelect" class="form-label">Contribution</label>
+                            <select id="contributionSelect" class="form-select" required>
+                                <option value="">Select Contribution</option>
+                                <?php foreach ($contributions as $contribution): ?>
+                                    <option value="<?= $contribution['id'] ?>" data-amount="<?= $contribution['amount'] ?>">
+                                        <?= esc($contribution['title']) ?> - ₱<?= number_format($contribution['amount'], 2) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="amountPaid" class="form-label">Amount Paid</label>
+                            <input type="number" id="amountPaid" class="form-control" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="paymentMethod" class="form-label">Payment Method</label>
+                            <select id="paymentMethod" class="form-select" required>
+                                <option value="">Select Method</option>
+                                <option value="cash">Cash</option>
+                                <option value="online">Online</option>
+                                <option value="check">Check</option>
+                                <option value="bank">Bank Transfer</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="paymentDate" class="form-label">Payment Date</label>
+                            <input type="datetime-local" id="paymentDate" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="referenceNumber" class="form-label">Reference Number</label>
+                            <input type="text" id="referenceNumber" class="form-control" placeholder="Optional">
+                        </div>
                  </div>
-                 <p class="mb-0"><small class="text-danger">This action cannot be undone.</small></p>
+                </form>
              </div>
              <div class="modal-footer">
                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                 <button type="button" class="btn btn-danger" onclick="deletePayment()">
-                     <i class="fas fa-trash me-2"></i>Delete Payment
-                 </button>
+                <button type="button" class="btn btn-primary" onclick="submitPayment()">Add Payment</button>
              </div>
          </div>
      </div>
  </div>
 
+<?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
 <script>
-// Define base URL for payment.js
-window.APP_BASE_URL = '<?= base_url() ?>';
+$(document).ready(function() {
+    let selectedPayer = null;
+    let currentPaymentData = null;
 
-// Function to view payment receipt
-function viewPaymentReceipt(paymentId) {
-    // Fetch payment data
-    fetch(`${window.APP_BASE_URL}/payments/recent`)
+    // Handle payment group row click
+    $(document).on('click', '.payment-group-row', function(e) {
+        // Don't trigger if clicking on the view history button
+        if ($(e.target).closest('.view-payment-history-btn').length > 0) {
+            return;
+        }
+        
+        const payerId = $(this).data('payer-id');
+        const contributionId = $(this).data('contribution-id');
+        viewPaymentHistory(payerId, contributionId);
+    });
+
+    // Handle view payment history button click
+    $(document).on('click', '.view-payment-history-btn', function(e) {
+        e.stopPropagation();
+        const payerId = $(this).data('payer-id');
+        const contributionId = $(this).data('contribution-id');
+        viewPaymentHistory(payerId, contributionId);
+    });
+
+    // Handle individual payment click in history modal
+    $(document).on('click', '.payment-item-row', function() {
+        const paymentId = $(this).data('payment-id');
+        showQRReceipt(paymentId);
+    });
+
+    // Search functionality
+    $('#searchStudentName').on('input', function() {
+        const query = $(this).val().toLowerCase();
+        $('.payment-group-row').each(function() {
+            const payerName = $(this).data('payer-name').toLowerCase();
+            const contributionTitle = $(this).data('contribution-title').toLowerCase();
+            
+            if (payerName.includes(query) || contributionTitle.includes(query)) {
+                $(this).show();
+                } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    // Status filter
+    $('#statusFilter').on('change', function() {
+        const selectedStatus = $(this).val();
+        $('.payment-group-row').each(function() {
+            const status = $(this).data('payment-status');
+            
+            if (selectedStatus === '' || status === selectedStatus) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    // Set default payment date to now
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    $('#paymentDate').val(localDateTime);
+
+    // Payer search functionality
+    $('#payerSearch').on('input', function() {
+        const query = $(this).val();
+        if (query.length >= 2) {
+            searchPayers(query);
+        } else {
+            $('#payerSearchResults').empty();
+        }
+    });
+
+    function viewPaymentHistory(payerId, contributionId) {
+        fetch(`<?= base_url('payments/get-payment-history') ?>?payer_id=${payerId}&contribution_id=${contributionId}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
         .then(response => response.json())
         .then(data => {
-            if (data.success && data.payments) {
-                // Find the specific payment
-                const payment = data.payments.find(p => p.id == paymentId);
-                if (payment) {
-                    // Show QR receipt modal
-                    if (typeof showQRReceipt === 'function') {
-                        showQRReceipt(payment);
-                    } else {
-                        console.error('showQRReceipt function not found');
-                        showNotification('QR Receipt modal not available', 'danger');
-                    }
-                } else {
-                    showNotification('Payment not found', 'warning');
-                }
+            if (data.success) {
+                displayPaymentHistory(data.payments);
+                $('#paymentHistoryModal').modal('show');
             } else {
-                showNotification('Error fetching payment data', 'danger');
+                alert('Error: ' + data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showNotification('Error loading payment', 'danger');
+            alert('An error occurred while fetching payment history.');
         });
-}
-
-// Function to edit payment
-function editPayment(paymentId) {
-    // Fetch payment details
-    fetch(`${window.APP_BASE_URL}/payments/recent`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.payments) {
-                const payment = data.payments.find(p => p.id == paymentId);
-                if (payment) {
-                    // Use the shared openEditPaymentModal function if it exists
-                    if (typeof openEditPaymentModal === 'function') {
-                        openEditPaymentModal(payment);
-                    } else {
-                        // Fallback: Open the payment modal with edit mode
-                        openEditPaymentModalLocal(payment);
-                    }
-                } else {
-                    showNotification('Payment not found', 'warning');
-                }
-            } else {
-                showNotification('Error fetching payment data', 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error loading payment', 'danger');
-        });
-}
-
-// Local function to open edit payment modal (if shared function not available)
-function openEditPaymentModalLocal(payment) {
-    // Update modal title
-    document.getElementById('addPaymentModalLabel').textContent = 'Edit Payment';
-    
-    // Set payment ID
-    document.getElementById('paymentId').value = payment.id || '';
-    
-    // Populate payer fields
-    if (payment.payer_id) {
-        // Existing payer
-        document.querySelector('input[name="payerType"][value="existing"]').checked = true;
-        document.getElementById('payerSelect').value = `${payment.payer_name} (${payment.payer_id})`;
-        document.getElementById('existingPayerId').value = payment.payer_id;
-        document.getElementById('existingPayerFields').style.display = 'block';
-        document.getElementById('newPayerFields').style.display = 'none';
-    } else {
-        // New payer
-        document.querySelector('input[name="payerType"][value="new"]').checked = true;
-        document.getElementById('payerName').value = payment.payer_name || '';
-        document.getElementById('payerId').value = payment.payer_id || '';
-        document.getElementById('contactNumber').value = payment.contact_number || '';
-        document.getElementById('emailAddress').value = payment.email_address || '';
-        document.getElementById('existingPayerFields').style.display = 'none';
-        document.getElementById('newPayerFields').style.display = 'block';
     }
-    
-    // Set contribution (this should show the current contribution in the dropdown)
-    if (payment.contribution_id) {
-        const contributionSelect = document.getElementById('contributionId');
-        if (contributionSelect) {
-            contributionSelect.value = payment.contribution_id;
-            // Trigger change to update payment status if needed
-            contributionSelect.dispatchEvent(new Event('change'));
+
+    function displayPaymentHistory(payments) {
+        if (payments.length === 0) {
+            $('#paymentHistoryContent').html(`
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <h6 class="text-muted">No Payment History</h6>
+                    <p class="text-muted">No individual payments found for this contribution</p>
+                </div>
+            `);
+            return;
         }
+
+        const payerName = payments[0].payer_name;
+        const contributionTitle = payments[0].contribution_title;
+        
+        let html = `
+            <div class="mb-3">
+                <h6 class="text-primary">${payerName}</h6>
+                <p class="text-muted mb-0">${contributionTitle}</p>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Payment Date</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Reference</th>
+                            <th>Receipt</th>
+                            <th>Recorded By</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        payments.forEach(payment => {
+            const statusBadge = getStatusBadge(payment.payment_status);
+            html += `
+                <tr class="payment-item-row" data-payment-id="${payment.id}" style="cursor: pointer;">
+                    <td>${formatDate(payment.payment_date)}</td>
+                    <td class="fw-bold text-success">₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
+                    <td>${formatPaymentMethod(payment.payment_method)}</td>
+                    <td>${payment.reference_number || 'N/A'}</td>
+                    <td>${payment.receipt_number || 'N/A'}</td>
+                    <td>${payment.recorded_by_name || 'N/A'}</td>
+                    <td>
+                        <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        $('#paymentHistoryContent').html(html);
     }
-    
-    // Set payment method
-    if (payment.payment_method) {
-        document.getElementById('paymentMethod').value = payment.payment_method;
-    }
-    
-    // Set amount paid
-    if (payment.amount_paid) {
-        document.getElementById('amountPaid').value = payment.amount_paid;
-    }
-    
-    // Set payment status
-    if (payment.payment_status) {
-        const statusSelect = document.getElementById('paymentStatus');
-        if (statusSelect) {
-            statusSelect.value = payment.payment_status;
-            // Apply the appropriate class
-            if (payment.payment_status === 'fully paid') {
-                statusSelect.className = 'form-select bg-success text-white';
-            } else if (payment.payment_status === 'partial') {
-                statusSelect.className = 'form-select bg-warning text-dark';
-            }
+
+    function showQRReceipt(paymentId) {
+        // Find the payment data from the current payments array
+        const paymentRow = $(`.payment-item-row[data-payment-id="${paymentId}"]`);
+        if (paymentRow.length === 0) {
+            alert('Payment data not found');
+            return;
         }
-    }
-    
-    // Set payment date - need to convert to datetime-local format
-    if (payment.payment_date) {
-        const paymentDate = new Date(payment.payment_date);
-        const year = paymentDate.getFullYear();
-        const month = String(paymentDate.getMonth() + 1).padStart(2, '0');
-        const day = String(paymentDate.getDate()).padStart(2, '0');
-        const hours = String(paymentDate.getHours()).padStart(2, '0');
-        const minutes = String(paymentDate.getMinutes()).padStart(2, '0');
-        const formattedDate = `${year}-${month}-${day}T${hours}:${minutes}`;
-        document.getElementById('paymentDate').value = formattedDate;
-    }
-    
-    // Set remaining balance if exists
-    if (payment.remaining_balance !== undefined) {
-        document.getElementById('remainingBalance').value = payment.remaining_balance || '0.00';
-    }
-    
-    // Set partial payment flag
-    const isPartialPayment = payment.payment_status === 'partial' && payment.remaining_balance > 0;
-    document.getElementById('isPartialPayment').value = isPartialPayment ? '1' : '0';
-    document.getElementById('paymentStatusHidden').value = payment.payment_status || 'fully paid';
-    
-    // Update form action to edit
-    const form = document.getElementById('paymentForm');
-    form.action = `${window.APP_BASE_URL}/payments/update/${payment.id}`;
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('addPaymentModal'));
-    modal.show();
-}
 
-// Function to add payment to a partial payment
-function addPaymentToPartial(paymentId) {
-    console.log('Adding payment to partial, paymentId:', paymentId);
-    
-    // Fetch the existing payment details
-    fetch(`${window.APP_BASE_URL}/payments/recent`)
-        .then(response => {
-            console.log('Response status:', response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log('Fetched data:', data);
-            
-            if (data.success && data.payments) {
-                console.log('Total payments fetched:', data.payments.length);
-                const payment = data.payments.find(p => p.id == paymentId);
-                console.log('Found payment:', payment);
-                
-                if (payment && (payment.computed_status === 'partial' || payment.payment_status === 'partial')) {
-                    // Open the add payment to partial modal
-                    if (typeof openAddPaymentToPartialModal === 'function') {
-                        openAddPaymentToPartialModal(payment);
-                    } else {
-                        console.error('openAddPaymentToPartialModal function not found');
-                        showNotification('Add Payment to Partial modal not available', 'danger');
-                    }
-                } else if (payment && payment.computed_status !== 'partial' && payment.payment_status !== 'partial') {
-                    showNotification('Only partial payments can have additional payments added', 'warning');
-                } else {
-                    showNotification('Payment not found in records', 'warning');
-                }
-            } else {
-                console.error('Failed to fetch payments:', data);
-                showNotification('Error fetching payment data: ' + (data.message || 'Unknown error'), 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error loading payment: ' + error.message, 'danger');
-        });
-}
-
-
-
-// Search and Filter Functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('searchStudentName');
-    const statusFilter = document.getElementById('statusFilter');
-    
-                   function filterTable() {
-         const searchValue = searchInput.value.toLowerCase().trim();
-         const statusValue = statusFilter.value;
-         const tableRows = document.querySelectorAll('#paymentsTableBody tr');
-         
-         tableRows.forEach(row => {
-             const payerId = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
-             const payerName = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-             
-             // Also get payer_id from data attribute
-             const dataPayerId = row.getAttribute('data-payer-id') || '';
-             const dataPayerIdLower = dataPayerId.toLowerCase();
-             
-             // Get status directly from data attribute
-             const rowStatus = row.getAttribute('data-payment-status') || '';
-             
-             // Check if row matches search and status filter
-             const matchesSearch = searchValue === '' || payerId.includes(searchValue) || payerName.includes(searchValue) || dataPayerIdLower.includes(searchValue);
-             const matchesStatus = statusValue === '' || rowStatus === statusValue;
-             
-             if (matchesSearch && matchesStatus) {
-                 row.style.display = '';
-             } else {
-                 row.style.display = 'none';
-             }
-         });
-     }
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', filterTable);
-    }
-    
-    if (statusFilter) {
-        statusFilter.addEventListener('change', filterTable);
-    }
-    
-    // Make filterTable available globally
-    window.filterTablePaymentsPage = filterTable;
-});
-
-// Function to scan ID in payments page
-async function scanIDInPaymentsPage() {
-    try {
-        const modal = new bootstrap.Modal(document.getElementById('idScannerModal'));
-        modal.show();
-        
-        let idScannerStream = null;
-        let idScannerCanvas = null;
-        let idScannerContext = null;
-        
-        idScannerStream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                facingMode: 'environment',
-                width: { ideal: 640 },
-                height: { ideal: 480 }
-            } 
-        });
-        
-        const video = document.getElementById('idVideo');
-        video.srcObject = idScannerStream;
-        
-        video.onloadedmetadata = () => {
-            video.play();
-            
-            idScannerCanvas = document.createElement('canvas');
-            idScannerCanvas.width = video.videoWidth;
-            idScannerCanvas.height = video.videoHeight;
-            idScannerContext = idScannerCanvas.getContext('2d');
-            
-            function scanIDCode() {
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                    idScannerContext.drawImage(video, 0, 0, idScannerCanvas.width, idScannerCanvas.height);
-                    const imageData = idScannerContext.getImageData(0, 0, idScannerCanvas.width, idScannerCanvas.height);
-                    
-                    if (typeof jsQR !== 'undefined') {
-                        const code = jsQR(imageData.data, imageData.width, imageData.height);
-                        
-                        if (code) {
-                            console.log('ID QR Code detected:', code.data);
-                            
-                            // Stop scanner
-                            if (idScannerStream) {
-                                idScannerStream.getTracks().forEach(track => track.stop());
-                                idScannerStream = null;
-                            }
-                            
-                            // Close scanner modal
-                            const scannerModal = bootstrap.Modal.getInstance(document.getElementById('idScannerModal'));
-                            if (scannerModal) {
-                                scannerModal.hide();
-                            }
-                            
-                            // Process scanned ID
-                            processScannedIDForPaymentsPage(code.data);
-                            return;
-                        }
-                    }
-                }
-                
-                requestAnimationFrame(scanIDCode);
-            }
-            
-            scanIDCode();
+        // Get payment data from the row
+        const paymentData = {
+            id: paymentId,
+            payer_name: paymentRow.closest('tbody').prev().find('h6').text(),
+            contribution_title: paymentRow.closest('tbody').prev().find('p').text(),
+            amount_paid: paymentRow.find('td:nth-child(2)').text().replace('₱', ''),
+            payment_method: paymentRow.find('td:nth-child(3)').text(),
+            reference_number: paymentRow.find('td:nth-child(4)').text(),
+            receipt_number: paymentRow.find('td:nth-child(5)').text(),
+            payment_date: paymentRow.find('td:nth-child(1)').text(),
+            payment_status: 'fully paid' // Assume completed for display
         };
-        
-    } catch (error) {
-        console.error('Error accessing camera:', error);
-        showNotification('Unable to access camera. Please check permissions.', 'error');
-    }
-}
 
-// Function to process scanned ID for payments page search
-function processScannedIDForPaymentsPage(idText) {
-    // Extract ID number from scanned text
-    const match = idText.match(/^(\d+)/);
-    
-    if (!match) {
-        showNotification('Invalid ID format. Please scan again.', 'error');
-        return;
-    }
-    
-    const idNumber = match[1];
-    console.log('Scanned ID number:', idNumber);
-    
-    // Set the search input and filter
-    const searchInput = document.getElementById('searchStudentName');
-    if (searchInput) {
-        searchInput.value = idNumber;
+        // Close the payment history modal first
+        $('#paymentHistoryModal').modal('hide');
         
-        // Trigger filter
-        if (window.filterTablePaymentsPage) {
-            window.filterTablePaymentsPage();
+        // Show QR receipt modal
+        if (typeof window.showQRReceipt === 'function') {
+            window.showQRReceipt(paymentData);
+        } else {
+            alert('QR Receipt functionality not available');
         }
-        
-        showNotification('Filtering by ID: ' + idNumber, 'success');
     }
-}
 
-// Store payment ID to delete globally
-let paymentIdToDelete = null;
+    function getStatusBadge(status) {
+        switch(status) {
+            case 'fully paid':
+                return { class: 'bg-primary text-white', text: 'COMPLETED' };
+            case 'partial':
+                return { class: 'bg-warning text-dark', text: 'PARTIAL' };
+            case 'pending':
+                return { class: 'bg-warning text-dark', text: 'PENDING' };
+            case 'failed':
+                return { class: 'bg-danger text-white', text: 'FAILED' };
+            default:
+                return { class: 'bg-secondary text-white', text: status.toUpperCase() };
+        }
+    }
 
-// Function to show delete confirmation modal
-function confirmDeletePayment(paymentId, payerName, paymentDate, amountPaid) {
-    paymentIdToDelete = paymentId;
-    
-    // Populate modal with payment details
-    document.getElementById('deletePaymentPayerName').textContent = payerName;
-    document.getElementById('deletePaymentDate').textContent = paymentDate;
-    document.getElementById('deletePaymentAmount').textContent = '₱' + parseFloat(amountPaid).toFixed(2);
-    
-    // Show modal
-    const deleteModal = new bootstrap.Modal(document.getElementById('deletePaymentModal'));
-    deleteModal.show();
-}
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
 
-// Function to delete payment
-function deletePayment() {
-    if (!paymentIdToDelete) {
-        showNotification('No payment selected for deletion', 'error');
+    function formatPaymentMethod(method) {
+        if (!method) return 'N/A';
+        const methods = {
+            'cash': 'Cash',
+            'online': 'Online',
+            'check': 'Check',
+            'bank': 'Bank Transfer'
+        };
+        return methods[method] || method;
+    }
+
+    function searchPayers(query) {
+        fetch(`<?= base_url('payments/search-payers') ?>?q=${encodeURIComponent(query)}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayPayerResults(data.results);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+    function displayPayerResults(results) {
+        const resultsContainer = $('#payerSearchResults');
+        resultsContainer.empty();
+
+        if (results.length === 0) {
+            resultsContainer.html('<div class="text-muted">No payers found</div>');
+            return;
+        }
+
+        results.forEach(payer => {
+            const payerItem = $(`
+                <div class="payer-result-item p-2 border rounded mb-2" style="cursor: pointer;">
+                    <div class="fw-bold">${payer.payer_name}</div>
+                    <small class="text-muted">ID: ${payer.payer_id}</small>
+                </div>
+            `);
+
+            payerItem.on('click', function() {
+                selectedPayer = payer;
+                $('#payerSearch').val(payer.payer_name);
+                resultsContainer.empty();
+            });
+
+            resultsContainer.append(payerItem);
+        });
+    }
+
+    function submitPayment() {
+        if (!selectedPayer) {
+            alert('Please select a payer');
+                            return;
+        }
+
+        const formData = {
+            payer_id: selectedPayer.id,
+            contribution_id: $('#contributionSelect').val(),
+            amount_paid: $('#amountPaid').val(),
+            payment_method: $('#paymentMethod').val(),
+            payment_date: $('#paymentDate').val(),
+            reference_number: $('#referenceNumber').val()
+        };
+
+        // Validate required fields
+        if (!formData.contribution_id || !formData.amount_paid || !formData.payment_method || !formData.payment_date) {
+            alert('Please fill in all required fields');
         return;
-    }
-    
-    // Show loading state
-    const deleteBtn = event.target;
-    const originalText = deleteBtn.innerHTML;
-    deleteBtn.disabled = true;
-    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Deleting...';
-    
-    // Send DELETE request
-    fetch(`${window.APP_BASE_URL}/payments/delete/${paymentIdToDelete}`, {
-        method: 'DELETE',
+        }
+
+        fetch('<?= base_url('payments/save') ?>', {
+            method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        }
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: new URLSearchParams(formData)
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showNotification('Payment deleted successfully', 'success');
-            
-            // Close modal
-            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deletePaymentModal'));
-            deleteModal.hide();
-            
-            // Reload page after short delay
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+                alert('Payment added successfully!');
+                $('#addPaymentModal').modal('hide');
+                location.reload(); // Reload to show updated data
         } else {
-            showNotification(data.message || 'Error deleting payment', 'error');
-            deleteBtn.disabled = false;
-            deleteBtn.innerHTML = originalText;
+                alert('Error: ' + data.message);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showNotification('Error deleting payment', 'error');
-        deleteBtn.disabled = false;
-        deleteBtn.innerHTML = originalText;
-    });
-}
-
-// Helper function for notifications
-function showNotification(message, type) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-    alertDiv.style.zIndex = '9999';
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.body.appendChild(alertDiv);
-    setTimeout(() => {
-        alertDiv.remove();
-    }, 3000);
-}
-
-// Handle hash from URL (for search result navigation)
-document.addEventListener('DOMContentLoaded', function() {
-    const hash = window.location.hash;
-    if (hash && hash.startsWith('#payment-')) {
-        const paymentId = hash.substring(10); // Remove '#payment-'
-        
-        // Find the row
-        const paymentRow = document.getElementById('payment-' + paymentId);
-        
-        if (paymentRow) {
-            // Scroll to the row
-            paymentRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // Highlight the row temporarily
-            paymentRow.style.backgroundColor = '#fff3cd';
-            setTimeout(() => {
-                paymentRow.style.backgroundColor = '';
-            }, 2000);
-            
-            // Open the QR Receipt modal after a short delay
-            setTimeout(() => {
-                viewPaymentReceipt(paymentId);
-            }, 500);
-        }
+            alert('An error occurred while adding the payment.');
+        });
     }
+
+    // Make functions globally available
+    window.scanIDInPaymentsPage = function() {
+        alert('QR Scanner functionality will be implemented');
+    };
+
+    window.scanIDForPayment = function() {
+        alert('QR Scanner functionality will be implemented');
+    };
+
+    window.submitPayment = submitPayment;
 });
 </script>
-
-<style>
-/* Ensure table fits container and removes extra space */
-.table-fit {
-    width: 100%;
-    table-layout: fixed;
-}
-
-.table-fit th,
-.table-fit td {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-}
-
-/* Remove extra padding from card body to eliminate spacing */
-.card-body {
-    padding-right: 15px;
-}
-
-/* Ensure table container has no extra space */
-.table-responsive {
-    width: 100%;
-}
-
-/* Remove default margin from table */
-.table {
-    margin-bottom: 0;
-}
-</style>
-
-<script src="<?= base_url('js/payment.js') ?>"></script>
-
 <?= $this->endSection() ?>
