@@ -238,23 +238,26 @@ window.showQRReceipt = function(paymentData) {
     const modalEl = document.getElementById('qrReceiptModal');
     const modal = new bootstrap.Modal(modalEl);
     
-    // Fade All Payments modal itself (not backdrop) when QR modal is shown
+    // Find any open parent modal (All Payments, Payment History, etc.)
     const allPaymentsModal = document.getElementById('allPaymentsModal');
-    const allPaymentsModalDialog = allPaymentsModal ? allPaymentsModal.querySelector('.modal-dialog') : null;
+    const paymentHistoryModal = document.getElementById('paymentHistoryModal');
+    const parentModal = allPaymentsModal || paymentHistoryModal;
+    const parentModalDialog = parentModal ? parentModal.querySelector('.modal-dialog') : null;
     
-    if (allPaymentsModalDialog) {
-        allPaymentsModalDialog.style.transition = 'opacity 0.3s ease';
-        allPaymentsModalDialog.style.opacity = '0.4'; // Fade the modal content
+    // Fade parent modal itself (not backdrop) when QR modal is shown
+    if (parentModalDialog) {
+        parentModalDialog.style.transition = 'opacity 0.3s ease';
+        parentModalDialog.style.opacity = '0.4'; // Fade the modal content
     }
     
     // Clean up extra backdrops when QR modal is hidden
     modalEl.addEventListener('hidden.bs.modal', function () {
-        // Restore All Payments modal opacity
-        if (allPaymentsModalDialog) {
-            allPaymentsModalDialog.style.opacity = '1';
+        // Restore parent modal opacity
+        if (parentModalDialog) {
+            parentModalDialog.style.opacity = '1';
         }
         
-        // Keep only the first backdrop (for All Payments modal)
+        // Keep only the first backdrop (for parent modal)
         const backdrops = document.querySelectorAll('.modal-backdrop');
         if (backdrops.length > 1) {
             // Remove all backdrops except the first one
@@ -267,8 +270,8 @@ window.showQRReceipt = function(paymentData) {
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
         
-        // Re-add modal-open if All Payments is still open
-        if (allPaymentsModal && allPaymentsModal.classList.contains('show')) {
+        // Re-add modal-open if parent modal is still open
+        if (parentModal && parentModal.classList.contains('show')) {
             document.body.classList.add('modal-open');
             document.body.style.overflow = 'hidden';
         }

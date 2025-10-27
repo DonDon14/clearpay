@@ -451,7 +451,7 @@
                     </td>
                     <td>
                         <button class="btn btn-sm btn-outline-primary view-receipt-btn" data-payment='${JSON.stringify(payment)}'>
-                            <i class="fas fa-qrcode"></i> View QR
+                            <i class="fas fa-qrcode"></i> View Receipt
                         </button>
                     </td>
                 </tr>
@@ -472,15 +472,10 @@
                 const paymentData = JSON.parse(this.getAttribute('data-payment'));
                 console.log('Payment data being passed to showQRReceipt:', paymentData);
                 
-                // Hide payment history modal first
-                paymentHistoryModal.hide();
-                
+                // Don't hide payment history modal - keep it open
                 // Use the global showQRReceipt function from modal-qr-receipt.php
                 if (typeof window.showQRReceipt === 'function') {
-                    // Small delay to ensure payment history modal is fully closed
-                    setTimeout(() => {
-                        window.showQRReceipt(paymentData);
-                    }, 300);
+                    window.showQRReceipt(paymentData);
                 } else {
                     console.error('showQRReceipt function not available');
                     alert('QR receipt functionality not available. Please refresh the page.');
