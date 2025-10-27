@@ -53,12 +53,15 @@ $routes->post('/admin/process-payment-request', 'Admin\DashboardController::proc
 $routes->get('/admin/get-payment-request-details', 'Admin\DashboardController::getPaymentRequestDetails', ['filter' => 'auth']);
 $routes->post('/admin/delete-payment-request', 'Admin\DashboardController::deletePaymentRequest', ['filter' => 'auth']);
 
-// Payments Management Routes
-$routes->get('/payments', 'Admin\PaymentsController::index', ['filter' => 'auth']);
-$routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
-$routes->post('/payments/save-with-confirmation', 'Admin\PaymentsController::saveWithConfirmation', ['filter' => 'auth']);
-$routes->post('/payments/add-to-partial', 'Admin\PaymentsController::addToPartial', ['filter' => 'auth']);
-$routes->get('/payments/get-payment-history', 'Admin\PaymentsController::getPaymentHistory', ['filter' => 'auth']);
+    // Payments Management Routes
+    $routes->get('/payments', 'Admin\PaymentsController::index', ['filter' => 'auth']);
+    $routes->post('/payments/save', 'Admin\PaymentsController::save', ['filter' => 'auth']);
+    $routes->post('/payments/save-with-confirmation', 'Admin\PaymentsController::saveWithConfirmation', ['filter' => 'auth']);
+    $routes->post('/payments/add-to-partial', 'Admin\PaymentsController::addToPartial', ['filter' => 'auth']);
+    $routes->get('/payments/get-payment-history', 'Admin\PaymentsController::getPaymentHistory', ['filter' => 'auth']);
+    $routes->get('/payments/get-payment-details', 'Admin\PaymentsController::getPaymentDetails', ['filter' => 'auth']);
+    $routes->post('/payments/delete', 'Admin\PaymentsController::deletePayment', ['filter' => 'auth']);
+    $routes->post('/payments/delete-group', 'Admin\PaymentsController::deletePaymentGroup', ['filter' => 'auth']);
 $routes->get('/payments/check-unpaid-contributions', 'Admin\PaymentsController::checkUnpaidContributions', ['filter' => 'auth']);
 $routes->post('/payments/update/(:num)', 'Admin\PaymentsController::update/$1', ['filter' => 'auth']);
 $routes->get('/payments/recent', 'Admin\PaymentsController::recent', ['filter' => 'auth']);

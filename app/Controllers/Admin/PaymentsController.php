@@ -220,15 +220,63 @@ class PaymentsController extends BaseController
                 $paymentStatus = 'fully paid'; // Always fully paid for duplicate payments
                 $remainingBalance = 0; // No remaining balance for duplicate payments
                 $isPartial = false;
+                $paymentSequence = $this->getNextPaymentSequence($payerDbId, $this->request->getPost('contribution_id'));
             } else {
-                // Calculate status based on actual contribution amount
-                if ($amountPaid >= $contributionAmount) {
+                // Calculate cumulative total paid including this new payment
+                $existingPayments = $paymentModel
+                    ->where('payer_id', $this->request->getPost('payer_id'))
+                    ->where('contribution_id', $this->request->getPost('contribution_id'))
+                    ->where('deleted_at', null)
+                    ->findAll();
+                
+                $existingTotalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
+                $newTotalPaid = $existingTotalPaid + $amountPaid;
+                
+                // Determine payment sequence - ensure only one active partial group per contribution type
+                if (!empty($existingPayments)) {
+                    // Group payments by sequence to find active partial groups
+                    $paymentGroups = [];
+                    foreach ($existingPayments as $payment) {
+                        $sequence = $payment['payment_sequence'] ?? 1;
+                        if (!isset($paymentGroups[$sequence])) {
+                            $paymentGroups[$sequence] = [];
+                        }
+                        $paymentGroups[$sequence][] = $payment;
+                    }
+                    
+                    // Check each group to find if there's an active partial group
+                    $activePartialGroup = null;
+                    foreach ($paymentGroups as $sequence => $groupPayments) {
+                        $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+                        $contributionAmount = $contribution ? $contribution['amount'] : 0;
+                        
+                        // Check if this group is partial (not fully paid)
+                        if ($groupTotalPaid < $contributionAmount) {
+                            $activePartialGroup = $sequence;
+                            break; // Found an active partial group
+                        }
+                    }
+                    
+                    if ($activePartialGroup !== null) {
+                        // Add to the existing partial group
+                        $paymentSequence = $activePartialGroup;
+                    } else {
+                        // No active partial group, create new group
+                        $paymentSequence = $this->getNextPaymentSequence($payerDbId, $this->request->getPost('contribution_id'));
+                    }
+                } else {
+                    // No existing payments, start with sequence 1
+                    $paymentSequence = 1;
+                }
+                
+                // Calculate status based on cumulative total
+                if ($newTotalPaid >= $contributionAmount) {
                     $paymentStatus = 'fully paid';
                     $remainingBalance = 0;
                     $isPartial = false;
                 } else {
                     $paymentStatus = 'partial';
-                    $remainingBalance = $actualRemainingBalance;
+                    $remainingBalance = $contributionAmount - $newTotalPaid;
                     $isPartial = true;
                 }
             }
@@ -247,7 +295,7 @@ class PaymentsController extends BaseController
                 'is_partial_payment' => $isPartial ? 1 : 0,
                 'remaining_balance' => $remainingBalance,
                 'parent_payment_id' => $this->request->getPost('parent_payment_id') ?: null,
-                'payment_sequence' => $isDuplicatePayment ? $this->getNextPaymentSequence($payerDbId, $this->request->getPost('contribution_id')) : 1,
+                'payment_sequence' => $paymentSequence,
                 'reference_number' => $referenceNumber,
                 'receipt_number' => $receiptNumber,
                 'recorded_by' => session()->get('user-id') ?: session()->get('user_id') ?: null,
@@ -271,6 +319,14 @@ class PaymentsController extends BaseController
             if ($result) {
                 // Get the payment ID (for new payments)
                 $paymentId = $id ?: $paymentModel->getInsertID();
+                
+                // Consolidate any existing multiple partial groups before processing
+                $this->consolidatePartialGroups($payerDbId, $this->request->getPost('contribution_id'));
+                
+                // If this payment makes the total fully paid, update all previous payments in the same group
+                if (!$isDuplicatePayment && $newTotalPaid >= $contributionAmount) {
+                    $this->updatePaymentGroupStatus($payerDbId, $this->request->getPost('contribution_id'), $paymentSequence);
+                }
                 
                 // Log activity using ActivityLogger
                 $activityLogger = new ActivityLogger();
@@ -922,29 +978,227 @@ class PaymentsController extends BaseController
             return ['allowed' => true];
         }
         
-        // Calculate total paid for this contribution
-        $totalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
-        $contributionAmount = $contribution['amount'];
-        
-        // Debug logging
-        log_message('info', "Duplicate check - Total paid: {$totalPaid}, Contribution amount: {$contributionAmount}");
-        
-        // Check if contribution is fully paid - show confirmation instead of blocking
-        if ($totalPaid >= $contributionAmount) {
-            log_message('info', "Contribution is fully paid - showing confirmation");
-            return [
-                'allowed' => false,
-                'message' => "⚠️ Contribution Already Fully Paid\n\nYou already paid this contribution '" . $contribution['title'] . "' (₱" . number_format($totalPaid, 2) . ").\n\nYou want to add another for this contribution?",
-                'requires_confirmation' => true,
-                'existing_payments' => $existingPayments
-            ];
+        // Group payments by payment_sequence to check each group separately
+        $paymentGroups = [];
+        foreach ($existingPayments as $payment) {
+            $sequence = $payment['payment_sequence'] ?? 1;
+            if (!isset($paymentGroups[$sequence])) {
+                $paymentGroups[$sequence] = [];
+            }
+            $paymentGroups[$sequence][] = $payment;
         }
         
-        // Contribution is partially paid - allow additional payments without confirmation
-        log_message('info', "Contribution is partially paid - allowing additional payment");
-        return ['allowed' => true];
+        // Check each payment group separately
+        foreach ($paymentGroups as $sequence => $groupPayments) {
+            $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+            $contributionAmount = $contribution['amount'];
+            
+            // Check if this group is partial (not fully paid)
+            if ($groupTotalPaid < $contributionAmount) {
+                // This is an active partial group - allow completion
+                return [
+                    'allowed' => true,
+                    'message' => "Partial payment detected in group {$sequence}. You can complete this contribution.",
+                    'is_partial_payment' => true,
+                    'existing_payments' => $groupPayments,
+                    'remaining_amount' => $contributionAmount - $groupTotalPaid
+                ];
+            }
+        }
+        
+        // If we get here, all groups are fully paid - show confirmation for new group
+        $totalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
+        return [
+            'allowed' => false,
+            'message' => "⚠️ Contribution Already Fully Paid\n\nYou already have fully paid contribution groups for '" . $contribution['title'] . "' (₱" . number_format($totalPaid, 2) . " total).\n\nAdd another payment group for this contribution?",
+            'requires_confirmation' => true,
+            'existing_payments' => $existingPayments
+        ];
     }
     
+    /**
+     * Delete an entire payment group (all payments for a payer and contribution)
+     */
+    public function deletePaymentGroup()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = $this->request->getPost('payer_id');
+        $contributionId = $this->request->getPost('contribution_id');
+        $paymentSequence = $this->request->getPost('payment_sequence') ?? 1;
+        
+        if (!$payerId || !$contributionId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID and Contribution ID are required'
+            ]);
+        }
+
+        try {
+            $paymentModel = new PaymentModel();
+            $payerModel = new \App\Models\PayerModel();
+            $contributionModel = new \App\Models\ContributionModel();
+            
+            // Get payer and contribution details for logging
+            $payer = $payerModel->find($payerId);
+            $contribution = $contributionModel->find($contributionId);
+            
+            if (!$payer || !$contribution) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer or contribution not found'
+                ]);
+            }
+
+            // Get all payments for this payer and contribution (and sequence if specified)
+            $payments = $paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contributionId)
+                ->where('deleted_at', null);
+            
+            // Handle payment sequence filtering - if sequence is 1, include both NULL and 1
+            if ($paymentSequence == 1) {
+                $payments->groupStart()
+                    ->where('payment_sequence', 1)
+                    ->orWhere('payment_sequence IS NULL')
+                    ->groupEnd();
+            } else {
+                $payments->where('payment_sequence', $paymentSequence);
+            }
+            
+            $payments = $payments->findAll();
+
+            // Debug logging
+            log_message('info', 'Delete Payment Group Debug:');
+            log_message('info', 'Payer ID: ' . $payerId);
+            log_message('info', 'Contribution ID: ' . $contributionId);
+            log_message('info', 'Payment Sequence: ' . $paymentSequence);
+            log_message('info', 'Found ' . count($payments) . ' payments');
+            
+            if (!empty($payments)) {
+                foreach ($payments as $payment) {
+                    log_message('info', 'Payment ID: ' . $payment['id'] . ', Sequence: ' . ($payment['payment_sequence'] ?? 'NULL'));
+                }
+            }
+
+            if (empty($payments)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'No payments found for this group'
+                ]);
+            }
+
+            // Soft delete all payments in the group
+            $deletedCount = 0;
+            foreach ($payments as $payment) {
+                if ($paymentModel->delete($payment['id'])) {
+                    $deletedCount++;
+                }
+            }
+
+            if ($deletedCount > 0) {
+                // Log the deletion activity
+                $activityLogger = new \App\Services\ActivityLogger();
+                $activityLogger->logActivity('delete', 'payment_group', $payerId . '_' . $contributionId . '_' . $paymentSequence, 
+                    "Payment group deleted: {$deletedCount} payments for " . $payer['payer_name'] . " - " . $contribution['title'] . 
+                    ($paymentSequence > 1 ? " (Group {$paymentSequence})" : ""));
+
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => "Successfully deleted {$deletedCount} payment(s) from the group",
+                    'deleted_count' => $deletedCount
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to delete any payments'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Delete a payment record
+     */
+    public function deletePayment()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $paymentId = $this->request->getPost('payment_id');
+        
+        if (!$paymentId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payment ID is required'
+            ]);
+        }
+
+        try {
+            $paymentModel = new PaymentModel();
+            
+            // Get payment details before deletion for logging
+            $payment = $paymentModel->select('
+                payments.*,
+                payers.payer_name,
+                contributions.title as contribution_title
+            ')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->where('payments.id', $paymentId)
+            ->first();
+
+            if (!$payment) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment not found'
+                ]);
+            }
+
+            // Soft delete the payment
+            $result = $paymentModel->delete($paymentId);
+
+            if ($result) {
+                // Log the deletion activity
+                $activityLogger = new \App\Services\ActivityLogger();
+                $activityLogger->logActivity('delete', 'payment', $paymentId, 
+                    "Payment deleted: ₱" . number_format($payment['amount_paid'], 2) . 
+                    " for " . $payment['payer_name'] . " - " . $payment['contribution_title']);
+
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payment deleted successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to delete payment'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
     /**
      * Get other unpaid contributions for a payer
      */
@@ -970,17 +1224,8 @@ class PaymentsController extends BaseController
                 ->where('deleted_at', null)
                 ->findAll();
             
-            if (empty($payments)) {
-                // No payments at all - unpaid
-                $unpaidContributions[] = [
-                    'id' => $contribution['id'],
-                    'title' => $contribution['title'],
-                    'amount' => $contribution['amount'],
-                    'remaining_amount' => $contribution['amount'],
-                    'total_paid' => 0
-                ];
-            } else {
-                // Calculate total paid
+            if (!empty($payments)) {
+                // Only show contributions that have been started but not completed
                 $totalPaid = array_sum(array_column($payments, 'amount_paid'));
                 if ($totalPaid < $contribution['amount']) {
                     $unpaidContributions[] = [
@@ -992,6 +1237,7 @@ class PaymentsController extends BaseController
                     ];
                 }
             }
+            // If no payments exist, don't show it as "unpaid" - it's just not started yet
         }
         
         return $unpaidContributions;
@@ -1050,6 +1296,69 @@ class PaymentsController extends BaseController
     }
 
     /**
+     * Get payment details for QR receipt
+     */
+    public function getPaymentDetails()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $paymentId = $this->request->getGet('payment_id');
+
+        if (!$paymentId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payment ID is required'
+            ]);
+        }
+
+        try {
+            $paymentModel = new PaymentModel();
+            
+            $payment = $paymentModel->select('
+                payments.*,
+                payers.payer_name,
+                payers.payer_id as payer_student_id,
+                payers.contact_number,
+                payers.email_address,
+                payers.profile_picture,
+                contributions.title as contribution_title,
+                contributions.description as contribution_description,
+                contributions.amount as contribution_amount,
+                users.username as recorded_by_name
+            ')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->join('users', 'users.id = payments.recorded_by', 'left')
+            ->where('payments.id', $paymentId)
+            ->where('payments.deleted_at', null)
+            ->first();
+            
+            if (!$payment) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment not found'
+                ]);
+            }
+
+            return $this->response->setJSON([
+                'success' => true,
+                'payment' => $payment
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Get next payment sequence for duplicate payments
      */
     private function getNextPaymentSequence($payerId, $contributionId)
@@ -1065,5 +1374,86 @@ class PaymentsController extends BaseController
             ->first();
         
         return ($maxSequence['max_seq'] ?? 0) + 1;
+    }
+    
+    /**
+     * Consolidate multiple partial payment groups into one
+     * This method helps clean up existing data where there might be multiple partial groups
+     */
+    private function consolidatePartialGroups($payerId, $contributionId)
+    {
+        $paymentModel = new PaymentModel();
+        $contributionModel = new \App\Models\ContributionModel();
+        
+        // Get all existing payments for this payer and contribution
+        $existingPayments = $paymentModel
+            ->where('payer_id', $payerId)
+            ->where('contribution_id', $contributionId)
+            ->where('deleted_at', null)
+            ->findAll();
+        
+        if (empty($existingPayments)) {
+            return;
+        }
+        
+        // Get contribution amount
+        $contribution = $contributionModel->find($contributionId);
+        $contributionAmount = $contribution ? $contribution['amount'] : 0;
+        
+        // Group payments by sequence
+        $paymentGroups = [];
+        foreach ($existingPayments as $payment) {
+            $sequence = $payment['payment_sequence'] ?? 1;
+            if (!isset($paymentGroups[$sequence])) {
+                $paymentGroups[$sequence] = [];
+            }
+            $paymentGroups[$sequence][] = $payment;
+        }
+        
+        // Find partial groups
+        $partialGroups = [];
+        foreach ($paymentGroups as $sequence => $groupPayments) {
+            $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+            if ($groupTotalPaid < $contributionAmount) {
+                $partialGroups[$sequence] = $groupPayments;
+            }
+        }
+        
+        // If there are multiple partial groups, consolidate them
+        if (count($partialGroups) > 1) {
+            $targetSequence = min(array_keys($partialGroups)); // Use the lowest sequence number
+            
+            foreach ($partialGroups as $sequence => $groupPayments) {
+                if ($sequence !== $targetSequence) {
+                    // Move payments from this group to the target group
+                    foreach ($groupPayments as $payment) {
+                        $paymentModel->update($payment['id'], [
+                            'payment_sequence' => $targetSequence
+                        ]);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Update payment group status when total becomes fully paid
+     */
+    private function updatePaymentGroupStatus($payerId, $contributionId, $paymentSequence)
+    {
+        $paymentModel = new PaymentModel();
+        
+        // Update all payments in the same group to fully paid
+        $paymentModel
+            ->where('payer_id', $payerId)
+            ->where('contribution_id', $contributionId)
+            ->where('payment_sequence', $paymentSequence)
+            ->where('deleted_at', null)
+            ->set([
+                'payment_status' => 'fully paid',
+                'remaining_balance' => 0,
+                'is_partial_payment' => 0
+            ])
+            ->update();
     }
 }

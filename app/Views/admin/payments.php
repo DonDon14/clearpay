@@ -115,18 +115,45 @@
                                     ?>
                                     <span class="badge <?= $badgeClass ?>"><?= $statusText ?></span>
                                 </td>
-                                            <td>
+                                <td>
                                                 <span class="badge bg-info"><?= $group['payment_count'] ?> payment<?= $group['payment_count'] > 1 ? 's' : '' ?></span>
                                             </td>
                                             <td><?= date('M d, Y', strtotime($group['last_payment_date'])) ?></td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary view-payment-history-btn" 
-                                                        data-payer-id="<?= esc($group['payer_id']) ?>" 
-                                                        data-contribution-id="<?= esc($group['contribution_id']) ?>"
-                                                        data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
-                                                        title="View Payment History">
-                                                    <i class="fas fa-history me-1"></i>History
+                                <td>
+                                        <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary view-payment-history-btn" 
+                                                            data-payer-id="<?= esc($group['payer_id']) ?>" 
+                                                            data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                                            data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
+                                                            title="View Payment History">
+                                                        <i class="fas fa-history me-1"></i>History
                                             </button>
+                                                    <?php if ($group['computed_status'] === 'partial'): ?>
+                                                        <button class="btn btn-sm btn-success add-payment-btn" 
+                                                                data-payer-id="<?= esc($group['payer_id']) ?>" 
+                                                                data-payer-name="<?= esc($group['payer_name']) ?>"
+                                                                data-payer-student-id="<?= esc($group['payer_student_id']) ?>"
+                                                                data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                                                data-contribution-title="<?= esc($group['contribution_title']) ?>"
+                                                                data-contribution-amount="<?= esc($group['contribution_amount']) ?>"
+                                                                data-total-paid="<?= esc($group['total_paid']) ?>"
+                                                                data-remaining-balance="<?= esc($group['remaining_balance']) ?>"
+                                                                title="Add Additional Payment">
+                                                <i class="fas fa-plus me-1"></i>Add Payment
+                                            </button>
+                                        <?php endif; ?>
+                                                    <button class="btn btn-sm btn-outline-danger delete-payment-group-btn" 
+                                                            data-payer-id="<?= esc($group['payer_id']) ?>" 
+                                                            data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                                            data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
+                                                            data-payer-name="<?= esc($group['payer_name']) ?>"
+                                                            data-contribution-title="<?= esc($group['contribution_title']) ?>"
+                                                            data-payment-count="<?= esc($group['payment_count']) ?>"
+                                                            data-total-paid="<?= esc($group['total_paid']) ?>"
+                                                            title="Delete Payment Group">
+                                                        <i class="fas fa-trash me-1"></i>Delete
+                                                    </button>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -165,6 +192,82 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+ <!-- Delete Payment Confirmation Modal -->
+ <div class="modal fade" id="deletePaymentModal" tabindex="-1" aria-labelledby="deletePaymentModalLabel" aria-hidden="true">
+     <div class="modal-dialog">
+         <div class="modal-content">
+             <div class="modal-header bg-danger text-white">
+                 <h5 class="modal-title" id="deletePaymentModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Payment
+                 </h5>
+                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+             </div>
+             <div class="modal-body">
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading">Warning!</h6>
+                    <p class="mb-0">This action cannot be undone. The payment record will be permanently deleted.</p>
+                 </div>
+                
+                <div class="mt-3">
+                    <h6>Payment Details:</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Payer:</strong> <span id="deletePayerName"></span></li>
+                        <li><strong>Contribution:</strong> <span id="deleteContribution"></span></li>
+                        <li><strong>Amount:</strong> <span id="deleteAmount"></span></li>
+                    </ul>
+                </div>
+             </div>
+             <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeletePayment">
+                     <i class="fas fa-trash me-2"></i>Delete Payment
+                 </button>
+             </div>
+         </div>
+     </div>
+ </div>
+
+<!-- Delete Payment Group Confirmation Modal -->
+<div class="modal fade" id="deletePaymentGroupModal" tabindex="-1" aria-labelledby="deletePaymentGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deletePaymentGroupModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Payment Group
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading">Warning!</h6>
+                    <p class="mb-0">This action will permanently delete ALL payments in this group. This cannot be undone.</p>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Payment Group Details:</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Payer:</strong> <span id="deleteGroupPayerName"></span></li>
+                        <li><strong>Contribution:</strong> <span id="deleteGroupContribution"></span></li>
+                        <li><strong>Payment Count:</strong> <span id="deleteGroupPaymentCount"></span></li>
+                        <li><strong>Total Amount:</strong> <span id="deleteGroupTotalAmount"></span></li>
+                        <li><strong>Group:</strong> <span id="deleteGroupSequence"></span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmDeletePaymentGroup">
+                    <i class="fas fa-trash me-2"></i>Delete Group
+                </button>
             </div>
         </div>
     </div>
@@ -250,8 +353,8 @@ $(document).ready(function() {
 
     // Handle payment group row click
     $(document).on('click', '.payment-group-row', function(e) {
-        // Don't trigger if clicking on the view history button
-        if ($(e.target).closest('.view-payment-history-btn').length > 0) {
+        // Don't trigger if clicking on buttons
+        if ($(e.target).closest('.view-payment-history-btn, .add-payment-btn').length > 0) {
             return;
         }
         
@@ -270,10 +373,56 @@ $(document).ready(function() {
         viewPaymentHistory(payerId, contributionId, paymentSequence);
     });
 
+    // Handle add payment button click for partial payments
+    $(document).on('click', '.add-payment-btn', function(e) {
+        e.stopPropagation();
+        
+        // Get all the data from the button
+        const payerData = {
+            id: $(this).data('payer-id'),
+            payer_name: $(this).data('payer-name'),
+            payer_id: $(this).data('payer-student-id')
+        };
+        
+        const contributionData = {
+            id: $(this).data('contribution-id'),
+            title: $(this).data('contribution-title'),
+            amount: $(this).data('contribution-amount')
+        };
+        
+        const paymentData = {
+            total_paid: $(this).data('total-paid'),
+            remaining_balance: $(this).data('remaining-balance')
+        };
+        
+        // Pre-populate the modal and trigger the same flow as main button
+        openAddPaymentModalWithValidation(payerData, contributionData, paymentData);
+    });
+
     // Handle individual payment click in history modal
     $(document).on('click', '.payment-item-row', function() {
         const paymentId = $(this).data('payment-id');
-        showQRReceipt(paymentId);
+        
+        // Fetch payment data for QR receipt
+        fetch(`<?= base_url('payments/get-payment-details') ?>?payment_id=${paymentId}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showQRReceipt(data.payment);
+                    } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while fetching payment details.');
+        });
     });
 
     // Search functionality
@@ -299,7 +448,7 @@ $(document).ready(function() {
             
             if (selectedStatus === '' || status === selectedStatus) {
                 $(this).show();
-            } else {
+                    } else {
                 $(this).hide();
             }
         });
@@ -315,7 +464,7 @@ $(document).ready(function() {
         const query = $(this).val();
         if (query.length >= 2) {
             searchPayers(query);
-        } else {
+                } else {
             $('#payerSearchResults').empty();
         }
     });
@@ -405,7 +554,17 @@ $(document).ready(function() {
                         <td>${payment.receipt_number || 'N/A'}</td>
                         <td>${payment.recorded_by_name || 'N/A'}</td>
                         <td>
-                            <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-payment-btn" 
+                                        data-payment-id="${payment.id}" 
+                                        data-payer-name="${payment.payer_name}"
+                                        data-amount="${payment.amount_paid}"
+                                        data-contribution="${payment.contribution_title}"
+                                        title="Delete Payment">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -432,37 +591,7 @@ $(document).ready(function() {
         $('#paymentHistoryContent').html(html);
     }
 
-    function showQRReceipt(paymentId) {
-        // Find the payment data from the current payments array
-        const paymentRow = $(`.payment-item-row[data-payment-id="${paymentId}"]`);
-        if (paymentRow.length === 0) {
-            alert('Payment data not found');
-            return;
-        }
-
-        // Get payment data from the row
-        const paymentData = {
-            id: paymentId,
-            payer_name: paymentRow.closest('tbody').prev().find('h6').text(),
-            contribution_title: paymentRow.closest('tbody').prev().find('p').text(),
-            amount_paid: paymentRow.find('td:nth-child(2)').text().replace('₱', ''),
-            payment_method: paymentRow.find('td:nth-child(3)').text(),
-            reference_number: paymentRow.find('td:nth-child(4)').text(),
-            receipt_number: paymentRow.find('td:nth-child(5)').text(),
-            payment_date: paymentRow.find('td:nth-child(1)').text(),
-            payment_status: 'fully paid' // Assume completed for display
-        };
-
-        // Close the payment history modal first
-        $('#paymentHistoryModal').modal('hide');
-        
-        // Show QR receipt modal
-        if (typeof window.showQRReceipt === 'function') {
-            window.showQRReceipt(paymentData);
-        } else {
-            alert('QR Receipt functionality not available');
-        }
-    }
+    // Removed local showQRReceipt function - using global one from modal-qr-receipt.php
 
     function getStatusBadge(status) {
         switch(status) {
@@ -500,6 +629,62 @@ $(document).ready(function() {
             'bank': 'Bank Transfer'
         };
         return methods[method] || method;
+    }
+
+    // Function to open Add Payment modal with pre-populated data AND validation
+    function openAddPaymentModalWithValidation(payerData, contributionData, paymentData) {
+        // Set the payer data
+        selectedPayer = payerData;
+        $('#payerSearch').val(payerData.payer_name);
+        $('#payerSearchResults').empty();
+        
+        // Set the contribution
+        $('#contributionSelect').val(contributionData.id);
+        $('#contributionSelect').trigger('change');
+        
+        // Pre-fill amount with remaining balance
+        $('#amountPaid').val(paymentData.remaining_balance);
+        
+        // Set today's date
+        const today = new Date().toISOString().split('T')[0];
+        $('#paymentDate').val(today);
+        
+        // Clear other fields
+        $('#paymentMethod').val('');
+        $('#referenceNumber').val('');
+        
+        // Show the modal
+        $('#addPaymentModal').modal('show');
+        
+        // Trigger the same validation flow that happens when payer is selected
+        // This will check for duplicate payments and show appropriate warnings
+        checkPayerUnpaidContributions(payerData.id);
+    }
+
+    // Function to open Add Payment modal with pre-populated data
+    function openAddPaymentModal(payerData, contributionData, paymentData) {
+        // Set the payer data
+        selectedPayer = payerData;
+        $('#payerSearch').val(payerData.payer_name);
+        $('#payerSearchResults').empty();
+        
+        // Set the contribution
+        $('#contributionSelect').val(contributionData.id);
+        $('#contributionSelect').trigger('change');
+        
+        // Pre-fill amount with remaining balance
+        $('#amountPaid').val(paymentData.remaining_balance);
+        
+        // Set today's date
+        const today = new Date().toISOString().split('T')[0];
+        $('#paymentDate').val(today);
+        
+        // Clear other fields
+        $('#paymentMethod').val('');
+        $('#referenceNumber').val('');
+        
+        // Show the modal
+        $('#addPaymentModal').modal('show');
     }
 
     window.searchPayers = function(query) {
@@ -596,13 +781,14 @@ $(document).ready(function() {
                 alert('Payment added successfully!');
                 $('#addPaymentModal').modal('hide');
                 location.reload(); // Reload to show updated data
-            } else {
-                // Check if this is a duplicate payment that requires confirmation
-                if (data.requires_confirmation) {
-                    showDuplicatePaymentConfirmation(data, formData);
-                } else {
-                    alert('Error: ' + data.message);
-                }
+            } else if (data.allowed && data.is_partial_payment) {
+                // Partial payment detected - pre-populate form with remaining amount
+                prefillPartialPaymentForm(data);
+            } else if (data.requires_confirmation) {
+                // Fully paid contribution - show confirmation
+                showDuplicatePaymentConfirmation(data, formData);
+             } else {
+                alert('Error: ' + data.message);
             }
         })
         .catch(error => {
@@ -633,29 +819,88 @@ $(document).ready(function() {
                             
                             ${data.existing_payments && data.existing_payments.length > 0 ? `
                                 <div class="mt-3">
-                                    <h6>Existing Payments:</h6>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm">
-                                            <thead>
-                                                <tr>
-                                                    <th>Date</th>
-                                                    <th>Amount</th>
-                                                    <th>Method</th>
-                                                    <th>Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${data.existing_payments.map(payment => `
-                                                    <tr>
-                                                        <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
-                                                        <td>₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
-                                                        <td>${payment.payment_method || 'N/A'}</td>
-                                                        <td><span class="badge bg-${payment.payment_status === 'fully paid' ? 'success' : 'warning'}">${payment.payment_status}</span></td>
-                                                    </tr>
-                                                `).join('')}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    <h6>Existing Payment Groups:</h6>
+                                    ${(() => {
+                                        // Group payments by payment_sequence
+                                        const paymentGroups = {};
+                                        data.existing_payments.forEach(payment => {
+                                            const sequence = payment.payment_sequence || 1;
+                                            if (!paymentGroups[sequence]) {
+                                                paymentGroups[sequence] = [];
+                                            }
+                                            paymentGroups[sequence].push(payment);
+                                        });
+                                        
+                                        // Calculate totals for each group
+                                        const groupSummaries = Object.keys(paymentGroups).map(sequence => {
+                                            const groupPayments = paymentGroups[sequence];
+                                            const totalPaid = groupPayments.reduce((sum, p) => sum + parseFloat(p.amount_paid), 0);
+                                            const contributionAmount = parseFloat(data.existing_payments[0].contribution_amount || 0);
+                                            const isFullyPaid = totalPaid >= contributionAmount;
+                                            const remainingBalance = Math.max(0, contributionAmount - totalPaid);
+                                            
+                                            return {
+                                                sequence: sequence,
+                                                payments: groupPayments,
+                                                totalPaid: totalPaid,
+                                                paymentCount: groupPayments.length,
+                                                isFullyPaid: isFullyPaid,
+                                                remainingBalance: remainingBalance,
+                                                lastPaymentDate: groupPayments.reduce((latest, p) => 
+                                                    new Date(p.payment_date) > new Date(latest) ? p.payment_date : latest, 
+                                                    groupPayments[0].payment_date
+                                                )
+                                            };
+                                        });
+                                        
+                                        // Sort groups by sequence
+                                        groupSummaries.sort((a, b) => parseInt(a.sequence) - parseInt(b.sequence));
+                                        
+                                        return groupSummaries.map(group => `
+                                            <div class="card mb-3">
+                                                <div class="card-header d-flex justify-content-between align-items-center">
+                                                    <h6 class="mb-0">
+                                                        <i class="fas fa-layer-group me-2"></i>
+                                                        Payment Group ${group.sequence}
+                                                        ${group.isFullyPaid ? '<span class="badge bg-success ms-2">Completed</span>' : '<span class="badge bg-warning ms-2">Partial</span>'}
+                                                    </h6>
+                                                    <small class="text-muted">${group.paymentCount} payment${group.paymentCount > 1 ? 's' : ''}</small>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <strong>Total Paid:</strong> ₱${group.totalPaid.toFixed(2)}
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <strong>Last Payment:</strong> ${new Date(group.lastPaymentDate).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                    ${!group.isFullyPaid ? `
+                                                        <div class="mt-2">
+                                                            <small class="text-muted">Remaining: ₱${group.remainingBalance.toFixed(2)}</small>
+                                                        </div>
+                                                    ` : ''}
+                                                    <div class="mt-2">
+                                                        <small class="text-muted">Individual Payments:</small>
+                                                        <div class="table-responsive mt-1">
+                                                            <table class="table table-sm table-borderless">
+                                                                <tbody>
+                                                                    ${group.payments.map(payment => `
+                                                                        <tr>
+                                                                            <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
+                                                                            <td>₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
+                                                                            <td>${payment.payment_method || 'N/A'}</td>
+                                                                            <td><span class="badge bg-${payment.payment_status === 'fully paid' ? 'success' : 'warning'}">${payment.payment_status}</span></td>
+                                                                        </tr>
+                                                                    `).join('')}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `).join('');
+                                    })()}
                                 </div>
                             ` : ''}
                             
@@ -669,9 +914,11 @@ $(document).ready(function() {
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>No
+                            </button>
                             <button type="button" class="btn ${data.message.includes('Already Fully Paid') ? 'btn-warning' : 'btn-info'}" onclick="confirmDuplicatePayment()">
-                                <i class="fas fa-check me-2"></i>${data.message.includes('Already Fully Paid') ? 'Yes, Add Another Payment' : 'Yes, Add Payment Anyway'}
+                                <i class="fas fa-check me-2"></i>Yes
                             </button>
                         </div>
                     </div>
@@ -697,7 +944,7 @@ $(document).ready(function() {
         
         if (!window.pendingPaymentData) {
             alert('No payment data found');
-            return;
+                            return;
         }
         
         console.log('Pending payment data:', window.pendingPaymentData); // Debug log
@@ -751,6 +998,7 @@ $(document).ready(function() {
         window.pendingPaymentData = null;
     }
 
+
     window.checkPayerUnpaidContributions = function(payerId) {
         // Remove existing warning if any
         $('#payerUnpaidWarning').remove();
@@ -766,9 +1014,9 @@ $(document).ready(function() {
     .then(data => {
             if (data.success && data.unpaid_contributions && data.unpaid_contributions.length > 0) {
                 const warningHtml = `
-                    <div id="payerUnpaidWarning" class="alert alert-info mt-2">
-                        <h6><i class="fas fa-info-circle me-2"></i>Existing Contributions</h6>
-                        <p class="mb-1">This payer has unpaid contributions:</p>
+                    <div id="payerUnpaidWarning" class="alert alert-info mt-2 w-100">
+                        <h6><i class="fas fa-info-circle me-2"></i>Incomplete Contributions</h6>
+                        <p class="mb-1">This payer has started but not completed these contributions:</p>
                         <ul class="mb-0">
                             ${data.unpaid_contributions.map(contrib => 
                                 `<li>${contrib.title} (₱${parseFloat(contrib.remaining_amount).toFixed(2)} remaining)</li>`
@@ -786,6 +1034,203 @@ $(document).ready(function() {
     }
 
     // Make functions globally available
+    // Delete payment functionality
+    let currentDeletePaymentId = null;
+
+    // Handle delete button click
+    $(document).on('click', '.delete-payment-btn', function(e) {
+        e.stopPropagation(); // Prevent row click
+        
+        const paymentId = $(this).data('payment-id');
+        const payerName = $(this).data('payer-name');
+        const amount = $(this).data('amount');
+        const contribution = $(this).data('contribution');
+        
+        // Store payment ID for deletion
+        currentDeletePaymentId = paymentId;
+    
+    // Populate modal with payment details
+        $('#deletePayerName').text(payerName);
+        $('#deleteContribution').text(contribution);
+        $('#deleteAmount').text('₱' + parseFloat(amount).toFixed(2));
+        
+        // Show confirmation modal
+        $('#deletePaymentModal').modal('show');
+    });
+
+    // Handle confirm delete
+    $('#confirmDeletePayment').on('click', function() {
+        if (!currentDeletePaymentId) {
+            alert('No payment selected for deletion');
+        return;
+    }
+    
+        // Disable button to prevent double-click
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Deleting...');
+
+        // Send delete request
+        fetch('<?= base_url('payments/delete') ?>', {
+            method: 'POST',
+        headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: new URLSearchParams({
+                payment_id: currentDeletePaymentId
+            })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+                $('#deletePaymentModal').modal('hide');
+                
+                // Show success message
+                alert('Payment deleted successfully!');
+                
+                // Reload the page to refresh the data
+                location.reload();
+        } else {
+                alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+            alert('An error occurred while deleting the payment.');
+        })
+        .finally(() => {
+            // Re-enable button
+            $('#confirmDeletePayment').prop('disabled', false).html('<i class="fas fa-trash me-2"></i>Delete Payment');
+            currentDeletePaymentId = null;
+        });
+    });
+
+    // Reset delete payment ID when modal is closed
+    $('#deletePaymentModal').on('hidden.bs.modal', function() {
+        currentDeletePaymentId = null;
+    });
+
+    // Delete payment group functionality
+    let currentDeleteGroupData = null;
+
+    // Handle delete group button click
+    $(document).on('click', '.delete-payment-group-btn', function(e) {
+        e.stopPropagation(); // Prevent row click
+        
+        const payerId = $(this).data('payer-id');
+        const contributionId = $(this).data('contribution-id');
+        const paymentSequence = $(this).data('payment-sequence');
+        const payerName = $(this).data('payer-name');
+        const contributionTitle = $(this).data('contribution-title');
+        const paymentCount = $(this).data('payment-count');
+        const totalPaid = $(this).data('total-paid');
+        
+        // Store group data for deletion
+        currentDeleteGroupData = {
+            payer_id: payerId,
+            contribution_id: contributionId,
+            payment_sequence: paymentSequence,
+            payer_name: payerName,
+            contribution_title: contributionTitle,
+            payment_count: paymentCount,
+            total_paid: totalPaid
+        };
+        
+        // Populate modal with group details
+        $('#deleteGroupPayerName').text(payerName);
+        $('#deleteGroupContribution').text(contributionTitle);
+        $('#deleteGroupPaymentCount').text(paymentCount + ' payment' + (paymentCount > 1 ? 's' : ''));
+        $('#deleteGroupTotalAmount').text('₱' + parseFloat(totalPaid).toFixed(2));
+        $('#deleteGroupSequence').text(paymentSequence > 1 ? `Group ${paymentSequence}` : 'Main Group');
+        
+        // Show confirmation modal
+        $('#deletePaymentGroupModal').modal('show');
+    });
+
+    // Handle confirm delete group
+    $('#confirmDeletePaymentGroup').on('click', function() {
+        if (!currentDeleteGroupData) {
+            alert('No payment group selected for deletion');
+            return;
+        }
+
+        // Disable button to prevent double-click
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Deleting...');
+
+        // Debug logging
+        console.log('Delete Group Data:', currentDeleteGroupData);
+        
+        // Send delete request
+        fetch('<?= base_url('payments/delete-group') ?>', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json'
+            },
+            body: new URLSearchParams({
+                payer_id: currentDeleteGroupData.payer_id,
+                contribution_id: currentDeleteGroupData.contribution_id,
+                payment_sequence: currentDeleteGroupData.payment_sequence
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close modal
+                $('#deletePaymentGroupModal').modal('hide');
+                
+                // Show success message
+                alert(`Payment group deleted successfully! ${data.deleted_count} payment(s) removed.`);
+                
+                // Reload the page to refresh the data
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the payment group.');
+        })
+        .finally(() => {
+            // Re-enable button
+            $('#confirmDeletePaymentGroup').prop('disabled', false).html('<i class="fas fa-trash me-2"></i>Delete Group');
+            currentDeleteGroupData = null;
+        });
+    });
+
+    // Reset delete group data when modal is closed
+    $('#deletePaymentGroupModal').on('hidden.bs.modal', function() {
+        currentDeleteGroupData = null;
+    });
+
+    window.prefillPartialPaymentForm = function(data) {
+        // Pre-populate the form with remaining amount for partial payment
+        $('#amountPaid').val(data.remaining_amount.toFixed(2));
+        
+        // Show helpful message
+        const message = `Partial payment detected! Remaining amount: ₱${data.remaining_amount.toFixed(2)}`;
+        
+        // Create a temporary alert
+        const alertHtml = `
+            <div class="alert alert-info alert-dismissible fade show" role="alert" id="partialPaymentAlert">
+                <i class="fas fa-info-circle me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+        
+        // Insert alert before the form
+        $('#addPaymentModal .modal-body').prepend(alertHtml);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            $('#partialPaymentAlert').alert('close');
+        }, 5000);
+    }
+
     window.scanIDInPaymentsPage = function() {
         alert('QR Scanner functionality will be implemented');
     };
