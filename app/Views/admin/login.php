@@ -98,14 +98,8 @@
         <div class="social-login">
           <span class="social-text">Or login with</span>
           <div class="social-buttons">
-            <button type="button" class="social-btn google" title="Google">
+            <button type="button" class="social-btn gmail" title="Gmail">
               <i class="fab fa-google"></i>
-            </button>
-            <button type="button" class="social-btn facebook" title="Facebook">
-              <i class="fab fa-facebook"></i>
-            </button>
-            <button type="button" class="social-btn microsoft" title="Microsoft">
-              <i class="fab fa-microsoft"></i>
             </button>
           </div>
         </div>

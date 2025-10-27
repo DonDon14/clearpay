@@ -18,9 +18,8 @@
     <!-- Left Column: Forgot Password Form -->
     <div class="login-left">
       <nav class="login-nav">
-        <a href="#" class="nav-link active">Home</a>
-        <a href="#" class="nav-link">About Us</a>
-        <a href="#" class="nav-link">Blog</a>
+        <a href="<?= base_url('/') ?>" class="nav-link active">Home</a>
+        <a href="<?= base_url('register') ?>" class="nav-link">Sign Up</a>
         <a href="#" class="nav-link">Help</a>
       </nav>
 
