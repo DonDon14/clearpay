@@ -214,21 +214,46 @@ class DashboardController extends BaseController
         // Get the last announcement ID that was shown to this payer
         $lastShownId = $this->request->getGet('last_shown_id') ?: 0;
         
-        // Get the most recent announcement for payers
-        $announcement = $this->announcementModel->where('status', 'published')
-            ->where("(target_audience = 'payers' OR target_audience = 'both' OR target_audience = 'all')")
-            ->orderBy('created_at', 'DESC')
-            ->first();
+        // Debug logging
+        log_message('info', "Checking for new announcements. Last shown ID: {$lastShownId}");
+        
+        // Get the most recent announcement for payers with author information
+        $announcement = $this->announcementModel->select('
+            announcements.*,
+            users.username as created_by_name
+        ')
+        ->join('users', 'users.id = announcements.created_by', 'left')
+        ->where('announcements.status', 'published')
+        ->where("(announcements.target_audience = 'payers' OR announcements.target_audience = 'both' OR announcements.target_audience = 'all')")
+        ->orderBy('announcements.created_at', 'DESC')
+        ->first();
+        
+        log_message('info', "Found announcement: " . json_encode($announcement));
         
         if ($announcement && $announcement['id'] > $lastShownId) {
-            // Add author information if available
-            $announcement['author'] = 'System Administrator'; // You can join with users table if needed
+            // Format author name
+            if (!empty($announcement['created_by_name'])) {
+                $announcement['author'] = $announcement['created_by_name'];
+            } else {
+                $announcement['author'] = 'Administrator';
+            }
+            
+            // Format the created_at time for Philippines timezone (UTC+8)
+            $createdAt = new \DateTime($announcement['created_at'], new \DateTimeZone('UTC'));
+            $createdAt->setTimezone(new \DateTimeZone('Asia/Manila'));
+            $announcement['created_at_formatted'] = $createdAt->format('Y-m-d H:i:s');
+            $announcement['created_at_time'] = $createdAt->format('g:i A');
+            $announcement['created_at_date'] = $createdAt->format('M d, Y');
+            
+            log_message('info', "Returning announcement with ID: {$announcement['id']}");
             
             return $this->response->setJSON([
                 'success' => true,
                 'announcement' => $announcement
             ]);
         }
+        
+        log_message('info', "No new announcements found");
         
         return $this->response->setJSON([
             'success' => false,
