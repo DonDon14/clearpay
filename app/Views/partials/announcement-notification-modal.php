@@ -242,7 +242,7 @@ function showAnnouncementNotification(announcementData) {
     showNotificationBadge();
     
     // Update dropdown content
-    updateNotificationDropdown(announcementData);
+    updateAnnouncementDropdown(announcementData);
     
     // Populate modal content
     document.getElementById('announcementTitle').textContent = announcementData.title || 'New Announcement';
@@ -354,8 +354,8 @@ function hideNotificationBadge() {
     }
 }
 
-// Function to update notification dropdown
-function updateNotificationDropdown(announcementData) {
+// Function to update notification dropdown with announcement data
+function updateAnnouncementDropdown(announcementData) {
     const latestAnnouncement = document.getElementById('latestAnnouncement');
     const noNotifications = document.getElementById('noNotifications');
     const dropdownTitle = document.getElementById('dropdownAnnouncementTitle');
@@ -495,10 +495,22 @@ let currentActivities = [];
 let unreadActivityIds = new Set(); // Activities that haven't been individually clicked (read)
 let unseenActivityIds = new Set(); // Activities that haven't been seen (bell not clicked)
 let lastShownActivityId = 0;
+let notificationDataLoaded = false; // Track if initial data is loaded
+let lastDataFetch = 0; // Track last fetch time for caching
 
 // Function to check for new activities
 function checkForNewActivities() {
     console.log('Checking for new activities...');
+    
+    // Check if we should skip this request due to caching
+    const now = Date.now();
+    const timeSinceLastFetch = now - lastDataFetch;
+    
+    // If data was fetched less than 10 seconds ago and we have data, skip
+    if (timeSinceLastFetch < 10000 && notificationDataLoaded && currentActivities.length > 0) {
+        console.log('Skipping fetch - data is fresh (cached)');
+        return;
+    }
     
     // Get the last shown activity ID from localStorage
     const storedLastShownId = localStorage.getItem('lastShownActivityId');
@@ -510,13 +522,27 @@ function checkForNewActivities() {
     const url = `${window.APP_BASE_URL}payer/check-new-activities?last_shown_id=${lastShownActivityId}`;
     console.log('Checking URL:', url);
     
-    fetch(url)
+    // Update last fetch time
+    lastDataFetch = now;
+    
+    // Add timeout to prevent long loading
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        console.log('Request timeout - aborting');
+        controller.abort();
+    }, 10000); // 10 second timeout
+    
+    fetch(url, { signal: controller.signal })
         .then(response => {
+            clearTimeout(timeoutId);
             console.log('Response status:', response.status);
             return response.json();
         })
         .then(data => {
             console.log('Activity check response:', data);
+            console.log('Response success:', data.success);
+            console.log('Activities count:', data.activities ? data.activities.length : 0);
+            console.log('New activities count:', data.newActivities ? data.newActivities.length : 0);
             
             if (data.success && data.activities) {
                 currentActivities = data.activities;
@@ -529,13 +555,13 @@ function checkForNewActivities() {
                     data.activities.forEach(activity => {
                         const activityIdStr = String(activity.id);
                         
-                        // Only add to unseen set if it's a NEW activity (not already processed)
-                        // This prevents adding all existing activities as "unseen"
-                        if (data.newActivities && data.newActivities.some(newActivity => String(newActivity.id) === activityIdStr)) {
-                            if (!unseenActivityIds.has(activityIdStr)) {
-                                unseenActivityIds.add(activityIdStr);
-                                console.log('Added new unseen activity:', activityIdStr);
-                            }
+                        // Add to unseen set if it's a NEW activity (not already processed)
+                        // Check if this activity is in the newActivities array
+                        const isNewActivity = data.newActivities && data.newActivities.some(newActivity => String(newActivity.id) === activityIdStr);
+                        
+                        if (isNewActivity && !unseenActivityIds.has(activityIdStr)) {
+                            unseenActivityIds.add(activityIdStr);
+                            console.log('Added new unseen activity:', activityIdStr);
                         }
                         
                         // Add to unread set if not individually read
@@ -566,6 +592,10 @@ function checkForNewActivities() {
                     }
                 }
                 
+                // Mark data as loaded BEFORE updating dropdown
+                notificationDataLoaded = true;
+                console.log('Data loaded successfully, updating dropdown');
+                
                 // Update dropdown with all activities
                 updateNotificationDropdown(data.activities);
                 
@@ -575,13 +605,33 @@ function checkForNewActivities() {
                     localStorage.setItem('lastShownActivityId', maxId.toString());
                     lastShownActivityId = maxId;
                 }
+                
+                // Mark data as loaded
+                notificationDataLoaded = true;
             } else {
                 console.log('No activities found:', data.message);
                 hideNotificationBadge();
+                // Still mark as loaded even if no activities
+                notificationDataLoaded = true;
             }
         })
         .catch(error => {
+            clearTimeout(timeoutId);
             console.error('Error checking for new activities:', error);
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            
+            // If timeout or error, mark as loaded to prevent infinite loading
+            notificationDataLoaded = true;
+            
+            // Show cached data if available, otherwise show no notifications
+            if (currentActivities && currentActivities.length > 0) {
+                console.log('Showing cached data due to error');
+                updateNotificationDropdown(currentActivities);
+            } else {
+                console.log('No cached data, showing empty state');
+                updateNotificationDropdown([]);
+            }
         });
 }
 
@@ -703,10 +753,35 @@ function showActivityNotification(activityData) {
 
 // Function to update notification dropdown with multiple activities - Facebook-like logic
 function updateNotificationDropdown(activities) {
+    console.log('=== updateNotificationDropdown called ===');
+    console.log('Activities:', activities);
+    console.log('notificationDataLoaded:', notificationDataLoaded);
+    
     const noNotifications = document.getElementById('noNotifications');
     const dropdownContent = document.getElementById('notificationContent');
     
+    // Show loading state if data isn't loaded yet
+    if (!notificationDataLoaded) {
+        console.log('Data not loaded yet, showing loading state');
+        if (dropdownContent) {
+            dropdownContent.innerHTML = `
+                <div class="notification-item loading-state" style="text-align: center; padding: 1.5rem;">
+                    <div class="d-flex align-items-center justify-content-center">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status" style="width: 1rem; height: 1rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="text-muted small">Loading...</span>
+                    </div>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    console.log('Data loaded, processing activities');
+    
     if (!activities || activities.length === 0) {
+        console.log('No activities, showing no notifications message');
         if (noNotifications) noNotifications.style.display = 'block';
         return;
     }
@@ -761,6 +836,7 @@ function updateNotificationDropdown(activities) {
     
     console.log('Dropdown updated with', recentActivities.length, 'recent activities');
     console.log('Unread count:', unreadActivityIds.size);
+    console.log('=== updateNotificationDropdown completed ===');
 }
 
 // Function to add event listeners to notification items
@@ -1078,11 +1154,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize notification system
     initializeNotificationSystem();
     
-    // Check immediately on page load
-    setTimeout(checkForNewActivities, 2000);
+    // Load data immediately on page load (no delay)
+    checkForNewActivities();
     
-    // Then check every 30 seconds
-    setInterval(checkForNewActivities, 30000);
+    // Then check every 60 seconds (reduced frequency for better performance)
+    setInterval(checkForNewActivities, 60000);
     
 });
 

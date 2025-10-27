@@ -98,44 +98,25 @@ class ActivityLogModel extends Model
     }
 
     /**
-     * Get recent activities for a specific payer with individual read status
+     * Get recent activities for a specific payer with individual read status - OPTIMIZED
      */
     public function getRecentForPayers($limit = 10, $payerId = null)
     {
-        $query = $this;
+        // Use raw SQL for better performance
+        $sql = "
+            SELECT al.*, 
+                   CASE WHEN ars.activity_id IS NOT NULL THEN 1 ELSE 0 END as is_read_by_payer
+            FROM activity_logs al
+            LEFT JOIN activity_read_status ars ON al.id = ars.activity_id AND ars.payer_id = ? AND ars.is_read = 1
+            WHERE (
+                (al.target_audience IN ('payers', 'both', 'all') AND al.payer_id IS NULL)
+                OR al.payer_id = ?
+            )
+            ORDER BY al.created_at DESC
+            LIMIT ?
+        ";
         
-        if ($payerId) {
-            // For specific payer: show general notifications + payer-specific notifications
-            $query->groupStart()
-                ->groupStart()
-                    ->where('target_audience', 'payers')
-                    ->orWhere('target_audience', 'both')
-                    ->orWhere('target_audience', 'all')
-                    ->groupEnd()
-                    ->where('payer_id IS NULL')
-                ->orWhere('payer_id', $payerId)
-                ->groupEnd();
-        } else {
-            // For all payers: show only general notifications
-            $query->groupStart()
-                ->where('target_audience', 'payers')
-                ->orWhere('target_audience', 'both')
-                ->orWhere('target_audience', 'all')
-                ->groupEnd()
-                ->where('payer_id IS NULL');
-        }
-        
-        $activities = $query->orderBy('created_at', 'DESC')->limit($limit)->findAll();
-        
-        // Add individual read status for each activity
-        if ($payerId && !empty($activities)) {
-            $activityIds = array_column($activities, 'id');
-            $readStatus = $this->activityReadStatusModel->getReadStatusForPayer($activityIds, $payerId);
-            
-            foreach ($activities as &$activity) {
-                $activity['is_read_by_payer'] = isset($readStatus[$activity['id']]);
-            }
-        }
+        $activities = $this->db->query($sql, [$payerId, $payerId, $limit])->getResultArray();
         
         return $activities;
     }

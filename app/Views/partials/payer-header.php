@@ -189,6 +189,25 @@ document.addEventListener('DOMContentLoaded', function() {
                markAllAsSeen();
              }
              
+             // Ensure data is loaded before opening dropdown
+             if (typeof notificationDataLoaded !== 'undefined' && !notificationDataLoaded) {
+               console.log('Data not loaded yet, loading...');
+               if (typeof checkForNewActivities === 'function') {
+                 checkForNewActivities();
+               }
+               
+               // If data still not loaded after 1 second, open dropdown anyway
+               setTimeout(() => {
+                 if (typeof notificationDataLoaded !== 'undefined' && !notificationDataLoaded) {
+                   console.log('Data still loading, opening dropdown anyway');
+                   notificationDataLoaded = true; // Force open
+                   if (typeof updateNotificationDropdown === 'function') {
+                     updateNotificationDropdown([]);
+                   }
+                 }
+               }, 1000);
+             }
+             
              // Calculate position
              const rect = notificationBtn.getBoundingClientRect();
              const isOpen = notificationDropdown.classList.contains('active');

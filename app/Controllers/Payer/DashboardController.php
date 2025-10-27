@@ -223,8 +223,8 @@ class DashboardController extends BaseController
         // Debug logging
         log_message('info', "Checking for new activities for payer {$payerId}. Last shown ID: {$lastShownId}");
         
-        // Get recent activities for this specific payer (limit to 10 for dropdown)
-        $activities = $this->activityLogModel->getRecentForPayers(10, $payerId);
+        // Get recent activities for this specific payer (limit to 5 for faster loading)
+        $activities = $this->activityLogModel->getRecentForPayers(5, $payerId);
         
         log_message('info', "Found " . count($activities) . " activities for payer {$payerId}");
         
