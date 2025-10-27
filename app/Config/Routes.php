@@ -76,12 +76,13 @@ $routes->get('/qr-receipt/show/(:num)', 'Admin\QRReceiptController::showReceipt/
 $routes->get('payer/login', 'Payer\LoginController::index');
 $routes->post('payer/loginPost', 'Payer\LoginController::loginPost');
 
-$routes->group('payer', function($routes) {
-    $routes->get('dashboard', 'Payer\DashboardController::index');
-    $routes->get('my-data', 'Payer\DashboardController::myData');
-    $routes->get('announcements', 'Payer\DashboardController::announcements');
-    $routes->get('contributions', 'Payer\DashboardController::contributions');
-    $routes->get('get-contribution-payments/(:num)', 'Payer\DashboardController::getContributionPayments/$1');
-    $routes->get('payment-history', 'Payer\DashboardController::paymentHistory');
-    $routes->get('logout', 'Payer\LoginController::logout');
-});
+    $routes->group('payer', function($routes) {
+        $routes->get('dashboard', 'Payer\DashboardController::index');
+        $routes->get('my-data', 'Payer\DashboardController::myData');
+        $routes->get('announcements', 'Payer\DashboardController::announcements');
+        $routes->get('contributions', 'Payer\DashboardController::contributions');
+        $routes->get('get-contribution-payments/(:num)', 'Payer\DashboardController::getContributionPayments/$1');
+        $routes->get('payment-history', 'Payer\DashboardController::paymentHistory');
+        $routes->get('check-new-announcements', 'Payer\DashboardController::checkNewAnnouncements');
+        $routes->get('logout', 'Payer\LoginController::logout');
+    });

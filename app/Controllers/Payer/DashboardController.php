@@ -209,6 +209,33 @@ class DashboardController extends BaseController
         ]);
     }
 
+    public function checkNewAnnouncements()
+    {
+        // Get the last announcement ID that was shown to this payer
+        $lastShownId = $this->request->getGet('last_shown_id') ?: 0;
+        
+        // Get the most recent announcement for payers
+        $announcement = $this->announcementModel->where('status', 'published')
+            ->where("(target_audience = 'payers' OR target_audience = 'both' OR target_audience = 'all')")
+            ->orderBy('created_at', 'DESC')
+            ->first();
+        
+        if ($announcement && $announcement['id'] > $lastShownId) {
+            // Add author information if available
+            $announcement['author'] = 'System Administrator'; // You can join with users table if needed
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'announcement' => $announcement
+            ]);
+        }
+        
+        return $this->response->setJSON([
+            'success' => false,
+            'message' => 'No new announcements'
+        ]);
+    }
+
     public function logout()
     {
         session()->destroy();

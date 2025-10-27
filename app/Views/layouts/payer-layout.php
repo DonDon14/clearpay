@@ -137,8 +137,11 @@
     });
   </script>
   
-  <!-- Bootstrap JavaScript Bundle (required for modals) -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+         <!-- Bootstrap JavaScript Bundle (required for modals) -->
+         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+         
+         <!-- Announcement Notification Modal -->
+         <?= $this->include('partials/announcement-notification-modal') ?>
   
   <script>
     // Global notification function

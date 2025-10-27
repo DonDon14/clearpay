@@ -7,17 +7,58 @@
   </div>
 
   <div class="header-right">
-    <!-- Quick Actions -->
-    <div class="header-actions">
-      <!-- Notifications -->
-      <div class="notification-center">
-        <button class="notification-btn modern-btn" id="notificationBtn" title="Notifications">
-          <i class="fas fa-bell"></i>
-          <span class="notification-count">0</span>
-          <div class="notification-pulse"></div>
-        </button>
-      </div>
-    </div>
+           <!-- Quick Actions -->
+           <div class="header-actions">
+             <!-- Notifications -->
+             <div class="notification-center">
+               <button class="notification-btn modern-btn" id="notificationBtn" title="Notifications">
+                 <i class="fas fa-bell"></i>
+                 <span class="notification-count" id="notificationBadge" style="display: none;">0</span>
+                 <div class="notification-pulse"></div>
+               </button>
+               
+               <!-- Notification Dropdown -->
+               <div class="notification-dropdown" id="notificationDropdown">
+                 <div class="dropdown-header">
+                   <h6 class="mb-0">
+                     <i class="fas fa-bell me-2"></i>Announcements
+                   </h6>
+                   <button class="btn-close btn-close-sm" onclick="closeNotificationDropdown()"></button>
+                 </div>
+                 
+                 <div class="dropdown-content" id="notificationContent">
+                   <div class="notification-item" id="latestAnnouncement" style="display: none;">
+                     <div class="notification-icon">
+                       <i class="fas fa-bullhorn text-primary"></i>
+                     </div>
+                     <div class="notification-body">
+                       <h6 class="notification-title" id="dropdownAnnouncementTitle">New Announcement</h6>
+                       <p class="notification-text" id="dropdownAnnouncementText">Click to view details</p>
+                       <small class="notification-time" id="dropdownAnnouncementTime">Just now</small>
+                     </div>
+                     <div class="notification-action">
+                       <button class="btn btn-sm btn-outline-primary" onclick="viewAnnouncement()">
+                         <i class="fas fa-eye"></i>
+                       </button>
+                     </div>
+                   </div>
+                   
+                   <div class="no-notifications" id="noNotifications">
+                     <div class="text-center py-3">
+                       <i class="fas fa-bell-slash fa-2x text-muted mb-2"></i>
+                       <p class="text-muted mb-0">No new announcements</p>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="dropdown-footer">
+                   <a href="<?= base_url('payer/announcements') ?>" class="btn btn-sm btn-primary w-100">
+                     <i class="fas fa-list me-1"></i>View All Announcements
+                   </a>
+                 </div>
+               </div>
+             </div>
+           </div>
     
     <!-- User Menu -->
     <div class="user-menu">
@@ -142,20 +183,186 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Prevent dropdown from closing when clicking inside it
-  if (userDropdown) {
-    userDropdown.addEventListener('click', function(e) {
-      e.stopPropagation();
-    });
-  }
-
-  // Notification toggle (if needed)
-  const notificationBtn = document.getElementById('notificationBtn');
-  if (notificationBtn) {
-    notificationBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      // Add notification dropdown logic here
-    });
-  }
-});
-</script>
+         // Prevent dropdown from closing when clicking inside it
+         if (userDropdown) {
+           userDropdown.addEventListener('click', function(e) {
+             e.stopPropagation();
+           });
+         }
+       
+         // Notification dropdown toggle
+         const notificationBtn = document.getElementById('notificationBtn');
+         const notificationDropdown = document.getElementById('notificationDropdown');
+         
+         if (notificationBtn && notificationDropdown) {
+           notificationBtn.addEventListener('click', function(e) {
+             e.preventDefault();
+             e.stopPropagation();
+             
+             // Calculate position
+             const rect = notificationBtn.getBoundingClientRect();
+             const isOpen = notificationDropdown.classList.contains('active');
+             
+             if (!isOpen) {
+               // Position dropdown
+               notificationDropdown.style.top = (rect.bottom + 12) + 'px';
+               notificationDropdown.style.right = '20px';
+             }
+             
+             notificationDropdown.classList.toggle('active');
+           });
+         }
+         
+         // Close notification dropdown when clicking outside
+         document.addEventListener('click', function(e) {
+           if (notificationDropdown && !notificationDropdown.contains(e.target) && !notificationBtn.contains(e.target)) {
+             notificationDropdown.classList.remove('active');
+           }
+         });
+         
+         // Prevent notification dropdown from closing when clicking inside it
+         if (notificationDropdown) {
+           notificationDropdown.addEventListener('click', function(e) {
+             e.stopPropagation();
+           });
+         }
+       });
+       </script>
+       
+       <style>
+       /* Notification Dropdown Styles */
+       .notification-dropdown {
+         position: absolute;
+         top: 100%;
+         right: 0;
+         width: 350px;
+         background: white;
+         border: 1px solid #e5e7eb;
+         border-radius: 12px;
+         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+         z-index: 1000;
+         opacity: 0;
+         visibility: hidden;
+         transform: translateY(-10px);
+         transition: all 0.3s ease;
+         max-height: 400px;
+         overflow: hidden;
+       }
+       
+       .notification-dropdown.active {
+         opacity: 1;
+         visibility: visible;
+         transform: translateY(0);
+       }
+       
+       .dropdown-header {
+         padding: 1rem;
+         border-bottom: 1px solid #e5e7eb;
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         background: #f8f9fa;
+         border-radius: 12px 12px 0 0;
+       }
+       
+       .dropdown-header h6 {
+         color: #374151;
+         font-weight: 600;
+       }
+       
+       .dropdown-content {
+         max-height: 250px;
+         overflow-y: auto;
+         padding: 0.5rem;
+       }
+       
+       .notification-item {
+         display: flex;
+         align-items: flex-start;
+         padding: 0.75rem;
+         border-radius: 8px;
+         margin-bottom: 0.5rem;
+         transition: background-color 0.2s;
+         cursor: pointer;
+       }
+       
+       .notification-item:hover {
+         background: #f8f9fa;
+       }
+       
+       .notification-icon {
+         width: 40px;
+         height: 40px;
+         background: #e3f2fd;
+         border-radius: 50%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         margin-right: 0.75rem;
+         flex-shrink: 0;
+       }
+       
+       .notification-body {
+         flex: 1;
+         min-width: 0;
+       }
+       
+       .notification-title {
+         font-size: 0.875rem;
+         font-weight: 600;
+         color: #374151;
+         margin-bottom: 0.25rem;
+         line-height: 1.3;
+       }
+       
+       .notification-text {
+         font-size: 0.8rem;
+         color: #6b7280;
+         margin-bottom: 0.25rem;
+         line-height: 1.4;
+         display: -webkit-box;
+         -webkit-line-clamp: 2;
+         -webkit-box-orient: vertical;
+         overflow: hidden;
+       }
+       
+       .notification-time {
+         font-size: 0.75rem;
+         color: #9ca3af;
+       }
+       
+       .notification-action {
+         margin-left: 0.5rem;
+         flex-shrink: 0;
+       }
+       
+       .dropdown-footer {
+         padding: 1rem;
+         border-top: 1px solid #e5e7eb;
+         background: #f8f9fa;
+         border-radius: 0 0 12px 12px;
+       }
+       
+       .no-notifications {
+         padding: 1rem;
+       }
+       
+       /* Notification Badge Animation */
+       .notification-count {
+         animation: pulse-badge 2s infinite;
+       }
+       
+       @keyframes pulse-badge {
+         0% { transform: scale(1); }
+         50% { transform: scale(1.1); }
+         100% { transform: scale(1); }
+       }
+       
+       /* Responsive adjustments */
+       @media (max-width: 768px) {
+         .notification-dropdown {
+           width: 300px;
+           right: -50px;
+         }
+       }
+       </style>
