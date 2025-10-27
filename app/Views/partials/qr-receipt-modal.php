@@ -3,16 +3,16 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <!-- Modal Header -->
-            <div class="modal-header bg-primary text-white border-0">
+            <div class="modal-header bg-primary text-white border-0 py-2">
                 <div class="d-flex align-items-center">
-                    <div class="qr-icon me-3">
-                        <i class="fas fa-qrcode fa-lg"></i>
+                    <div class="qr-icon me-2">
+                        <i class="fas fa-qrcode"></i>
                     </div>
                     <div>
-                        <h5 class="modal-title mb-0" id="qrReceiptModalLabel">
+                        <h6 class="modal-title mb-0" id="qrReceiptModalLabel">
                             <span id="qrReceiptTitle">QR Receipt</span>
-                        </h5>
-                        <small class="opacity-75">Payment Verification</small>
+                        </h6>
+                        <small class="opacity-75" style="font-size: 0.7rem;">Payment Verification</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -21,118 +21,111 @@
             <!-- Modal Body -->
             <div class="modal-body p-0">
                 <!-- Receipt Header -->
-                <div class="receipt-header bg-light p-4 text-center border-bottom">
-                    <div class="receipt-logo mb-3">
-                        <i class="fas fa-credit-card fa-3x text-primary"></i>
+                <div class="receipt-header bg-light p-2 text-center border-bottom">
+                    <div class="receipt-logo mb-1">
+                        <i class="fas fa-credit-card fa-2x text-primary"></i>
                     </div>
-                    <h4 class="text-primary mb-1">ClearPay</h4>
-                    <p class="text-muted mb-0">Payment Receipt</p>
+                    <h6 class="text-primary mb-0">ClearPay</h6>
+                    <small class="text-muted">Payment Receipt</small>
                 </div>
 
                 <!-- Payment Details -->
-                <div class="receipt-content p-4">
-                    <div class="row">
-                        <!-- Left Column - Payment Info -->
-                        <div class="col-md-6">
-                            <div class="receipt-section mb-4">
-                                <h6 class="section-title text-primary mb-3">
-                                    <i class="fas fa-receipt me-2"></i>Payment Information
-                                </h6>
-                                <div class="receipt-details">
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Amount:</span>
-                                        <span class="detail-value fw-bold text-success" id="qrAmountPaid">₱0.00</span>
-                                    </div>
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Reference:</span>
-                                        <span class="detail-value" id="qrReferenceNumber">N/A</span>
-                                    </div>
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Date:</span>
-                                        <span class="detail-value" id="qrPaymentDate">N/A</span>
-                                    </div>
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Method:</span>
-                                        <span class="detail-value" id="qrPaymentMethod">N/A</span>
-                                    </div>
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Status:</span>
-                                        <span class="detail-value" id="qrPaymentStatus">
-                                            <span class="badge bg-success">Completed</span>
-                                        </span>
-                                    </div>
-                                </div>
+                <div class="receipt-content p-3">
+                    <!-- Payment Info -->
+                    <div class="receipt-section mb-3">
+                        <h6 class="section-title text-primary mb-2">
+                            <i class="fas fa-receipt me-1"></i>Payment Info
+                        </h6>
+                        <div class="receipt-details">
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Amount:</span>
+                                <span class="detail-value fw-bold text-success" id="qrAmountPaid">₱0.00</span>
                             </div>
-                        </div>
-
-                        <!-- Right Column - Payer Info -->
-                        <div class="col-md-6">
-                            <div class="receipt-section mb-4">
-                                <h6 class="section-title text-primary mb-3">
-                                    <i class="fas fa-user me-2"></i>Payer Information
-                                </h6>
-                                <div class="receipt-details">
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Name:</span>
-                                        <span class="detail-value fw-bold" id="qrPayerName">N/A</span>
-                                    </div>
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Payer ID:</span>
-                                        <span class="detail-value" id="qrPayerId">N/A</span>
-                                    </div>
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Contact:</span>
-                                        <span class="detail-value" id="qrPayerContact">N/A</span>
-                                    </div>
-                                    <div class="detail-item mb-2">
-                                        <span class="detail-label">Email:</span>
-                                        <span class="detail-value" id="qrPayerEmail">N/A</span>
-                                    </div>
-                                </div>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Reference:</span>
+                                <span class="detail-value" id="qrReferenceNumber">N/A</span>
+                            </div>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Date:</span>
+                                <span class="detail-value" id="qrPaymentDate">N/A</span>
+                            </div>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Method:</span>
+                                <span class="detail-value" id="qrPaymentMethod">N/A</span>
+                            </div>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Status:</span>
+                                <span class="detail-value" id="qrPaymentStatus">
+                                    <span class="badge bg-success">Completed</span>
+                                </span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Contribution Details -->
-                    <div class="receipt-section mb-4">
-                        <h6 class="section-title text-primary mb-3">
-                            <i class="fas fa-hand-holding-usd me-2"></i>Contribution Details
+                    <!-- Payer Info -->
+                    <div class="receipt-section mb-3">
+                        <h6 class="section-title text-primary mb-2">
+                            <i class="fas fa-user me-1"></i>Payer Info
                         </h6>
                         <div class="receipt-details">
-                            <div class="detail-item mb-2">
-                                <span class="detail-label">Contribution:</span>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Name:</span>
+                                <span class="detail-value fw-bold" id="qrPayerName">N/A</span>
+                            </div>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">ID:</span>
+                                <span class="detail-value" id="qrPayerId">N/A</span>
+                            </div>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Contact:</span>
+                                <span class="detail-value" id="qrPayerContact">N/A</span>
+                            </div>
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Email:</span>
+                                <span class="detail-value" id="qrPayerEmail">N/A</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contribution -->
+                    <div class="receipt-section mb-3">
+                        <h6 class="section-title text-primary mb-2">
+                            <i class="fas fa-hand-holding-usd me-1"></i>Contribution
+                        </h6>
+                        <div class="receipt-details">
+                            <div class="detail-item mb-1">
+                                <span class="detail-label">Title:</span>
                                 <span class="detail-value fw-bold" id="qrContributionTitle">N/A</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- QR Code Section -->
-                    <div class="qr-section text-center py-4">
-                        <div class="qr-container bg-white p-4 rounded-3 shadow-sm border">
-                            <h6 class="text-primary mb-3">
-                                <i class="fas fa-qrcode me-2"></i>Verification QR Code
+                    <div class="qr-section text-center py-2">
+                        <div class="qr-container bg-white p-3 rounded shadow-sm border">
+                            <h6 class="text-primary mb-2" id="qrReferenceDisplay" style="font-size: 0.9rem;">
+                                <!-- Reference number will be displayed here -->
                             </h6>
-                            <div id="qrReceiptContent" class="mb-3">
+                            <div id="qrReceiptContent" class="mb-2">
                                 <!-- QR code will be generated here -->
                             </div>
-                            <p class="text-muted small mb-0">
-                                <i class="fas fa-shield-alt me-1"></i>
-                                Scan to verify payment authenticity
-                            </p>
+                            <button type="button" class="btn btn-success btn-sm" onclick="downloadQRCode()">
+                                <i class="fas fa-download me-1"></i>Download QR
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Issued By Section -->
+                    <!-- Issued By -->
                     <div class="receipt-section">
-                        <h6 class="section-title text-primary mb-3">
-                            <i class="fas fa-user-tie me-2"></i>Issued By
+                        <h6 class="section-title text-primary mb-2">
+                            <i class="fas fa-user-tie me-1"></i>Issued By
                         </h6>
                         <div class="receipt-details">
-                            <div class="detail-item mb-2">
+                            <div class="detail-item mb-1">
                                 <span class="detail-label">Recorded By:</span>
-                                <span class="detail-value" id="qrRecordedBy">System Administrator</span>
+                                <span class="detail-value" id="qrRecordedBy">System Admin</span>
                             </div>
-                            <div class="detail-item mb-2">
+                            <div class="detail-item mb-1">
                                 <span class="detail-label">Issue Date:</span>
                                 <span class="detail-value" id="qrIssueDate">N/A</span>
                             </div>
@@ -142,12 +135,12 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="modal-footer bg-light border-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Close
+            <div class="modal-footer bg-light border-0 py-2 px-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" onclick="cleanupModal()">
+                    <i class="fas fa-times me-1"></i>Close
                 </button>
-                <button type="button" class="btn btn-primary" onclick="printReceipt()">
-                    <i class="fas fa-print me-2"></i>Print Receipt
+                <button type="button" class="btn btn-primary btn-sm" onclick="printReceipt()">
+                    <i class="fas fa-print me-1"></i>Print
                 </button>
             </div>
         </div>
@@ -156,45 +149,45 @@
 
 <style>
 .receipt-section {
-    border-left: 3px solid #0d6efd;
-    padding-left: 15px;
+    border-left: 2px solid #0d6efd;
+    padding-left: 10px;
 }
 
 .section-title {
-    font-size: 0.9rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .detail-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.25rem 0;
+    padding: 0.1rem 0;
 }
 
 .detail-label {
     font-weight: 500;
     color: #6c757d;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
 }
 
 .detail-value {
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     color: #212529;
 }
 
 .qr-container {
-    max-width: 300px;
+    max-width: 200px;
     margin: 0 auto;
 }
 
 .qr-icon {
-    width: 40px;
-    height: 40px;
+    width: 25px;
+    height: 25px;
     background: rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -211,12 +204,38 @@
 }
 
 .modal-content {
-    border-radius: 15px;
+    border-radius: 10px;
     overflow: hidden;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    flex-shrink: 0;
 }
 
 .modal-header {
-    border-radius: 15px 15px 0 0;
+    border-radius: 10px 10px 0 0;
+}
+
+.modal-lg {
+    max-width: 600px;
+}
+
+.modal-footer {
+    padding: 0.5rem 1rem;
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+.modal-footer .btn {
+    margin: 0 0.25rem;
 }
 
 @media print {
@@ -235,77 +254,121 @@
         -webkit-print-color-adjust: exact;
         color-adjust: exact;
     }
+    
+    /* Print layout for half bond paper */
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .modal-content {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+    
+    .modal-body {
+        padding: 10px !important;
+    }
+    
+    .receipt-content {
+        padding: 5px !important;
+    }
+    
+    .receipt-section {
+        margin-bottom: 8px !important;
+        padding-left: 8px !important;
+        border-left: 2px solid #0d6efd !important;
+    }
+    
+    .section-title {
+        font-size: 0.7rem !important;
+        margin-bottom: 4px !important;
+    }
+    
+    .detail-item {
+        padding: 1px 0 !important;
+        font-size: 0.7rem !important;
+    }
+    
+    .detail-label {
+        font-size: 0.7rem !important;
+    }
+    
+    .detail-value {
+        font-size: 0.7rem !important;
+    }
+    
+    .qr-container {
+        max-width: 100px !important;
+        margin: 5px auto !important;
+        padding: 5px !important;
+    }
+    
+    .qr-container img {
+        max-width: 100px !important;
+        max-height: 100px !important;
+    }
+    
+    .receipt-header {
+        padding: 5px !important;
+    }
+    
+    .receipt-logo i {
+        font-size: 1.5rem !important;
+    }
+    
+    .receipt-header h6 {
+        font-size: 0.8rem !important;
+        margin-bottom: 2px !important;
+    }
+    
+    .receipt-header small {
+        font-size: 0.6rem !important;
+    }
+    
+    .modal-header {
+        padding: 5px 10px !important;
+    }
+    
+    .modal-header h6 {
+        font-size: 0.8rem !important;
+    }
+    
+    .modal-header small {
+        font-size: 0.6rem !important;
+    }
+    
+    .qr-icon {
+        width: 20px !important;
+        height: 20px !important;
+    }
+    
+    /* Compact layout for print */
+    .row {
+        margin: 0 !important;
+    }
+    
+    .col-md-6 {
+        padding: 0 5px !important;
+    }
+    
+    /* Hide unnecessary elements for print */
+    .btn-close {
+        display: none !important;
+    }
 }
 </style>
 
 <script>
-// Global function to show QR receipt
+// Global function to show QR receipt - moved to contributions page for better timing
 window.showQRReceipt = function(payment) {
-    // Update modal title
-    document.getElementById('qrReceiptTitle').textContent = `QR Receipt - ${payment.reference_number || 'Payment'}`;
-    
-    // Update payment details
-    document.getElementById('qrAmountPaid').textContent = '₱' + parseFloat(payment.amount_paid).toLocaleString('en-US', {minimumFractionDigits: 2});
-    document.getElementById('qrReferenceNumber').textContent = payment.reference_number || 'N/A';
-    document.getElementById('qrPaymentDate').textContent = new Date(payment.payment_date || payment.created_at).toLocaleDateString('en-US');
-    document.getElementById('qrPaymentMethod').textContent = payment.payment_method ? payment.payment_method.charAt(0).toUpperCase() + payment.payment_method.slice(1) : 'N/A';
-    
-    // Update payer details
-    document.getElementById('qrPayerName').textContent = payment.payer_name || 'N/A';
-    document.getElementById('qrPayerId').textContent = payment.payer_id || 'N/A';
-    document.getElementById('qrPayerContact').textContent = payment.contact_number || 'N/A';
-    document.getElementById('qrPayerEmail').textContent = payment.email_address || 'N/A';
-    
-    // Update contribution details
-    document.getElementById('qrContributionTitle').textContent = payment.contribution_title || 'N/A';
-    
-    // Update issued by details
-    document.getElementById('qrRecordedBy').textContent = payment.recorded_by_name || 'System Administrator';
-    document.getElementById('qrIssueDate').textContent = new Date().toLocaleDateString('en-US');
-    
-    // Update payment status
-    const statusBadge = document.getElementById('qrPaymentStatus');
-    const status = payment.payment_status || 'pending';
-    const statusText = status === 'fully paid' ? 'Completed' : (status === 'partial' ? 'Partial' : 'Pending');
-    statusBadge.innerHTML = `<span class="badge bg-${status === 'fully paid' ? 'success' : (status === 'partial' ? 'warning' : 'secondary')}">${statusText}</span>`;
-    
-    // Generate QR code
-    generateQRCode(payment);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('qrReceiptModal'));
-    modal.show();
+    console.log('showQRReceipt called with payment:', payment);
+    // This function is now defined in the contributions page for better timing
 };
-
-function generateQRCode(payment) {
-    const qrContainer = document.getElementById('qrReceiptContent');
-    
-    // QR code data
-    const qrText = `${payment.receipt_number || payment.id}|${payment.payer_name || 'Payer'}|${payment.amount_paid}|${payment.payment_date}|${payment.reference_number}`;
-    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=H&data=${encodeURIComponent(qrText)}`;
-    
-    // Show loading state
-    qrContainer.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-primary mb-2" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0 small">Generating QR code...</p></div>';
-    
-    // Create QR image
-    const qrImage = document.createElement('img');
-    qrImage.style.cssText = 'max-width: 200px; max-height: 200px; width: auto; height: auto; border: 2px solid #0d6efd; border-radius: 8px; padding: 5px; background: white;';
-    qrImage.alt = 'QR Receipt for Payment #' + payment.id;
-    qrImage.crossOrigin = 'anonymous';
-    
-    qrImage.onload = function() {
-        qrContainer.innerHTML = '';
-        qrContainer.appendChild(qrImage);
-    };
-    
-    qrImage.onerror = function() {
-        // Fallback to Google Charts API
-        const fallbackUrl = `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrText)}&choe=UTF-8`;
-        qrImage.src = fallbackUrl;
-    };
-    
-    qrImage.src = qrApiUrl;
-}
 
 function printReceipt() {
     const modalContent = document.querySelector('#qrReceiptModal .modal-content');
@@ -315,29 +378,148 @@ function printReceipt() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Payment Receipt</title>
+            <title>Payment Receipt - ClearPay</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-                .receipt-content { max-width: 600px; margin: 0 auto; }
+                @page {
+                    size: A4;
+                    margin: 0.5in;
+                }
+                
+                body { 
+                    font-family: Arial, sans-serif; 
+                    margin: 0; 
+                    padding: 0; 
+                    font-size: 12px;
+                    line-height: 1.2;
+                }
+                
+                .receipt-content { 
+                    max-width: 100%; 
+                    margin: 0; 
+                }
+                
                 .text-center { text-align: center; }
                 .text-primary { color: #0d6efd; }
                 .text-success { color: #198754; }
                 .fw-bold { font-weight: bold; }
-                .mb-3 { margin-bottom: 1rem; }
-                .mb-2 { margin-bottom: 0.5rem; }
-                .p-4 { padding: 1.5rem; }
-                .bg-light { background-color: #f8f9fa; }
-                .border-bottom { border-bottom: 1px solid #dee2e6; }
-                .receipt-section { border-left: 3px solid #0d6efd; padding-left: 15px; margin-bottom: 1rem; }
-                .section-title { font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #0d6efd; }
-                .detail-item { display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0; }
-                .detail-label { font-weight: 500; color: #6c757d; font-size: 0.875rem; }
-                .detail-value { font-size: 0.875rem; color: #212529; }
-                .qr-container { max-width: 300px; margin: 0 auto; background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6; }
-                .badge { padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; }
+                
+                .receipt-header {
+                    background: #f8f9fa;
+                    padding: 8px;
+                    text-align: center;
+                    border-bottom: 2px solid #0d6efd;
+                    margin-bottom: 8px;
+                }
+                
+                .receipt-header h6 {
+                    font-size: 14px;
+                    margin: 2px 0;
+                    color: #0d6efd;
+                }
+                
+                .receipt-header small {
+                    font-size: 10px;
+                    color: #6c757d;
+                }
+                
+                .receipt-section { 
+                    border-left: 2px solid #0d6efd; 
+                    padding-left: 8px; 
+                    margin-bottom: 6px; 
+                }
+                
+                .section-title { 
+                    font-size: 10px; 
+                    font-weight: 600; 
+                    text-transform: uppercase; 
+                    letter-spacing: 0.3px; 
+                    color: #0d6efd; 
+                    margin-bottom: 3px;
+                }
+                
+                .detail-item { 
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: center; 
+                    padding: 1px 0; 
+                    font-size: 10px;
+                }
+                
+                .detail-label { 
+                    font-weight: 500; 
+                    color: #6c757d; 
+                    font-size: 10px; 
+                }
+                
+                .detail-value { 
+                    font-size: 10px; 
+                    color: #212529; 
+                }
+                
+                .qr-container { 
+                    max-width: 100px; 
+                    margin: 5px auto; 
+                    background: white; 
+                    padding: 5px; 
+                    border-radius: 4px; 
+                    border: 1px solid #dee2e6; 
+                    text-align: center;
+                }
+                
+                .qr-container img {
+                    max-width: 100px;
+                    max-height: 100px;
+                }
+                
+                .qr-container h6 {
+                    font-size: 9px;
+                    margin: 2px 0;
+                }
+                
+                .badge { 
+                    padding: 2px 4px; 
+                    border-radius: 3px; 
+                    font-size: 8px; 
+                }
+                
                 .bg-success { background-color: #198754; color: white; }
                 .bg-warning { background-color: #ffc107; color: #000; }
                 .bg-secondary { background-color: #6c757d; color: white; }
+                
+                .row {
+                    display: flex;
+                    margin: 0;
+                }
+                
+                .col-md-6 {
+                    flex: 1;
+                    padding: 0 5px;
+                }
+                
+                .modal-header {
+                    background: #0d6efd;
+                    color: white;
+                    padding: 5px 8px;
+                    margin-bottom: 5px;
+                }
+                
+                .modal-header h6 {
+                    font-size: 12px;
+                    margin: 0;
+                }
+                
+                .modal-header small {
+                    font-size: 9px;
+                    opacity: 0.8;
+                }
+                
+                /* Hide buttons and localhost link in print */
+                .modal-footer,
+                .btn,
+                .btn-close,
+                [href*="localhost"] {
+                    display: none !important;
+                }
             </style>
         </head>
         <body>
@@ -348,5 +530,84 @@ function printReceipt() {
     
     printWindow.document.close();
     printWindow.print();
+}
+
+function cleanupModal() {
+    // Remove any lingering backdrop
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+    
+    // Remove modal-open class from body
+    document.body.classList.remove('modal-open');
+    
+    // Reset body padding if needed
+    document.body.style.paddingRight = '';
+    
+    // Reset overflow
+    document.body.style.overflow = '';
+}
+
+function downloadQRCode() {
+    const qrImage = document.querySelector('#qrReceiptContent img');
+    const referenceNumber = document.getElementById('qrReferenceDisplay').textContent;
+    
+    if (!qrImage) {
+        alert('QR code not found');
+        return;
+    }
+    
+    // Create a canvas with proper spacing
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas dimensions
+    const qrSize = qrImage.naturalWidth || qrImage.width;
+    const headerHeight = 40; // Space for ClearPay title
+    const footerHeight = 30; // Space for reference number
+    const padding = 20; // Padding around the entire image
+    
+    // Calculate text width to ensure proper fit
+    ctx.font = '12px Arial';
+    const textWidth = ctx.measureText(referenceNumber).width;
+    const minWidth = Math.max(qrSize, textWidth + (padding * 2));
+    
+    canvas.width = minWidth;
+    canvas.height = qrSize + headerHeight + footerHeight + (padding * 2);
+    
+    // Fill background with white
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add border
+    ctx.strokeStyle = '#0d6efd';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+    
+    // Add ClearPay title at the top
+    ctx.fillStyle = '#0d6efd';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('ClearPay', canvas.width / 2, padding + 25);
+    
+    // Draw QR code in the middle (centered)
+    const qrX = (canvas.width - qrSize) / 2;
+    ctx.drawImage(qrImage, qrX, padding + headerHeight);
+    
+    // Add reference number at the bottom (centered)
+    ctx.fillStyle = '#212529';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(referenceNumber, canvas.width / 2, padding + headerHeight + qrSize + 20);
+    
+    canvas.toBlob(function(blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `QR_Receipt_${referenceNumber.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
 }
 </script>

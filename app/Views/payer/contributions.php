@@ -397,12 +397,163 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.view-receipt-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const paymentData = JSON.parse(this.getAttribute('data-payment'));
+                console.log('Payment data being passed to showQRReceipt:', paymentData);
                 showQRReceipt(paymentData);
                 paymentHistoryModal.hide();
                 qrReceiptModal.show();
             });
         });
     }
+    
+    // View QR Receipt functionality
+    function showQRReceipt(payment) {
+        console.log('showQRReceipt called with payment:', payment);
+        
+        // Wait for modal elements to be available
+        setTimeout(function() {
+            const qrReceiptTitle = document.getElementById('qrReceiptTitle');
+            const qrAmountPaid = document.getElementById('qrAmountPaid');
+            const qrReferenceNumber = document.getElementById('qrReferenceNumber');
+            const qrPaymentDate = document.getElementById('qrPaymentDate');
+            const qrPaymentMethod = document.getElementById('qrPaymentMethod');
+            const qrPayerName = document.getElementById('qrPayerName');
+            const qrPayerId = document.getElementById('qrPayerId');
+            const qrPayerContact = document.getElementById('qrPayerContact');
+            const qrPayerEmail = document.getElementById('qrPayerEmail');
+            const qrContributionTitle = document.getElementById('qrContributionTitle');
+            const qrRecordedBy = document.getElementById('qrRecordedBy');
+            const qrIssueDate = document.getElementById('qrIssueDate');
+            const qrPaymentStatus = document.getElementById('qrPaymentStatus');
+            const qrReceiptContent = document.getElementById('qrReceiptContent');
+            
+            // Check if all elements exist
+            if (!qrReceiptTitle || !qrAmountPaid || !qrReferenceNumber || !qrPaymentDate || 
+                !qrPaymentMethod || !qrPayerName || !qrPayerId || !qrPayerContact || 
+                !qrPayerEmail || !qrContributionTitle || !qrRecordedBy || !qrIssueDate || 
+                !qrPaymentStatus || !qrReceiptContent) {
+                console.error('QR Receipt modal elements not found');
+                console.log('Missing elements:', {
+                    qrReceiptTitle: !!qrReceiptTitle,
+                    qrAmountPaid: !!qrAmountPaid,
+                    qrReferenceNumber: !!qrReferenceNumber,
+                    qrPaymentDate: !!qrPaymentDate,
+                    qrPaymentMethod: !!qrPaymentMethod,
+                    qrPayerName: !!qrPayerName,
+                    qrPayerId: !!qrPayerId,
+                    qrPayerContact: !!qrPayerContact,
+                    qrPayerEmail: !!qrPayerEmail,
+                    qrContributionTitle: !!qrContributionTitle,
+                    qrRecordedBy: !!qrRecordedBy,
+                    qrIssueDate: !!qrIssueDate,
+                    qrPaymentStatus: !!qrPaymentStatus,
+                    qrReceiptContent: !!qrReceiptContent
+                });
+                return;
+            }
+            
+            console.log('All elements found, updating modal with payment data');
+            
+            // Update modal title
+            qrReceiptTitle.textContent = `QR Receipt - ${payment.reference_number || 'Payment'}`;
+            
+            // Update QR reference display
+            const qrReferenceDisplay = document.getElementById('qrReferenceDisplay');
+            if (qrReferenceDisplay) {
+                qrReferenceDisplay.textContent = payment.reference_number || 'N/A';
+            }
+            
+            // Update payment details
+            qrAmountPaid.textContent = '₱' + parseFloat(payment.amount_paid || 0).toLocaleString('en-US', {minimumFractionDigits: 2});
+            qrReferenceNumber.textContent = payment.reference_number || 'N/A';
+            qrPaymentDate.textContent = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-US') : (payment.created_at ? new Date(payment.created_at).toLocaleDateString('en-US') : 'N/A');
+            qrPaymentMethod.textContent = payment.payment_method ? payment.payment_method.charAt(0).toUpperCase() + payment.payment_method.slice(1) : 'N/A';
+            
+            // Update payer details
+            qrPayerName.textContent = payment.payer_name || 'N/A';
+            qrPayerId.textContent = payment.payer_id || 'N/A';
+            qrPayerContact.textContent = payment.contact_number || 'N/A';
+            qrPayerEmail.textContent = payment.email_address || 'N/A';
+            
+            // Update contribution details
+            qrContributionTitle.textContent = payment.contribution_title || 'N/A';
+            
+            // Update issued by details
+            qrRecordedBy.textContent = payment.recorded_by_name || 'System Administrator';
+            qrIssueDate.textContent = new Date().toLocaleDateString('en-US');
+            
+            // Update payment status
+            const status = payment.payment_status || 'pending';
+            const statusText = status === 'fully paid' ? 'Completed' : (status === 'partial' ? 'Partial' : 'Pending');
+            qrPaymentStatus.innerHTML = `<span class="badge bg-${status === 'fully paid' ? 'success' : (status === 'partial' ? 'warning' : 'secondary')}">${statusText}</span>`;
+            
+            console.log('Modal updated, generating QR code');
+            
+            // Generate QR code
+            generateQRCode(payment);
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('qrReceiptModal'));
+            modal.show();
+            
+            // Clean up modal backdrop when closed
+            document.getElementById('qrReceiptModal').addEventListener('hidden.bs.modal', function() {
+                // Remove any lingering backdrop
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(backdrop => backdrop.remove());
+                
+                // Remove modal-open class from body
+                document.body.classList.remove('modal-open');
+                
+                // Reset body padding if needed
+                document.body.style.paddingRight = '';
+            });
+        }, 100);
+    }
+    
+    function generateQRCode(payment) {
+        console.log('generateQRCode called with payment:', payment);
+        
+        const qrContainer = document.getElementById('qrReceiptContent');
+        if (!qrContainer) {
+            console.error('QR container not found');
+            return;
+        }
+        
+        // QR code data
+        const qrText = `${payment.receipt_number || payment.id}|${payment.payer_name || 'Payer'}|${payment.amount_paid || 0}|${payment.payment_date || payment.created_at}|${payment.reference_number || 'N/A'}`;
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&ecc=H&data=${encodeURIComponent(qrText)}`;
+        
+        console.log('QR Text:', qrText);
+        console.log('QR API URL:', qrApiUrl);
+        
+        // Show loading state
+        qrContainer.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-primary mb-1" role="status" style="width: 1rem; height: 1rem;"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0" style="font-size: 0.7rem;">Generating...</p></div>';
+        
+        // Create QR image
+        const qrImage = document.createElement('img');
+        qrImage.style.cssText = 'max-width: 120px; max-height: 120px; width: auto; height: auto; border: 1px solid #0d6efd; border-radius: 4px; padding: 2px; background: white;';
+        qrImage.alt = 'QR Receipt for Payment #' + payment.id;
+        qrImage.crossOrigin = 'anonymous';
+        
+        qrImage.onload = function() {
+            console.log('QR code loaded successfully');
+            qrContainer.innerHTML = '';
+            qrContainer.appendChild(qrImage);
+        };
+        
+        qrImage.onerror = function() {
+            console.log('Primary QR API failed, trying fallback');
+            // Fallback to Google Charts API
+            const fallbackUrl = `https://chart.googleapis.com/chart?chs=120x120&cht=qr&chl=${encodeURIComponent(qrText)}&choe=UTF-8`;
+            qrImage.src = fallbackUrl;
+        };
+        
+        qrImage.src = qrApiUrl;
+    }
+    
+    // Make functions globally accessible
+    window.showQRReceipt = showQRReceipt;
+    window.generateQRCode = generateQRCode;
     
 });
 </script>
