@@ -1,3 +1,5 @@
+/* Shared Authentication Styles - Layout and Common Form Elements */
+
 * {
     margin: 0;
     padding: 0;
@@ -11,7 +13,7 @@ html, body {
     overflow: hidden;
 }
 
-/* Main Login Container */
+/* Main Container */
 .login-container {
     display: flex;
     height: 100vh;
@@ -20,7 +22,7 @@ html, body {
     position: relative;
 }
 
-/* Left Column - Login Form */
+/* Left Column - Form Section */
 .login-left {
     flex: 0 0 50%;
     background: #ffffff;
@@ -64,7 +66,7 @@ html, body {
     background: #3b82f6;
 }
 
-/* Login Content */
+/* Content Area */
 .login-content {
     flex: 1;
     display: flex;
@@ -122,7 +124,7 @@ html, body {
     border: 1px solid #bbf7d0;
 }
 
-/* Login Form */
+/* Shared Form Styles - Used by all pages */
 .login-form {
     margin-bottom: 2rem;
 }
@@ -149,130 +151,13 @@ html, body {
     transition: all 0.2s;
 }
 
-/* Input with icon padding */
-#username.form-control {
-    padding-left: 2.75rem;
-}
-
-#password.form-control {
-    padding-left: 2.75rem;
-    padding-right: 2.75rem;
-}
-
-/* Forgot password form inputs with icons */
-#reset_code.form-control,
-#email.form-control {
-    padding-left: 2.75rem;
-}
-
-/* Additional password fields in reset password form */
-#step3-container input[name="password"].form-control,
-#step3-container input[name="confirm_password"].form-control {
-    padding-left: 2.75rem;
-    padding-right: 2.75rem;
-}
-
 .form-control:focus {
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* Input Icon Positioning */
-.input-icon {
-    position: absolute;
-    left: 1rem;
-    top: 2.5rem; /* Adjusted to align properly with input field */
-    color: #9ca3af;
-    font-size: 0.875rem;
-    pointer-events: none;
-    z-index: 2;
-}
-
-/* Password Toggle Button */
-.password-toggle {
-    position: absolute;
-    right: 1rem;
-    top: 2.5rem; /* Match icon positioning */
-    background: none;
-    border: none;
-    color: #9ca3af;
-    cursor: pointer;
-    padding: 0.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s;
-    z-index: 2;
-}
-
-.password-toggle:hover {
-    color: #3b82f6;
-}
-
-.password-toggle i {
-    font-size: 0.875rem;
-}
-
-/* Form Options */
-.form-options {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-}
-
-.remember-me {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: #6b7280;
-    cursor: pointer;
-}
-
-.remember-me input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-}
-
-.forgot-password {
-    font-size: 0.875rem;
-    color: #6b7280;
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.forgot-password:hover {
-    color: #3b82f6;
-}
-
-/* Login Button */
-.btn-login {
-    width: 100%;
-    padding: 0.875rem 1.5rem;
-    background: #3b82f6;
-    color: #ffffff;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: all 0.2s;
-}
-
-.btn-login:hover {
-    background: #2563eb;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-/* Signup Link */
+/* Signup Link - Shared across pages */
 .signup-link {
     text-align: center;
     margin-top: 1.5rem;
@@ -296,74 +181,6 @@ html, body {
 .signup-btn:hover {
     color: #2563eb;
     text-decoration: underline;
-}
-
-/* Button Link */
-.btn-link {
-    width: 100%;
-    padding: 0.875rem 1.5rem;
-    background: transparent;
-    color: #6b7280;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 0.9375rem;
-    font-weight: 500;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    transition: all 0.2s;
-    margin-top: 1rem;
-    text-decoration: none;
-}
-
-.btn-link:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
-    color: #374151;
-}
-
-/* Social Login */
-.social-login {
-    text-align: center;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    margin-top: 1.5rem;
-}
-
-.social-text {
-    display: block;
-    font-size: 0.875rem;
-    color: #6b7280;
-    margin-bottom: 1rem;
-}
-
-.social-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-}
-
-.social-btn {
-    width: 44px;
-    height: 44px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background: #ffffff;
-    color: #6b7280;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.125rem;
-}
-
-.social-btn:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-    transform: translateY(-2px);
 }
 
 /* Right Column - Illustration */
@@ -404,6 +221,7 @@ html, body {
     position: relative;
     z-index: 1;
     animation: float 6s ease-in-out infinite;
+    overflow: visible;
 }
 
 @keyframes float {
@@ -425,7 +243,7 @@ html, body {
     color: #ffffff;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     position: relative;
-    overflow: visible;
+    overflow: hidden;
 }
 
 .payment-card::before {
@@ -501,13 +319,14 @@ html, body {
     z-index: 1;
 }
 
-/* Floating Icons - decorative elements */
+/* Floating Icons - decorative elements OUTSIDE the card */
 .floating-icon {
     position: absolute;
     width: 60px;
     height: 60px;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.25);
     backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -515,37 +334,37 @@ html, body {
     color: #ffffff;
     font-size: 1.5rem;
     animation: floatIcon 4s ease-in-out infinite;
-    z-index: 2;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .icon-1 {
-    top: 5%;
-    left: 5%;
+    top: -20%;
+    left: -15%;
     animation-delay: 0s;
 }
 
 .icon-2 {
-    top: 15%;
-    right: 10%;
+    top: -10%;
+    right: -20%;
     animation-delay: 0.8s;
 }
 
 .icon-3 {
-    bottom: 10%;
-    left: 5%;
+    bottom: -10%;
+    left: -20%;
     animation-delay: 1.6s;
 }
 
 .icon-4 {
-    top: 50%;
-    right: 10%;
+    top: 45%;
+    right: -25%;
     animation-delay: 2.4s;
 }
 
 .icon-5 {
-    bottom: 20%;
-    right: 15%;
+    bottom: 10%;
+    right: -15%;
     animation-delay: 3.2s;
 }
 
@@ -558,39 +377,39 @@ html, body {
     }
 }
 
-/* Abstract Shapes - decorative bubbles */
+/* Abstract Shapes - decorative bubbles inside card */
 .abstract-shape {
     position: absolute;
     border-radius: 50%;
-    opacity: 0.1;
+    opacity: 0.2;
     animation: pulse 4s ease-in-out infinite;
     z-index: 0;
 }
 
 .shape-1 {
-    width: 200px;
-    height: 200px;
-    background: #ffffff;
-    top: 10%;
-    right: 10%;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.3);
+    top: -30px;
+    right: 20px;
     animation-delay: 0s;
 }
 
 .shape-2 {
-    width: 150px;
-    height: 150px;
-    background: #ffffff;
-    bottom: 15%;
-    left: 15%;
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.25);
+    bottom: 30px;
+    left: -20px;
     animation-delay: 1s;
 }
 
 .shape-3 {
-    width: 100px;
-    height: 100px;
-    background: #ffffff;
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 255, 255, 0.2);
     top: 50%;
-    left: 5%;
+    left: 50%;
     animation-delay: 2s;
 }
 
@@ -638,4 +457,4 @@ html, body {
     .login-nav {
         padding: 1.5rem 2rem;
     }
-} 
+}

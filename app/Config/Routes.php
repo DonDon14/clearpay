@@ -16,7 +16,12 @@ $routes->get('/register', 'Admin\LoginController::register');
 $routes->post('/registerPost', 'Admin\LoginController::registerPost');
 $routes->post('/verifyEmail', 'Admin\LoginController::verifyEmail');
 $routes->post('/resendVerificationCode', 'Admin\LoginController::resendVerificationCode');
+$routes->get('/forgotPassword', 'Admin\LoginController::forgotPassword');
+$routes->post('/forgotPasswordPost', 'Admin\LoginController::forgotPasswordPost');
+$routes->post('/verifyResetCode', 'Admin\LoginController::verifyResetCode');
+$routes->post('/resetPassword', 'Admin\LoginController::resetPassword');
 
+$routes->post('/clearSidebarFlag', 'Admin\DashboardController::clearSidebarFlag', ['filter' => 'auth']);
 $routes->get('/dashboard', 'Admin\DashboardController::index', ['filter' => 'auth']);
 $routes->get('/search', 'Admin\DashboardController::search', ['filter' => 'auth']);
 

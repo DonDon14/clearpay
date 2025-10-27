@@ -1,0 +1,78 @@
+/* Register Page Specific Styles */
+
+/* Input padding for registration form only - no left padding since icons are outside */
+#name.form-control,
+#username.form-control,
+#email.form-control,
+#phone.form-control {
+    padding-left: 1rem;
+}
+
+#password.form-control,
+#confirm_password.form-control {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Input Icon Positioning - Register Page - Outside the input */
+.input-icon {
+    position: absolute;
+    left: -2rem;
+    top: 3rem;
+    color: #9ca3af;
+    font-size: 1rem;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Password Toggle Button - Register Page - Outside the input */
+.password-toggle {
+    position: absolute;
+    right: -2rem;
+    top: 3rem;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 2;
+}
+
+.password-toggle:hover {
+    color: #3b82f6;
+}
+
+.password-toggle i {
+    font-size: 0.875rem;
+}
+
+/* Register Button */
+.btn-login {
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    background: #3b82f6;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+}
+
+.btn-login:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}

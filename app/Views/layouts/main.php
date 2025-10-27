@@ -89,12 +89,33 @@
 
       // Function to restore sidebar state
       function restoreSidebarState() {
-        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
-        if (isCollapsed && sidebar) {
-          sidebar.classList.add('collapsed');
-          updateMainContentMargin(true);
+        // Check if server requested forced expansion (e.g., after login)
+        const forceExpand = <?= session()->get('forceSidebarExpanded') ? 'true' : 'false' ?>;
+        
+        if (forceExpand) {
+          // Force expand sidebar and clear the flag
+          localStorage.removeItem('sidebarCollapsed');
+          if (sidebar) {
+            sidebar.classList.remove('collapsed');
+            updateMainContentMargin(false);
+          }
+          
+          // Clear the session flag after using it
+          fetch('<?= base_url('clearSidebarFlag') ?>', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
         } else {
-          updateMainContentMargin(false);
+          // Normal state restoration
+          const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+          if (isCollapsed && sidebar) {
+            sidebar.classList.add('collapsed');
+            updateMainContentMargin(true);
+          } else {
+            updateMainContentMargin(false);
+          }
         }
         
         // Remove loading class after state is restored to enable transitions

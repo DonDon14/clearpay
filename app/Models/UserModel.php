@@ -18,5 +18,7 @@ class UserModel extends Model
         'profile_picture',
         'verification_token',
         'email_verified',
+        'reset_token',
+        'reset_expires',
     ];
 }

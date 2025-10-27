@@ -10,7 +10,8 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   />
-  <link href="<?= base_url('css/login.css') ?>" rel="stylesheet">
+  <link href="<?= base_url('css/auth-shared.css') ?>" rel="stylesheet">
+  <link href="<?= base_url('css/auth-login.css') ?>" rel="stylesheet">
 </head>
 <body>
   <div class="login-container">
@@ -18,9 +19,8 @@
     <div class="login-left">
       <!-- Top Navigation (if needed) -->
       <nav class="login-nav">
-        <a href="#" class="nav-link active">Home</a>
-        <a href="#" class="nav-link">About Us</a>
-        <a href="#" class="nav-link">Blog</a>
+        <a href="<?= base_url('/') ?>" class="nav-link active">Home</a>
+        <a href="<?= base_url('register') ?>" class="nav-link">Sign Up</a>
         <a href="#" class="nav-link">Help</a>
       </nav>
 
@@ -80,7 +80,7 @@
               <input type="checkbox" name="remember" id="remember">
               <span>Remember Me</span>
             </label>
-            <a href="#" class="forgot-password">Forgot Password?</a>
+            <a href="<?= base_url('forgotPassword') ?>" class="forgot-password">Forgot Password?</a>
           </div>
 
           <button type="submit" class="btn-login">

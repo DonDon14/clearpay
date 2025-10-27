@@ -12,7 +12,8 @@
     referrerpolicy="no-referrer"
   />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="<?= base_url('css/login.css') ?>" rel="stylesheet">
+  <link href="<?= base_url('css/auth-shared.css') ?>" rel="stylesheet">
+  <link href="<?= base_url('css/auth-register.css') ?>" rel="stylesheet">
 </head>
 <body>
   <div class="login-container">
@@ -21,8 +22,7 @@
       <!-- Top Navigation -->
       <nav class="login-nav">
         <a href="<?= base_url('/') ?>" class="nav-link">Home</a>
-        <a href="<?= base_url('/') ?>" class="nav-link">Login</a>
-        <a href="#" class="nav-link active">Sign Up</a>
+        <a href="<?= base_url('register') ?>" class="nav-link active">Sign Up</a>
         <a href="#" class="nav-link">Help</a>
       </nav>
 

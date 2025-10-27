@@ -224,5 +224,10 @@ class DashboardController extends BaseController
         }
     }
 
+    public function clearSidebarFlag()
+    {
+        session()->remove('forceSidebarExpanded');
+        return $this->response->setJSON(['success' => true]);
+    }
 
 }
