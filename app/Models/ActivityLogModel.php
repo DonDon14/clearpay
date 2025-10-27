@@ -36,10 +36,10 @@ class ActivityLogModel extends Model
     protected $updatedField = 'updated_at';
 
     protected $validationRules = [
-        'activity_type' => 'required|in_list[announcement,contribution,payment,payer,user]',
+        'activity_type' => 'required|in_list[announcement,contribution,payment,payer,user,payment_request]',
         'entity_type' => 'required|string',
         'entity_id' => 'required|integer',
-        'action' => 'required|in_list[created,updated,deleted,published,unpublished]',
+        'action' => 'required|in_list[created,updated,deleted,published,unpublished,approved,rejected,processed]',
         'title' => 'required|string|max_length[255]',
         'description' => 'required|string',
         'user_id' => 'required|integer',

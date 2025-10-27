@@ -134,27 +134,10 @@
                                             </td>
                                             <td><code><?= esc($request['reference_number']) ?></code></td>
                                             <td>
-                                                <div class="btn-group" role="group">
-                                                    <button class="btn btn-sm btn-outline-info" 
-                                                            onclick="viewRequestDetails(<?= $request['id'] ?>)">
-                                                        <i class="fas fa-eye"></i>
-                                                    </button>
-                                                    
-                                                    <?php if ($request['status'] === 'pending'): ?>
-                                                        <button class="btn btn-sm btn-success" 
-                                                                onclick="approveRequest(<?= $request['id'] ?>)">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn btn-sm btn-danger" 
-                                                                onclick="rejectRequest(<?= $request['id'] ?>)">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                        <button class="btn btn-sm btn-primary" 
-                                                                onclick="processRequest(<?= $request['id'] ?>)">
-                                                            <i class="fas fa-cog"></i>
-                                                        </button>
-                                                    <?php endif; ?>
-                                                </div>
+                                                <button class="btn btn-sm btn-outline-info" 
+                                                        onclick="viewRequestDetails(<?= $request['id'] ?>)">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -178,6 +161,18 @@
             </div>
             <div class="modal-body" id="requestDetailsContent">
                 <!-- Content will be loaded dynamically -->
+            </div>
+            <div class="modal-footer" id="requestDetailsFooter">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="approveFromDetailsBtn" onclick="approveFromDetails()" style="display: none;">
+                    <i class="fas fa-check me-1"></i>Approve
+                </button>
+                <button type="button" class="btn btn-danger" id="rejectFromDetailsBtn" onclick="rejectFromDetails()" style="display: none;">
+                    <i class="fas fa-times me-1"></i>Reject
+                </button>
+                <button type="button" class="btn btn-primary" id="processFromDetailsBtn" onclick="processFromDetails()" style="display: none;">
+                    <i class="fas fa-cog me-1"></i>Process
+                </button>
             </div>
         </div>
     </div>
@@ -266,7 +261,14 @@ function viewRequestDetails(requestId) {
                         ${request.proof_of_payment_path ? `
                         <div class="col-12">
                             <h6 class="text-primary">Proof of Payment</h6>
-                            <img src="${request.proof_of_payment_path}" alt="Proof of Payment" class="img-fluid" style="max-height: 300px;">
+                            <div class="text-center">
+                                <img src="${request.proof_of_payment_path}" alt="Proof of Payment" class="img-fluid mb-3" style="max-height: 300px;">
+                                <div>
+                                    <a href="${request.proof_of_payment_path}" download="proof_of_payment_${request.reference_number}.jpg" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-download me-1"></i>Download Proof
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                         ` : ''}
                         ${request.admin_notes ? `
@@ -286,6 +288,28 @@ function viewRequestDetails(requestId) {
                 `;
                 
                 document.getElementById('requestDetailsContent').innerHTML = content;
+                
+                // Show/hide action buttons based on status
+                const approveBtn = document.getElementById('approveFromDetailsBtn');
+                const rejectBtn = document.getElementById('rejectFromDetailsBtn');
+                const processBtn = document.getElementById('processFromDetailsBtn');
+                
+                // Hide all buttons first
+                approveBtn.style.display = 'none';
+                rejectBtn.style.display = 'none';
+                processBtn.style.display = 'none';
+                
+                // Show appropriate buttons based on status
+                if (request.status === 'pending') {
+                    approveBtn.style.display = 'inline-block';
+                    rejectBtn.style.display = 'inline-block';
+                } else if (request.status === 'approved') {
+                    processBtn.style.display = 'inline-block';
+                }
+                
+                // Store current request ID for actions
+                currentRequestId = requestId;
+                
                 new bootstrap.Modal(document.getElementById('requestDetailsModal')).show();
             } else {
                 alert('Error: ' + data.message);
@@ -387,6 +411,38 @@ function getStatusClass(status) {
         'processed': 'bg-primary text-white'
     };
     return classes[status] || 'bg-secondary text-white';
+}
+
+// Functions to handle actions from details modal
+function approveFromDetails() {
+    currentActionType = 'approve';
+    showActionModal('Approve Payment Request', 'Are you sure you want to approve this payment request? This will create a payment record.');
+}
+
+function rejectFromDetails() {
+    currentActionType = 'reject';
+    showActionModal('Reject Payment Request', 'Are you sure you want to reject this payment request?');
+}
+
+function processFromDetails() {
+    currentActionType = 'process';
+    showActionModal('Process Payment Request', 'Are you sure you want to process this payment request? This will mark it as completed.');
+}
+
+function showActionModal(title, message) {
+    document.getElementById('actionRequestId').value = currentRequestId;
+    document.getElementById('actionType').value = currentActionType;
+    document.getElementById('actionModalLabel').textContent = title;
+    document.getElementById('confirmationMessage').innerHTML = 
+        `<div class="alert alert-${currentActionType === 'approve' ? 'success' : currentActionType === 'reject' ? 'danger' : 'primary'}"><i class="fas fa-${currentActionType === 'approve' ? 'check-circle' : currentActionType === 'reject' ? 'times-circle' : 'cog'} me-2"></i>${message}</div>`;
+    document.getElementById('confirmActionBtn').textContent = `${currentActionType.charAt(0).toUpperCase() + currentActionType.slice(1)} Request`;
+    document.getElementById('confirmActionBtn').className = `btn btn-${currentActionType === 'approve' ? 'success' : currentActionType === 'reject' ? 'danger' : 'primary'}`;
+    
+    // Close the details modal first
+    bootstrap.Modal.getInstance(document.getElementById('requestDetailsModal')).hide();
+    
+    // Show the action modal
+    new bootstrap.Modal(document.getElementById('actionModal')).show();
 }
 </script>
 

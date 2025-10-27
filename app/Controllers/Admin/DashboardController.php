@@ -7,6 +7,7 @@ use App\Models\UserModel;
 use App\Models\PaymentModel;
 use App\Models\ContributionModel;
 use App\Models\PaymentRequestModel;
+use App\Services\ActivityLogger;
 
 class DashboardController extends BaseController
 {
@@ -293,17 +294,80 @@ class DashboardController extends BaseController
 
         try {
             $paymentRequestModel = new PaymentRequestModel();
-            $result = $paymentRequestModel->approveRequest($requestId, $processedBy, $adminNotes);
             
-            if ($result) {
+            // Get the payment request details
+            $request = $paymentRequestModel->find($requestId);
+            if (!$request) {
                 return $this->response->setJSON([
-                    'success' => true,
-                    'message' => 'Payment request approved successfully'
+                    'success' => false,
+                    'message' => 'Payment request not found'
                 ]);
+            }
+
+            // Create actual payment record
+            $paymentModel = new PaymentModel();
+            $paymentData = [
+                'payer_id' => $request['payer_id'],
+                'contribution_id' => $request['contribution_id'],
+                'amount_paid' => $request['requested_amount'],
+                'payment_method' => $request['payment_method'],
+                'payment_status' => 'fully paid',
+                'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId), 0, 12)),
+                'receipt_number' => 'RCPT-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId . time()), 0, 12)),
+                'payment_date' => date('Y-m-d H:i:s'),
+                'recorded_by' => $processedBy
+            ];
+
+            $paymentId = $paymentModel->insert($paymentData);
+            
+            if ($paymentId) {
+                // Mark payment request as approved
+                $result = $paymentRequestModel->approveRequest($requestId, $processedBy, $adminNotes);
+                
+                if ($result) {
+                    // Log the activity for admin (user activities)
+                    $activityLogger = new ActivityLogger();
+                    $activityLogger->logActivity(
+                        'approved',
+                        'payment_request',
+                        $requestId,
+                        "Payment request approved and payment recorded (Receipt Number: {$paymentData['receipt_number']})",
+                        $request['payer_id']
+                    );
+                    
+                    // Log activity for payer notification (using ActivityLogModel directly)
+                    $activityLogModel = new \App\Models\ActivityLogModel();
+                    $activityLogModel->insert([
+                        'activity_type' => 'payment_request',
+                        'entity_type' => 'payment_request',
+                        'entity_id' => $requestId,
+                        'action' => 'approved',
+                        'title' => 'Payment Request Approved',
+                        'description' => "Your payment request for ₱" . number_format($request['requested_amount'], 2) . " has been approved and payment recorded. Receipt Number: {$paymentData['receipt_number']}",
+                        'user_id' => $processedBy,
+                        'user_type' => 'admin',
+                        'payer_id' => $request['payer_id'],
+                        'target_audience' => 'payers',
+                        'is_read' => false,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ]);
+                    
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'message' => 'Payment request approved and payment recorded successfully',
+                        'payment_id' => $paymentId
+                    ]);
+                } else {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Failed to approve payment request'
+                    ]);
+                }
             } else {
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => 'Failed to approve payment request'
+                    'message' => 'Failed to create payment record'
                 ]);
             }
         } catch (\Exception $e) {
@@ -336,9 +400,47 @@ class DashboardController extends BaseController
 
         try {
             $paymentRequestModel = new PaymentRequestModel();
+            
+            // Get the payment request details for logging
+            $request = $paymentRequestModel->find($requestId);
+            if (!$request) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment request not found'
+                ]);
+            }
+            
             $result = $paymentRequestModel->rejectRequest($requestId, $processedBy, $adminNotes);
             
             if ($result) {
+                // Log the activity for admin (user activities)
+                $activityLogger = new ActivityLogger();
+                $activityLogger->logActivity(
+                    'rejected',
+                    'payment_request',
+                    $requestId,
+                    "Payment request rejected: {$adminNotes}",
+                    $request['payer_id']
+                );
+                
+                // Log activity for payer notification (using ActivityLogModel directly)
+                $activityLogModel = new \App\Models\ActivityLogModel();
+                $activityLogModel->insert([
+                    'activity_type' => 'payment_request',
+                    'entity_type' => 'payment_request',
+                    'entity_id' => $requestId,
+                    'action' => 'rejected',
+                    'title' => 'Payment Request Rejected',
+                    'description' => "Your payment request for ₱" . number_format($request['requested_amount'], 2) . " has been rejected. Reason: {$adminNotes}",
+                    'user_id' => $processedBy,
+                    'user_type' => 'admin',
+                    'payer_id' => $request['payer_id'],
+                    'target_audience' => 'payers',
+                    'is_read' => false,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Payment request rejected'
@@ -408,6 +510,34 @@ class DashboardController extends BaseController
             if ($paymentId) {
                 // Mark payment request as processed
                 $paymentRequestModel->processRequest($requestId, $processedBy, $adminNotes);
+                
+                // Log the activity for admin (user activities)
+                $activityLogger = new ActivityLogger();
+                $activityLogger->logActivity(
+                    'processed',
+                    'payment_request',
+                    $requestId,
+                    "Payment request processed and payment recorded (Receipt Number: {$paymentData['receipt_number']})",
+                    $request['payer_id']
+                );
+                
+                // Log activity for payer notification (using ActivityLogModel directly)
+                $activityLogModel = new \App\Models\ActivityLogModel();
+                $activityLogModel->insert([
+                    'activity_type' => 'payment_request',
+                    'entity_type' => 'payment_request',
+                    'entity_id' => $requestId,
+                    'action' => 'processed',
+                    'title' => 'Payment Request Processed',
+                    'description' => "Your payment request for ₱" . number_format($request['requested_amount'], 2) . " has been processed and payment recorded. Receipt Number: {$paymentData['receipt_number']}",
+                    'user_id' => $processedBy,
+                    'user_type' => 'admin',
+                    'payer_id' => $request['payer_id'],
+                    'target_audience' => 'payers',
+                    'is_read' => false,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
                 
                 return $this->response->setJSON([
                     'success' => true,

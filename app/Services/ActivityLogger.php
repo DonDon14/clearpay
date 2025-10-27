@@ -29,7 +29,9 @@ class ActivityLogger
             'new_values' => json_encode($announcement),
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
-            'target_audience' => $announcement['target_audience'] ?? 'payers'
+            'payer_id' => null, // General announcements don't target specific payers
+            'target_audience' => $announcement['target_audience'] ?? 'payers',
+            'is_read' => 0
         ];
 
         return $this->activityLogModel->logActivity($data);
@@ -51,7 +53,9 @@ class ActivityLogger
             'new_values' => json_encode($contribution),
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
-            'target_audience' => 'payers'
+            'payer_id' => null, // General contributions don't target specific payers
+            'target_audience' => 'payers',
+            'is_read' => 0
         ];
 
         return $this->activityLogModel->logActivity($data);
@@ -74,7 +78,8 @@ class ActivityLogger
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
             'payer_id' => $payment['payer_id'] ?? null, // Specific payer for payment notifications
-            'target_audience' => 'payers'
+            'target_audience' => 'payers',
+            'is_read' => 0
         ];
 
         return $this->activityLogModel->logActivity($data);
@@ -97,7 +102,8 @@ class ActivityLogger
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
             'payer_id' => $payer['id'] ?? null, // Specific payer for payer notifications
-            'target_audience' => 'payers'
+            'target_audience' => 'payers',
+            'is_read' => 0
         ];
 
         return $this->activityLogModel->logActivity($data);
@@ -108,22 +114,26 @@ class ActivityLogger
      */
     public function logActivity($action, $entityType, $entityId, $description, $payerId = null)
     {
-        $data = [
-            'activity_type' => $entityType,
-            'entity_type' => $entityType,
-            'entity_id' => $entityId,
-            'action' => $action,
-            'title' => ucfirst($action) . ' ' . ucfirst($entityType),
-            'description' => $description,
-            'old_values' => null,
-            'new_values' => null,
-            'user_id' => session('user-id') ?? 1,
-            'user_type' => 'payer',
-            'payer_id' => $payerId,
-            'target_audience' => 'payers'
-        ];
+        try {
+            $db = \Config\Database::connect();
+            
+            $data = [
+                'user_id' => session('user-id') ?? 1,
+                'activity_type' => $action,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'description' => $description,
+                'metadata' => json_encode(['payer_id' => $payerId]),
+                'ip_address' => service('request')->getIPAddress(),
+                'user_agent' => service('request')->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
 
-        return $this->activityLogModel->logActivity($data);
+            return $db->table('user_activities')->insert($data);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to log activity: ' . $e->getMessage());
+            return false;
+        }
     }
 
     // Helper methods for generating titles and descriptions

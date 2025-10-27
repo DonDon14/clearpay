@@ -464,6 +464,11 @@ class DashboardController extends BaseController
                 'created' => 'fas fa-user-plus',
                 'updated' => 'fas fa-user-edit',
                 'deleted' => 'fas fa-user-times'
+            ],
+            'payment_request' => [
+                'approved' => 'fas fa-check-circle',
+                'rejected' => 'fas fa-times-circle',
+                'processed' => 'fas fa-cog'
             ]
         ];
         
@@ -501,6 +506,11 @@ class DashboardController extends BaseController
                 'created' => 'success',
                 'updated' => 'warning',
                 'deleted' => 'danger'
+            ],
+            'payment_request' => [
+                'approved' => 'success',
+                'rejected' => 'danger',
+                'processed' => 'info'
             ]
         ];
         
