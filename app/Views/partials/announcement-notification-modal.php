@@ -550,9 +550,16 @@ function checkForNewActivities() {
                 // DON'T clear the unread set - preserve user's read status
                 // Only add new activities that are truly unread
                 
+                console.log('Checking condition: data.activities exists:', !!data.activities);
+                console.log('Checking condition: data.activities.length:', data.activities ? data.activities.length : 'undefined');
+                console.log('Condition result:', data.activities && data.activities.length > 0);
+                
                 if (data.activities && data.activities.length > 0) {
+                    console.log('About to process activities in forEach loop. Count:', data.activities.length);
                     // Process activities for Facebook-like logic
                     data.activities.forEach(activity => {
+                        console.log('=== INSIDE forEach loop ===');
+                        console.log('Processing activity:', activity.id, 'Title:', activity.title);
                         const activityIdStr = String(activity.id);
                         
                         // Add to unseen set if it's a NEW activity (not already processed)
@@ -565,15 +572,31 @@ function checkForNewActivities() {
                         }
                         
                         // Add to unread set if not individually read
-                        if (!activity.is_read_by_payer && !unreadActivityIds.has(activityIdStr)) {
+                        console.log('Processing activity:', activityIdStr, 'is_read_by_payer:', activity.is_read_by_payer, 'type:', typeof activity.is_read_by_payer);
+                        
+                        // Convert to number for proper comparison
+                        const isReadByPayer = parseInt(activity.is_read_by_payer) || 0;
+                        console.log('Converted is_read_by_payer to number:', isReadByPayer);
+                        
+                        if (isReadByPayer === 0 && !unreadActivityIds.has(activityIdStr)) {
                             unreadActivityIds.add(activityIdStr);
                             console.log('Added new unread activity:', activityIdStr);
+                        } else if (isReadByPayer === 1) {
+                            console.log('Activity already read by payer:', activityIdStr);
                         }
                     });
                     
                     console.log('Current unseen activities:', unseenActivityIds.size);
                     console.log('Current unread activities:', unreadActivityIds.size);
+                    console.log('unreadActivityIds contents:', Array.from(unreadActivityIds));
+                } else {
+                    console.log('CONDITION FAILED: Not processing activities');
+                    console.log('data.activities:', data.activities);
+                    console.log('data.activities.length:', data.activities ? data.activities.length : 'undefined');
                 }
+                
+                console.log('After processing - unreadActivityIds:', unreadActivityIds.size);
+                console.log('After processing - unseenActivityIds:', unseenActivityIds.size);
                 
                 // Update unread activities set with new activities (if any)
                 if (data.newActivities && data.newActivities.length > 0) {
@@ -595,6 +618,8 @@ function checkForNewActivities() {
                 // Mark data as loaded BEFORE updating dropdown
                 notificationDataLoaded = true;
                 console.log('Data loaded successfully, updating dropdown');
+                console.log('unreadActivityIds before processing:', unreadActivityIds.size);
+                console.log('unseenActivityIds before processing:', unseenActivityIds.size);
                 
                 // Update dropdown with all activities
                 updateNotificationDropdown(data.activities);
@@ -797,6 +822,8 @@ function updateNotificationDropdown(activities) {
     recentActivities.forEach(activity => {
         const activityIdStr = String(activity.id);
         const isUnread = unreadActivityIds.has(activityIdStr);
+        
+        console.log('Generating HTML for activity:', activityIdStr, 'isUnread:', isUnread, 'unreadActivityIds has:', unreadActivityIds.has(activityIdStr));
         
         html += `
             <div class="notification-item ${isUnread ? 'unread-notification' : ''}" 
