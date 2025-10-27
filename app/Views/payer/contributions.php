@@ -30,15 +30,15 @@
                                     <div class="card contribution-card h-100" style="cursor: pointer;" 
                                          data-contribution='<?= json_encode($contribution) ?>'>
                                         <div class="card-body">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <h6 class="card-title mb-0">
-                                                    <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
-                                                    <?= esc($contribution['title']) ?>
-                                                </h6>
-                                                <span class="badge bg-<?= $contribution['payment_status'] === 'fully paid' ? 'success' : ($contribution['payment_status'] === 'partial' ? 'warning' : 'danger') ?>">
-                                                    <?= esc(ucfirst($contribution['payment_status'])) ?>
-                                                </span>
-                                            </div>
+                                                   <div class="d-flex justify-content-between align-items-start mb-2">
+                                                       <h6 class="card-title mb-0">
+                                                           <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+                                                           <?= esc($contribution['title']) ?>
+                                                       </h6>
+                                                       <span class="badge payment-status-badge" data-total-paid="<?= $contribution['total_paid'] ?>" data-total-amount="<?= $contribution['amount'] ?>">
+                                                           <!-- Status will be calculated by JavaScript -->
+                                                       </span>
+                                                   </div>
                                             
                                             <p class="card-text text-muted mb-2" style="font-size: 0.9rem;">
                                                 <?= esc(substr($contribution['description'], 0, 100)) ?><?= strlen($contribution['description']) > 100 ? '...' : '' ?>
@@ -55,20 +55,22 @@
                                                 </div>
                                             </div>
                                             
-                                            <?php if ($contribution['remaining_balance'] > 0): ?>
-                                                <div class="mb-2">
-                                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                                        <small class="text-muted">Progress</small>
-                                                        <small class="text-muted"><?= round(($contribution['total_paid'] / $contribution['amount']) * 100, 1) ?>%</small>
-                                                    </div>
-                                                    <div class="progress" style="height: 6px;">
-                                                        <div class="progress-bar bg-<?= $contribution['payment_status'] === 'fully paid' ? 'success' : 'warning' ?>" 
-                                                             role="progressbar" 
-                                                             style="width: <?= ($contribution['total_paid'] / $contribution['amount']) * 100 ?>%">
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            <?php endif; ?>
+                                                   <?php if ($contribution['remaining_balance'] > 0): ?>
+                                                       <div class="mb-2">
+                                                           <div class="d-flex justify-content-between align-items-center mb-1">
+                                                               <small class="text-muted">Progress</small>
+                                                               <small class="text-muted progress-percentage"><?= round(($contribution['total_paid'] / $contribution['amount']) * 100, 1) ?>%</small>
+                                                           </div>
+                                                           <div class="progress" style="height: 6px;">
+                                                               <div class="progress-bar progress-bar-dynamic" 
+                                                                    role="progressbar" 
+                                                                    data-total-paid="<?= $contribution['total_paid'] ?>"
+                                                                    data-total-amount="<?= $contribution['amount'] ?>"
+                                                                    style="width: <?= ($contribution['total_paid'] / $contribution['amount']) * 100 ?>%">
+                                                               </div>
+                                                           </div>
+                                                       </div>
+                                                   <?php endif; ?>
                                             
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <small class="text-muted">
@@ -220,13 +222,65 @@
 <?= $this->include('partials/qr-receipt-modal') ?>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const contributionCards = document.querySelectorAll('.contribution-card');
-    const contributionModal = new bootstrap.Modal(document.getElementById('contributionModal'));
-    const paymentHistoryModal = new bootstrap.Modal(document.getElementById('paymentHistoryModal'));
-    const qrReceiptModal = new bootstrap.Modal(document.getElementById('qrReceiptModal'));
-    
-    let currentContribution = null;
+       document.addEventListener('DOMContentLoaded', function() {
+           const contributionCards = document.querySelectorAll('.contribution-card');
+           const contributionModal = new bootstrap.Modal(document.getElementById('contributionModal'));
+           const paymentHistoryModal = new bootstrap.Modal(document.getElementById('paymentHistoryModal'));
+           const qrReceiptModal = new bootstrap.Modal(document.getElementById('qrReceiptModal'));
+           
+           let currentContribution = null;
+           
+           // Calculate payment status dynamically for all contribution cards
+           calculatePaymentStatuses();
+           
+           // Function to calculate payment status based on total paid vs contribution amount
+           function calculatePaymentStatuses() {
+               const statusBadges = document.querySelectorAll('.payment-status-badge');
+               const progressBars = document.querySelectorAll('.progress-bar-dynamic');
+               
+               statusBadges.forEach(badge => {
+                   const totalPaid = parseFloat(badge.getAttribute('data-total-paid')) || 0;
+                   const totalAmount = parseFloat(badge.getAttribute('data-total-amount')) || 0;
+                   
+                   let status, statusClass, statusText;
+                   
+                   if (totalPaid === 0) {
+                       status = 'unpaid';
+                       statusClass = 'bg-secondary text-white';
+                       statusText = 'UNPAID';
+                   } else if (totalPaid >= totalAmount) {
+                       status = 'fully paid';
+                       statusClass = 'bg-primary text-white';
+                       statusText = 'COMPLETED';
+                   } else {
+                       status = 'partial';
+                       statusClass = 'bg-warning text-white';
+                       statusText = 'PARTIAL';
+                   }
+                   
+                   // Update badge appearance
+                   badge.className = `badge ${statusClass}`;
+                   badge.textContent = statusText;
+                   
+                   // Store calculated status for modal use
+                   badge.setAttribute('data-calculated-status', status);
+               });
+               
+               // Update progress bar colors
+               progressBars.forEach(progressBar => {
+                   const totalPaid = parseFloat(progressBar.getAttribute('data-total-paid')) || 0;
+                   const totalAmount = parseFloat(progressBar.getAttribute('data-total-amount')) || 0;
+                   
+                   let progressClass;
+                   if (totalPaid >= totalAmount) {
+                       progressClass = 'bg-success';
+                   } else {
+                       progressClass = 'bg-warning';
+                   }
+                   
+                   progressBar.className = `progress-bar ${progressClass}`;
+               });
+           }
     
     // Search functionality
     const searchInput = document.getElementById('contributionSearch');
@@ -266,29 +320,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    function showContributionDetails(contribution) {
-        // Update modal title
-        document.getElementById('modalTitle').textContent = contribution.title;
+           function showContributionDetails(contribution) {
+               // Update modal title
+               document.getElementById('modalTitle').textContent = contribution.title;
+               
+               // Update description
+               document.getElementById('modalDescription').textContent = contribution.description || 'No description available.';
+               
+               // Update amounts
+               document.getElementById('modalTotalAmount').textContent = '₱' + parseFloat(contribution.amount).toLocaleString('en-US', {minimumFractionDigits: 2});
+               document.getElementById('modalAmountPaid').textContent = '₱' + parseFloat(contribution.total_paid).toLocaleString('en-US', {minimumFractionDigits: 2});
+               document.getElementById('modalRemainingBalance').textContent = '₱' + parseFloat(contribution.remaining_balance).toLocaleString('en-US', {minimumFractionDigits: 2});
+               
+               // Calculate payment status dynamically
+               const totalPaid = parseFloat(contribution.total_paid) || 0;
+               const totalAmount = parseFloat(contribution.amount) || 0;
+               
+               let status, statusClass, statusText;
+               
+               if (totalPaid === 0) {
+                   status = 'unpaid';
+                   statusClass = 'bg-danger';
+                   statusText = 'Unpaid';
+               } else if (totalPaid >= totalAmount) {
+                   status = 'fully paid';
+                   statusClass = 'bg-success';
+                   statusText = 'Fully paid';
+               } else {
+                   status = 'partial';
+                   statusClass = 'bg-warning text-dark';
+                   statusText = 'Partial';
+               }
+               
+               // Update payment status
+               const statusBadge = document.getElementById('modalPaymentStatus');
+               statusBadge.textContent = statusText;
+               statusBadge.className = `badge fs-6 ${statusClass}`;
         
-        // Update description
-        document.getElementById('modalDescription').textContent = contribution.description || 'No description available.';
-        
-        // Update amounts
-        document.getElementById('modalTotalAmount').textContent = '₱' + parseFloat(contribution.amount).toLocaleString('en-US', {minimumFractionDigits: 2});
-        document.getElementById('modalAmountPaid').textContent = '₱' + parseFloat(contribution.total_paid).toLocaleString('en-US', {minimumFractionDigits: 2});
-        document.getElementById('modalRemainingBalance').textContent = '₱' + parseFloat(contribution.remaining_balance).toLocaleString('en-US', {minimumFractionDigits: 2});
-        
-        // Update payment status
-        const statusBadge = document.getElementById('modalPaymentStatus');
-        statusBadge.textContent = contribution.payment_status.charAt(0).toUpperCase() + contribution.payment_status.slice(1);
-        statusBadge.className = 'badge fs-6 bg-' + (contribution.payment_status === 'fully paid' ? 'success' : (contribution.payment_status === 'partial' ? 'warning' : 'danger'));
-        
-        // Update progress bar
-        const progressPercentage = Math.round((contribution.total_paid / contribution.amount) * 100);
-        const progressBar = document.getElementById('modalProgressBar');
-        progressBar.style.width = progressPercentage + '%';
-        progressBar.className = 'progress-bar bg-' + (contribution.payment_status === 'fully paid' ? 'success' : 'warning');
-        document.getElementById('modalProgressText').textContent = progressPercentage + '%';
+               // Update progress bar
+               const progressPercentage = Math.round((contribution.total_paid / contribution.amount) * 100);
+               const progressBar = document.getElementById('modalProgressBar');
+               progressBar.style.width = progressPercentage + '%';
+               progressBar.className = 'progress-bar bg-' + (status === 'fully paid' ? 'success' : 'warning');
+               document.getElementById('modalProgressText').textContent = progressPercentage + '%';
         
         // Update other info
         document.getElementById('modalCategory').textContent = contribution.category || 'General';

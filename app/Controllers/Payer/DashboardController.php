@@ -121,11 +121,8 @@ class DashboardController extends BaseController
             ->orderBy('created_at', 'DESC')
             ->findAll();
         
-        // Get payment status for each contribution
+        // Get payment data for each contribution (let JavaScript calculate status)
         foreach ($contributions as &$contribution) {
-            $paymentStatus = $this->paymentModel->getPaymentStatus($payerId, $contribution['id']);
-            $contribution['payment_status'] = $paymentStatus;
-            
             // Get total paid for this contribution
             $totalPaid = $this->paymentModel->where('payer_id', $payerId)
                 ->where('contribution_id', $contribution['id'])
@@ -133,6 +130,9 @@ class DashboardController extends BaseController
                 ->first();
             $contribution['total_paid'] = $totalPaid['amount_paid'] ?? 0;
             $contribution['remaining_balance'] = max(0, $contribution['amount'] - $contribution['total_paid']);
+            
+            // Don't set payment_status here - let JavaScript calculate it dynamically
+            // based on total_paid vs amount comparison
         }
         
         $data = [
