@@ -98,9 +98,32 @@ class DashboardController extends BaseController
     {
         $payerId = session('payer_id');
         
-        $payments = $this->paymentModel->where('payer_id', $payerId)
-            ->orderBy('payment_date', 'DESC')
-            ->findAll();
+        // Get payments with all necessary fields for QR receipt
+        $payments = $this->paymentModel->select('
+            payments.id,
+            payments.payer_id,
+            payments.contribution_id,
+            payments.amount_paid,
+            payments.payment_method,
+            payments.payment_status,
+            payments.reference_number,
+            payments.receipt_number,
+            payments.qr_receipt_path,
+            payments.payment_date,
+            payments.created_at,
+            payments.updated_at,
+            payers.payer_name,
+            payers.contact_number,
+            payers.email_address,
+            contributions.title as contribution_title,
+            users.username as recorded_by_name
+        ')
+        ->join('payers', 'payers.id = payments.payer_id', 'left')
+        ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->join('users', 'users.id = payments.recorded_by', 'left')
+        ->where('payments.payer_id', $payerId)
+        ->orderBy('payments.payment_date', 'DESC')
+        ->findAll();
         
         $data = [
             'title' => 'Payment History',

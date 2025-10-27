@@ -377,7 +377,7 @@ function getStatusBadgeClass(status) {
     return classes[status] || 'bg-secondary text-white';
 }
 
-// Function to download QR receipt
+// Function to download QR receipt with custom format
 function downloadQRReceipt() {
     if (!currentReceiptData) {
         alert('Unable to download QR code. Payment data not available.');
@@ -393,27 +393,63 @@ function downloadQRReceipt() {
     }
     
     try {
-        // Create a canvas to download the image
+        // Create a canvas with proper dimensions for the formatted receipt
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Set canvas size
-        canvas.width = 150;
-        canvas.height = 150;
+        // Set canvas size - wider to accommodate text
+        const qrSize = 200;
+        const padding = 40;
+        const textHeight = 60;
+        canvas.width = qrSize + (padding * 2);
+        canvas.height = qrSize + (textHeight * 3) + (padding * 2);
         
-        // Draw the QR code image onto the canvas
+        // Set background to white
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw the QR code image
         const img = new Image();
         img.crossOrigin = 'anonymous';
         
         img.onload = function() {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // Clear canvas and set white background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw QR code in the center
+            const qrX = padding;
+            const qrY = textHeight + padding;
+            ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+            
+            // Set text properties
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Draw "ClearPay" title at the top
+            ctx.font = 'bold 24px Arial, sans-serif';
+            ctx.fillStyle = '#0d6efd';
+            ctx.fillText('ClearPay', canvas.width / 2, 30);
+            
+            // Draw payer name below QR code
+            ctx.font = 'bold 16px Arial, sans-serif';
+            ctx.fillStyle = '#000000';
+            const payerName = currentReceiptData.payer_name || 'N/A';
+            ctx.fillText(payerName, canvas.width / 2, qrY + qrSize + 30);
+            
+            // Draw reference number at the bottom
+            ctx.font = '14px Arial, sans-serif';
+            ctx.fillStyle = '#666666';
+            const referenceNumber = currentReceiptData.reference_number || currentReceiptData.receipt_number || 'N/A';
+            ctx.fillText(`Ref: ${referenceNumber}`, canvas.width / 2, qrY + qrSize + 60);
             
             // Convert canvas to blob and download
             canvas.toBlob(function(blob) {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = 'qr_receipt_' + (currentReceiptData.receipt_number || currentReceiptData.id) + '.png';
+                link.download = 'clearpay_qr_receipt_' + (currentReceiptData.reference_number || currentReceiptData.receipt_number || currentReceiptData.id) + '.png';
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
