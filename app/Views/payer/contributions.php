@@ -50,10 +50,51 @@
                                                     <div class="fw-bold">₱<?= number_format($contribution['amount'], 2) ?></div>
                                                 </div>
                                                 <div class="col-6">
-                                                    <small class="text-muted">Paid</small>
+                                                    <small class="text-muted">Total Paid</small>
                                                     <div class="fw-bold text-success">₱<?= number_format($contribution['total_paid'], 2) ?></div>
                                                 </div>
                                             </div>
+                                            
+                                            <!-- Payment Groups Section -->
+                                            <?php if (!empty($contribution['payment_groups'])): ?>
+                                                <div class="mb-2">
+                                                    <small class="text-muted">Payment Groups:</small>
+                                                    <div class="mt-1">
+                                                        <?php foreach ($contribution['payment_groups'] as $group): ?>
+                                                            <div class="payment-group-item mb-1 p-2 border rounded" 
+                                                                 style="cursor: pointer; background-color: #f8f9fa;"
+                                                                 data-contribution-id="<?= $contribution['id'] ?>"
+                                                                 data-payment-sequence="<?= $group['payment_sequence'] ?>"
+                                                                 data-group-data='<?= json_encode($group) ?>'>
+                                                                <div class="d-flex justify-content-between align-items-center">
+                                                                    <div>
+                                                                        <small class="fw-bold">
+                                                                            Group <?= $group['payment_sequence'] ?>
+                                                                            <?php if ($group['computed_status'] === 'fully paid'): ?>
+                                                                                <span class="badge bg-success ms-1">Completed</span>
+                                                                            <?php else: ?>
+                                                                                <span class="badge bg-warning ms-1">Partial</span>
+                                                                            <?php endif; ?>
+                                                                        </small>
+                                                                    </div>
+                                                                    <div class="text-end">
+                                                                        <small class="fw-bold text-success">₱<?= number_format($group['total_paid'], 2) ?></small>
+                                                                        <?php if ($group['computed_status'] !== 'fully paid'): ?>
+                                                                            <br><small class="text-muted">Remaining: ₱<?= number_format($group['remaining_balance'], 2) ?></small>
+                                                                        <?php endif; ?>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="mt-1">
+                                                                    <small class="text-muted">
+                                                                        <?= $group['payment_count'] ?> payment<?= $group['payment_count'] > 1 ? 's' : '' ?> • 
+                                                                        Last: <?= date('M d, Y', strtotime($group['last_payment_date'])) ?>
+                                                                    </small>
+                                                                </div>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                </div>
+                                            <?php endif; ?>
                                             
                                                    <?php if ($contribution['remaining_balance'] > 0): ?>
                                                        <div class="mb-2">
@@ -504,6 +545,177 @@
                     alert('QR receipt functionality not available. Please refresh the page.');
                 }
             });
+        });
+    }
+    
+    // Handle payment group clicks
+    $(document).on('click', '.payment-group-item', function() {
+        const contributionId = $(this).data('contribution-id');
+        const paymentSequence = $(this).data('payment-sequence');
+        const groupData = $(this).data('group-data');
+        
+        // Show payment progress modal for this group
+        showPaymentProgressModal(contributionId, paymentSequence, groupData);
+    });
+    
+    // Function to show payment progress modal
+    function showPaymentProgressModal(contributionId, paymentSequence, groupData) {
+        // Fetch individual payments for this group
+        fetch(`<?= base_url('payer/get-contribution-payments') ?>/${contributionId}?sequence=${paymentSequence}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Create and show payment progress modal
+                const modalHtml = `
+                    <div class="modal fade" id="paymentProgressModal" tabindex="-1" aria-labelledby="paymentProgressModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="paymentProgressModalLabel">
+                                        <i class="fas fa-file-invoice-dollar me-2"></i>${groupData.contribution_title || 'Payment Group'}
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row mb-4">
+                                        <div class="col-md-3">
+                                            <div class="card bg-primary text-white">
+                                                <div class="card-body text-center">
+                                                    <h6 class="card-title">Total Amount</h6>
+                                                    <h4>₱${parseFloat(groupData.contribution_amount || 0).toFixed(2)}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card bg-success text-white">
+                                                <div class="card-body text-center">
+                                                    <h6 class="card-title">Amount Paid</h6>
+                                                    <h4>₱${parseFloat(groupData.total_paid || 0).toFixed(2)}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card bg-danger text-white">
+                                                <div class="card-body text-center">
+                                                    <h6 class="card-title">Remaining Balance</h6>
+                                                    <h4>₱${parseFloat(groupData.remaining_balance || 0).toFixed(2)}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="card bg-info text-white">
+                                                <div class="card-body text-center">
+                                                    <h6 class="card-title">Payment Status</h6>
+                                                    <h4><span class="badge bg-${groupData.computed_status === 'fully paid' ? 'success' : 'warning'}">${groupData.computed_status === 'fully paid' ? 'Fully paid' : 'Partial'}</span></h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <h6>Payment Progress</h6>
+                                        <div class="progress" style="height: 25px;">
+                                            <div class="progress-bar ${groupData.computed_status === 'fully paid' ? 'bg-success' : 'bg-warning'}" 
+                                                 role="progressbar" 
+                                                 style="width: ${Math.min(100, (groupData.total_paid / groupData.contribution_amount) * 100)}%"
+                                                 aria-valuenow="${(groupData.total_paid / groupData.contribution_amount) * 100}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                ${Math.round((groupData.total_paid / groupData.contribution_amount) * 100)}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            <h6>Individual Payments</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-striped">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Date</th>
+                                                            <th>Amount</th>
+                                                            <th>Method</th>
+                                                            <th>Status</th>
+                                                            <th>Receipt</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        ${data.payments.map(payment => `
+                                                            <tr>
+                                                                <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
+                                                                <td><strong>₱${parseFloat(payment.amount_paid).toFixed(2)}</strong></td>
+                                                                <td>${payment.payment_method.charAt(0).toUpperCase() + payment.payment_method.slice(1)}</td>
+                                                                <td><span class="badge bg-${payment.payment_status === 'fully paid' ? 'success' : 'warning'}">${payment.payment_status.charAt(0).toUpperCase() + payment.payment_status.slice(1)}</span></td>
+                                                                <td>
+                                                                    <button class="btn btn-sm btn-outline-primary view-receipt-btn" data-payment='${JSON.stringify(payment)}'>
+                                                                        <i class="fas fa-qrcode"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        `).join('')}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <h6>Contribution Info</h6>
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <p><strong>Category:</strong> ${groupData.contribution_category || 'other'}</p>
+                                                    <p><strong>Created:</strong> ${new Date(groupData.contribution_created_at || new Date()).toLocaleDateString()}</p>
+                                                    <p><strong>Status:</strong> <span class="badge bg-success">Active</span></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    <button type="button" class="btn btn-primary" onclick="viewPaymentHistory(${contributionId})">
+                                        <i class="fas fa-history me-2"></i>View Payment History
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Remove existing modal if any
+                $('#paymentProgressModal').remove();
+                
+                // Add modal to body
+                $('body').append(modalHtml);
+                
+                // Show modal
+                $('#paymentProgressModal').modal('show');
+                
+                // Add event listeners for receipt buttons
+                $('#paymentProgressModal').on('click', '.view-receipt-btn', function() {
+                    const paymentData = JSON.parse($(this).attr('data-payment'));
+                    if (typeof window.showQRReceipt === 'function') {
+                        window.showQRReceipt(paymentData);
+                    }
+                });
+                
+                // Clean up modal when hidden
+                $('#paymentProgressModal').on('hidden.bs.modal', function() {
+                    $(this).remove();
+                });
+                
+            } else {
+                alert('Error loading payment details: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while loading payment details.');
         });
     }
     

@@ -305,21 +305,8 @@ class DashboardController extends BaseController
                 ]);
             }
 
-            // Create actual payment record
-            $paymentModel = new PaymentModel();
-            $paymentData = [
-                'payer_id' => $request['payer_id'],
-                'contribution_id' => $request['contribution_id'],
-                'amount_paid' => $request['requested_amount'],
-                'payment_method' => $request['payment_method'],
-                'payment_status' => 'fully paid',
-                'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId), 0, 12)),
-                'receipt_number' => 'RCPT-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId . time()), 0, 12)),
-                'payment_date' => date('Y-m-d H:i:s'),
-                'recorded_by' => $processedBy
-            ];
-
-            $paymentId = $paymentModel->insert($paymentData);
+            // Create actual payment record using proper grouping logic
+            $paymentId = $this->createPaymentFromRequest($request, $processedBy);
             
             if ($paymentId) {
                 // Mark payment request as approved
@@ -608,6 +595,112 @@ class DashboardController extends BaseController
                 'message' => 'Error: ' . $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Create payment record from approved payment request using proper grouping logic
+     */
+    private function createPaymentFromRequest($request, $processedBy)
+    {
+        $paymentModel = new PaymentModel();
+        $contributionModel = new \App\Models\ContributionModel();
+        
+        // Get contribution details
+        $contribution = $contributionModel->find($request['contribution_id']);
+        $contributionAmount = $contribution ? $contribution['amount'] : 0;
+        $amountPaid = (float) $request['requested_amount'];
+        
+        // Get existing payments to determine proper grouping and status
+        $existingPayments = $paymentModel
+            ->where('payer_id', $request['payer_id'])
+            ->where('contribution_id', $request['contribution_id'])
+            ->where('deleted_at', null)
+            ->findAll();
+        
+        // Calculate cumulative total including this new payment
+        $existingTotalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
+        $newTotalPaid = $existingTotalPaid + $amountPaid;
+        
+        // Determine payment sequence - ensure only one active partial group per contribution type
+        $paymentSequence = 1;
+        if (!empty($existingPayments)) {
+            // Group payments by sequence to find active partial groups
+            $paymentGroups = [];
+            foreach ($existingPayments as $payment) {
+                $sequence = $payment['payment_sequence'] ?? 1;
+                if (!isset($paymentGroups[$sequence])) {
+                    $paymentGroups[$sequence] = [];
+                }
+                $paymentGroups[$sequence][] = $payment;
+            }
+            
+            // Check each group to find if there's an active partial group
+            $activePartialGroup = null;
+            foreach ($paymentGroups as $sequence => $groupPayments) {
+                $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+                
+                // Check if this group is partial (not fully paid)
+                if ($groupTotalPaid < $contributionAmount) {
+                    $activePartialGroup = $sequence;
+                    break; // Found an active partial group
+                }
+            }
+            
+            if ($activePartialGroup !== null) {
+                // Add to the existing partial group
+                $paymentSequence = $activePartialGroup;
+            } else {
+                // No active partial group, create new group
+                $paymentSequence = $this->getNextPaymentSequence($request['payer_id'], $request['contribution_id']);
+            }
+        }
+        
+        // Calculate status based on cumulative total
+        if ($newTotalPaid >= $contributionAmount) {
+            $paymentStatus = 'fully paid';
+            $remainingBalance = 0;
+            $isPartial = false;
+        } else {
+            $paymentStatus = 'partial';
+            $remainingBalance = $contributionAmount - $newTotalPaid;
+            $isPartial = true;
+        }
+        
+        $paymentData = [
+            'payer_id' => $request['payer_id'],
+            'contribution_id' => $request['contribution_id'],
+            'amount_paid' => $request['requested_amount'],
+            'payment_method' => $request['payment_method'],
+            'payment_status' => $paymentStatus,
+            'is_partial_payment' => $isPartial ? 1 : 0,
+            'remaining_balance' => $remainingBalance,
+            'payment_sequence' => $paymentSequence,
+            'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($request['id']), 0, 12)),
+            'receipt_number' => 'RCPT-' . date('Ymd') . '-' . strtoupper(substr(md5($request['id'] . time()), 0, 12)),
+            'payment_date' => date('Y-m-d H:i:s'),
+            'recorded_by' => $processedBy,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        return $paymentModel->insert($paymentData);
+    }
+
+    /**
+     * Get next payment sequence for a payer and contribution
+     */
+    private function getNextPaymentSequence($payerId, $contributionId)
+    {
+        $paymentModel = new PaymentModel();
+        
+        $maxSequence = $paymentModel
+            ->select('MAX(payment_sequence) as max_seq')
+            ->where('payer_id', $payerId)
+            ->where('contribution_id', $contributionId)
+            ->where('deleted_at', null)
+            ->first();
+        
+        return ($maxSequence['max_seq'] ?? 0) + 1;
     }
 
     /**

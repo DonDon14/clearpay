@@ -311,18 +311,36 @@ class DashboardController extends BaseController
             ->orderBy('created_at', 'DESC')
             ->findAll();
         
-        // Get payment data for each contribution (let JavaScript calculate status)
+        // Get payment data for each contribution with payment groups
         foreach ($contributions as &$contribution) {
-            // Get total paid for this contribution
-            $totalPaid = $this->paymentModel->where('payer_id', $payerId)
-                ->where('contribution_id', $contribution['id'])
-                ->selectSum('amount_paid')
-                ->first();
-            $contribution['total_paid'] = $totalPaid['amount_paid'] ?? 0;
-            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $contribution['total_paid']);
+            // Get payment groups for this contribution
+            $contributionAmount = $contribution['amount'];
+            $paymentGroups = $this->paymentModel->select('
+                COALESCE(payment_sequence, 1) as payment_sequence,
+                SUM(amount_paid) as total_paid,
+                COUNT(id) as payment_count,
+                MAX(payment_date) as last_payment_date,
+                MIN(payment_date) as first_payment_date,
+                CASE 
+                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN "fully paid"
+                    WHEN SUM(amount_paid) > 0 THEN "partial"
+                    ELSE "unpaid"
+                END as computed_status,
+                ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
+            ')
+            ->where('payer_id', $payerId)
+            ->where('contribution_id', $contribution['id'])
+            ->where('deleted_at', null)
+            ->groupBy('COALESCE(payment_sequence, 1)')
+            ->orderBy('payment_sequence', 'ASC')
+            ->findAll();
             
-            // Don't set payment_status here - let JavaScript calculate it dynamically
-            // based on total_paid vs amount comparison
+            $contribution['payment_groups'] = $paymentGroups;
+            
+            // Calculate overall totals
+            $totalPaid = array_sum(array_column($paymentGroups, 'total_paid'));
+            $contribution['total_paid'] = $totalPaid;
+            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $totalPaid);
         }
         
         $data = [
@@ -338,15 +356,17 @@ class DashboardController extends BaseController
     public function getContributionPayments($contributionId)
     {
         $payerId = session('payer_id');
+        $paymentSequence = $this->request->getGet('sequence'); // Get payment sequence filter
         
         // Get payments for this specific contribution and payer with all necessary fields
-        $payments = $this->paymentModel->select('
+        $builder = $this->paymentModel->select('
             payments.id,
             payments.payer_id,
             payments.contribution_id,
             payments.amount_paid,
             payments.payment_method,
             payments.payment_status,
+            payments.payment_sequence,
             payments.reference_number,
             payments.receipt_number,
             payments.qr_receipt_path,
@@ -357,15 +377,24 @@ class DashboardController extends BaseController
             payers.contact_number,
             payers.email_address,
             contributions.title as contribution_title,
+            contributions.description as contribution_description,
+            contributions.amount as contribution_amount,
+            contributions.category as contribution_category,
+            contributions.created_at as contribution_created_at,
             users.username as recorded_by_name
         ')
         ->join('payers', 'payers.id = payments.payer_id', 'left')
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
-        ->where('payments.contribution_id', $contributionId)
-        ->orderBy('payments.payment_date', 'DESC')
-        ->findAll();
+        ->where('payments.contribution_id', $contributionId);
+        
+        // Filter by payment sequence if provided
+        if ($paymentSequence) {
+            $builder->where('COALESCE(payments.payment_sequence, 1)', $paymentSequence);
+        }
+        
+        $payments = $builder->orderBy('payments.payment_date', 'DESC')->findAll();
         
         // Debug: Log the payments data to see what's being returned
         log_message('info', 'Payer payments for contribution ' . $contributionId . ': ' . json_encode($payments));
