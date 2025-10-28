@@ -785,13 +785,14 @@
         if (addPaymentBtn) {
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation(); // Prevent other event listeners from firing
             
             const contributionData = JSON.parse(addPaymentBtn.getAttribute('data-contribution'));
             
             // Open payment request modal for this contribution
             openPaymentRequestForContribution(contributionData);
         }
-    });
+    }, true); // Use capture phase to catch events early
     
     // Function to open payment request modal for a contribution
     function openPaymentRequestForContribution(contributionData) {
