@@ -53,17 +53,31 @@ $payment = $payment ?? [];
             </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="payerId" class="form-label">Payer ID</label>
-                                    <input type="text" class="form-control" id="payerId" name="new_payer_id" required>
+              <div class="input-group">
+                                        <input type="text" class="form-control" id="payerId" name="new_payer_id" required>
+                                        <button type="button" class="btn btn-outline-primary" onclick="openSchoolIDScanner()" title="Scan School ID">
+                  <i class="fas fa-qrcode"></i>
+                </button>
               </div>
             </div>
+              </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label for="payerEmail" class="form-label">Email</label>
                                     <input type="email" class="form-control" id="payerEmail" name="payer_email" required>
-              </div>
+                                </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="payerPhone" class="form-label">Phone Number</label>
                                     <input type="tel" class="form-control" id="payerPhone" name="payer_phone" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="payerCourse" class="form-label">Course/Program <small class="text-muted">(Optional)</small></label>
+                                    <input type="text" class="form-control" id="payerCourse" name="payer_course" placeholder="e.g., BSIT1, CS, IT">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <!-- Empty column for layout balance -->
               </div>
             </div>
           </div>
@@ -123,7 +137,7 @@ $payment = $payment ?? [];
                         <div class="col-12 mb-3">
             <label for="paymentDate" class="form-label">Payment Date</label>
                             <input type="datetime-local" class="form-control" id="paymentDate" name="payment_date" required>
-        </div>
+          </div>
         </div>
       </form>
       </div>
@@ -240,13 +254,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Initial status update only if contribution is already selected
   setTimeout(() => {
-    const contributionSelect = document.getElementById('contributionId');
+  const contributionSelect = document.getElementById('contributionId');
     if (contributionSelect && contributionSelect.value !== '') {
       updatePaymentStatus();
     }
   }, 100);
 
-  // Payer Type Toggle Functionality
+// Payer Type Toggle Functionality
   if (existingPayerRadio && newPayerRadio && existingPayerFields && newPayerFields) {
     existingPayerRadio.addEventListener('change', function() {
       if (this.checked) {
@@ -487,7 +501,7 @@ function resetPaymentModal() {
   if (newPayerFields) {
     newPayerFields.style.display = 'none';
     // Clear new payer input fields
-    const newPayerInputs = ['payerName', 'payerId', 'payerEmail', 'payerPhone'];
+    const newPayerInputs = ['payerName', 'payerId', 'payerEmail', 'payerPhone', 'payerCourse'];
     newPayerInputs.forEach(fieldId => {
       const field = document.getElementById(fieldId);
       if (field) field.value = '';
@@ -943,4 +957,407 @@ function processPayment(formData) {
     alert('An error occurred while adding the payment');
   });
 }
+</script>
+
+<!-- School ID Scanner Modal -->
+<div class="modal fade" id="schoolIDScannerModal" tabindex="-1" aria-labelledby="schoolIDScannerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="schoolIDScannerModalLabel">
+                    <i class="fas fa-id-card me-2"></i>Scan School ID
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <p class="text-muted">Scan the QR code from the student's school ID to automatically populate the Payer ID field</p>
+                </div>
+
+                <!-- Scanner Container -->
+                <div class="scanner-container mb-4">
+                    <div id="schoolIDReader" style="position: relative;">
+                        <video id="schoolIDVideo" autoplay playsinline style="width: 100%; border: 2px solid #0dcaf0; border-radius: 8px;"></video>
+                        
+                        <!-- Overlay with scanning area -->
+                        <div class="scanner-overlay-school">
+                            <div class="scan-line-school"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scanning Status -->
+                <div id="schoolIDScannerStatus" class="text-center">
+                    <p class="text-muted">
+                        <i class="fas fa-camera me-2"></i>
+                        Point camera at school ID QR code
+                    </p>
+                </div>
+
+                <!-- Manual Input Option -->
+                <div class="text-center mt-4">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleSchoolIDManualInput()">
+                        <i class="fas fa-keyboard me-1"></i>Or Enter Student ID Manually
+                    </button>
+                </div>
+
+                <!-- Manual Input Form (Initially Hidden) -->
+                <div id="schoolIDManualInputSection" style="display: none; margin-top: 20px;">
+                    <div class="card border-info">
+                        <div class="card-body">
+                            <h6 class="card-title">
+                                <i class="fas fa-keyboard me-2"></i>Enter Student ID
+                            </h6>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-id-card"></i></span>
+                                <input type="text" class="form-control" id="manualStudentIDInput" placeholder="Enter student ID (e.g., 2024-12345)">
+                                <button class="btn btn-info" type="button" onclick="useManualStudentID()">
+                                    <i class="fas fa-check me-1"></i>Use This ID
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="stopSchoolIDScanner()" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.scanner-container {
+    position: relative;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.scanner-overlay-school {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    border: 2px solid #0dcaf0;
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.scanner-overlay-school::before,
+.scanner-overlay-school::after {
+    content: '';
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border: 3px solid #0dcaf0;
+}
+
+.scanner-overlay-school::before {
+    top: -3px;
+    left: -3px;
+    border-right: none;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+}
+
+.scanner-overlay-school::after {
+    bottom: -3px;
+    right: -3px;
+    border-left: none;
+    border-top: none;
+    border-bottom-right-radius: 8px;
+}
+
+.scan-line-school {
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 180px;
+    height: 2px;
+    background: linear-gradient(to bottom, transparent, #0dcaf0, transparent);
+    animation: scanSchool 2s linear infinite;
+}
+
+@keyframes scanSchool {
+    0% { top: 10%; opacity: 1; }
+    50% { top: 90%; opacity: 1; }
+    100% { top: 10%; opacity: 0.3; }
+}
+</style>
+
+<script>
+let schoolIDScannerStream = null;
+let schoolIDScannerCanvas = null;
+let schoolIDScannerContext = null;
+
+// Function to open school ID scanner
+function openSchoolIDScanner() {
+    const scannerModal = new bootstrap.Modal(document.getElementById('schoolIDScannerModal'));
+    scannerModal.show();
+}
+
+// Function to start the school ID scanner
+async function startSchoolIDScanner() {
+    try {
+        // Get user media (camera)
+        schoolIDScannerStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+                facingMode: 'environment', // Use back camera on mobile
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      } 
+    });
+    
+        const video = document.getElementById('schoolIDVideo');
+        video.srcObject = schoolIDScannerStream;
+    
+        // Wait for video to be ready
+    video.onloadedmetadata = () => {
+      video.play();
+      
+            // Create canvas for scanning
+            schoolIDScannerCanvas = document.createElement('canvas');
+            schoolIDScannerCanvas.width = video.videoWidth;
+            schoolIDScannerCanvas.height = video.videoHeight;
+            schoolIDScannerContext = schoolIDScannerCanvas.getContext('2d');
+            
+            // Start scanning loop
+            scanSchoolIDQRCode();
+    };
+    
+  } catch (error) {
+    console.error('Error accessing camera:', error);
+    showNotification('Unable to access camera. Please check permissions.', 'error');
+        document.getElementById('schoolIDScannerStatus').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Camera access denied. Please use manual input instead.
+            </div>
+        `;
+    }
+}
+
+// Function to scan for school ID QR codes
+function scanSchoolIDQRCode() {
+    const video = document.getElementById('schoolIDVideo');
+  
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        schoolIDScannerContext.drawImage(video, 0, 0, schoolIDScannerCanvas.width, schoolIDScannerCanvas.height);
+        const imageData = schoolIDScannerContext.getImageData(0, 0, schoolIDScannerCanvas.width, schoolIDScannerCanvas.height);
+    
+        // Use jsQR library to detect QR code
+    if (typeof jsQR !== 'undefined') {
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      
+      if (code) {
+                console.log('School ID QR Code detected:', code.data);
+                stopSchoolIDScanner();
+                processSchoolIDQRCode(code.data);
+        return;
+      }
+    }
+  }
+  
+    // Continue scanning
+    requestAnimationFrame(scanSchoolIDQRCode);
+}
+
+// Function to process school ID QR code data
+function processSchoolIDQRCode(qrData) {
+    console.log('Processing school ID QR data:', qrData);
+    
+    try {
+        // Try to parse as JSON first (if QR contains structured data)
+        let studentData;
+        try {
+            studentData = JSON.parse(qrData);
+        } catch (e) {
+            // If not JSON, treat as plain text and parse manually
+            studentData = parseSchoolIDString(qrData);
+        }
+        
+        // Extract student ID from various possible formats
+        let studentID = null;
+        let studentName = null;
+        let courseCode = null;
+        
+        if (studentData.student_id) {
+            studentID = studentData.student_id;
+        } else if (studentData.id) {
+            studentID = studentData.id;
+        } else if (studentData.payer_id) {
+            studentID = studentData.payer_id;
+        }
+        
+        if (studentData.name || studentData.student_name || studentData.payer_name) {
+            studentName = studentData.name || studentData.student_name || studentData.payer_name;
+        }
+        
+        if (studentData.course || studentData.course_code) {
+            courseCode = studentData.course || studentData.course_code;
+        }
+        
+        if (studentID) {
+            // Populate the payer ID field
+            document.getElementById('payerId').value = studentID;
+            
+            // Populate student name if available
+            if (studentName) {
+                document.getElementById('payerName').value = studentName;
+                
+                // Generate email based on the name
+                const timestamp = Date.now().toString().slice(-6);
+                const emailBase = studentName.toLowerCase().replace(/\s+/g, '');
+                const uniqueEmail = emailBase + timestamp + '@example.com';
+                document.getElementById('payerEmail').value = uniqueEmail;
+            }
+            
+            // Populate course code if available
+            if (courseCode) {
+                document.getElementById('payerCourse').value = courseCode;
+            }
+            
+            // Show success message with parsed data
+            let successMessage = `School ID scanned successfully!\nID: ${studentID}`;
+            if (studentName) successMessage += `\nName: ${studentName}`;
+            if (courseCode) successMessage += `\nCourse: ${courseCode}`;
+            
+            showNotification(successMessage, 'success');
+            
+            // Close the scanner modal
+            const scannerModal = bootstrap.Modal.getInstance(document.getElementById('schoolIDScannerModal'));
+            if (scannerModal) {
+                scannerModal.hide();
+            }
+            
+        } else {
+            showNotification('Could not extract student ID from QR code', 'warning');
+        }
+        
+    } catch (error) {
+        console.error('Error processing school ID QR code:', error);
+        showNotification('Error processing school ID QR code', 'error');
+    }
+}
+
+// Function to parse school ID string format: IDNumberNameCourseCode
+function parseSchoolIDString(qrData) {
+    console.log('Parsing school ID string:', qrData);
+    
+    // Pattern: Start with digits (ID), followed by letters/names, ending with course code
+    // Course codes are typically 3-6 characters at the end (BSIT1, CS, IT, etc.)
+    
+    // First, try to identify the ID number at the beginning
+    const idMatch = qrData.match(/^(\d+)/);
+    if (!idMatch) {
+        return { student_id: qrData }; // If no digits at start, return as-is
+    }
+    
+    const idNumber = idMatch[1];
+    const remainingString = qrData.substring(idNumber.length);
+    
+    console.log('ID Number:', idNumber);
+    console.log('Remaining string:', remainingString);
+    
+    // Try to identify course code at the end
+    // Course codes are typically 2-6 characters, often ending with numbers
+    const courseCodeMatch = remainingString.match(/([A-Z]{2,6}\d?)$/);
+    let courseCode = null;
+    let nameString = remainingString;
+  
+  if (courseCodeMatch) {
+    courseCode = courseCodeMatch[1];
+        nameString = remainingString.substring(0, remainingString.length - courseCode.length);
+        console.log('Course Code:', courseCode);
+        console.log('Name String:', nameString);
+    }
+    
+    // Clean up the name string
+    let studentName = nameString.trim();
+    
+    // Handle common name patterns
+    // Remove extra spaces and normalize
+    studentName = studentName.replace(/\s+/g, ' ').trim();
+    
+    // If name contains dots (like "C.OCERO"), try to format it better
+    if (studentName.includes('.')) {
+        // Split by dots and join with spaces, but keep initials
+        const parts = studentName.split('.');
+        studentName = parts.map(part => part.trim()).join('. ').trim();
+    }
+    
+    console.log('Final parsed data:', {
+        student_id: idNumber,
+        name: studentName,
+        course: courseCode
+    });
+    
+    return {
+        student_id: idNumber,
+        name: studentName,
+        course: courseCode
+    };
+}
+
+// Function to stop the school ID scanner
+function stopSchoolIDScanner() {
+    if (schoolIDScannerStream) {
+        schoolIDScannerStream.getTracks().forEach(track => track.stop());
+        schoolIDScannerStream = null;
+    }
+}
+
+// Toggle manual input for school ID
+function toggleSchoolIDManualInput() {
+    const manualSection = document.getElementById('schoolIDManualInputSection');
+    manualSection.style.display = manualSection.style.display === 'none' ? 'block' : 'none';
+}
+
+// Use manual student ID
+function useManualStudentID() {
+    const studentID = document.getElementById('manualStudentIDInput').value.trim();
+    
+    if (!studentID) {
+        showNotification('Please enter a student ID', 'warning');
+        return;
+    }
+    
+    // Populate the payer ID field
+    document.getElementById('payerId').value = studentID;
+    
+    // Show success message
+    showNotification(`Student ID entered: ${studentID}`, 'success');
+    
+    // Close the scanner modal
+    const scannerModal = bootstrap.Modal.getInstance(document.getElementById('schoolIDScannerModal'));
+    if (scannerModal) {
+        scannerModal.hide();
+    }
+}
+
+// Event listener for school ID scanner modal
+document.addEventListener('DOMContentLoaded', function() {
+    const schoolIDScannerModal = document.getElementById('schoolIDScannerModal');
+    
+    if (schoolIDScannerModal) {
+        // Start scanner when modal opens
+        schoolIDScannerModal.addEventListener('shown.bs.modal', function() {
+            startSchoolIDScanner();
+        });
+        
+        // Stop scanner when modal closes
+        schoolIDScannerModal.addEventListener('hidden.bs.modal', function() {
+            stopSchoolIDScanner();
+            document.getElementById('schoolIDManualInputSection').style.display = 'none';
+            document.getElementById('manualStudentIDInput').value = '';
+    });
+  }
+});
 </script>
