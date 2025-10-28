@@ -123,6 +123,9 @@ class PaymentsController extends BaseController
     public function save()
     {
         try {
+            // Debug: Log all incoming data
+            log_message('info', 'Payment save request data: ' . json_encode($this->request->getPost()));
+            
             // Determine if this is a new or existing payer
             $payerId = $this->request->getPost('payer_id');
             $isExistingPayer = !empty($payerId);
@@ -132,6 +135,9 @@ class PaymentsController extends BaseController
             $validPaymentMethods = $paymentMethodModel->getActiveMethods();
             $paymentMethodNames = array_column($validPaymentMethods, 'name');
             $paymentMethodList = implode(',', $paymentMethodNames);
+            
+            // Debug: Log valid payment methods
+            log_message('info', 'Valid payment methods: ' . $paymentMethodList);
             
             // Validation rules - conditional based on payer type
             $rules = [
@@ -149,10 +155,12 @@ class PaymentsController extends BaseController
             }
 
             if (!$this->validate($rules)) {
+                $errors = $this->validator->getErrors();
+                log_message('error', 'Payment validation failed: ' . json_encode($errors));
                 return $this->response->setJSON([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $this->validator->getErrors()
+                    'errors' => $errors
                 ]);
             }
 

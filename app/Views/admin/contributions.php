@@ -160,7 +160,7 @@
 <!-- Contribution Payments Modal -->
 <?= view('partials/modal-contribution-payments') ?>
 
-<!-- Add Payment to Partial Payment Modal -->
+<!-- Additional Payment Modal -->
 <?= view('partials/modal-add-payment-to-partial') ?>
 
 <!-- QR Receipt Modal -->

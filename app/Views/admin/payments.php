@@ -322,25 +322,40 @@ $(document).ready(function() {
         e.stopPropagation();
         
         // Get all the data from the button
-        const payerData = {
+        const paymentData = {
             id: $(this).data('payer-id'),
             payer_name: $(this).data('payer-name'),
-            payer_id: $(this).data('payer-student-id')
-        };
-        
-        const contributionData = {
-            id: $(this).data('contribution-id'),
-            title: $(this).data('contribution-title'),
-            amount: $(this).data('contribution-amount')
-        };
-        
-        const paymentData = {
+            payer_student_id: $(this).data('payer-student-id'),
+            contribution_id: $(this).data('contribution-id'),
+            contribution_title: $(this).data('contribution-title'),
+            contribution_amount: $(this).data('contribution-amount'),
             total_paid: $(this).data('total-paid'),
-            remaining_balance: $(this).data('remaining-balance')
+            remaining_balance: $(this).data('remaining-balance'),
+            payment_status: 'partial',
+            payment_sequence: $(this).data('payment-sequence') || 1
         };
         
-        // Pre-populate the modal and trigger the same flow as main button
-        openAddPaymentModalWithValidation(payerData, contributionData, paymentData);
+        // Debug: Log the data being passed
+        console.log('=== BUTTON CLICK DEBUG ===');
+        console.log('Raw button data attributes:', {
+            'data-payer-id': $(this).data('payer-id'),
+            'data-payer-name': $(this).data('payer-name'),
+            'data-contribution-id': $(this).data('contribution-id'),
+            'data-contribution-title': $(this).data('contribution-title'),
+            'data-contribution-amount': $(this).data('contribution-amount'),
+            'data-total-paid': $(this).data('total-paid'),
+            'data-remaining-balance': $(this).data('remaining-balance')
+        });
+        console.log('Constructed paymentData:', paymentData);
+        
+        // Use the dedicated additional payment modal
+        if (typeof openAddPaymentToPartialModal === 'function') {
+            console.log('Calling openAddPaymentToPartialModal with:', paymentData);
+            openAddPaymentToPartialModal(paymentData);
+        } else {
+            console.error('openAddPaymentToPartialModal function not found');
+            alert('Additional payment modal is not available');
+        }
     });
 
     // Handle individual payment click in history modal
@@ -1079,4 +1094,8 @@ $(document).ready(function() {
     };
 });
 </script>
+
+<!-- Include Additional Payment Modal -->
+<?= view('partials/modal-add-payment-to-partial') ?>
+
 <?= $this->endSection() ?>
