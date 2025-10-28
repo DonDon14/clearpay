@@ -45,13 +45,10 @@
                         
                         <div class="col-md-6">
                             <label for="modal_payment_method" class="form-label">Payment Method <span class="text-danger">*</span></label>
-                            <select class="form-select" id="modal_payment_method" name="payment_method" required>
-                                <option value="">Select Payment Method</option>
-                                <option value="online">Online Banking</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="gcash">GCash</option>
-                                <option value="paymaya">PayMaya</option>
-                            </select>
+                            <?= payment_method_dropdown_with_icons('payment_method', null, [
+                                'id' => 'modal_payment_method',
+                                'required' => 'required'
+                            ]) ?>
                             <div class="invalid-feedback" id="modal_payment_method_error"></div>
                         </div>
                         

@@ -44,13 +44,10 @@
           <!-- Payment Method -->
           <div class="mb-3">
             <label for="paymentMethod" class="form-label">Payment Method <span class="text-danger">*</span></label>
-            <select class="form-select" id="paymentMethod" name="payment_method" required>
-              <option value="">Choose payment method...</option>
-              <option value="cash">Cash</option>
-              <option value="online">Online</option>
-              <option value="check">Check</option>
-              <option value="bank">Bank Transfer</option>
-            </select>
+            <?= payment_method_dropdown_with_icons('payment_method', null, [
+                'id' => 'paymentMethod',
+                'required' => 'required'
+            ]) ?>
           </div>
 
           <!-- Payment Date -->

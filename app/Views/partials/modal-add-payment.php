@@ -114,15 +114,12 @@ $payment = $payment ?? [];
 
                         <!-- Payment Method -->
                         <div class="col-md-6 mb-3">
-              <label for="paymentMethod" class="form-label">Payment Method</label>
-                            <select class="form-control" id="paymentMethod" name="payment_method" required>
-                                <option value="">Select payment method...</option>
-                <option value="cash">Cash</option>
-                <option value="online">Online</option>
-                <option value="check">Check</option>
-                                <option value="bank">Bank Transfer</option>
-              </select>
-          </div>
+                            <label for="paymentMethod" class="form-label">Payment Method</label>
+                            <?= payment_method_dropdown_with_icons('payment_method', null, [
+                                'id' => 'paymentMethod',
+                                'required' => 'required'
+                            ]) ?>
+                        </div>
 
                         <!-- Payment Status -->
                         <div class="col-md-6 mb-3">
