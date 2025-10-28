@@ -97,7 +97,7 @@ $payment = $payment ?? [];
 
                         <!-- Amount Paid -->
                         <div class="col-md-6 mb-3">
-                            <label for="amountPaid" class="form-label">Amount Paid</label>
+                            <label for="amountPaid" class="form-label">Amount To Pay</label>
                             <div class="input-group">
                                 <input type="number" class="form-control" id="amountPaid" name="amount_paid" step="0.01" min="0" required>
                                 <button type="button" class="btn btn-outline-success" id="fullyPaidBtn" title="Fill with remaining balance">
@@ -133,7 +133,7 @@ $payment = $payment ?? [];
                         <!-- Payment Date -->
                         <div class="col-12 mb-3">
             <label for="paymentDate" class="form-label">Payment Date</label>
-                            <input type="datetime-local" class="form-control" id="paymentDate" name="payment_date" required>
+                            <input type="datetime-local" class="form-control" id="paymentDate" name="payment_date" value="<?= format_date_for_input() ?>" required>
           </div>
         </div>
       </form>
@@ -241,7 +241,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 
-  // Set default payment date to current date and time
+  // Set default payment date to current date and time (if not already set by PHP)
   const paymentDateInput = document.getElementById('paymentDate');
   if (paymentDateInput && !paymentDateInput.value) {
     const now = new Date();
@@ -541,7 +541,7 @@ function resetPaymentModal() {
     paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
   }
   
-  // Set default payment date to current date and time
+  // Set default payment date to current date and time (using date helper format)
   const paymentDateInput = document.getElementById('paymentDate');
   if (paymentDateInput) {
     const now = new Date();
