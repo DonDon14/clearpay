@@ -63,7 +63,7 @@ class DashboardController extends BaseController
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->orderBy('payments.payment_date', 'DESC')
-            ->limit(6)
+            ->limit(7)
             ->findAll(); // last 6 payments
 
         // Add computed status to each payment

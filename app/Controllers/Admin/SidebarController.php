@@ -792,12 +792,17 @@ class SidebarController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Load PaymentMethodModel to get payment methods data
+        $paymentMethodModel = new \App\Models\PaymentMethodModel();
+        $paymentMethods = $paymentMethodModel->orderBy('name', 'ASC')->findAll();
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Settings',
             'pageTitle' => 'Settings',
             'pageSubtitle' => 'Manage your account settings',
             'username' => session()->get('username'),
+            'paymentMethods' => $paymentMethods,
         ];
 
         return view('admin/settings', $data);

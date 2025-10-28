@@ -27,7 +27,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="<?= base_url('payment-requests') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payment Requests') ? 'active' : '' ?>" data-tooltip="Payment Requests">
+                    <a href="<?= base_url('payment-requests') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payment Requests Management') ? 'active' : '' ?>" data-tooltip="Payment Requests">
                         <i class="fas fa-paper-plane"></i> 
                         <span class="menu-text">Payment Requests</span>
                     </a>
@@ -55,6 +55,13 @@
                     <a href="<?= base_url('announcements') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Announcements') ? 'active' : '' ?>" data-tooltip="Announcements">
                         <i class="fas fa-bullhorn"></i> 
                         <span class="menu-text">Announcements</span>
+                    </a>
+                </li>
+                <li><hr></li>
+                <li>
+                    <a href="<?= base_url('settings') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Settings') ? 'active' : '' ?>" data-tooltip="Settings">
+                        <i class="fas fa-cog"></i> 
+                        <span class="menu-text">Settings</span>
                     </a>
                 </li>
             </ul>

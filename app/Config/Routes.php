@@ -45,6 +45,16 @@ $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth'
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
 $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'auth']);
 
+// Payment Methods Management Routes
+$routes->get('/admin/settings/payment-methods', 'Admin\Settings\PaymentMethodController::index', ['filter' => 'auth']);
+$routes->get('/admin/settings/payment-methods/data', 'Admin\Settings\PaymentMethodController::getData', ['filter' => 'auth']);
+$routes->get('/admin/settings/payment-methods/create', 'Admin\Settings\PaymentMethodController::create', ['filter' => 'auth']);
+$routes->post('/admin/settings/payment-methods/store', 'Admin\Settings\PaymentMethodController::store', ['filter' => 'auth']);
+$routes->get('/admin/settings/payment-methods/edit/(:num)', 'Admin\Settings\PaymentMethodController::edit/$1', ['filter' => 'auth']);
+$routes->post('/admin/settings/payment-methods/update/(:num)', 'Admin\Settings\PaymentMethodController::update/$1', ['filter' => 'auth']);
+$routes->get('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\PaymentMethodController::delete/$1', ['filter' => 'auth']);
+$routes->get('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
+
 // Payment Requests Management Routes
 $routes->get('/payment-requests', 'Admin\DashboardController::paymentRequests', ['filter' => 'auth']);
 $routes->post('/admin/approve-payment-request', 'Admin\DashboardController::approvePaymentRequest', ['filter' => 'auth']);
