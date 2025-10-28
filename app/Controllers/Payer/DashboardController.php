@@ -641,6 +641,12 @@ class DashboardController extends BaseController
 
     public function submitPaymentRequest()
     {
+        // Debug: Log all incoming data
+        log_message('info', 'Payment request submission started');
+        log_message('info', 'Request method: ' . $this->request->getMethod());
+        log_message('info', 'Is AJAX: ' . ($this->request->isAJAX() ? 'Yes' : 'No'));
+        log_message('info', 'POST data: ' . json_encode($this->request->getPost()));
+        
         // Check if it's an AJAX request or if it's a POST request (more flexible)
         if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
             log_message('error', 'Invalid request method for payment request submission');
@@ -659,22 +665,37 @@ class DashboardController extends BaseController
                 'message' => 'Please log in to submit payment requests'
             ]);
         }
+        
+        log_message('info', 'Payer ID: ' . $payerId);
 
+        // Get valid payment method names from database
+        $paymentMethodModel = new \App\Models\PaymentMethodModel();
+        $validPaymentMethods = $paymentMethodModel->getActiveMethods();
+        $paymentMethodNames = array_column($validPaymentMethods, 'name');
+        $paymentMethodList = implode(',', $paymentMethodNames);
+        
+        // Debug: Log valid payment methods
+        log_message('info', 'Valid payment methods for payer: ' . $paymentMethodList);
+        
         $validation = \Config\Services::validation();
         $validation->setRules([
             'contribution_id' => 'required|integer',
             'requested_amount' => 'required|decimal|greater_than[0]',
-            'payment_method' => 'required|in_list[online,bank_transfer,gcash,paymaya]',
+            'payment_method' => 'required|in_list[' . $paymentMethodList . ']',
             'notes' => 'permit_empty|max_length[500]'
         ]);
 
         if (!$validation->withRequest($this->request)->run()) {
+            $errors = $validation->getErrors();
+            log_message('error', 'Payment request validation failed: ' . json_encode($errors));
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validation->getErrors()
+                'errors' => $errors
             ]);
         }
+        
+        log_message('info', 'Payment request validation passed');
 
         try {
             // Get contribution details
@@ -699,6 +720,11 @@ class DashboardController extends BaseController
             $proofOfPaymentPath = null;
             $file = $this->request->getFile('proof_of_payment');
             
+            log_message('info', 'File upload check - File exists: ' . ($file ? 'Yes' : 'No'));
+            if ($file) {
+                log_message('info', 'File details - Name: ' . $file->getName() . ', Size: ' . $file->getSize() . ', Valid: ' . ($file->isValid() ? 'Yes' : 'No'));
+            }
+            
             if ($file && $file->isValid() && !$file->hasMoved()) {
                 $uploadPath = FCPATH . 'uploads/payment_proofs/';
                 
@@ -710,6 +736,9 @@ class DashboardController extends BaseController
                 $newName = 'proof_' . $payerId . '_' . time() . '.' . $file->getExtension();
                 $file->move($uploadPath, $newName);
                 $proofOfPaymentPath = 'uploads/payment_proofs/' . $newName;
+                log_message('info', 'File uploaded successfully: ' . $proofOfPaymentPath);
+            } else {
+                log_message('info', 'No file uploaded or file upload failed');
             }
 
             // Create payment request
@@ -724,7 +753,9 @@ class DashboardController extends BaseController
                 'status' => 'pending'
             ];
 
+            log_message('info', 'Attempting to insert payment request with data: ' . json_encode($requestData));
             $requestId = $this->paymentRequestModel->insert($requestData);
+            log_message('info', 'Payment request insert result: ' . ($requestId ? 'Success - ID: ' . $requestId : 'Failed'));
             
             if ($requestId) {
                 // Add the ID to the request data for logging

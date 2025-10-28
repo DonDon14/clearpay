@@ -33,12 +33,12 @@ class PaymentRequestModel extends Model
     protected $createdField = 'created_at';
     protected $updatedField = 'updated_at';
 
-    // Validation rules
+    // Validation rules (payment_method will be set dynamically)
     protected $validationRules = [
         'payer_id' => 'required|integer',
         'contribution_id' => 'required|integer',
         'requested_amount' => 'required|decimal',
-        'payment_method' => 'required|in_list[cash,online,bank_transfer,gcash,paymaya]',
+        'payment_method' => 'required', // Will be set dynamically in beforeInsert
         'status' => 'required|in_list[pending,approved,rejected,processed]'
     ];
 
@@ -56,8 +56,7 @@ class PaymentRequestModel extends Model
             'decimal' => 'Requested amount must be a valid decimal'
         ],
         'payment_method' => [
-            'required' => 'Payment method is required',
-            'in_list' => 'Payment method must be one of: cash, online, bank_transfer, gcash, paymaya'
+            'required' => 'Payment method is required'
         ],
         'status' => [
             'required' => 'Status is required',
