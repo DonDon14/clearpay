@@ -195,3 +195,268 @@ function showNotification(message, type = 'info') {
         }
     }, 5000);
 }
+
+// Global variables for add payment functionality
+let selectedPayer = null;
+let payerSearchTimeout = null;
+
+// Function to scan ID for existing payer
+window.scanIDForExistingPayer = function() {
+    // This would integrate with a QR scanner
+    // For now, we'll show a placeholder
+    alert('QR Scanner functionality would be implemented here');
+};
+
+// Function to search payers
+window.searchPayers = function(query) {
+    if (!query || query.length < 2) {
+        document.getElementById('payerDropdown').style.display = 'none';
+        return;
+    }
+
+    // Clear previous timeout
+    if (payerSearchTimeout) {
+        clearTimeout(payerSearchTimeout);
+    }
+
+    // Debounce search
+    payerSearchTimeout = setTimeout(() => {
+        fetch(`/payments/search-payers?q=${encodeURIComponent(query)}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayPayerResults(data.results);
+            } else {
+                console.error('Search failed:', data.message);
+                document.getElementById('payerDropdown').style.display = 'none';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('payerDropdown').style.display = 'none';
+        });
+    }, 300);
+};
+
+// Function to display payer search results
+window.displayPayerResults = function(results) {
+    const dropdown = document.getElementById('payerDropdown');
+    dropdown.innerHTML = '';
+
+    if (results.length === 0) {
+        dropdown.innerHTML = '<div class="list-group-item text-muted">No payers found</div>';
+        dropdown.style.display = 'block';
+        return;
+    }
+
+    results.forEach(payer => {
+        const item = document.createElement('div');
+        item.className = 'list-group-item list-group-item-action';
+        item.style.cursor = 'pointer';
+        item.innerHTML = `
+            <div class="fw-bold">${payer.payer_name}</div>
+            <small class="text-muted">ID: ${payer.payer_id}</small>
+        `;
+
+        item.addEventListener('click', function() {
+            selectedPayer = payer;
+            document.getElementById('payerSelect').value = payer.payer_name;
+            document.getElementById('existingPayerId').value = payer.id;
+            dropdown.style.display = 'none';
+            
+            // Check for unpaid contributions and show warning
+            checkPayerUnpaidContributions(payer.id);
+        });
+
+        dropdown.appendChild(item);
+    });
+
+    dropdown.style.display = 'block';
+};
+
+// Function to check payer unpaid contributions
+window.checkPayerUnpaidContributions = function(payerId) {
+    fetch(`/payments/check-unpaid-contributions?payer_id=${payerId}`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.unpaid_contributions && data.unpaid_contributions.length > 0) {
+            showUnpaidContributionsWarning(data.unpaid_contributions);
+        }
+    })
+    .catch(error => {
+        console.error('Error checking unpaid contributions:', error);
+    });
+};
+
+// Function to show unpaid contributions warning
+window.showUnpaidContributionsWarning = function(unpaidContributions) {
+    const modalBody = document.querySelector('#addPaymentModal .modal-body');
+    const existingAlert = document.getElementById('unpaidContributionsAlert');
+    
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+
+    const alertHtml = `
+        <div id="unpaidContributionsAlert" class="alert alert-warning alert-dismissible fade show">
+            <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Unpaid Contributions Found</h6>
+            <p class="mb-2">This payer has unpaid contributions:</p>
+            <ul class="mb-2">
+                ${unpaidContributions.map(contrib => 
+                    `<li><strong>${contrib.title}</strong> - ₱${parseFloat(contrib.amount).toFixed(2)} (Remaining: ₱${parseFloat(contrib.remaining_balance).toFixed(2)})</li>`
+                ).join('')}
+            </ul>
+            <small class="text-muted">Consider adding payment to existing contributions instead of creating new ones.</small>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+
+    modalBody.insertAdjacentHTML('afterbegin', alertHtml);
+};
+
+// Function to submit payment
+window.submitPayment = function() {
+    if (!selectedPayer) {
+        alert('Please select a payer');
+        return;
+    }
+
+    const form = document.getElementById('paymentForm');
+    const formData = new FormData(form);
+
+    // Validate required fields
+    const requiredFields = ['contribution_id', 'amount_paid', 'payment_method', 'payment_date'];
+    const missingFields = requiredFields.filter(field => !formData.get(field));
+
+    if (missingFields.length > 0) {
+        alert('Please fill in all required fields');
+        return;
+    }
+
+    // Calculate remaining balance
+    const contributionSelect = document.getElementById('contributionId');
+    const contributionAmount = parseFloat(contributionSelect.options[contributionSelect.selectedIndex].dataset.amount) || 0;
+    const amountPaid = parseFloat(formData.get('amount_paid')) || 0;
+    const remainingBalance = contributionAmount - amountPaid;
+
+    formData.set('is_partial_payment', remainingBalance > 0 ? '1' : '0');
+    formData.set('remaining_balance', remainingBalance.toString());
+    
+    // Ensure payer_id is set for existing payers
+    if (selectedPayer) {
+        formData.set('payer_id', selectedPayer.id);
+    }
+    
+    // Debug: Log form data
+    console.log('Form data being sent:');
+    for (let [key, value] of formData.entries()) {
+        console.log(key + ': ' + value);
+    }
+
+    const submitBtn = document.querySelector('#addPaymentModal .btn-primary');
+    const originalText = submitBtn.innerHTML;
+    
+    // Show loading state
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    submitBtn.disabled = true;
+
+    fetch('/payments/save', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Payment added successfully!', 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addPaymentModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Reset form
+            form.reset();
+            selectedPayer = null;
+            document.getElementById('existingPayerId').value = '';
+            
+            // Reload page to show updated data
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showNotification(data.message || 'Error adding payment', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error adding payment', 'error');
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+};
+
+// Event listeners for add payment modal
+document.addEventListener('DOMContentLoaded', function() {
+    const payerSelect = document.getElementById('payerSelect');
+    const payerDropdown = document.getElementById('payerDropdown');
+    
+    if (payerSelect) {
+        // Search payers on input
+        payerSelect.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                searchPayers(query);
+            } else {
+                payerDropdown.style.display = 'none';
+            }
+        });
+
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!payerSelect.contains(e.target) && !payerDropdown.contains(e.target)) {
+                payerDropdown.style.display = 'none';
+            }
+        });
+    }
+
+    // Handle payer type radio buttons
+    const existingPayerRadio = document.getElementById('existingPayer');
+    const newPayerRadio = document.getElementById('newPayer');
+    const existingPayerFields = document.getElementById('existingPayerFields');
+    const newPayerFields = document.getElementById('newPayerFields');
+
+    if (existingPayerRadio && newPayerRadio) {
+        existingPayerRadio.addEventListener('change', function() {
+            if (this.checked) {
+                existingPayerFields.style.display = 'block';
+                newPayerFields.style.display = 'none';
+            }
+        });
+
+        newPayerRadio.addEventListener('change', function() {
+            if (this.checked) {
+                existingPayerFields.style.display = 'none';
+                newPayerFields.style.display = 'block';
+            }
+        });
+    }
+});

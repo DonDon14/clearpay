@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </h6>
                             <h6 class="text-center">Use the QR code above to pay your contribution.</h6>
                             <div class="text-center mb-3">
-                                <img src="/images/gcashcodesample.png" alt="GCash QR Code" style="width: 200px; height: 400px;" class="img-fluid border rounded" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <img src="/images/gcashcodesample.png" alt="GCash QR Code" style="width: 200px; height: 400px; cursor: pointer;" class="img-fluid border rounded" onclick="showQRCodeFullscreen('/images/gcashcodesample.png')" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" title="Click to view full screen">
                             </div>
                             
                             <!-- Collapsible Instructions -->
@@ -690,6 +690,49 @@ window.copyToClipboard = function(elementId) {
             showNotification('Copied to clipboard!', 'success');
         });
     }
+};
+
+// Function to show QR code in fullscreen
+window.showQRCodeFullscreen = function(imagePath) {
+    const modalHtml = `
+        <div class="modal fade" id="qrCodeFullscreenModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-fullscreen">
+                <div class="modal-content bg-dark">
+                    <div class="modal-header border-0 justify-content-end">
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body d-flex align-items-center justify-content-center">
+                        <div class="text-center">
+                            <img src="${imagePath}" alt="QR Code Fullscreen" class="img-fluid" style="max-width: 90vw; max-height: 90vh;">
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                                    <i class="fas fa-times me-1"></i>Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('qrCodeFullscreenModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('qrCodeFullscreenModal'));
+    modal.show();
+    
+    // Clean up modal when hidden
+    document.getElementById('qrCodeFullscreenModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
 };
 
 

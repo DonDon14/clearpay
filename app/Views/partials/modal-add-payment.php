@@ -1,3 +1,57 @@
+<style>
+  /* Fix z-index layering issues */
+  #payerDropdown {
+    z-index: 1050 !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: white !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 0.375rem !important;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  }
+  
+  #contributionId {
+    z-index: 1040 !important;
+    position: relative !important;
+  }
+  
+  .contribution-option {
+    z-index: 1040;
+  }
+  
+  /* Ensure modal backdrop doesn't interfere */
+  .modal {
+    z-index: 1055;
+  }
+  
+  .modal-backdrop {
+    z-index: 1050;
+  }
+  
+  /* Ensure proper positioning for the payer search container */
+  #existingPayerFields {
+    position: relative;
+  }
+  
+  /* Style dropdown items */
+  #payerDropdown .list-group-item {
+    cursor: pointer;
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+  }
+  
+  #payerDropdown .list-group-item:last-child {
+    border-bottom: none;
+  }
+  
+  #payerDropdown .list-group-item:hover {
+    background-color: #f8f9fa;
+  }
+</style>
+
+
 <!-- Add Payment Modal -->
 
 <div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
@@ -12,7 +66,7 @@
         <div class="modal-body">
           <input type="hidden" name="id" id="paymentId" value="<?= isset($payment['id']) ? $payment['id'] : '' ?>">
           <input type="hidden" name="parent_payment_id" id="parentPaymentId" value="<?= isset($payment['parent_payment_id']) ? $payment['parent_payment_id'] : '' ?>">
-          <input type="hidden" id="existingPayerId" name="existing_payer_id" value="">
+          <input type="hidden" id="existingPayerId" name="payer_id" value="">
 
           <!-- Payer Selection: Existing or New -->
           <div class="mb-3">
@@ -40,7 +94,7 @@
                 <i class="fas fa-qrcode"></i>
               </button>
             </div>
-            <div id="payerDropdown" class="list-group position-absolute w-100" style="z-index: 1000; max-height: 200px; overflow-y: auto; display: none;"></div>
+            <div id="payerDropdown" class="list-group position-absolute w-100" style="max-height: 200px; overflow-y: auto; display: none;"></div>
           </div>
 
           <!-- New Payer Fields (Initially Hidden) -->
@@ -76,10 +130,10 @@
             <div class="col-md-6">
               <label for="contributionId" class="form-label">Contribution</label>
               <select class="form-select" id="contributionId" name="contribution_id" required>
-                <option value="">Select a contribution...</option>
+                <option class="contribution-option" value="">Select a contribution...</option>
                 <?php if (isset($contributions) && !empty($contributions)): ?>
                   <?php foreach($contributions as $contribution): ?>
-                    <option 
+                    <option class="contribution-option"
                       value="<?= $contribution['id'] ?>" 
                       data-amount="<?= $contribution['amount'] ?>"
                     >
@@ -136,7 +190,7 @@
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Payment</button>
+          <button type="button" class="btn btn-primary" onclick="submitPayment()">Save Payment</button>
         </div>
       </form>
     </div>

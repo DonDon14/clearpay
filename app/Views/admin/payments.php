@@ -1,5 +1,14 @@
 <?= $this->extend('layouts/main') ?>
 
+<style>
+    .header-table {
+        background-color: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+</style>
+
 <?= $this->section('content') ?>
 
   <div class="container-fluid">
@@ -40,7 +49,7 @@
                     <!-- Grouped Payments Table -->
              <div class="table-responsive" style="max-height: 600px; overflow-y: auto; overflow-x: hidden;">
               <table class="table table-hover table-fit">
-                 <thead class="table-light sticky-top">
+                 <thead class="header-table">
                   <tr>
                                     <th>Payer</th>
                     <th>Contribution</th>
