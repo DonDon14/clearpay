@@ -270,8 +270,7 @@ window.displayPayerResults = function(results) {
             document.getElementById('existingPayerId').value = payer.id;
             dropdown.style.display = 'none';
             
-            // Check for unpaid contributions and show warning
-            checkPayerUnpaidContributions(payer.id);
+            // Note: Contribution checking is now handled in the modal
         });
 
         dropdown.appendChild(item);
@@ -280,51 +279,8 @@ window.displayPayerResults = function(results) {
     dropdown.style.display = 'block';
 };
 
-// Function to check payer unpaid contributions
-window.checkPayerUnpaidContributions = function(payerId) {
-    fetch(`/payments/check-unpaid-contributions?payer_id=${payerId}`, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Accept': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.unpaid_contributions && data.unpaid_contributions.length > 0) {
-            showUnpaidContributionsWarning(data.unpaid_contributions);
-        }
-    })
-    .catch(error => {
-        console.error('Error checking unpaid contributions:', error);
-    });
-};
-
-// Function to show unpaid contributions warning
-window.showUnpaidContributionsWarning = function(unpaidContributions) {
-    const modalBody = document.querySelector('#addPaymentModal .modal-body');
-    const existingAlert = document.getElementById('unpaidContributionsAlert');
-    
-    if (existingAlert) {
-        existingAlert.remove();
-    }
-
-    const alertHtml = `
-        <div id="unpaidContributionsAlert" class="alert alert-warning alert-dismissible fade show">
-            <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Unpaid Contributions Found</h6>
-            <p class="mb-2">This payer has unpaid contributions:</p>
-            <ul class="mb-2">
-                ${unpaidContributions.map(contrib => 
-                    `<li><strong>${contrib.title}</strong> - ₱${parseFloat(contrib.amount).toFixed(2)} (Remaining: ₱${parseFloat(contrib.remaining_balance).toFixed(2)})</li>`
-                ).join('')}
-            </ul>
-            <small class="text-muted">Consider adding payment to existing contributions instead of creating new ones.</small>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    `;
-
-    modalBody.insertAdjacentHTML('afterbegin', alertHtml);
-};
+// Note: Contribution checking functions have been moved to the modal
+// and are now handled automatically when contributions are selected
 
 // Function to submit payment
 window.submitPayment = function() {

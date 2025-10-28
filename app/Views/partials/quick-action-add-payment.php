@@ -40,8 +40,6 @@ $contributions = $contributions ?? [];
         'action' => $action,
         'contributions' => $contributions,
     ]) ?>
-    
-    <script src="<?= base_url('js/payment.js') ?>"></script>
 <?php endif; ?>
 
 <style>

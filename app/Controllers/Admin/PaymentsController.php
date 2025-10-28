@@ -1296,6 +1296,188 @@ class PaymentsController extends BaseController
     }
 
     /**
+     * Check fully paid contributions for a payer
+     */
+    public function checkFullyPaidContributions()
+    {
+        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = $this->request->getGet('payer_id');
+
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID is required'
+            ]);
+        }
+
+        try {
+            $fullyPaidContributions = $this->getFullyPaidContributions($payerId);
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'fully_paid_contributions' => $fullyPaidContributions
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Check status of a specific contribution for a payer
+     */
+    public function checkContributionStatus()
+    {
+        if ($this->request->getMethod() !== 'GET') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = $this->request->getGet('payer_id');
+        $contributionId = $this->request->getGet('contribution_id');
+
+        if (!$payerId || !$contributionId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID and Contribution ID are required'
+            ]);
+        }
+
+        try {
+            $paymentModel = new PaymentModel();
+            $contributionModel = new \App\Models\ContributionModel();
+            
+            // Get contribution details
+            $contribution = $contributionModel->find($contributionId);
+            if (!$contribution) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+            
+            // Get all payments for this payer and contribution
+            $payments = $paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contributionId)
+                ->where('deleted_at', null)
+                ->findAll();
+            
+            if (empty($payments)) {
+                // No payments exist for this contribution
+                return $this->response->setJSON([
+                    'success' => true,
+                    'status' => 'none',
+                    'message' => 'No payments found'
+                ]);
+            }
+            
+            // Group payments by payment_sequence
+            $paymentGroups = [];
+            foreach ($payments as $payment) {
+                $sequence = $payment['payment_sequence'] ?? 1;
+                if (!isset($paymentGroups[$sequence])) {
+                    $paymentGroups[$sequence] = [];
+                }
+                $paymentGroups[$sequence][] = $payment;
+            }
+            
+            // Check each payment group
+            foreach ($paymentGroups as $sequence => $groupPayments) {
+                $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+                
+                if ($groupTotalPaid < $contribution['amount']) {
+                    // This group is unpaid/partial
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'status' => 'unpaid',
+                        'remaining_amount' => $contribution['amount'] - $groupTotalPaid,
+                        'total_paid' => $groupTotalPaid,
+                        'payment_sequence' => $sequence
+                    ]);
+                }
+            }
+            
+            // If we get here, all groups are fully paid
+            $totalPaid = array_sum(array_column($payments, 'amount_paid'));
+            return $this->response->setJSON([
+                'success' => true,
+                'status' => 'fully_paid',
+                'total_paid' => $totalPaid,
+                'message' => 'Contribution is fully paid'
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get fully paid contributions for a payer
+     */
+    private function getFullyPaidContributions($payerId)
+    {
+        $paymentModel = new PaymentModel();
+        $contributionModel = new \App\Models\ContributionModel();
+        
+        // Get all contributions
+        $allContributions = $contributionModel->where('status', 'active')->findAll();
+        $fullyPaidContributions = [];
+        
+        foreach ($allContributions as $contribution) {
+            // Get all payments for this payer and contribution
+            $payments = $paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contribution['id'])
+                ->where('deleted_at', null)
+                ->findAll();
+            
+            if (!empty($payments)) {
+                // Group payments by payment_sequence
+                $paymentGroups = [];
+                foreach ($payments as $payment) {
+                    $sequence = $payment['payment_sequence'] ?? 1;
+                    if (!isset($paymentGroups[$sequence])) {
+                        $paymentGroups[$sequence] = [];
+                    }
+                    $paymentGroups[$sequence][] = $payment;
+                }
+                
+                // Check if any group is fully paid
+                foreach ($paymentGroups as $sequence => $groupPayments) {
+                    $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+                    if ($groupTotalPaid >= $contribution['amount']) {
+                        $fullyPaidContributions[] = [
+                            'id' => $contribution['id'],
+                            'title' => $contribution['title'],
+                            'amount' => $contribution['amount'],
+                            'total_paid' => $groupTotalPaid,
+                            'payment_sequence' => $sequence
+                        ];
+                        break; // Found a fully paid group for this contribution
+                    }
+                }
+            }
+        }
+        
+        return $fullyPaidContributions;
+    }
+
+    /**
      * Get payment details for QR receipt
      */
     public function getPaymentDetails()
@@ -1455,5 +1637,164 @@ class PaymentsController extends BaseController
                 'is_partial_payment' => 0
             ])
             ->update();
+    }
+
+    /**
+     * Get contribution warning data for modal
+     * This method provides all the data needed for warning messages in the add payment modal
+     */
+    public function getContributionWarningData()
+    {
+        if ($this->request->getMethod() !== 'GET') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = $this->request->getGet('payer_id');
+        $contributionId = $this->request->getGet('contribution_id');
+
+        if (!$payerId || !$contributionId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID and Contribution ID are required'
+            ]);
+        }
+
+        try {
+            $paymentModel = new PaymentModel();
+            $contributionModel = new \App\Models\ContributionModel();
+            
+            // Get contribution details
+            $contribution = $contributionModel->find($contributionId);
+            if (!$contribution) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+            
+            // Get all payments for this payer and contribution
+            $payments = $paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contributionId)
+                ->where('deleted_at', null)
+                ->findAll();
+            
+            if (empty($payments)) {
+                // No payments exist for this contribution
+                return $this->response->setJSON([
+                    'success' => true,
+                    'status' => 'none',
+                    'message' => 'No payments found',
+                    'contribution' => [
+                        'id' => $contribution['id'],
+                        'title' => $contribution['title'],
+                        'amount' => $contribution['amount']
+                    ]
+                ]);
+            }
+            
+            // Group payments by payment_sequence
+            $paymentGroups = [];
+            foreach ($payments as $payment) {
+                $sequence = $payment['payment_sequence'] ?? 1;
+                if (!isset($paymentGroups[$sequence])) {
+                    $paymentGroups[$sequence] = [];
+                }
+                $paymentGroups[$sequence][] = $payment;
+            }
+            
+            // Check each payment group
+            $hasUnpaidGroup = false;
+            $hasFullyPaidGroup = false;
+            $unpaidGroupData = null;
+            $fullyPaidGroupData = null;
+            
+            foreach ($paymentGroups as $sequence => $groupPayments) {
+                $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+                
+                if ($groupTotalPaid >= $contribution['amount']) {
+                    // This group is fully paid
+                    $hasFullyPaidGroup = true;
+                    $fullyPaidGroupData = [
+                        'sequence' => $sequence,
+                        'total_paid' => $groupTotalPaid,
+                        'payment_count' => count($groupPayments),
+                        'first_payment_date' => min(array_column($groupPayments, 'payment_date')),
+                        'last_payment_date' => max(array_column($groupPayments, 'payment_date'))
+                    ];
+                } else {
+                    // This group is partially paid
+                    $hasUnpaidGroup = true;
+                    $unpaidGroupData = [
+                        'sequence' => $sequence,
+                        'total_paid' => $groupTotalPaid,
+                        'remaining_amount' => $contribution['amount'] - $groupTotalPaid,
+                        'payment_count' => count($groupPayments),
+                        'first_payment_date' => min(array_column($groupPayments, 'payment_date')),
+                        'last_payment_date' => max(array_column($groupPayments, 'payment_date'))
+                    ];
+                }
+            }
+            
+            // Determine overall status and return appropriate data
+            if ($hasUnpaidGroup && $hasFullyPaidGroup) {
+                // Has both unpaid and fully paid groups - show unpaid warning
+                return $this->response->setJSON([
+                    'success' => true,
+                    'status' => 'unpaid',
+                    'message' => 'Incomplete contribution found',
+                    'contribution' => [
+                        'id' => $contribution['id'],
+                        'title' => $contribution['title'],
+                        'amount' => $contribution['amount']
+                    ],
+                    'unpaid_group' => $unpaidGroupData,
+                    'fully_paid_groups' => $fullyPaidGroupData ? [$fullyPaidGroupData] : []
+                ]);
+            } elseif ($hasUnpaidGroup) {
+                // Only has unpaid groups
+                return $this->response->setJSON([
+                    'success' => true,
+                    'status' => 'unpaid',
+                    'message' => 'Incomplete contribution found',
+                    'contribution' => [
+                        'id' => $contribution['id'],
+                        'title' => $contribution['title'],
+                        'amount' => $contribution['amount']
+                    ],
+                    'unpaid_group' => $unpaidGroupData
+                ]);
+            } elseif ($hasFullyPaidGroup) {
+                // Only has fully paid groups
+                return $this->response->setJSON([
+                    'success' => true,
+                    'status' => 'fully_paid',
+                    'message' => 'Contribution already fully paid',
+                    'contribution' => [
+                        'id' => $contribution['id'],
+                        'title' => $contribution['title'],
+                        'amount' => $contribution['amount']
+                    ],
+                    'fully_paid_groups' => $fullyPaidGroupData ? [$fullyPaidGroupData] : []
+                ]);
+            } else {
+                // No groups found (shouldn't happen)
+                return $this->response->setJSON([
+                    'success' => true,
+                    'status' => 'none',
+                    'message' => 'No payment groups found'
+                ]);
+            }
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Error in getContributionWarningData: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred while checking contribution status'
+            ]);
+        }
     }
 }

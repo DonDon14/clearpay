@@ -63,6 +63,9 @@ $routes->post('/admin/delete-payment-request', 'Admin\DashboardController::delet
     $routes->post('/payments/delete', 'Admin\PaymentsController::deletePayment', ['filter' => 'auth']);
     $routes->post('/payments/delete-group', 'Admin\PaymentsController::deletePaymentGroup', ['filter' => 'auth']);
 $routes->get('/payments/check-unpaid-contributions', 'Admin\PaymentsController::checkUnpaidContributions', ['filter' => 'auth']);
+$routes->get('/payments/check-fully-paid-contributions', 'Admin\PaymentsController::checkFullyPaidContributions', ['filter' => 'auth']);
+$routes->get('/payments/check-contribution-status', 'Admin\PaymentsController::checkContributionStatus', ['filter' => 'auth']);
+$routes->get('/payments/get-contribution-warning-data', 'Admin\PaymentsController::getContributionWarningData', ['filter' => 'auth']);
 $routes->post('/payments/update/(:num)', 'Admin\PaymentsController::update/$1', ['filter' => 'auth']);
 $routes->get('/payments/recent', 'Admin\PaymentsController::recent', ['filter' => 'auth']);
 $routes->get('/payments/search-payers', 'Admin\PaymentsController::searchPayers', ['filter' => 'auth']);
@@ -70,6 +73,9 @@ $routes->get('/payments/verify/(:any)', 'Admin\PaymentsController::verify/$1', [
 $routes->delete('/payments/delete/(:num)', 'Admin\PaymentsController::delete/$1', ['filter' => 'auth']);
 $routes->get('/payments/get-details/(:num)', 'Admin\PaymentsController::getDetails/$1', ['filter' => 'auth']);
 $routes->get('/payments/by-contribution/(:num)', 'Admin\PaymentsController::byContribution/$1', ['filter' => 'auth']);
+
+// Payers Management Routes
+$routes->post('/payers/create', 'Admin\PayersController::create', ['filter' => 'auth']);
 
 // Contributions Management Routes
 $routes->post('/contributions/save', 'Admin\ContributionsController::save', ['filter' => 'auth']);

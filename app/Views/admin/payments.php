@@ -285,79 +285,14 @@
 <!-- Include QR Receipt Modal -->
 <?= $this->include('partials/modal-qr-receipt') ?>
 
-<!-- Add Payment Modal (existing) -->
-<div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addPaymentModalLabel">
-                    <i class="fas fa-plus me-2"></i>Add New Payment
-                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-             </div>
-             <div class="modal-body">
-                <form id="addPaymentForm">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="payerSearch" class="form-label">Search Payer</label>
-                            <div class="input-group">
-                                <input type="text" id="payerSearch" class="form-control" placeholder="Search by name or ID...">
-                                <button type="button" class="btn btn-outline-primary" onclick="scanIDForPayment()" title="Scan School ID">
-                                    <i class="fas fa-qrcode"></i>
-                                </button>
-                            </div>
-                            <div id="payerSearchResults" class="mt-2"></div>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="contributionSelect" class="form-label">Contribution</label>
-                            <select id="contributionSelect" class="form-select" required>
-                                <option value="">Select Contribution</option>
-                                <?php foreach ($contributions as $contribution): ?>
-                                    <option value="<?= $contribution['id'] ?>" data-amount="<?= $contribution['amount'] ?>">
-                                        <?= esc($contribution['title']) ?> - ₱<?= number_format($contribution['amount'], 2) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="amountPaid" class="form-label">Amount Paid</label>
-                            <input type="number" id="amountPaid" class="form-control" step="0.01" min="0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="paymentMethod" class="form-label">Payment Method</label>
-                            <select id="paymentMethod" class="form-select" required>
-                                <option value="">Select Method</option>
-                                <option value="cash">Cash</option>
-                                <option value="online">Online</option>
-                                <option value="check">Check</option>
-                                <option value="bank">Bank Transfer</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="paymentDate" class="form-label">Payment Date</label>
-                            <input type="datetime-local" id="paymentDate" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="referenceNumber" class="form-label">Reference Number</label>
-                            <input type="text" id="referenceNumber" class="form-control" placeholder="Optional">
-                        </div>
-                 </div>
-                </form>
-             </div>
-             <div class="modal-footer">
-                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="submitPayment()">Add Payment</button>
-             </div>
-         </div>
-     </div>
- </div>
+<!-- Include Add Payment Modal -->
+<?= $this->include('partials/modal-add-payment', ['contributions' => $contributions, 'title' => 'Add New Payment', 'action' => base_url('payments/save')]) ?>
 
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
 <script>
 $(document).ready(function() {
-    let selectedPayer = null;
     let currentPaymentData = null;
 
     // Handle payment group row click
@@ -462,11 +397,6 @@ $(document).ready(function() {
             }
         });
     });
-
-    // Set default payment date to now
-    const now = new Date();
-    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    $('#paymentDate').val(localDateTime);
 
     // Payer search functionality
     $('#payerSearch').on('input', function() {
@@ -642,58 +572,48 @@ $(document).ready(function() {
 
     // Function to open Add Payment modal with pre-populated data AND validation
     function openAddPaymentModalWithValidation(payerData, contributionData, paymentData) {
-        // Set the payer data
-        selectedPayer = payerData;
-        $('#payerSearch').val(payerData.payer_name);
-        $('#payerSearchResults').empty();
+        // Use the modal's built-in functionality
+        if (window.selectedPayerId !== undefined) {
+            window.selectedPayerId = payerData.id;
+        }
         
-        // Set the contribution
-        $('#contributionSelect').val(contributionData.id);
-        $('#contributionSelect').trigger('change');
-        
-        // Pre-fill amount with remaining balance
-        $('#amountPaid').val(paymentData.remaining_balance);
-        
-        // Set today's date
-        const today = new Date().toISOString().split('T')[0];
-        $('#paymentDate').val(today);
-        
-        // Clear other fields
-        $('#paymentMethod').val('');
-        $('#referenceNumber').val('');
-        
-        // Show the modal
+        // Show the modal - let the modal handle the rest
         $('#addPaymentModal').modal('show');
         
-        // Trigger the same validation flow that happens when payer is selected
-        // This will check for duplicate payments and show appropriate warnings
-        checkPayerUnpaidContributions(payerData.id);
+        // Pre-populate data after modal is shown
+        setTimeout(() => {
+            const payerSelectInput = document.getElementById('payerSelect');
+            if (payerSelectInput) payerSelectInput.value = payerData.payer_name;
+            
+            const contributionSelect = document.getElementById('contributionId');
+            if (contributionSelect) contributionSelect.value = contributionData.id;
+            
+            const amountPaidEl = document.getElementById('amountPaid');
+            if (amountPaidEl) amountPaidEl.value = paymentData.remaining_balance;
+        }, 300);
     }
 
     // Function to open Add Payment modal with pre-populated data
     function openAddPaymentModal(payerData, contributionData, paymentData) {
-        // Set the payer data
-        selectedPayer = payerData;
-        $('#payerSearch').val(payerData.payer_name);
-        $('#payerSearchResults').empty();
+        // Use the modal's built-in functionality
+        if (window.selectedPayerId !== undefined) {
+            window.selectedPayerId = payerData.id;
+        }
         
-        // Set the contribution
-        $('#contributionSelect').val(contributionData.id);
-        $('#contributionSelect').trigger('change');
-        
-        // Pre-fill amount with remaining balance
-        $('#amountPaid').val(paymentData.remaining_balance);
-        
-        // Set today's date
-        const today = new Date().toISOString().split('T')[0];
-        $('#paymentDate').val(today);
-        
-        // Clear other fields
-        $('#paymentMethod').val('');
-        $('#referenceNumber').val('');
-        
-        // Show the modal
+        // Show the modal - let the modal handle the rest
         $('#addPaymentModal').modal('show');
+        
+        // Pre-populate data after modal is shown
+        setTimeout(() => {
+            const payerSelectInput = document.getElementById('payerSelect');
+            if (payerSelectInput) payerSelectInput.value = payerData.payer_name;
+            
+            const contributionSelect = document.getElementById('contributionId');
+            if (contributionSelect) contributionSelect.value = contributionData.id;
+            
+            const amountPaidEl = document.getElementById('amountPaid');
+            if (amountPaidEl) amountPaidEl.value = paymentData.remaining_balance;
+        }, 300);
     }
 
     window.searchPayers = function(query) {
@@ -735,74 +655,15 @@ $(document).ready(function() {
             `);
 
             payerItem.on('click', function() {
-                selectedPayer = payer;
+                window.selectedPayerId = payer.id;
                 $('#payerSearch').val(payer.payer_name);
                 resultsContainer.empty();
                 
-                // Check for unpaid contributions and show warning
-                checkPayerUnpaidContributions(payer.id);
+                // Note: Contribution checking is now handled automatically in the modal
+                // when a contribution is selected from the dropdown
             });
 
             resultsContainer.append(payerItem);
-        });
-    }
-
-    window.submitPayment = function() {
-        if (!selectedPayer) {
-            alert('Please select a payer');
-            return;
-        }
-
-        // Calculate remaining balance
-        const contributionAmount = parseFloat($('#contributionSelect option:selected').data('amount')) || 0;
-        const amountPaid = parseFloat($('#amountPaid').val()) || 0;
-        const remainingBalance = contributionAmount - amountPaid;
-
-        const formData = {
-            payer_id: selectedPayer.id,
-            contribution_id: $('#contributionSelect').val(),
-            amount_paid: $('#amountPaid').val(),
-            payment_method: $('#paymentMethod').val(),
-            payment_date: $('#paymentDate').val(),
-            reference_number: $('#referenceNumber').val(),
-            is_partial_payment: remainingBalance > 0 ? '1' : '0',
-            remaining_balance: remainingBalance
-        };
-
-        // Validate required fields
-        if (!formData.contribution_id || !formData.amount_paid || !formData.payment_method || !formData.payment_date) {
-            alert('Please fill in all required fields');
-                            return;
-                        }
-
-        fetch('<?= base_url('payments/save') ?>', {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Accept': 'application/json'
-            },
-            body: new URLSearchParams(formData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Payment added successfully!');
-                $('#addPaymentModal').modal('hide');
-                location.reload(); // Reload to show updated data
-            } else if (data.allowed && data.is_partial_payment) {
-                // Partial payment detected - pre-populate form with remaining amount
-                prefillPartialPaymentForm(data);
-            } else if (data.requires_confirmation) {
-                // Fully paid contribution - show confirmation
-                showDuplicatePaymentConfirmation(data, formData);
-             } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while adding the payment.');
         });
     }
 
@@ -1008,39 +869,8 @@ $(document).ready(function() {
     }
 
 
-    window.checkPayerUnpaidContributions = function(payerId) {
-        // Remove existing warning if any
-        $('#payerUnpaidWarning').remove();
-        
-        fetch(`<?= base_url('payments/check-unpaid-contributions') ?>?payer_id=${payerId}`, {
-            method: 'GET',
-        headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-            if (data.success && data.unpaid_contributions && data.unpaid_contributions.length > 0) {
-                const warningHtml = `
-                    <div id="payerUnpaidWarning" class="alert alert-info mt-2 w-100">
-                        <h6><i class="fas fa-info-circle me-2"></i>Incomplete Contributions</h6>
-                        <p class="mb-1">This payer has started but not completed these contributions:</p>
-                        <ul class="mb-0">
-                            ${data.unpaid_contributions.map(contrib => 
-                                `<li>${contrib.title} (₱${parseFloat(contrib.remaining_amount).toFixed(2)} remaining)</li>`
-                            ).join('')}
-                        </ul>
-                        <small class="text-muted">Note: You can add payments to any contribution, but duplicate payments within the same contribution will require confirmation.</small>
-                    </div>
-                `;
-                $('#payerSearch').after(warningHtml);
-        }
-    })
-    .catch(error => {
-            console.error('Error checking unpaid contributions:', error);
-        });
-    }
+    // Note: checkPayerUnpaidContributions function has been moved to the modal
+    // and is now handled automatically when contributions are selected
 
     // Make functions globally available
     // Delete payment functionality
@@ -1247,8 +1077,6 @@ $(document).ready(function() {
     window.scanIDForPayment = function() {
         alert('QR Scanner functionality will be implemented');
     };
-
-    window.submitPayment = submitPayment;
 });
 </script>
 <?= $this->endSection() ?>

@@ -1,236 +1,165 @@
-<style>
-  /* Fix z-index layering issues */
-  #payerDropdown {
-    z-index: 1050 !important;
-    position: absolute !important;
-    top: 100% !important;
-    left: 0 !important;
-    right: 0 !important;
-    background: white !important;
-    border: 1px solid #dee2e6 !important;
-    border-radius: 0.375rem !important;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-  }
-  
-  #contributionId {
-    z-index: 1040 !important;
-    position: relative !important;
-  }
-  
-  .contribution-option {
-    z-index: 1040;
-  }
-  
-  /* Ensure modal backdrop doesn't interfere */
-  .modal {
-    z-index: 1055;
-  }
-  
-  .modal-backdrop {
-    z-index: 1050;
-  }
-  
-  /* Ensure proper positioning for the payer search container */
-  #existingPayerFields {
-    position: relative;
-  }
-  
-  /* Style dropdown items */
-  #payerDropdown .list-group-item {
-    cursor: pointer;
-    border: none;
-    border-bottom: 1px solid #dee2e6;
-  }
-  
-  #payerDropdown .list-group-item:last-child {
-    border-bottom: none;
-  }
-  
-  #payerDropdown .list-group-item:hover {
-    background-color: #f8f9fa;
-  }
-</style>
-
+<?php
+// Set default values for variables
+$title = $title ?? 'Add Payment';
+$action = $action ?? base_url('payments/save');
+$contributions = $contributions ?? [];
+$payment = $payment ?? [];
+?>
 
 <!-- Add Payment Modal -->
-
 <div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="addPaymentModalLabel"><?= esc($title ?? 'Add Payment') ?></h5>
+            <div class="modal-header" id="addPaymentModalHeader">
+                <h5 class="modal-title" id="addPaymentModalLabel"><?= $title ?></h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-
-      <form id="paymentForm" action="<?= esc($action) ?>" method="post">
         <div class="modal-body">
-          <input type="hidden" name="id" id="paymentId" value="<?= isset($payment['id']) ? $payment['id'] : '' ?>">
-          <input type="hidden" name="parent_payment_id" id="parentPaymentId" value="<?= isset($payment['parent_payment_id']) ? $payment['parent_payment_id'] : '' ?>">
-          <input type="hidden" id="existingPayerId" name="payer_id" value="">
-
-          <!-- Payer Selection: Existing or New -->
-          <div class="mb-3">
+                <form id="paymentForm" action="<?= $action ?>" method="POST">
+                    <div class="row">
+                        <!-- Payer Selection -->
+                        <div class="col-12 mb-3">
             <label class="form-label">Select Payer</label>
             <div class="form-check">
-              <input class="form-check-input" type="radio" name="payerType" id="existingPayer" value="existing" checked>
+                                <input class="form-check-input" type="radio" name="payer_type" id="existingPayer" value="existing" checked>
               <label class="form-check-label" for="existingPayer">
                 Existing Payer
               </label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="radio" name="payerType" id="newPayer" value="new">
+                                <input class="form-check-input" type="radio" name="payer_type" id="newPayer" value="new">
               <label class="form-check-label" for="newPayer">
                 New Payer
               </label>
             </div>
           </div>
 
-          <!-- Existing Payer Selection -->
-          <div class="mb-3" id="existingPayerFields">
+                        <!-- Existing Payer Fields -->
+                        <div id="existingPayerFields" class="col-12 mb-3">
             <label for="payerSelect" class="form-label">Search Payer</label>
-            <div class="input-group">
-              <input type="text" class="form-control" id="payerSelect" placeholder="Type to search payers or scan ID..." autocomplete="off">
-              <button type="button" class="btn btn-outline-primary" onclick="scanIDForExistingPayer()" title="Scan School ID">
-                <i class="fas fa-qrcode"></i>
-              </button>
+                            <div id="existingPayerFields" class="position-relative">
+                                <input type="text" class="form-control" id="payerSelect" placeholder="Type payer name or ID...">
+                                <div id="payerDropdown" class="list-group position-absolute w-100" style="display: none; z-index: 1050;"></div>
             </div>
-            <div id="payerDropdown" class="list-group position-absolute w-100" style="max-height: 200px; overflow-y: auto; display: none;"></div>
+                            <input type="hidden" id="existingPayerId" name="payer_id" value="">
           </div>
 
-          <!-- New Payer Fields (Initially Hidden) -->
-          <div id="newPayerFields" style="display: none;">
-            <div class="mb-3">
-              <label for="payerName" class="form-label">Payer Name <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="payerName" name="payer_name" value="<?= isset($payment['payer_name']) ? $payment['payer_name'] : '' ?>">
+                        <!-- New Payer Fields -->
+                        <div id="newPayerFields" class="col-12 mb-3" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="payerName" class="form-label">Payer Name</label>
+                                    <input type="text" class="form-control" id="payerName" name="payer_name" required>
             </div>
-
-            <div class="mb-3">
-              <label for="payerId" class="form-label">Payer ID <span class="text-danger">*</span></label>
-              <div class="input-group">
-                <input type="text" class="form-control" id="payerId" name="payer_id" value="<?= isset($payment['payer_id']) ? $payment['payer_id'] : '' ?>">
-                <button type="button" class="btn btn-outline-primary" onclick="scanIDForNewPayer()" title="Scan School ID">
-                  <i class="fas fa-qrcode"></i>
-                </button>
+                                <div class="col-md-6 mb-3">
+                                    <label for="payerId" class="form-label">Payer ID</label>
+                                    <input type="text" class="form-control" id="payerId" name="new_payer_id" required>
               </div>
             </div>
-
-            <div class="mb-3 row">
-              <div class="col-md-6">
-                <label for="contactNumber" class="form-label">Contact Number</label>
-                <input type="text" class="form-control" id="contactNumber" name="contact_number" value="<?= isset($payment['contact_number']) ? $payment['contact_number'] : '' ?>">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="payerEmail" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="payerEmail" name="payer_email" required>
               </div>
-              <div class="col-md-6">
-                <label for="emailAddress" class="form-label">Email Address</label>
-                <input type="email" class="form-control" id="emailAddress" name="email_address" value="<?= isset($payment['email_address']) ? $payment['email_address'] : '' ?>">
+                                <div class="col-md-6 mb-3">
+                                    <label for="payerPhone" class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" id="payerPhone" name="payer_phone" required>
               </div>
             </div>
           </div>
 
-          <div class="mb-3 row">
-            <div class="col-md-6">
+                        <!-- Contribution Selection -->
+                        <div class="col-12 mb-3">
               <label for="contributionId" class="form-label">Contribution</label>
-              <select class="form-select" id="contributionId" name="contribution_id" required>
-                <option class="contribution-option" value="">Select a contribution...</option>
-                <?php if (isset($contributions) && !empty($contributions)): ?>
-                  <?php foreach($contributions as $contribution): ?>
-                    <option class="contribution-option"
-                      value="<?= $contribution['id'] ?>" 
-                      data-amount="<?= $contribution['amount'] ?>"
-                    >
-                      <?= esc($contribution['title']) ?> - ₱<?= number_format($contribution['amount'], 2) ?>
+                            <select class="form-control" id="contributionId" name="contribution_id" required>
+                <option value="">Select a contribution...</option>
+                                <?php foreach ($contributions as $contribution): ?>
+                                    <option value="<?= $contribution['id'] ?>" data-amount="<?= $contribution['amount'] ?>">
+                                        <?= $contribution['title'] ?> - ₱<?= number_format($contribution['amount'], 2) ?>
                     </option>
                   <?php endforeach; ?>
-                <?php else: ?>
-                  <option value="" disabled>No active contributions found</option>
-                <?php endif; ?>
               </select>
             </div>
 
-            <div class="col-md-6">
+                        <!-- Amount Paid -->
+                        <div class="col-md-6 mb-3">
+                            <label for="amountPaid" class="form-label">Amount Paid</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="amountPaid" name="amount_paid" step="0.01" min="0" required>
+                                <button type="button" class="btn btn-outline-success" id="fullyPaidBtn" title="Fill with remaining balance">
+                                    <i class="fas fa-check-circle"></i> Fully Paid
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Remaining Balance -->
+                        <div class="col-md-6 mb-3">
+                            <label for="remainingBalance" class="form-label">Remaining Balance</label>
+                            <input type="number" class="form-control" id="remainingBalance" name="remaining_balance" step="0.01" readonly>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="col-md-6 mb-3">
               <label for="paymentMethod" class="form-label">Payment Method</label>
-              <select class="form-select" id="paymentMethod" name="payment_method" required>
+                            <select class="form-control" id="paymentMethod" name="payment_method" required>
+                                <option value="">Select payment method...</option>
                 <option value="cash">Cash</option>
                 <option value="online">Online</option>
                 <option value="check">Check</option>
-                <option value="bank">Bank</option>
+                                <option value="bank">Bank Transfer</option>
               </select>
-            </div>
           </div>
 
-          <div class="mb-3 row">
-            <div class="col-md-6">
-              <label for="amountPaid" class="form-label">Amount Paid</label>
-              <input type="number" step="0.01" class="form-control" id="amountPaid" name="amount_paid" value="<?= isset($payment['amount_paid']) ? $payment['amount_paid'] : '' ?>" required>
-            </div>
-            <div class="col-md-6">
+                        <!-- Payment Status -->
+                        <div class="col-md-6 mb-3">
               <label for="paymentStatus" class="form-label">Payment Status</label>
-              <select class="form-select" id="paymentStatus" name="payment_status" readonly>
-                <option value="fully paid">Full Payment</option>
+                            <select class="form-control" id="paymentStatus" name="payment_status" required>
                 <option value="partial">Partial Payment</option>
+                                <option value="fully paid">Fully Paid</option>
               </select>
-            </div>
           </div>
 
-          <div class="mb-3">
-            <label for="remainingBalance" class="form-label">Remaining Balance</label>
-            <input type="number" step="0.01" class="form-control" id="remainingBalance" name="remaining_balance" readonly value="<?= isset($payment['remaining_balance']) ? $payment['remaining_balance'] : '0.00' ?>">
-          </div>
-
-          <div class="mb-3">
-            <input type="hidden" id="isPartialPayment" name="is_partial_payment" value="0">
-            <input type="hidden" id="paymentStatusHidden" name="payment_status" value="fully paid">
-          </div>
-
-          <div class="mb-3">
+                        <!-- Payment Date -->
+                        <div class="col-12 mb-3">
             <label for="paymentDate" class="form-label">Payment Date</label>
-            <input type="datetime-local" class="form-control" id="paymentDate" name="payment_date" value="<?= isset($payment['payment_date']) ? date('Y-m-d\TH:i', strtotime($payment['payment_date'])) : date('Y-m-d\TH:i') ?>" required>
-          </div>
-
+                            <input type="datetime-local" class="form-control" id="paymentDate" name="payment_date" required>
         </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-primary" onclick="submitPayment()">Save Payment</button>
         </div>
       </form>
-    </div>
-  </div>
-</div>
-
-<!-- ID Scanner Modal -->
-<div class="modal fade" id="idScannerModal" tabindex="-1" aria-labelledby="idScannerModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-info text-white">
-        <h5 class="modal-title" id="idScannerModalLabel">
-          <i class="fas fa-id-card me-2"></i>Scan School ID
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div id="idScannerContainer" style="position: relative;">
-          <video id="idVideo" autoplay playsinline style="width: 100%; border: 2px solid #0d6efd; border-radius: 8px; max-height: 400px;"></video>
-          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 3px solid #0d6efd; border-radius: 8px; pointer-events: none;"></div>
-        </div>
-        <div id="idScannerStatus" class="text-center mt-3">
-          <p class="text-muted">
-            <i class="fas fa-camera me-2"></i>
-            Point camera at School ID QR code
-          </p>
-        </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="stopIDScanner()" data-bs-dismiss="modal">
-          <i class="fas fa-times me-1"></i>Close
-        </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitPayment()">Save Payment</button>
       </div>
     </div>
   </div>
 </div>
 
 <style>
-/* Fix dropdown z-index issues in modals */
-.modal-dialog {
+/* Fix z-index layering issues */
+#payerDropdown {
+  z-index: 1050 !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: white !important;
+  border: 1px solid #dee2e6 !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+#contributionId {
+  z-index: 1040 !important;
+  position: relative !important;
+}
+
+.contribution-option {
+  z-index: 1040;
+}
+
+/* Ensure modal backdrop doesn't interfere */
+.modal {
     z-index: 1055;
 }
 
@@ -238,173 +167,53 @@
     z-index: 1050;
 }
 
-/* Ensure select dropdowns appear above modal */
-.modal .form-select {
+/* Ensure proper positioning for the payer search container */
+#existingPayerFields {
     position: relative;
-    z-index: 1060;
 }
 
-/* Fix dropdown menu positioning */
-.modal-body .form-select option {
-    background-color: white;
-    color: black;
+/* Style dropdown items */
+#payerDropdown .list-group-item {
+  cursor: pointer;
+  border: none;
+  border-bottom: 1px solid #dee2e6;
 }
 
-/* Alternative: Use Bootstrap's dropdown component for better control */
-.modal .dropdown-menu {
-    z-index: 1070 !important;
-    position: absolute !important;
+#payerDropdown .list-group-item:last-child {
+  border-bottom: none;
 }
 
-/* Prevent modal body overflow issues */
-.modal-body {
-    overflow: visible;
+#payerDropdown .list-group-item:hover {
+  background-color: #f8f9fa;
 }
 
-.modal-content {
-    overflow: visible;
+/* Draggable modal styles */
+#addPaymentModalHeader {
+  user-select: none;
+  transition: cursor 0.1s ease;
 }
 
-/* Payment Status Display Styles */
-#paymentStatus {
-    cursor: not-allowed;
-    pointer-events: none;
+#addPaymentModalHeader:hover {
+  background-color: rgba(0, 0, 0, 0.02);
 }
 
-#paymentStatus.bg-success {
-    background-color: #28a745 !important;
-    color: white !important;
+#addPaymentModalHeader:active {
+  background-color: rgba(0, 0, 0, 0.05);
 }
 
-#paymentStatus.bg-warning {
-    background-color: #ffc107 !important;
-    color: #212529 !important;
-}
-
-#paymentStatus option {
-    background-color: white;
-    color: black;
+/* Prevent text selection during drag */
+.modal-dialog.dragging {
+  user-select: none;
 }
 </style>
 
-
 <script>
+// Single comprehensive DOMContentLoaded listener for all modal functionality
 document.addEventListener("DOMContentLoaded", function() {
-  // Bootstrap's data-bs-toggle="modal" handles modal opening automatically
-  // Regular <a> tags will navigate to their href URLs automatically
-  
-  // Add event listener to reset modal when it's closed
+  // Get all modal elements
   const addPaymentModal = document.getElementById('addPaymentModal');
-  
-  if (addPaymentModal) {
-    addPaymentModal.addEventListener('hidden.bs.modal', function() {
-      // Reset modal to add mode
-      resetPaymentModal();
-    });
-  }
-});
-
-// Function to reset payment modal to add mode
-function resetPaymentModal() {
-  // Reset modal title
-  document.getElementById('addPaymentModalLabel').textContent = 'Add Payment';
-  
-  // Reset form
-  const form = document.getElementById('paymentForm');
-  form.reset();
-  form.action = '<?= base_url('payments/save') ?>';
-  
-  // Reset modal title
-  document.getElementById('addPaymentModalLabel').textContent = 'Add Payment';
-  
-  // Reset form fields
-  document.getElementById('paymentId').value = '';
-  document.getElementById('existingPayerId').value = '';
-  
-  // Reset payer type to existing
-  document.querySelector('input[name="payerType"][value="existing"]').checked = true;
-  document.getElementById('existingPayerFields').style.display = 'block';
-  document.getElementById('newPayerFields').style.display = 'none';
-  
-  // Reset payment status
-  const statusSelect = document.getElementById('paymentStatus');
-  statusSelect.value = 'fully paid';
-  statusSelect.className = 'form-select';
-  document.getElementById('isPartialPayment').value = '0';
-  document.getElementById('paymentStatusHidden').value = 'fully paid';
-  
-  // Reset contribution dropdown
-  const contributionSelect = document.getElementById('contributionId');
-  contributionSelect.value = '';
-  
-  // Clear backdrop if any
-  const backdrops = document.querySelectorAll('.modal-backdrop');
-  backdrops.forEach(backdrop => backdrop.remove());
-  
-  // Remove modal-open class from body if it exists
-  document.body.classList.remove('modal-open');
-  document.body.style.overflow = '';
-  document.body.style.paddingRight = '';
-}
-
-function updatePaymentStatus() {
-  const amountPaidEl = document.getElementById('amountPaid');
-  const contributionSelect = document.getElementById('contributionId');
-  const paymentStatusEl = document.getElementById('paymentStatus');
-  const paymentStatusHidden = document.getElementById('paymentStatusHidden');
-  const isPartialEl = document.getElementById('isPartialPayment');
-  const remainingBalanceEl = document.getElementById('remainingBalance');
-
-  if (!amountPaidEl || !contributionSelect || !paymentStatusEl || !remainingBalanceEl) {
-    return; // Elements not found
-  }
-
-  const amountPaid = parseFloat(amountPaidEl.value) || 0;
-
-  if (contributionSelect.selectedIndex > 0) {
-    const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
-    const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
-
-    let remaining = contributionAmount - amountPaid;
-    if (remaining < 0) remaining = 0;
-
-    remainingBalanceEl.value = remaining.toFixed(2);
-
-    // Determine if payment is partial or full
-    const isPartial = remaining > 0 && amountPaid > 0;
-    
-    // Update payment status
-    if (isPartial) {
-      paymentStatusEl.value = 'partial';
-      paymentStatusEl.className = 'form-select bg-warning text-dark';
-      paymentStatusHidden.value = 'partial';
-      isPartialEl.value = '1';
-    } else if (amountPaid > 0 && amountPaid >= contributionAmount) {
-      paymentStatusEl.value = 'fully paid';
-      paymentStatusEl.className = 'form-select bg-success text-white';
-      paymentStatusHidden.value = 'fully paid';
-      isPartialEl.value = '0';
-      remainingBalanceEl.value = '0.00';
-    } else {
-      paymentStatusEl.value = 'fully paid';
-      paymentStatusEl.className = 'form-select bg-success text-white';
-      paymentStatusHidden.value = 'fully paid';
-      isPartialEl.value = '0';
-    }
-
-    // If amount is empty, set remaining balance to contribution amount
-    if (amountPaid === 0 && contributionAmount > 0) {
-      remainingBalanceEl.value = contributionAmount.toFixed(2);
-      paymentStatusEl.value = 'partial';
-      paymentStatusEl.className = 'form-select bg-warning text-dark';
-      paymentStatusHidden.value = 'partial';
-      isPartialEl.value = '1';
-    }
-  }
-}
-
-// Payer Type Toggle Functionality
-document.addEventListener("DOMContentLoaded", function() {
+  const modalDialog = addPaymentModal ? addPaymentModal.querySelector('.modal-dialog') : null;
+  const modalHeader = document.getElementById('addPaymentModalHeader');
   const amountPaidEl = document.getElementById('amountPaid');
   const contributionSelect = document.getElementById('contributionId');
   const existingPayerRadio = document.getElementById('existingPayer');
@@ -414,8 +223,31 @@ document.addEventListener("DOMContentLoaded", function() {
   const payerSelectInput = document.getElementById('payerSelect');
   const payerDropdown = document.getElementById('payerDropdown');
 
-  // Toggle between existing and new payer
-  if (existingPayerRadio && newPayerRadio) {
+  // Reset modal when closed
+  if (addPaymentModal) {
+    addPaymentModal.addEventListener('hidden.bs.modal', function() {
+      resetPaymentModal();
+    });
+  }
+
+  // Set default payment date to current date and time
+  const paymentDateInput = document.getElementById('paymentDate');
+  if (paymentDateInput && !paymentDateInput.value) {
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    paymentDateInput.value = localDateTime;
+  }
+
+  // Initial status update only if contribution is already selected
+  setTimeout(() => {
+    const contributionSelect = document.getElementById('contributionId');
+    if (contributionSelect && contributionSelect.value !== '') {
+      updatePaymentStatus();
+    }
+  }, 100);
+
+  // Payer Type Toggle Functionality
+  if (existingPayerRadio && newPayerRadio && existingPayerFields && newPayerFields) {
     existingPayerRadio.addEventListener('change', function() {
       if (this.checked) {
         existingPayerFields.style.display = 'block';
@@ -433,8 +265,42 @@ document.addEventListener("DOMContentLoaded", function() {
         payerSelectInput.required = false;
         document.getElementById('payerName').required = true;
         document.getElementById('payerId').required = true;
+        
+        // Generate unique payer ID when new payer is selected
+        const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0'); // 3-digit random
+        const uniqueId = 'PAY' + timestamp + random; // Format: PAY123456789
+        
+        document.getElementById('payerId').value = uniqueId;
+        
+        // Generate unique email if payer name is filled
+        const payerName = document.getElementById('payerName').value.trim();
+        if (payerName) {
+          const emailBase = payerName.toLowerCase().replace(/\s+/g, '');
+          const uniqueEmail = emailBase + timestamp + '@example.com';
+          document.getElementById('payerEmail').value = uniqueEmail;
+          console.log('Generated unique email:', uniqueEmail);
+        }
+        
+        console.log('Generated unique payer ID:', uniqueId);
       }
     });
+    
+    // Auto-generate email when payer name is typed (for new payers)
+    const payerNameInput = document.getElementById('payerName');
+    if (payerNameInput) {
+      payerNameInput.addEventListener('input', function() {
+        if (newPayerRadio && newPayerRadio.checked) {
+          const payerName = this.value.trim();
+          if (payerName) {
+            const timestamp = Date.now().toString().slice(-6);
+            const emailBase = payerName.toLowerCase().replace(/\s+/g, '');
+            const uniqueEmail = emailBase + timestamp + '@example.com';
+            document.getElementById('payerEmail').value = uniqueEmail;
+          }
+        }
+      });
+    }
   }
 
   // Payer Search Functionality
@@ -455,9 +321,9 @@ document.addEventListener("DOMContentLoaded", function() {
         fetch(`${window.APP_BASE_URL || ''}/payments/search-payers?term=${encodeURIComponent(searchTerm)}`)
           .then(response => response.json())
           .then(data => {
-            if (data.success && data.payers && data.payers.length > 0) {
+            if (data.success && data.results && data.results.length > 0) {
               payerDropdown.innerHTML = '';
-              data.payers.forEach(payer => {
+              data.results.forEach(payer => {
                 const item = document.createElement('a');
                 item.className = 'list-group-item list-group-item-action';
                 item.href = '#';
@@ -465,8 +331,17 @@ document.addEventListener("DOMContentLoaded", function() {
                 item.addEventListener('click', function(e) {
                   e.preventDefault();
                   payerSelectInput.value = `${payer.payer_name} (${payer.payer_id})`;
-                  document.getElementById('existingPayerId').value = payer.payer_id;
+                  document.getElementById('existingPayerId').value = payer.id;
                   payerDropdown.style.display = 'none';
+                  
+                  // Store payer ID for later use when contribution is selected
+                  window.selectedPayerId = payer.id;
+                  
+                  // Clear any existing warnings
+                  const existingAlert = document.getElementById('unpaidContributionsAlert');
+                  if (existingAlert) {
+                    existingAlert.remove();
+                  }
                 });
                 payerDropdown.appendChild(item);
               });
@@ -478,244 +353,594 @@ document.addEventListener("DOMContentLoaded", function() {
           })
           .catch(error => {
             console.error('Error searching payers:', error);
+            payerDropdown.innerHTML = '<div class="list-group-item text-danger">Error searching payers</div>';
+            payerDropdown.style.display = 'block';
           });
       }, 300);
     });
+  }
 
-    // Hide dropdown when clicking outside
+  // Close dropdown when clicking outside
     document.addEventListener('click', function(e) {
-      if (!payerSelectInput.contains(e.target) && !payerDropdown.contains(e.target)) {
+    if (payerDropdown && !payerSelectInput.contains(e.target) && !payerDropdown.contains(e.target)) {
         payerDropdown.style.display = 'none';
       }
     });
-  }
 
   // Amount paid and contribution event listeners
   if (amountPaidEl) {
     amountPaidEl.addEventListener('input', updatePaymentStatus);
   }
   
+  // Fully Paid button event listener
+  const fullyPaidBtn = document.getElementById('fullyPaidBtn');
+  if (fullyPaidBtn) {
+    fullyPaidBtn.addEventListener('click', function() {
+      const remainingBalanceEl = document.getElementById('remainingBalance');
+      if (remainingBalanceEl && remainingBalanceEl.value) {
+        const remainingBalance = parseFloat(remainingBalanceEl.value);
+        if (remainingBalance > 0) {
+          amountPaidEl.value = remainingBalance.toFixed(2);
+          updatePaymentStatus();
+        }
+      }
+    });
+  }
+  
   if (contributionSelect) {
-    contributionSelect.addEventListener('change', updatePaymentStatus);
+    contributionSelect.addEventListener('change', function() {
+      updatePaymentStatus();
+      
+      // Check contribution status if payer is selected
+      if (window.selectedPayerId && this.value) {
+        checkSpecificContribution(window.selectedPayerId, this.value);
+      }
+    });
+  }
+
+  // Make modal draggable
+  if (modalDialog && modalHeader) {
+    // Remove modal-dialog-centered class to allow free positioning
+    modalDialog.classList.remove('modal-dialog-centered');
+    
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
+    
+    // Add event listeners for drag functionality
+    modalHeader.addEventListener('mousedown', dragStart);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', dragEnd);
+    
+    function dragStart(e) {
+      if (e.target.classList.contains('btn-close')) {
+        return; // Don't drag when clicking close button
+      }
+      
+      initialX = e.clientX - xOffset;
+      initialY = e.clientY - yOffset;
+      
+      if (e.target === modalHeader || modalHeader.contains(e.target)) {
+        isDragging = true;
+        modalHeader.style.cursor = 'grabbing';
+        modalDialog.classList.add('dragging');
+      }
+    }
+    
+    function drag(e) {
+      if (isDragging) {
+        e.preventDefault();
+        
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+        
+        xOffset = currentX;
+        yOffset = currentY;
+        
+        modalDialog.style.transform = `translate(${currentX}px, ${currentY}px)`;
+      }
+    }
+    
+    function dragEnd(e) {
+      initialX = currentX;
+      initialY = currentY;
+      
+      isDragging = false;
+      modalHeader.style.cursor = 'move';
+      modalDialog.classList.remove('dragging');
+    }
+    
+    // Reset position when modal is hidden
+    addPaymentModal.addEventListener('hidden.bs.modal', function() {
+      modalDialog.style.transform = '';
+      modalDialog.classList.remove('dragging');
+      xOffset = 0;
+      yOffset = 0;
+      currentX = 0;
+      currentY = 0;
+    });
   }
 });
 
-// ID Scanner Variables
-let idScannerStream = null;
-let idScannerCanvas = null;
-let idScannerContext = null;
-let isScanningForNewPayer = false;
-
-// Function to scan ID for existing payer
-async function scanIDForExistingPayer() {
-  isScanningForNewPayer = false;
-  await startIDScanner();
-}
-
-// Function to scan ID for new payer
-async function scanIDForNewPayer() {
-  isScanningForNewPayer = true;
-  await startIDScanner();
-}
-
-// Start ID Scanner
-async function startIDScanner() {
-  try {
-    const modal = new bootstrap.Modal(document.getElementById('idScannerModal'));
-    modal.show();
-    
-    idScannerStream = await navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        facingMode: 'environment',
-        width: { ideal: 640 },
-        height: { ideal: 480 }
-      } 
+// Reset modal function
+function resetPaymentModal() {
+  // Reset form fields
+  const form = document.getElementById('paymentForm');
+  if (form) {
+    form.reset();
+  }
+  
+  // Reset radio buttons to existing payer
+  const existingPayerRadio = document.getElementById('existingPayer');
+  if (existingPayerRadio) {
+    existingPayerRadio.checked = true;
+  }
+  
+  // Show existing payer fields, hide new payer fields
+  const existingPayerFields = document.getElementById('existingPayerFields');
+  const newPayerFields = document.getElementById('newPayerFields');
+  if (existingPayerFields) existingPayerFields.style.display = 'block';
+  if (newPayerFields) {
+    newPayerFields.style.display = 'none';
+    // Clear new payer input fields
+    const newPayerInputs = ['payerName', 'payerId', 'payerEmail', 'payerPhone'];
+    newPayerInputs.forEach(fieldId => {
+      const field = document.getElementById(fieldId);
+      if (field) field.value = '';
     });
-    
-    const video = document.getElementById('idVideo');
-    video.srcObject = idScannerStream;
-    
-    video.onloadedmetadata = () => {
-      video.play();
-      
-      idScannerCanvas = document.createElement('canvas');
-      idScannerCanvas.width = video.videoWidth;
-      idScannerCanvas.height = video.videoHeight;
-      idScannerContext = idScannerCanvas.getContext('2d');
-      
-      scanIDCode();
-    };
-    
-  } catch (error) {
-    console.error('Error accessing camera:', error);
-    showNotification('Unable to access camera. Please check permissions.', 'error');
+  }
+  
+  // Clear payer search
+  const payerSelectInput = document.getElementById('payerSelect');
+  if (payerSelectInput) payerSelectInput.value = '';
+  
+  // Clear payer dropdown
+  const payerDropdown = document.getElementById('payerDropdown');
+  if (payerDropdown) payerDropdown.style.display = 'none';
+  
+  // Clear hidden payer ID
+  document.getElementById('existingPayerId').value = '';
+  
+  // Clear selected payer ID
+  window.selectedPayerId = null;
+  
+  // Clear unpaid balance data
+  window.unpaidBalanceData = null;
+  
+  // Clear any contribution warnings
+  const existingAlert = document.getElementById('unpaidContributionsAlert');
+  if (existingAlert) {
+    existingAlert.remove();
+  }
+  
+  // Reset payment status
+  updatePaymentStatus();
+  
+  // Clear any validation errors
+  clearAmountValidationError();
+  
+  // Clear payment status and styling
+  const paymentStatusEl = document.getElementById('paymentStatus');
+  if (paymentStatusEl) {
+    paymentStatusEl.value = '';
+    paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
+  }
+  
+  // Set default payment date to current date and time
+  const paymentDateInput = document.getElementById('paymentDate');
+  if (paymentDateInput) {
+    const now = new Date();
+    const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    paymentDateInput.value = localDateTime;
   }
 }
 
-// Function to scan for ID codes
-function scanIDCode() {
-  const video = document.getElementById('idVideo');
+// Update payment status function
+function updatePaymentStatus() {
+  const amountPaidEl = document.getElementById('amountPaid');
+  const contributionSelect = document.getElementById('contributionId');
+  const remainingBalanceEl = document.getElementById('remainingBalance');
+  const paymentStatusEl = document.getElementById('paymentStatus');
   
-  if (video.readyState === video.HAVE_ENOUGH_DATA) {
-    idScannerContext.drawImage(video, 0, 0, idScannerCanvas.width, idScannerCanvas.height);
-    const imageData = idScannerContext.getImageData(0, 0, idScannerCanvas.width, idScannerCanvas.height);
+  if (amountPaidEl && contributionSelect && remainingBalanceEl && paymentStatusEl) {
+    const amountPaid = parseFloat(amountPaidEl.value) || 0;
+    const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
     
-    if (typeof jsQR !== 'undefined') {
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-      
-      if (code) {
-        console.log('ID QR Code detected:', code.data);
-        stopIDScanner();
-        processIDCode(code.data);
-        return;
+    // Don't update status if no contribution is selected
+    if (!selectedOption || selectedOption.value === '' || selectedOption.textContent.includes('Select a contribution')) {
+      // Clear status and styling when no contribution is selected
+      paymentStatusEl.value = '';
+      paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
+      remainingBalanceEl.value = '0.00';
+      return;
+    }
+    
+    // Don't update status if contribution amount is 0 or invalid
+    const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+    if (contributionAmount <= 0) {
+      paymentStatusEl.value = '';
+      paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
+      remainingBalanceEl.value = '0.00';
+      return;
+    }
+    
+    let remainingBalance;
+    
+    // If we have unpaid balance data (from warning), use it for calculation
+    if (window.unpaidBalanceData) {
+      // Calculate remaining balance considering existing payments
+      const totalPaidAfterThisPayment = window.unpaidBalanceData.alreadyPaid + amountPaid;
+      remainingBalance = window.unpaidBalanceData.contributionAmount - totalPaidAfterThisPayment;
+    } else {
+      // No existing payments, calculate normally
+      remainingBalance = contributionAmount - amountPaid;
+    }
+    
+    // Ensure remaining balance doesn't go below 0
+    if (remainingBalance < 0) {
+      remainingBalance = 0;
+    }
+    
+    remainingBalanceEl.value = remainingBalance.toFixed(2);
+    
+    // Update payment status dynamically
+    if (remainingBalance <= 0) {
+      if (paymentStatusEl) {
+        paymentStatusEl.value = 'fully paid';
+        // Add green styling for fully paid
+        paymentStatusEl.classList.remove('text-warning', 'border-warning');
+        paymentStatusEl.classList.add('text-success', 'border-success');
+      }
+    } else {
+      if (paymentStatusEl) {
+        paymentStatusEl.value = 'partial';
+        // Add amber styling for partial payment
+        paymentStatusEl.classList.remove('text-success', 'border-success');
+        paymentStatusEl.classList.add('text-warning', 'border-warning');
       }
     }
-  }
-  
-  requestAnimationFrame(scanIDCode);
-}
-
-// Stop ID Scanner
-function stopIDScanner() {
-  if (idScannerStream) {
-    idScannerStream.getTracks().forEach(track => track.stop());
-    idScannerStream = null;
-  }
-  
-  const modalElement = document.getElementById('idScannerModal');
-  const modal = bootstrap.Modal.getInstance(modalElement);
-  if (modal) {
-    modal.hide();
-  }
-}
-
-// Parse and process ID code
-function processIDCode(idText) {
-  // Format: IDNUMBERFIRSTNAME MIDDLEINITIAL.LASTNAMECOURSECODE
-  // Example: 154989FLoro C.OceroBSIT
-  
-  console.log('Processing ID:', idText);
-  
-  // Find where the ID number ends (first letter)
-  // Match: ID number (digits) + name and course part
-  const match = idText.match(/^(\d+)(.+)$/);
-  
-  if (!match) {
-    showNotification('Invalid ID format. Please scan again.', 'error');
-    return;
-  }
-  
-  const [, idNumber, restOfText] = match;
-  console.log('ID Number:', idNumber, 'Rest:', restOfText);
-  
-  // Try to match the pattern: FirstName MiddleInitial.LastNameCourseCode
-  // Example: "Floro C.OCEROBSIT" or "Floro C.OceroBSIT"
-  // The last name might be in all caps or have mixed case
-  // The course code is typically 2-4 uppercase letters (possibly with digits)
-  
-  // First, let's try to identify where the course code starts
-  // Look for patterns like 2-4 uppercase letters at the end (course codes like BSIT, IT, CS, etc.)
-  // But be careful not to mistake last names for course codes
-  
-  // Strategy: Work backwards from the end
-  // Course codes are typically short (2-4 characters) and all uppercase
-  
-  // Try matching: FirstName MiddleInitial.LastNameCOURSECODE
-  // Example: "Floro C.OCEROBSIT" - here "OCERO" is part of last name, "BSIT" is course
-  // Example: "Floro C.OceroBSIT" - here "Ocero" is last name, "BSIT" is course
-  
-  // More robust pattern: Look for 2-4 uppercase letters/digits at the very end
-  // This should be the course code
-  const courseCodeMatch = restOfText.match(/([A-Z]{2,4}\d*)$/);
-  
-  let namePart = restOfText;
-  let courseCode = '';
-  
-  if (courseCodeMatch) {
-    // Found a potential course code at the end
-    courseCode = courseCodeMatch[1];
-    namePart = restOfText.slice(0, -courseCode.length);
-    console.log('Detected course code:', courseCode, 'Name part:', namePart);
-  }
-  
-  // Now parse the name part (e.g., "Floro C.OCERO" or "Floro C.Ocero")
-  // Try to match: FirstName MiddleInitial.LastName
-  
-     // Handle both all-caps last name and mixed case
-   // Pattern: FirstName + space + MiddleInitial. + LastName
-   // Last name might be: ALLCAPS, MixedCase, or all lowercase
-   
-  if (isScanningForNewPayer) {
-    // For new payer, parse and populate name and ID
-    const nameMatchDetailed = namePart.match(/^([A-Z][a-z]+)\s+([A-Z])\.(.+)$/);
     
-    if (nameMatchDetailed) {
-      // Got a match with middle initial
-      const [, firstName, middleInitial, lastName] = nameMatchDetailed;
-      
-      // Format the last name properly (capitalize first letter, rest lowercase)
-      const formattedLastName = lastName.charAt(0).toUpperCase() + lastName.slice(1).toLowerCase();
-      
-      const fullName = `${firstName} ${middleInitial}. ${formattedLastName}`;
-      console.log('Parsed name:', fullName);
-      
-      document.getElementById('payerId').value = idNumber;
-      document.getElementById('payerName').value = fullName;
-      showNotification('ID scanned successfully!', 'success');
+    // Validate amount paid doesn't exceed remaining balance
+    validateAmountPaid(amountPaid, remainingBalance);
+  }
+}
+
+// Validate amount paid doesn't exceed remaining balance
+function validateAmountPaid(amountPaid, remainingBalance) {
+  const amountPaidEl = document.getElementById('amountPaid');
+  const contributionSelect = document.getElementById('contributionId');
+  
+  if (amountPaidEl && contributionSelect) {
+    const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+    const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+    
+    let maxAllowedAmount;
+    
+    // Calculate maximum allowed amount based on existing payments
+    if (window.unpaidBalanceData) {
+      // If there are existing payments, max amount is the remaining balance
+      maxAllowedAmount = window.unpaidBalanceData.remainingAmount;
     } else {
-      // Name doesn't match expected format, use as-is
-      const fullName = namePart.replace(/\s+/g, ' ').trim();
-      
-      document.getElementById('payerId').value = idNumber;
-      document.getElementById('payerName').value = fullName;
-      showNotification('ID scanned successfully!', 'success');
+      // If no existing payments, max amount is the full contribution amount
+      maxAllowedAmount = contributionAmount;
     }
-  } else {
-    // For existing payer, just use the ID number to search
-    console.log('Searching for existing payer with ID:', idNumber);
     
-    // Set the ID in the hidden field
-    document.getElementById('existingPayerId').value = idNumber;
-    
-    // Search for the payer by ID
-    fetchPayerById(idNumber);
+    // Check if amount exceeds maximum allowed
+    if (amountPaid > maxAllowedAmount) {
+      // Show validation error
+      showAmountValidationError(`Amount cannot exceed ₱${maxAllowedAmount.toFixed(2)}`);
+      
+      // Reset amount to maximum allowed
+      amountPaidEl.value = maxAllowedAmount.toFixed(2);
+      
+      // Recalculate with corrected amount
+      updatePaymentStatus();
+    } else {
+      // Clear any existing validation error
+      clearAmountValidationError();
+    }
   }
 }
 
-// Function to fetch payer by ID
-function fetchPayerById(idNumber) {
-  fetch(`${window.APP_BASE_URL || ''}/payments/search-payers?term=${encodeURIComponent(idNumber)}`)
-    .then(response => response.json())
-    .then(data => {
-      if (data.success && data.payers && data.payers.length > 0) {
-        const payer = data.payers[0]; // Get first match
-        
-        // Populate the search field and select the payer
-        document.getElementById('payerSelect').value = `${payer.payer_name} (${payer.payer_id})`;
-        document.getElementById('existingPayerId').value = payer.payer_id;
-        
-        showNotification('Payer found!', 'success');
-      } else {
-        showNotification('No payer found with this ID', 'warning');
+// Show amount validation error
+function showAmountValidationError(message) {
+  const amountPaidEl = document.getElementById('amountPaid');
+  if (amountPaidEl) {
+    // Remove existing error styling
+    amountPaidEl.classList.remove('is-valid');
+    amountPaidEl.classList.add('is-invalid');
+    
+    // Show error message
+    let errorDiv = document.getElementById('amountPaidError');
+    if (!errorDiv) {
+      errorDiv = document.createElement('div');
+      errorDiv.id = 'amountPaidError';
+      errorDiv.className = 'invalid-feedback';
+      amountPaidEl.parentNode.appendChild(errorDiv);
+    }
+    errorDiv.textContent = message;
+  }
+}
+
+// Clear amount validation error
+function clearAmountValidationError() {
+  const amountPaidEl = document.getElementById('amountPaid');
+  if (amountPaidEl) {
+    amountPaidEl.classList.remove('is-invalid');
+    amountPaidEl.classList.add('is-valid');
+    
+    const errorDiv = document.getElementById('amountPaidError');
+    if (errorDiv) {
+      errorDiv.remove();
+    }
+  }
+}
+
+// Check specific contribution when selected
+function checkSpecificContribution(payerId, contributionId) {
+  // Clear any existing warnings first
+  const existingAlert = document.getElementById('unpaidContributionsAlert');
+  if (existingAlert) {
+    existingAlert.remove();
+  }
+  
+  // Clear unpaid balance data when checking a new contribution
+  window.unpaidBalanceData = null;
+  
+  // Get contribution details from dropdown
+  const contributionSelect = document.getElementById('contributionId');
+  const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+  const contributionTitle = selectedOption.textContent.split(' - ₱')[0];
+  const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+  
+  // Check the specific contribution
+  checkContributionStatus(payerId, contributionId)
+    .then(result => {
+      if (result.success) {
+        if (result.status === 'unpaid') {
+          showUnpaidContributionWarning(result);
+        } else if (result.status === 'fully_paid') {
+          showFullyPaidContributionWarning(result);
+        }
+        // If status is 'none', no warning needed
       }
     })
     .catch(error => {
-      console.error('Error searching payers:', error);
-      showNotification('Error searching for payer', 'error');
+      console.error('Error checking contribution:', error);
     });
 }
 
-// Event listener for ID scanner modal
-document.addEventListener('DOMContentLoaded', function() {
-  const idScannerModal = document.getElementById('idScannerModal');
+function checkContributionStatus(payerId, contributionId) {
+  return fetch(`${window.APP_BASE_URL || ''}/payments/get-contribution-warning-data?payer_id=${payerId}&contribution_id=${contributionId}`, {
+    method: 'GET',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'application/json'
+    }
+  })
+  .then(response => response.json())
+  .catch(error => {
+    console.error('Error checking contribution status:', error);
+    return { success: false };
+  });
+}
+
+function showUnpaidContributionWarning(data) {
+  const modalBody = document.querySelector('#addPaymentModal .modal-body');
+  const existingAlert = document.getElementById('unpaidContributionsAlert');
   
-  if (idScannerModal) {
-    idScannerModal.addEventListener('hidden.bs.modal', function() {
-      stopIDScanner();
-    });
+  if (existingAlert) {
+    existingAlert.remove();
   }
-});
+
+  // Store the unpaid balance data for use in updatePaymentStatus
+  window.unpaidBalanceData = {
+    contributionAmount: parseFloat(data.contribution.amount),
+    alreadyPaid: parseFloat(data.unpaid_group.total_paid),
+    remainingAmount: parseFloat(data.unpaid_group.remaining_amount)
+  };
+
+  const alertHtml = `
+    <div id="unpaidContributionsAlert" class="alert alert-warning alert-dismissible fade show">
+      <h6 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Incomplete Contribution</h6>
+      <p class="mb-2">This payer has started but not completed this contribution:</p>
+      <ul class="mb-2">
+        <li><strong>${data.contribution.title}</strong> - ₱${parseFloat(data.contribution.amount).toFixed(2)} (₱${parseFloat(data.unpaid_group.remaining_amount).toFixed(2)} remaining)</li>
+      </ul>
+      <div class="small text-muted mb-2">
+        <strong>Payment Group ${data.unpaid_group.sequence}:</strong><br>
+        • Total Paid: ₱${parseFloat(data.unpaid_group.total_paid).toFixed(2)}<br>
+        • Payment Count: ${data.unpaid_group.payment_count}<br>
+        • Last Payment: ${new Date(data.unpaid_group.last_payment_date).toLocaleDateString()}
+      </div>
+      <small class="text-muted">You can add payments to complete this contribution, but duplicate payments within the same contribution will require confirmation.</small>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  `;
+
+  modalBody.insertAdjacentHTML('afterbegin', alertHtml);
+  
+  // Update the remaining balance field to show the actual remaining amount
+  const remainingBalanceEl = document.getElementById('remainingBalance');
+  if (remainingBalanceEl) {
+    remainingBalanceEl.value = window.unpaidBalanceData.remainingAmount.toFixed(2);
+  }
+}
+
+function showFullyPaidContributionWarning(data) {
+  const modalBody = document.querySelector('#addPaymentModal .modal-body');
+  const existingAlert = document.getElementById('unpaidContributionsAlert');
+  
+  if (existingAlert) {
+    existingAlert.remove();
+  }
+
+  const alertHtml = `
+    <div id="unpaidContributionsAlert" class="alert alert-info alert-dismissible fade show">
+      <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Contribution Already Fully Paid</h6>
+      <p class="mb-2">This payer has already fully paid this contribution:</p>
+      <ul class="mb-2">
+        <li><strong>${data.contribution.title}</strong> - ₱${parseFloat(data.contribution.amount).toFixed(2)} (Fully Paid)</li>
+      </ul>
+      <div class="small text-muted mb-2">
+        <strong>Payment Group ${data.fully_paid_groups[0].sequence}:</strong><br>
+        • Total Paid: ₱${parseFloat(data.fully_paid_groups[0].total_paid).toFixed(2)}<br>
+        • Payment Count: ${data.fully_paid_groups[0].payment_count}<br>
+        • Last Payment: ${new Date(data.fully_paid_groups[0].last_payment_date).toLocaleDateString()}
+      </div>
+      <small class="text-muted">Are you sure you want to add another payment group for this contribution?</small>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  `;
+
+  modalBody.insertAdjacentHTML('afterbegin', alertHtml);
+}
+
+// Function to submit payment
+window.submitPayment = function() {
+  const form = document.getElementById('paymentForm');
+  const formData = new FormData(form);
+  
+  // Check if it's a new payer
+  const newPayerRadio = document.getElementById('newPayer');
+  const isNewPayer = newPayerRadio && newPayerRadio.checked;
+  
+  if (isNewPayer) {
+    // Validate new payer fields
+    const newPayerFields = ['payer_name', 'new_payer_id', 'payer_email', 'payer_phone'];
+    const missingFields = newPayerFields.filter(field => {
+      const value = formData.get(field);
+      return !value || value.trim() === '';
+    });
+    
+    if (missingFields.length > 0) {
+      console.log('Missing fields:', missingFields);
+      console.log('Form data:', Object.fromEntries(formData));
+      alert('Please fill in all new payer information. Missing: ' + missingFields.join(', '));
+      return;
+    }
+    
+    // First create the new payer
+    createNewPayer(formData)
+      .then(payerId => {
+        if (payerId) {
+          // Set the payer_id and proceed with payment
+          formData.set('payer_id', payerId);
+          processPayment(formData);
+        } else {
+          alert('Failed to create new payer');
+        }
+      })
+      .catch(error => {
+        console.error('Error creating payer:', error);
+        alert('An error occurred while creating the payer');
+      });
+  } else {
+    // Existing payer - proceed directly with payment
+    processPayment(formData);
+  }
+};
+
+// Function to create a new payer
+function createNewPayer(formData) {
+  // Debug: Log all form data entries
+  console.log('All form data entries:');
+  for (let [key, value] of formData.entries()) {
+    console.log(key + ': ' + value);
+  }
+  
+  const payerData = {
+    payer_name: formData.get('payer_name'),
+    new_payer_id: formData.get('new_payer_id'),
+    payer_email: formData.get('payer_email'),
+    payer_phone: formData.get('payer_phone')
+  };
+  
+  console.log('Sending payer data:', payerData);
+  
+  return fetch(`${window.APP_BASE_URL || ''}/payers/create`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify(payerData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      return data.payer_id;
+    } else {
+      console.error('Payer creation failed:', data);
+      if (data.errors) {
+        console.error('Validation errors:', data.errors);
+        
+        // Show specific validation errors to user
+        const errorMessages = Object.values(data.errors);
+        const errorMessage = errorMessages.join('\n');
+        alert('Validation Error:\n' + errorMessage);
+      }
+      if (data.debug_data) {
+        console.error('Debug data:', data.debug_data);
+      }
+      throw new Error(data.message || 'Failed to create payer');
+    }
+  });
+}
+
+// Function to process the payment
+function processPayment(formData) {
+  // Get the form element
+  const form = document.getElementById('paymentForm');
+  
+  // Validate required fields
+  const requiredFields = ['contribution_id', 'amount_paid', 'payment_method', 'payment_date'];
+  const missingFields = requiredFields.filter(field => !formData.get(field));
+
+  if (missingFields.length > 0) {
+    alert('Please fill in all required fields');
+    return;
+  }
+
+  // Calculate remaining balance
+  const contributionSelect = document.getElementById('contributionId');
+  const contributionAmount = parseFloat(contributionSelect.options[contributionSelect.selectedIndex].dataset.amount) || 0;
+  const amountPaid = parseFloat(formData.get('amount_paid')) || 0;
+  const remainingBalance = contributionAmount - amountPaid;
+
+  formData.set('is_partial_payment', remainingBalance > 0 ? '1' : '0');
+  formData.set('remaining_balance', remainingBalance.toString());
+  
+  // Ensure payer_id is set for existing payers
+  if (window.selectedPayerId) {
+    formData.set('payer_id', window.selectedPayerId);
+  }
+
+  fetch(form.action, {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert('Payment added successfully!');
+      const modal = bootstrap.Modal.getInstance(document.getElementById('addPaymentModal'));
+      modal.hide();
+      location.reload();
+    } else {
+      alert('Error: ' + (data.message || 'Failed to add payment'));
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('An error occurred while adding the payment');
+  });
+}
 </script>
-
-
-
