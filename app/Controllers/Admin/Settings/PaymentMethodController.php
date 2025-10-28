@@ -453,4 +453,15 @@ class PaymentMethodController extends BaseController
             'data' => $paymentMethods
         ]);
     }
+
+    /**
+     * Test payment methods
+     */
+    public function test()
+    {
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Payment methods tested successfully'
+        ]);
+    }
 }

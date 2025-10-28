@@ -7,6 +7,7 @@ use App\Models\UserModel;
 use App\Models\PaymentModel;
 use App\Models\ContributionModel;
 use App\Models\PaymentRequestModel;
+use App\Models\PaymentMethodModel;
 use App\Services\ActivityLogger;
 
 class DashboardController extends BaseController
@@ -106,6 +107,10 @@ class DashboardController extends BaseController
         $paymentRequestModel = new PaymentRequestModel();
         $pendingPaymentRequests = $paymentRequestModel->getPendingCount();
 
+        // --- Fetch Payment Methods ---
+        $paymentMethodModel = new PaymentMethodModel();
+        $paymentMethods = $paymentMethodModel->orderBy('name', 'ASC')->findAll();
+
         // --- Prepare Data for View ---
         $data = [
             'totalCollections' => $totalCollections,
@@ -118,6 +123,7 @@ class DashboardController extends BaseController
             'contributions'     => $contributions,
             'userActivities'    => $userActivities,
             'allUserActivities' => $allUserActivities,
+            'paymentMethods'    => $paymentMethods,
             'title'             => 'Admin Dashboard',
             'pageTitle'         => 'Dashboard',
             'pageSubtitle'      => 'Welcome back ' . ucwords($user['username'] ?? 'User') . '!',

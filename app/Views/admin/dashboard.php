@@ -61,6 +61,10 @@
     </div>
 </div>
 
+<div>
+    <button class="btn btn-primary" onclick="testPaymentMethods()">Test Payment Methods</button>
+</div>
+
 <div class="container-fluid">
     <div class="row mb-4">
 
@@ -300,6 +304,9 @@
 <!-- Contribution Payments Modal (for payment history) -->
 <?= view('partials/modal-contribution-payments') ?>
 
+<!-- Payment Methods Modal -->
+<?= payment_methods_modal($paymentMethods ?? []) ?>
+
 <script>
 // Define base URL for payment.js
 window.APP_BASE_URL = '<?= base_url() ?>';
@@ -311,6 +318,13 @@ function showPaymentReceipt(paymentData) {
     } else {
         showNotification('QR Receipt modal not available', 'error');
     }
+}
+
+function testPaymentMethods() {
+    console.log('testPaymentMethods called');
+    // Open the payment methods management modal
+    const modal = new bootstrap.Modal(document.getElementById('paymentMethodsModal'));
+    modal.show();
 }
 </script>
 
