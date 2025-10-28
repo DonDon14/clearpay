@@ -358,13 +358,21 @@ function formatDate(dateString) {
 // Function to format payment method
 function formatPaymentMethod(method) {
     if (!method) return 'N/A';
-    const methods = {
+    
+    // If it's already a proper name (like "GCash", "PayMaya"), return as-is
+    if (typeof method === 'string' && method.length > 0) {
+        return method;
+    }
+    
+    // Legacy mapping for old values (if any still exist)
+    const legacyMethods = {
         'cash': 'Cash',
-        'online': 'Online',
+        'online': 'Online Banking',
         'check': 'Check',
         'bank': 'Bank Transfer'
     };
-    return methods[method] || method;
+    
+    return legacyMethods[method] || method || 'N/A';
 }
 
 // Function to get status badge class

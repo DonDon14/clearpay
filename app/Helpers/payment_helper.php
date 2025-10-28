@@ -98,7 +98,7 @@ if (!function_exists('payment_method_dropdown_with_icons')) {
         $selectedMethod = null;
         if ($selectedId) {
             foreach ($paymentMethods as $method) {
-                if ($method['id'] == $selectedId) {
+                if ($method['name'] == $selectedId) {
                     $selectedMethod = $method;
                     break;
                 }
@@ -123,7 +123,7 @@ if (!function_exists('payment_method_dropdown_with_icons')) {
         
         foreach ($paymentMethods as $method) {
             $html .= '<li>';
-            $html .= '<a class="dropdown-item d-flex align-items-center" href="#" data-value="' . esc($method['id']) . '">';
+            $html .= '<a class="dropdown-item d-flex align-items-center" href="#" data-value="' . esc($method['name']) . '">';
             
             if (!empty($method['icon']) && file_exists(FCPATH . $method['icon'])) {
                 $html .= '<img src="' . base_url($method['icon']) . '" alt="' . esc($method['name']) . '" style="width: 20px; height: 20px; margin-right: 8px; object-fit: cover;">';
@@ -200,7 +200,8 @@ if (!function_exists('payment_method_dropdown_with_icons')) {
         
         // Add JavaScript to handle dropdown functionality
         $html .= '<script>
-        document.addEventListener("DOMContentLoaded", function() {
+        // Use immediate execution instead of DOMContentLoaded for modals
+        (function() {
             const container = document.getElementById("' . esc($dropdownId) . '_container");
             const button = document.getElementById("' . esc($dropdownId) . '_button");
             const input = document.getElementById("' . esc($dropdownId) . '_input");
@@ -255,7 +256,7 @@ if (!function_exists('payment_method_dropdown_with_icons')) {
                     button.setAttribute("aria-expanded", "false");
                 });
             });
-        });
+        })();
         </script>';
         
         return $html;

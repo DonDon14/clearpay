@@ -127,11 +127,17 @@ class PaymentsController extends BaseController
             $payerId = $this->request->getPost('payer_id');
             $isExistingPayer = !empty($payerId);
             
+            // Get valid payment method names from database
+            $paymentMethodModel = new \App\Models\PaymentMethodModel();
+            $validPaymentMethods = $paymentMethodModel->getActiveMethods();
+            $paymentMethodNames = array_column($validPaymentMethods, 'name');
+            $paymentMethodList = implode(',', $paymentMethodNames);
+            
             // Validation rules - conditional based on payer type
             $rules = [
                 'contribution_id' => 'required|integer',
                 'amount_paid' => 'required|numeric',
-                'payment_method' => 'required|in_list[cash,online,check,bank]',
+                'payment_method' => 'required|in_list[' . $paymentMethodList . ']',
                 'is_partial_payment' => 'required|in_list[0,1]',
                 'payment_date' => 'required'
             ];
@@ -303,6 +309,7 @@ class PaymentsController extends BaseController
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s')
             ];
+            
 
             $id = $this->request->getPost('id');
 
@@ -319,6 +326,7 @@ class PaymentsController extends BaseController
             if ($result) {
                 // Get the payment ID (for new payments)
                 $paymentId = $id ?: $paymentModel->getInsertID();
+                
                 
                 // Consolidate any existing multiple partial groups before processing
                 $this->consolidatePartialGroups($payerDbId, $this->request->getPost('contribution_id'));

@@ -908,11 +908,29 @@ function processPayment(formData) {
   // Get the form element
   const form = document.getElementById('paymentForm');
   
+  // Debug: Log all form data
+  console.log('=== FORM DATA DEBUG ===');
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: ${value}`);
+  }
+  
+  // Debug: Check payment method specifically
+  const paymentMethodInput = document.getElementById('paymentMethod_input');
+  console.log('Payment method input element:', paymentMethodInput);
+  console.log('Payment method input value:', paymentMethodInput ? paymentMethodInput.value : 'NOT FOUND');
+  
+  // If payment method is missing from FormData but exists in DOM, add it manually
+  if (!formData.get('payment_method') && paymentMethodInput && paymentMethodInput.value) {
+    console.log('Adding payment method manually to FormData');
+    formData.set('payment_method', paymentMethodInput.value);
+  }
+  
   // Validate required fields
   const requiredFields = ['contribution_id', 'amount_paid', 'payment_method', 'payment_date'];
   const missingFields = requiredFields.filter(field => !formData.get(field));
 
   if (missingFields.length > 0) {
+    console.log('Missing required fields:', missingFields);
     alert('Please fill in all required fields');
     return;
   }
@@ -946,7 +964,18 @@ function processPayment(formData) {
       modal.hide();
       location.reload();
     } else {
-      alert('Error: ' + (data.message || 'Failed to add payment'));
+      // Check if this is a fully paid contribution confirmation case
+      if (data.message && data.message.includes('Already Fully Paid')) {
+        // Show confirmation dialog instead of error alert
+        const confirmed = confirm(data.message + '\n\nDo you want to add another payment group for this contribution?');
+        if (confirmed) {
+          // Add bypass flag and resubmit
+          formData.set('bypass_duplicate_check', '1');
+          processPayment(formData);
+        }
+      } else {
+        alert('Error: ' + (data.message || 'Failed to add payment'));
+      }
     }
   })
   .catch(error => {
