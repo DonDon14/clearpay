@@ -53,7 +53,9 @@ $routes->post('/admin/settings/payment-methods/store', 'Admin\Settings\PaymentMe
 $routes->get('/admin/settings/payment-methods/edit/(:num)', 'Admin\Settings\PaymentMethodController::edit/$1', ['filter' => 'auth']);
 $routes->post('/admin/settings/payment-methods/update/(:num)', 'Admin\Settings\PaymentMethodController::update/$1', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\PaymentMethodController::delete/$1', ['filter' => 'auth']);
+$routes->post('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\PaymentMethodController::delete/$1', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
+$routes->post('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/instructions/(:any)', 'Admin\Settings\PaymentMethodController::getInstructions/$1');
 
 // Payment Requests Management Routes

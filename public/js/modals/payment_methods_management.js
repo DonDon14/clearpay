@@ -185,8 +185,10 @@ class PaymentMethodsManager {
         document.getElementById('editAccountNumber').value = paymentMethod.account_number || '';
         document.getElementById('editAccountName').value = paymentMethod.account_name || '';
         document.getElementById('editReferencePrefix').value = paymentMethod.reference_prefix || 'CP';
-        document.getElementById('editCustomInstructions').value = paymentMethod.custom_instructions || '';
         document.getElementById('editStatus').value = paymentMethod.status || 'active';
+
+        // Parse existing custom instructions and populate step-by-step interface
+        this.populateInstructionSteps('edit', paymentMethod.custom_instructions || '');
 
         // Show current QR code if exists
         const currentQrCodeDiv = document.getElementById('currentQrCode');
@@ -204,6 +206,213 @@ class PaymentMethodsManager {
         // Show edit modal
         const editModal = new bootstrap.Modal(document.getElementById('editPaymentMethodModal'));
         editModal.show();
+    }
+
+    // Parse existing HTML instructions and populate step-by-step interface
+    populateInstructionSteps(mode, htmlInstructions) {
+        const prefix = mode === 'add' ? 'add' : 'edit';
+        const stepsContainer = document.getElementById(prefix + 'InstructionSteps');
+        const additionalInfoField = document.getElementById(prefix + 'AdditionalInfo');
+        
+        // Clear existing steps
+        stepsContainer.innerHTML = '';
+        
+        if (!htmlInstructions) {
+            // Add default step
+            this.addInstructionStep(prefix + 'InstructionSteps');
+            return;
+        }
+        
+        // Parse HTML to extract steps and additional info
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlInstructions, 'text/html');
+        
+        // Extract instruction steps from <li> elements
+        const listItems = doc.querySelectorAll('li');
+        const steps = Array.from(listItems).map(li => li.textContent.trim()).filter(step => step.length > 0);
+        
+        // Extract additional info (look for "Additional Notes" section)
+        let additionalInfo = '';
+        const allDivs = doc.querySelectorAll('div');
+        for (let div of allDivs) {
+            if (div.textContent.includes('Additional Notes')) {
+                const smallElement = div.querySelector('small');
+                if (smallElement) {
+                    additionalInfo = smallElement.textContent.trim();
+                }
+                break;
+            }
+        }
+        
+        // Populate steps
+        if (steps.length > 0) {
+            steps.forEach((step, index) => {
+                this.addInstructionStep(prefix + 'InstructionSteps');
+                const stepInput = stepsContainer.querySelector(`[data-step="${index + 1}"]`);
+                if (stepInput) {
+                    stepInput.value = step;
+                }
+            });
+        } else {
+            // Add default step if no steps found
+            this.addInstructionStep(prefix + 'InstructionSteps');
+        }
+        
+        // Populate additional info
+        if (additionalInfoField) {
+            additionalInfoField.value = additionalInfo;
+        }
+        
+        // Update preview
+        this.updatePreview(mode);
+    }
+
+    // Add instruction step (called from the modal's JavaScript)
+    addInstructionStep(containerId) {
+        const container = document.getElementById(containerId);
+        const stepCount = container.querySelectorAll('.instruction-step').length + 1;
+        
+        const stepDiv = document.createElement('div');
+        stepDiv.className = 'instruction-step mb-2';
+        stepDiv.innerHTML = `
+            <div class="input-group">
+                <span class="input-group-text">${stepCount}</span>
+                <input type="text" class="form-control instruction-step-input" placeholder="Enter instruction step..." data-step="${stepCount}">
+                <button type="button" class="btn btn-outline-danger btn-sm remove-step" style="display: none;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(stepDiv);
+        
+        // Update remove buttons visibility
+        this.updateRemoveButtons(containerId);
+        
+        // Add event listeners
+        const removeBtn = stepDiv.querySelector('.remove-step');
+        const input = stepDiv.querySelector('.instruction-step-input');
+        
+        removeBtn.addEventListener('click', () => {
+            stepDiv.remove();
+            this.updateRemoveButtons(containerId);
+            this.updatePreview(containerId.includes('add') ? 'add' : 'edit');
+        });
+        
+        input.addEventListener('input', () => {
+            this.updatePreview(containerId.includes('add') ? 'add' : 'edit');
+        });
+        
+        // Update preview
+        this.updatePreview(containerId.includes('add') ? 'add' : 'edit');
+    }
+
+    // Update remove buttons visibility
+    updateRemoveButtons(containerId) {
+        const container = document.getElementById(containerId);
+        const steps = container.querySelectorAll('.instruction-step');
+        const removeButtons = container.querySelectorAll('.remove-step');
+        
+        // Show remove buttons only if there are multiple steps
+        removeButtons.forEach(button => {
+            button.style.display = steps.length > 1 ? 'block' : 'none';
+        });
+        
+        // Renumber steps
+        steps.forEach((step, index) => {
+            const numberSpan = step.querySelector('.input-group-text');
+            const input = step.querySelector('.instruction-step-input');
+            numberSpan.textContent = index + 1;
+            input.setAttribute('data-step', index + 1);
+        });
+    }
+
+    // Update preview
+    updatePreview(mode) {
+        const prefix = mode === 'add' ? 'add' : 'edit';
+        const previewArea = document.getElementById(prefix + 'PreviewArea');
+        const hiddenField = document.getElementById(prefix + 'CustomInstructions');
+        
+        if (!previewArea || !hiddenField) return;
+        
+        // Get form data
+        const methodName = document.getElementById(prefix + 'Name').value || 'Payment Method';
+        const accountNumber = document.getElementById(prefix + 'AccountNumber').value || '';
+        const accountName = document.getElementById(prefix + 'AccountName').value || '';
+        const additionalInfo = document.getElementById(prefix + 'AdditionalInfo').value || '';
+        
+        // Get instruction steps
+        const stepsContainer = document.getElementById(prefix + 'InstructionSteps');
+        const stepInputs = stepsContainer.querySelectorAll('.instruction-step-input');
+        const steps = Array.from(stepInputs).map(input => input.value.trim()).filter(step => step.length > 0);
+        
+        // Generate HTML
+        const html = this.generateStandardizedHTML(methodName, accountNumber, accountName, steps, additionalInfo);
+        
+        // Update preview
+        previewArea.innerHTML = html;
+        
+        // Update hidden field
+        hiddenField.value = html;
+    }
+
+    // Generate standardized HTML
+    generateStandardizedHTML(methodName, accountNumber, accountName, steps, additionalInfo) {
+        let html = `
+            <div class="alert alert-info">
+                <h6><i class="fas fa-qrcode me-2"></i>${methodName} Payment Instructions</h6>
+                <p class="mb-2">Please follow these steps to complete your payment:</p>
+        `;
+        
+        // Add QR code section if account details are available
+        if (accountNumber || accountName) {
+            html += `
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Amount:</strong> ₱{amount}<br>
+                        <strong>Payment Type:</strong> ${methodName}<br>
+                        <strong>Reference:</strong> {reference_prefix}-{timestamp}
+                    </div>
+                    <div class="col-md-6">
+            `;
+            
+            if (accountNumber) {
+                html += `<strong>Account Number:</strong> ${accountNumber}<br>`;
+            }
+            if (accountName) {
+                html += `<strong>Account Name:</strong> ${accountName}<br>`;
+            }
+            
+            html += `</div></div>`;
+        }
+        
+        // Add instruction steps
+        if (steps.length > 0) {
+            html += `
+                <div class="mb-2">
+                    <strong>Instructions:</strong><br>
+                    <ul class="mb-0 small">
+            `;
+            
+            steps.forEach(step => {
+                html += `<li>${step}</li>`;
+            });
+            
+            html += `</ul></div>`;
+        }
+        
+        // Add additional info
+        if (additionalInfo) {
+            html += `
+                <div class="mt-2">
+                    <strong>Additional Notes:</strong><br>
+                    <small>${additionalInfo}</small>
+                </div>
+            `;
+        }
+        
+        html += `</div>`;
+        
+        return html;
     }
 
     // Refresh Payment Methods Table
@@ -326,6 +535,9 @@ class PaymentMethodsManager {
             document.querySelectorAll('#addPaymentMethodModal .form-control, #addPaymentMethodModal .form-select').forEach(el => {
                 el.classList.remove('is-invalid');
             });
+            
+            // Reset instruction steps
+            this.populateInstructionSteps('add', '');
         }
     }
 
@@ -342,6 +554,9 @@ class PaymentMethodsManager {
                 el.classList.remove('is-invalid');
             });
             document.getElementById('currentQrCode').innerHTML = '';
+            
+            // Reset instruction steps
+            this.populateInstructionSteps('edit', '');
         }
     }
 }
@@ -373,5 +588,60 @@ document.addEventListener('DOMContentLoaded', function() {
         paymentMethods: window.paymentMethodsData || []
     });
     
+    // Initialize user-friendly interface
+    initializeUserFriendlyInterface();
+    
     console.log('Payment Methods Management initialized');
 });
+
+// Initialize user-friendly interface
+function initializeUserFriendlyInterface() {
+    // Add instruction step functionality for Add modal
+    const addInstructionStepBtn = document.getElementById('addInstructionStep');
+    if (addInstructionStepBtn) {
+        addInstructionStepBtn.addEventListener('click', function() {
+            if (window.paymentMethodsManager) {
+                window.paymentMethodsManager.addInstructionStep('addInstructionSteps');
+            }
+        });
+    }
+    
+    // Add instruction step functionality for Edit modal
+    const editAddInstructionStepBtn = document.getElementById('editAddInstructionStep');
+    if (editAddInstructionStepBtn) {
+        editAddInstructionStepBtn.addEventListener('click', function() {
+            if (window.paymentMethodsManager) {
+                window.paymentMethodsManager.addInstructionStep('editInstructionSteps');
+            }
+        });
+    }
+    
+    // Add event listeners for form field changes
+    const formFields = ['Name', 'AccountNumber', 'AccountName', 'AdditionalInfo'];
+    formFields.forEach(field => {
+        // Add modal
+        const addField = document.getElementById('add' + field);
+        if (addField) {
+            addField.addEventListener('input', () => {
+                if (window.paymentMethodsManager) {
+                    window.paymentMethodsManager.updatePreview('add');
+                }
+            });
+        }
+        
+        // Edit modal
+        const editField = document.getElementById('edit' + field);
+        if (editField) {
+            editField.addEventListener('input', () => {
+                if (window.paymentMethodsManager) {
+                    window.paymentMethodsManager.updatePreview('edit');
+                }
+            });
+        }
+    });
+    
+    // Initialize preview for add modal
+    if (window.paymentMethodsManager) {
+        window.paymentMethodsManager.updatePreview('add');
+    }
+}

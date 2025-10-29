@@ -178,22 +178,54 @@ $paymentMethods = $paymentMethods ?? [];
                         </div>
                     </div>
                     
-                    <!-- Custom Instructions HTML -->
+                    <!-- User-Friendly Payment Instructions -->
                     <div class="row mt-4">
                         <div class="col-12">
-                            <h6 class="text-primary mb-3">Custom Instructions HTML</h6>
+                            <h6 class="text-primary mb-3">Payment Instructions</h6>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Standardized Layout:</strong> All payment methods will use the same professional layout with QR code at the top and instructions below.
+                            </div>
+                            
+                            <!-- Instruction Steps -->
                             <div class="mb-3">
-                                <label for="addCustomInstructions" class="form-label">Payment Instructions</label>
-                                <textarea class="form-control" id="addCustomInstructions" name="custom_instructions" rows="8" placeholder="Enter custom HTML instructions for this payment method..."></textarea>
-                                <div class="form-text">
-                                    <strong>Available placeholders:</strong><br>
-                                    <code>{account_number}</code> - Account number<br>
-                                    <code>{account_name}</code> - Account name<br>
-                                    <code>{qr_code_path}</code> - QR code image URL<br>
-                                    <code>{reference_prefix}</code> - Reference prefix<br>
-                                    <code>{method_name}</code> - Payment method name
+                                <label class="form-label">Payment Instructions (Step by Step)</label>
+                                <div id="addInstructionSteps">
+                                    <div class="instruction-step mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">1</span>
+                                            <input type="text" class="form-control instruction-step-input" placeholder="e.g., Open your GCash app" data-step="1">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-step" style="display: none;">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="addInstructionStep">
+                                    <i class="fas fa-plus me-1"></i>Add Step
+                                </button>
+                                <div class="form-text">Add step-by-step instructions for users to follow</div>
+                            </div>
+                            
+                            <!-- Additional Information -->
+                            <div class="mb-3">
+                                <label for="addAdditionalInfo" class="form-label">Additional Information</label>
+                                <textarea class="form-control" id="addAdditionalInfo" name="additional_info" rows="3" placeholder="Any additional notes or special instructions..."></textarea>
+                                <div class="form-text">Optional: Add any special notes or additional information</div>
+                            </div>
+                            
+                            <!-- Preview Section -->
+                            <div class="mb-3">
+                                <label class="form-label">Preview</label>
+                                <div class="border rounded p-3 bg-light" id="addPreviewArea">
+                                    <div class="text-center text-muted">
+                                        <i class="fas fa-eye me-2"></i>Preview will appear here as you fill in the details
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <!-- Hidden field for generated HTML -->
+                            <input type="hidden" id="addCustomInstructions" name="custom_instructions">
                         </div>
                     </div>
                 </div>
@@ -281,22 +313,54 @@ $paymentMethods = $paymentMethods ?? [];
                         </div>
                     </div>
                     
-                    <!-- Custom Instructions HTML -->
+                    <!-- User-Friendly Payment Instructions -->
                     <div class="row mt-4">
                         <div class="col-12">
-                            <h6 class="text-primary mb-3">Custom Instructions HTML</h6>
+                            <h6 class="text-primary mb-3">Payment Instructions</h6>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Standardized Layout:</strong> All payment methods will use the same professional layout with QR code at the top and instructions below.
+                            </div>
+                            
+                            <!-- Instruction Steps -->
                             <div class="mb-3">
-                                <label for="editCustomInstructions" class="form-label">Payment Instructions</label>
-                                <textarea class="form-control" id="editCustomInstructions" name="custom_instructions" rows="8" placeholder="Enter custom HTML instructions for this payment method..."></textarea>
-                                <div class="form-text">
-                                    <strong>Available placeholders:</strong><br>
-                                    <code>{account_number}</code> - Account number<br>
-                                    <code>{account_name}</code> - Account name<br>
-                                    <code>{qr_code_path}</code> - QR code image URL<br>
-                                    <code>{reference_prefix}</code> - Reference prefix<br>
-                                    <code>{method_name}</code> - Payment method name
+                                <label class="form-label">Payment Instructions (Step by Step)</label>
+                                <div id="editInstructionSteps">
+                                    <div class="instruction-step mb-2">
+                                        <div class="input-group">
+                                            <span class="input-group-text">1</span>
+                                            <input type="text" class="form-control instruction-step-input" placeholder="e.g., Open your GCash app" data-step="1">
+                                            <button type="button" class="btn btn-outline-danger btn-sm remove-step" style="display: none;">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="editAddInstructionStep">
+                                    <i class="fas fa-plus me-1"></i>Add Step
+                                </button>
+                                <div class="form-text">Add step-by-step instructions for users to follow</div>
+                            </div>
+                            
+                            <!-- Additional Information -->
+                            <div class="mb-3">
+                                <label for="editAdditionalInfo" class="form-label">Additional Information</label>
+                                <textarea class="form-control" id="editAdditionalInfo" name="additional_info" rows="3" placeholder="Any additional notes or special instructions..."></textarea>
+                                <div class="form-text">Optional: Add any special notes or additional information</div>
+                            </div>
+                            
+                            <!-- Preview Section -->
+                            <div class="mb-3">
+                                <label class="form-label">Preview</label>
+                                <div class="border rounded p-3 bg-light" id="editPreviewArea">
+                                    <div class="text-center text-muted">
+                                        <i class="fas fa-eye me-2"></i>Preview will appear here as you fill in the details
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <!-- Hidden field for generated HTML -->
+                            <input type="hidden" id="editCustomInstructions" name="custom_instructions">
                         </div>
                     </div>
                 </div>
