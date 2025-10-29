@@ -86,29 +86,30 @@ class RefundsController extends BaseController
             ])->setStatusCode(405);
         }
 
-        $refundType = $this->request->getPost('refund_type'); // 'custom', 'group', 'sequence'
+        $refundType = $this->request->getPost('refund_type'); // 'group', 'sequence'
         
+        // Get refund method codes from database for validation
+        $refundMethodModel = new RefundMethodModel();
+        $validRefundMethodCodes = $refundMethodModel->getAllCodes();
+        // Also allow 'original_method' as a special case
+        $validRefundMethodCodes[] = 'original_method';
+        $validRefundMethodCodes = array_unique($validRefundMethodCodes);
+        
+        // Since we're using VARCHAR now, we'll validate against the list manually
         $rules = [
-            'refund_type' => 'required|in_list[custom,group,sequence]',
+            'refund_type' => 'required|in_list[group,sequence]',
             'payer_id' => 'required|integer',
             'contribution_id' => 'required|integer',
             'refund_amount' => 'required|decimal',
             'refund_reason' => 'permit_empty|string',
-            'refund_method' => 'required|in_list[cash,bank_transfer,gcash,paymaya,original_method]',
+            'refund_method' => 'required|alpha_dash|max_length[50]',
             'refund_reference' => 'permit_empty|string|max_length[100]'
         ];
 
-        // Custom refund requires payment_sequence and payment_ids (all payments in sequence for custom amount)
-        if ($refundType === 'custom') {
-            $rules['payment_sequence'] = 'required|integer';
-            $rules['payment_ids'] = 'required'; // JSON array of payment IDs
-        }
         // Group and sequence refunds require payment_sequence
-        if (in_array($refundType, ['group', 'sequence'])) {
-            $rules['payment_sequence'] = 'required|integer';
-            if ($refundType === 'sequence') {
-                $rules['payment_ids'] = 'required'; // JSON array of payment IDs
-            }
+        $rules['payment_sequence'] = 'required|integer';
+        if ($refundType === 'sequence') {
+            $rules['payment_ids'] = 'required'; // JSON array of payment IDs
         }
 
         if (!$this->validate($rules)) {
@@ -121,7 +122,6 @@ class RefundsController extends BaseController
 
         $paymentModel = new PaymentModel();
         $refundModel = new RefundModel();
-        $refundMethodModel = new RefundMethodModel();
         $userId = session()->get('user-id');
         $payerId = $this->request->getPost('payer_id');
         $contributionId = $this->request->getPost('contribution_id');
@@ -131,11 +131,14 @@ class RefundsController extends BaseController
         $refundReference = $this->request->getPost('refund_reference');
         $adminNotes = $this->request->getPost('admin_notes');
 
-        // Validate refund method
-        if (!$refundModel->validateRefundMethod($refundMethod)) {
+        // Validate refund method against database (must be in refund_methods table or 'original_method')
+        if (!in_array($refundMethod, $validRefundMethodCodes)) {
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Invalid refund method selected'
+                'message' => 'Validation failed',
+                'errors' => [
+                    'refund_method' => 'The selected refund method is not valid. Please select from available refund methods.'
+                ]
             ]);
         }
 
@@ -144,161 +147,7 @@ class RefundsController extends BaseController
         $refundIds = [];
 
         try {
-            if ($refundType === 'custom') {
-                // Custom refund - any amount from payment sequence (e.g., ₱1, ₱20, ₱35)
-                $paymentIds = json_decode($this->request->getPost('payment_ids'), true);
-                $paymentSequence = $this->request->getPost('payment_sequence');
-                
-                if (empty($paymentIds) || !is_array($paymentIds)) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'message' => 'Invalid payment IDs'
-                    ]);
-                }
-
-                // Get payments
-                $payments = $paymentModel
-                    ->whereIn('id', $paymentIds)
-                    ->where('payer_id', $payerId)
-                    ->where('contribution_id', $contributionId)
-                    ->where('payment_sequence', $paymentSequence)
-                    ->where('deleted_at', null)
-                    ->findAll();
-
-                if (empty($payments)) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'message' => 'No valid payments found'
-                    ]);
-                }
-
-                // Calculate total available
-                $totalAvailable = 0;
-                foreach ($payments as $payment) {
-                    $totalAvailable += $this->getAvailableRefundAmount($payment['id']);
-                    
-                    // Check for existing refunds
-                    $existingRefund = $refundModel
-                        ->where('payment_id', $payment['id'])
-                        ->whereIn('status', ['pending', 'processing'])
-                        ->first();
-                    
-                    if ($existingRefund) {
-                        return $this->response->setJSON([
-                            'success' => false,
-                            'message' => "Payment #{$payment['id']} already has a pending or processing refund"
-                        ]);
-                    }
-                }
-
-                // Validate refund amount - can be any amount up to available
-                if ($refundAmount > $totalAvailable) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'message' => "Refund amount cannot exceed available amount (₱" . number_format($totalAvailable, 2) . ")"
-                    ]);
-                }
-
-                // Validate minimum amount
-                if ($refundAmount <= 0) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'message' => "Refund amount must be greater than 0"
-                    ]);
-                }
-
-                // Distribute custom refund amount proportionally across payments
-                $sequenceTotal = array_sum(array_column($payments, 'amount_paid'));
-                $remainingRefund = $refundAmount;
-                
-                foreach ($payments as $index => $payment) {
-                    if ($remainingRefund <= 0) break;
-                    
-                    $paymentAvailable = $this->getAvailableRefundAmount($payment['id']);
-                    if ($paymentAvailable <= 0) continue;
-
-                    // Calculate proportional amount (last payment gets remainder to avoid rounding issues)
-                    if ($index === count($payments) - 1) {
-                        $paymentRefundAmount = min($remainingRefund, $paymentAvailable);
-                    } else {
-                        $proportion = (float)$payment['amount_paid'] / $sequenceTotal;
-                        $paymentRefundAmount = min($remainingRefund, $paymentAvailable, $proportion * $refundAmount);
-                    }
-
-                    // Only process if amount is significant (at least 0.01)
-                    if ($paymentRefundAmount >= 0.01) {
-                        // Convert original_method to actual payment method
-                        $paymentMethod = ($refundMethod === 'original_method') ? ($payment['payment_method'] ?? 'cash') : $refundMethod;
-                        
-                        // Map payment method values to valid refund method values
-                        // Payment methods: cash, online, bank, check
-                        // Refund methods: cash, bank_transfer, gcash, paymaya, original_method
-                        $methodMapping = [
-                            'cash' => 'cash',
-                            'online' => 'bank_transfer',
-                            'bank' => 'bank_transfer',
-                            'check' => 'bank_transfer',
-                            'bank_transfer' => 'bank_transfer',
-                            'gcash' => 'gcash',
-                            'paymaya' => 'paymaya',
-                            'original_method' => 'cash' // Fallback if still original_method
-                        ];
-                        
-                        // Ensure we have a valid refund method
-                        $finalRefundMethod = $methodMapping[$paymentMethod] ?? 'cash'; // Default to cash if unknown
-                        
-                        // Final validation - ensure it's in the allowed list and never use 'original_method' as final value
-                        $allowedMethods = ['cash', 'bank_transfer', 'gcash', 'paymaya'];
-                        if (!in_array($finalRefundMethod, $allowedMethods) || $finalRefundMethod === 'original_method') {
-                            log_message('warning', 'Invalid refund method detected: ' . $finalRefundMethod . ', defaulting to cash');
-                            $finalRefundMethod = 'cash';
-                        }
-                        
-                        // Log the method conversion for debugging
-                        log_message('debug', 'Refund method conversion - original: ' . $refundMethod . ', payment_method: ' . ($payment['payment_method'] ?? 'null') . ', final: ' . $finalRefundMethod);
-                        
-                        $refundData = [
-                            'payment_id' => $payment['id'],
-                            'payer_id' => $payerId,
-                            'contribution_id' => $contributionId,
-                            'refund_amount' => round($paymentRefundAmount, 2),
-                            'refund_reason' => $refundReason ? ($refundReason . " (Custom refund: ₱" . number_format($refundAmount, 2) . " from sequence #{$paymentSequence})") : "Custom refund: ₱" . number_format($refundAmount, 2) . " from sequence #{$paymentSequence}",
-                            'refund_method' => $finalRefundMethod,
-                            'refund_reference' => $refundReference ?: null,
-                            'status' => 'completed', // Admin-initiated refunds are immediately completed
-                            'request_type' => 'admin_initiated',
-                            'requested_by_payer' => 0,
-                            'processed_by' => $userId,
-                            'admin_notes' => $adminNotes ?: null,
-                            'processed_at' => date('Y-m-d H:i:s')
-                        ];
-                        
-                        // Double-check refund_method before insert
-                        if (!in_array($refundData['refund_method'], ['cash', 'bank_transfer', 'gcash', 'paymaya'])) {
-                            log_message('error', 'CRITICAL: Invalid refund_method about to be inserted: ' . $refundData['refund_method']);
-                            $refundData['refund_method'] = 'cash';
-                        }
-                        
-                        log_message('debug', 'Inserting refund with data: ' . json_encode($refundData));
-                        
-                        $refundId = $refundModel->insert($refundData);
-                        
-                        if (!$refundId) {
-                            $errors = $refundModel->errors();
-                            log_message('error', 'Failed to insert refund. Payment ID: ' . $payment['id']);
-                            log_message('error', 'Refund Data: ' . json_encode($refundData));
-                            log_message('error', 'Validation Errors: ' . json_encode($errors));
-                            throw new \Exception('Failed to insert refund record. Validation errors: ' . implode(', ', $errors ?: ['Unknown error']));
-                        }
-                        
-                        $refundIds[] = $refundId;
-                        $totalRefunded += round($paymentRefundAmount, 2);
-                        $refundedPayments[] = $payment['id'];
-                        $remainingRefund -= round($paymentRefundAmount, 2);
-                    }
-                }
-
-            } elseif ($refundType === 'group') {
+            if ($refundType === 'group') {
                 // Group refund - refund all payments in a payment_sequence
                 $paymentSequence = $this->request->getPost('payment_sequence');
                 $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
@@ -354,26 +203,29 @@ class RefundsController extends BaseController
                     }
 
                     if ($paymentRefundAmount > 0) {
-                        // Convert original_method to actual payment method
-                        $paymentMethod = ($refundMethod === 'original_method') ? ($groupPayment['payment_method'] ?? 'cash') : $refundMethod;
+                        // Determine final refund method
+                        // If 'original_method' is selected, use the payment's original method and find matching refund method
+                        if ($refundMethod === 'original_method') {
+                            $paymentMethod = $groupPayment['payment_method'] ?? 'cash';
+                            // Map payment methods to refund method codes
+                            $methodMapping = [
+                                'cash' => 'cash',
+                                'online' => 'bank_transfer',
+                                'bank' => 'bank_transfer',
+                                'check' => 'bank_transfer',
+                                'bank_transfer' => 'bank_transfer',
+                                'gcash' => 'gcash',
+                                'paymaya' => 'paymaya'
+                            ];
+                            $finalRefundMethod = $methodMapping[$paymentMethod] ?? 'cash';
+                        } else {
+                            // Use the selected refund method code directly (now that we support VARCHAR)
+                            $finalRefundMethod = $refundMethod;
+                        }
                         
-                        // Map payment method values to valid refund method values
-                        $methodMapping = [
-                            'cash' => 'cash',
-                            'online' => 'bank_transfer',
-                            'bank' => 'bank_transfer',
-                            'check' => 'bank_transfer',
-                            'bank_transfer' => 'bank_transfer',
-                            'gcash' => 'gcash',
-                            'paymaya' => 'paymaya',
-                            'original_method' => 'cash'
-                        ];
-                        
-                        $finalRefundMethod = $methodMapping[$paymentMethod] ?? 'cash';
-                        
-                        // Final validation - never use 'original_method' as final value
-                        $allowedMethods = ['cash', 'bank_transfer', 'gcash', 'paymaya'];
-                        if (!in_array($finalRefundMethod, $allowedMethods) || $finalRefundMethod === 'original_method') {
+                        // Final validation - ensure it's a valid refund method code
+                        if (!in_array($finalRefundMethod, $validRefundMethodCodes)) {
+                            log_message('warning', 'Invalid refund method code: ' . $finalRefundMethod . ', defaulting to cash');
                             $finalRefundMethod = 'cash';
                         }
                         
@@ -481,26 +333,29 @@ class RefundsController extends BaseController
                     }
 
                     if ($paymentRefundAmount > 0) {
-                        // Convert original_method to actual payment method
-                        $paymentMethod = ($refundMethod === 'original_method') ? ($payment['payment_method'] ?? 'cash') : $refundMethod;
+                        // Determine final refund method
+                        // If 'original_method' is selected, use the payment's original method and find matching refund method
+                        if ($refundMethod === 'original_method') {
+                            $paymentMethod = $payment['payment_method'] ?? 'cash';
+                            // Map payment methods to refund method codes
+                            $methodMapping = [
+                                'cash' => 'cash',
+                                'online' => 'bank_transfer',
+                                'bank' => 'bank_transfer',
+                                'check' => 'bank_transfer',
+                                'bank_transfer' => 'bank_transfer',
+                                'gcash' => 'gcash',
+                                'paymaya' => 'paymaya'
+                            ];
+                            $finalRefundMethod = $methodMapping[$paymentMethod] ?? 'cash';
+                        } else {
+                            // Use the selected refund method code directly (now that we support VARCHAR)
+                            $finalRefundMethod = $refundMethod;
+                        }
                         
-                        // Map payment method values to valid refund method values
-                        $methodMapping = [
-                            'cash' => 'cash',
-                            'online' => 'bank_transfer',
-                            'bank' => 'bank_transfer',
-                            'check' => 'bank_transfer',
-                            'bank_transfer' => 'bank_transfer',
-                            'gcash' => 'gcash',
-                            'paymaya' => 'paymaya',
-                            'original_method' => 'cash'
-                        ];
-                        
-                        $finalRefundMethod = $methodMapping[$paymentMethod] ?? 'cash';
-                        
-                        // Final validation - never use 'original_method' as final value
-                        $allowedMethods = ['cash', 'bank_transfer', 'gcash', 'paymaya'];
-                        if (!in_array($finalRefundMethod, $allowedMethods) || $finalRefundMethod === 'original_method') {
+                        // Final validation - ensure it's a valid refund method code
+                        if (!in_array($finalRefundMethod, $validRefundMethodCodes)) {
+                            log_message('warning', 'Invalid refund method code: ' . $finalRefundMethod . ', defaulting to cash');
                             $finalRefundMethod = 'cash';
                         }
                         
@@ -544,22 +399,18 @@ class RefundsController extends BaseController
                 ]);
             }
 
-            // Log activity
+            // Log activity with admin name
             $activityLogger = new ActivityLogger();
-            $activityMessage = "Processed {$refundType} refund of ₱" . number_format($totalRefunded, 2);
-            if ($refundType !== 'custom') {
-                $activityMessage .= " for " . count($refundedPayments) . " payment(s)";
-            } else {
-                $activityMessage .= " for payment #{$refundedPayments[0]}";
+            $userModel = new \App\Models\UserModel();
+            $admin = $userModel->find($userId);
+            $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+            
+            // Get the first refund to log (representative of the batch)
+            $firstRefund = $refundModel->find($refundIds[0]);
+            if ($firstRefund) {
+                $firstRefund['refund_amount'] = $totalRefunded; // Override with total for logging
+                $activityLogger->logRefund('processed', $firstRefund, $adminName);
             }
-
-            $activityLogger->logActivity(
-                $userId,
-                'refund_processed',
-                $activityMessage,
-                null,
-                $payerId
-            );
 
             return $this->response->setJSON([
                 'success' => true,
@@ -696,6 +547,34 @@ class RefundsController extends BaseController
     }
 
     /**
+     * Get all payment groups for refund modal
+     * Filters out fully refunded payment groups
+     */
+    public function getPaymentGroups()
+    {
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized access'
+            ])->setStatusCode(401);
+        }
+
+        $paymentModel = new PaymentModel();
+        $groupedPayments = $paymentModel->getGroupedPayments();
+
+        // Filter out fully refunded payment groups
+        $filteredPayments = array_filter($groupedPayments, function($group) {
+            $refundStatus = $group['refund_status'] ?? 'no_refund';
+            return $refundStatus !== 'fully_refunded';
+        });
+
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => array_values($filteredPayments) // Re-index array after filtering
+        ]);
+    }
+
+    /**
      * Get payment details for refund processing
      */
     public function getPaymentDetails()
@@ -795,15 +674,17 @@ class RefundsController extends BaseController
 
         $refundModel->approveRequest($refundId, $userId, $adminNotes);
 
-        // Log activity
+        // Log activity with admin name
         $activityLogger = new ActivityLogger();
-        $activityLogger->logActivity(
-            $userId,
-            'refund_approved',
-            "Approved refund request #{$refundId}",
-            null,
-            $refund['payer_id']
-        );
+        $userModel = new \App\Models\UserModel();
+        $admin = $userModel->find($userId);
+        $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+        
+        // Get updated refund data
+        $updatedRefund = $refundModel->find($refundId);
+        if ($updatedRefund) {
+            $activityLogger->logRefund('approved', $updatedRefund, $adminName);
+        }
 
         return $this->response->setJSON([
             'success' => true,
@@ -855,15 +736,18 @@ class RefundsController extends BaseController
             $this->request->getPost('refund_reference')
         );
 
-        // Log activity
+        // Log activity with admin name
         $activityLogger = new ActivityLogger();
-        $activityLogger->logActivity(
-            $userId,
-            'refund_completed',
-            "Completed refund #{$refund['id']} of ₱" . number_format((float)$refund['refund_amount'], 2),
-            null,
-            $refund['payer_id']
-        );
+        $userModel = new \App\Models\UserModel();
+        $admin = $userModel->find($userId);
+        $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+        
+        // Get updated refund data
+        $refundModel = new RefundModel();
+        $updatedRefund = $refundModel->find($this->request->getPost('refund_id'));
+        if ($updatedRefund) {
+            $activityLogger->logRefund('completed', $updatedRefund, $adminName);
+        }
 
         return $this->response->setJSON([
             'success' => true,
@@ -906,15 +790,17 @@ class RefundsController extends BaseController
 
         $refundModel->rejectRequest($refundId, $userId, $adminNotes);
 
-        // Log activity
+        // Log activity with admin name
         $activityLogger = new ActivityLogger();
-        $activityLogger->logActivity(
-            $userId,
-            'refund_rejected',
-            "Rejected refund request #{$refundId}",
-            null,
-            $refund['payer_id']
-        );
+        $userModel = new \App\Models\UserModel();
+        $admin = $userModel->find($userId);
+        $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+        
+        // Get updated refund data
+        $updatedRefund = $refundModel->find($refundId);
+        if ($updatedRefund) {
+            $activityLogger->logRefund('rejected', $updatedRefund, $adminName);
+        }
 
         return $this->response->setJSON([
             'success' => true,

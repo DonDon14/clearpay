@@ -130,7 +130,8 @@ class RefundModel extends Model
             payers.profile_picture,
             contributions.title as contribution_title,
             contributions.description as contribution_description,
-            users.username as processed_by_name
+            users.username as processed_by_username,
+            users.name as processed_by_name
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('payers', 'payers.id = refunds.payer_id', 'left')
@@ -179,7 +180,8 @@ class RefundModel extends Model
             payers.email_address,
             payers.profile_picture,
             contributions.title as contribution_title,
-            users.username as processed_by_name
+            users.username as processed_by_username,
+            users.name as processed_by_name
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('payers', 'payers.id = refunds.payer_id', 'left')

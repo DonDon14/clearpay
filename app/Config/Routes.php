@@ -79,7 +79,8 @@ $routes->post('/admin/delete-payment-request', 'Admin\DashboardController::delet
 $routes->get('/refunds', 'Admin\RefundsController::index', ['filter' => 'auth']);
 $routes->post('/admin/refunds/process', 'Admin\RefundsController::processRefund', ['filter' => 'auth']);
 $routes->get('/admin/refunds/get-payment-details', 'Admin\RefundsController::getPaymentDetails', ['filter' => 'auth']);
-$routes->get('/admin/refunds/get-payment-group-details', 'Admin\RefundsController::getPaymentGroupDetails', ['filter' => 'auth']);
+    $routes->get('/admin/refunds/get-payment-groups', 'Admin\RefundsController::getPaymentGroups', ['filter' => 'auth']);
+    $routes->get('/admin/refunds/get-payment-group-details', 'Admin\RefundsController::getPaymentGroupDetails', ['filter' => 'auth']);
 $routes->post('/admin/refunds/approve', 'Admin\RefundsController::approveRequest', ['filter' => 'auth']);
 $routes->post('/admin/refunds/complete', 'Admin\RefundsController::completeRefund', ['filter' => 'auth']);
 $routes->post('/admin/refunds/reject', 'Admin\RefundsController::rejectRequest', ['filter' => 'auth']);

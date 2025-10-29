@@ -494,6 +494,32 @@ $(document).ready(function() {
 
         // Display each payment group
         paymentGroups.forEach((group, groupIndex) => {
+            // Calculate total refunded for the group
+            let groupTotalRefunded = 0;
+            let hasRefunds = false;
+            let allFullyRefunded = true;
+            
+            if (group.payments && group.payments.length > 0) {
+                group.payments.forEach(payment => {
+                    const totalRefunded = parseFloat(payment.total_refunded || 0);
+                    if (totalRefunded > 0) {
+                        hasRefunds = true;
+                        groupTotalRefunded += totalRefunded;
+                    }
+                    if (payment.refund_status !== 'fully_refunded') {
+                        allFullyRefunded = false;
+                    }
+                });
+            }
+            
+            // Add refund status badge to group header
+            let groupRefundBadge = '';
+            if (allFullyRefunded && hasRefunds) {
+                groupRefundBadge = '<span class="badge bg-danger ms-2">All Fully Refunded</span>';
+            } else if (hasRefunds) {
+                groupRefundBadge = `<span class="badge bg-warning text-dark ms-2">₱${groupTotalRefunded.toFixed(2)} Refunded</span>`;
+            }
+            
             html += `
                 <div class="card mb-3">
                     <div class="card-header bg-light">
@@ -502,6 +528,7 @@ $(document).ready(function() {
                             Payment Group ${group.sequence}
                             <span class="badge bg-primary ms-2">${group.payment_count} payment${group.payment_count > 1 ? 's' : ''}</span>
                             <span class="badge bg-success ms-1">₱${parseFloat(group.total_amount).toFixed(2)} total</span>
+                            ${groupRefundBadge}
                         </h6>
                     </div>
                     <div class="card-body p-0">
@@ -511,6 +538,7 @@ $(document).ready(function() {
                                     <tr>
                                         <th>Payment Date</th>
                                         <th>Amount</th>
+                                        <th>Refund Status</th>
                                         <th>Method</th>
                                         <th>Reference</th>
                                         <th>Receipt</th>
@@ -523,10 +551,21 @@ $(document).ready(function() {
 
             group.payments.forEach(payment => {
                 const statusBadge = getStatusBadge(payment.payment_status);
+                const refundStatus = payment.refund_status || 'no_refund';
+                const totalRefunded = parseFloat(payment.total_refunded || 0);
+                
                 html += `
                     <tr class="payment-item-row" data-payment-id="${payment.id}" style="cursor: pointer;">
                         <td>${formatDate(payment.payment_date)}</td>
                         <td class="fw-bold text-success">₱${parseFloat(payment.amount_paid).toFixed(2)}</td>
+                        <td>
+                            ${refundStatus === 'fully_refunded' ? 
+                                '<span class="badge bg-danger">Fully Refunded</span>' : 
+                                refundStatus === 'partially_refunded' ? 
+                                `<span class="badge bg-warning text-dark">Partially Refunded<br><small>₱${totalRefunded.toFixed(2)} of ₱${parseFloat(payment.amount_paid).toFixed(2)}</small></span>` :
+                                '<span class="badge bg-success">No Refund</span>'
+                            }
+                        </td>
                         <td>${formatPaymentMethod(payment.payment_method)}</td>
                         <td>${payment.reference_number || 'N/A'}</td>
                         <td>${payment.receipt_number || 'N/A'}</td>

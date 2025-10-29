@@ -257,6 +257,10 @@
                                                 'delete' => 'fa-trash',
                                                 'login' => 'fa-sign-in-alt',
                                                 'logout' => 'fa-sign-out-alt',
+                                                'refund_processed' => 'fa-undo',
+                                                'refund_approved' => 'fa-check-circle',
+                                                'refund_rejected' => 'fa-times-circle',
+                                                'refund_completed' => 'fa-check-double',
                                                 default => 'fa-circle'
                                             };
                                             $activityColor = match($activity['activity_type']) {
@@ -265,6 +269,8 @@
                                                 'delete' => 'bg-danger',
                                                 'login' => 'bg-primary',
                                                 'logout' => 'bg-secondary',
+                                                'refund_processed', 'refund_approved', 'refund_completed' => 'bg-warning',
+                                                'refund_rejected' => 'bg-danger',
                                                 default => 'bg-secondary'
                                             };
                                         ?>

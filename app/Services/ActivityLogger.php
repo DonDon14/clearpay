@@ -141,6 +141,52 @@ class ActivityLogger
     }
 
     /**
+     * Log refund activity
+     */
+    public function logRefund($action, $refund, $adminName = null)
+    {
+        $userId = session('user-id') ?? 1;
+        $payerId = $refund['payer_id'] ?? null;
+        
+        // Get admin name if not provided
+        if (!$adminName && $userId) {
+            $userModel = new \App\Models\UserModel();
+            $admin = $userModel->find($userId);
+            $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+        }
+        
+        $data = [
+            'activity_type' => 'refund',
+            'entity_type' => 'refund',
+            'entity_id' => $refund['id'] ?? null,
+            'action' => $action,
+            'title' => $this->getRefundTitle($action, $refund, $adminName),
+            'description' => $this->getRefundDescription($action, $refund, $adminName),
+            'old_values' => null,
+            'new_values' => json_encode($refund),
+            'user_id' => $userId,
+            'user_type' => 'admin',
+            'payer_id' => $payerId,
+            'target_audience' => 'payers',
+            'is_read' => 0
+        ];
+
+        // Log to activity_logs table
+        $this->activityLogModel->logActivity($data);
+        
+        // Also log to user_activities table for dashboard display
+        $this->logActivity(
+            'refund_' . $action,
+            'refund',
+            $refund['id'] ?? null,
+            $this->getRefundDescription($action, $refund, $adminName),
+            $payerId
+        );
+
+        return true;
+    }
+
+    /**
      * Generic activity logging method
      */
     public function logActivity($action, $entityType, $entityId, $description, $payerId = null)
@@ -392,6 +438,43 @@ class ActivityLogger
                 return "Payment request for ₱{$amount} has been processed and payment recorded.";
             default:
                 return "Payment request for ₱{$amount} has been {$action}.";
+        }
+    }
+
+    private function getRefundTitle($action, $refund, $adminName)
+    {
+        $amount = number_format($refund['refund_amount'], 2);
+        
+        switch ($action) {
+            case 'processed':
+                return "Refund Processed: ₱{$amount}";
+            case 'approved':
+                return "Refund Approved: ₱{$amount}";
+            case 'rejected':
+                return "Refund Rejected: ₱{$amount}";
+            case 'completed':
+                return "Refund Completed: ₱{$amount}";
+            default:
+                return "Refund {$action}: ₱{$amount}";
+        }
+    }
+
+    private function getRefundDescription($action, $refund, $adminName)
+    {
+        $amount = number_format($refund['refund_amount'], 2);
+        
+        switch ($action) {
+            case 'processed':
+                return "Refund of ₱{$amount} has been processed by {$adminName}.";
+            case 'approved':
+                return "Refund request for ₱{$amount} has been approved by {$adminName}.";
+            case 'rejected':
+                $reason = $refund['admin_notes'] ? " Reason: {$refund['admin_notes']}" : "";
+                return "Refund request for ₱{$amount} has been rejected by {$adminName}.{$reason}";
+            case 'completed':
+                return "Refund of ₱{$amount} has been completed by {$adminName}.";
+            default:
+                return "Refund of ₱{$amount} has been {$action} by {$adminName}.";
         }
     }
 }

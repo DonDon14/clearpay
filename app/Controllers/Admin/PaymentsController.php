@@ -90,6 +90,37 @@ class PaymentsController extends BaseController
             $paymentModel = new PaymentModel();
             $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
 
+            // Add refund information for each payment
+            $refundModel = new \App\Models\RefundModel();
+            foreach ($payments as &$group) {
+                if (isset($group['payments']) && is_array($group['payments'])) {
+                    foreach ($group['payments'] as &$payment) {
+                        // Get refunds for this payment
+                        $refunds = $refundModel
+                            ->where('payment_id', $payment['id'])
+                            ->where('status', 'completed')
+                            ->findAll();
+                        
+                        $totalRefunded = 0;
+                        foreach ($refunds as $refund) {
+                            $totalRefunded += (float)$refund['refund_amount'];
+                        }
+                        
+                        $payment['total_refunded'] = $totalRefunded;
+                        $payment['available_for_refund'] = (float)$payment['amount_paid'] - $totalRefunded;
+                        
+                        // Determine refund status
+                        if ($totalRefunded >= (float)$payment['amount_paid']) {
+                            $payment['refund_status'] = 'fully_refunded';
+                        } elseif ($totalRefunded > 0) {
+                            $payment['refund_status'] = 'partially_refunded';
+                        } else {
+                            $payment['refund_status'] = 'no_refund';
+                        }
+                    }
+                }
+            }
+
             return $this->response->setJSON([
                 'success' => true,
                 'payments' => $payments
