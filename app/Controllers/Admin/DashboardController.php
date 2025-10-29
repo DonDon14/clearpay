@@ -448,21 +448,8 @@ class DashboardController extends BaseController
                 ]);
             }
 
-            // Create actual payment record
-            $paymentModel = new PaymentModel();
-            $paymentData = [
-                'payer_id' => $request['payer_id'],
-                'contribution_id' => $request['contribution_id'],
-                'amount_paid' => $request['requested_amount'],
-                'payment_method' => $request['payment_method'],
-                'payment_status' => 'fully paid',
-                'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId), 0, 12)),
-                'receipt_number' => 'RCPT-' . date('Ymd') . '-' . strtoupper(substr(md5($requestId . time()), 0, 12)),
-                'payment_date' => date('Y-m-d H:i:s'),
-                'recorded_by' => $processedBy
-            ];
-
-            $paymentId = $paymentModel->insert($paymentData);
+            // Create actual payment record using proper grouping logic (same as approve)
+            $paymentId = $this->createPaymentFromRequest($request, $processedBy);
             
             if ($paymentId) {
                 // Mark payment request as processed
@@ -471,6 +458,14 @@ class DashboardController extends BaseController
                 // Log activity for payer notification (using ActivityLogger)
                 $activityLogger = new ActivityLogger();
                 $activityLogger->logPaymentRequest('processed', $request);
+                
+                // Get the payment record to get the receipt number
+                $paymentModel = new PaymentModel();
+                $paymentRecord = $paymentModel->find($paymentId);
+                $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
+                
+                // Log activity for admin dashboard (user_activities table)
+                $this->logUserActivity('processed', 'payment_request', $requestId, "Payment request processed and payment recorded (Receipt Number: {$receiptNumber})");
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -628,56 +623,36 @@ class DashboardController extends BaseController
             ->where('deleted_at', null)
             ->findAll();
         
-        // Calculate cumulative total including this new payment
-        $existingTotalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
-        $newTotalPaid = $existingTotalPaid + $amountPaid;
+        // Determine payment sequence
+        $paymentSequence = null;
         
-        // Determine payment sequence - use from request if provided, otherwise follow grouping logic
-        $paymentSequence = 1;
-        
-        // If payment request has a specific payment_sequence, use it
-        if (!empty($request['payment_sequence'])) {
-            $paymentSequence = $request['payment_sequence'];
-        } else if (!empty($existingPayments)) {
-            // Group payments by sequence to find active partial groups
-            $paymentGroups = [];
-            foreach ($existingPayments as $payment) {
-                $sequence = $payment['payment_sequence'] ?? 1;
-                if (!isset($paymentGroups[$sequence])) {
-                    $paymentGroups[$sequence] = [];
-                }
-                $paymentGroups[$sequence][] = $payment;
-            }
-            
-            // Check each group to find if there's an active partial group
-            $activePartialGroup = null;
-            foreach ($paymentGroups as $sequence => $groupPayments) {
-                $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
-                
-                // Check if this group is partial (not fully paid)
-                if ($groupTotalPaid < $contributionAmount) {
-                    $activePartialGroup = $sequence;
-                    break; // Found an active partial group
-                }
-            }
-            
-            if ($activePartialGroup !== null) {
-                // Add to the existing partial group
-                $paymentSequence = $activePartialGroup;
-            } else {
-                // No active partial group, create new group
-                $paymentSequence = $this->getNextPaymentSequence($request['payer_id'], $request['contribution_id']);
-            }
+        // If payment request explicitly has a payment_sequence, use it (payer intended to add to existing group)
+        if (!empty($request['payment_sequence']) && is_numeric($request['payment_sequence'])) {
+            $paymentSequence = (int) $request['payment_sequence'];
+        } else {
+            // No payment_sequence specified means this is a NEW payment cycle/group
+            // Create a new payment sequence (next available sequence number)
+            $paymentSequence = $this->getNextPaymentSequence($request['payer_id'], $request['contribution_id']);
         }
         
-        // Calculate status based on cumulative total
-        if ($newTotalPaid >= $contributionAmount) {
+        // Get existing payments for THIS specific payment_sequence group
+        $groupPayments = array_filter($existingPayments, function($payment) use ($paymentSequence) {
+            $seq = $payment['payment_sequence'] ?? 1;
+            return $seq == $paymentSequence;
+        });
+        
+        // Calculate total paid for THIS specific group (not all payments combined)
+        $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+        $newGroupTotalPaid = $groupTotalPaid + $amountPaid;
+        
+        // Calculate status based on THIS group's total, not all payments combined
+        if ($newGroupTotalPaid >= $contributionAmount) {
             $paymentStatus = 'fully paid';
             $remainingBalance = 0;
             $isPartial = false;
         } else {
             $paymentStatus = 'partial';
-            $remainingBalance = $contributionAmount - $newTotalPaid;
+            $remainingBalance = $contributionAmount - $newGroupTotalPaid;
             $isPartial = true;
         }
         

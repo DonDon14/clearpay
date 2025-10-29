@@ -372,7 +372,13 @@ window.openPaymentRequestModal = function(contribution) {
     
     // Set hidden fields
     document.getElementById('modal_contribution_id').value = contribution.id || '';
-    document.getElementById('modal_payment_sequence').value = contribution.payment_sequence || '1';
+    // Only set payment_sequence if explicitly provided (for adding to existing group)
+    // Otherwise leave it empty/null so backend creates a new payment sequence/group
+    if (contribution.payment_sequence !== undefined && contribution.payment_sequence !== null && contribution.payment_sequence !== '') {
+        document.getElementById('modal_payment_sequence').value = contribution.payment_sequence;
+    } else {
+        document.getElementById('modal_payment_sequence').value = '';
+    }
     
     // Set max amount for input
     const amountInput = document.getElementById('modal_requested_amount');

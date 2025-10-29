@@ -50,8 +50,15 @@
                                                     <div class="fw-bold">₱<?= number_format($contribution['amount'], 2) ?></div>
                                                 </div>
                                                 <div class="col-6">
-                                                    <small class="text-muted">Total Paid</small>
-                                                    <div class="fw-bold text-success">₱<?= number_format($contribution['total_paid'], 2) ?></div>
+                                                    <?php if (empty($contribution['payment_groups']) || count($contribution['payment_groups']) <= 1): ?>
+                                                        <!-- Only show Total Paid if no groups or single group exists -->
+                                                        <small class="text-muted">Total Paid</small>
+                                                        <div class="fw-bold text-success">₱<?= number_format($contribution['total_paid'], 2) ?></div>
+                                                    <?php else: ?>
+                                                        <!-- Show groups count when multiple groups exist -->
+                                                        <small class="text-muted">Payment Groups</small>
+                                                        <div class="fw-bold text-info"><?= count($contribution['payment_groups']) ?> Group<?= count($contribution['payment_groups']) > 1 ? 's' : '' ?></div>
+                                                    <?php endif; ?>
                                                 </div>
                                             </div>
                                             
@@ -122,7 +129,7 @@
                                                        </div>
                                                    <?php endif; ?>
                                             
-                                            <div class="d-flex justify-content-between align-items-center">
+                                            <div class="d-flex justify-content-between align-items-center mt-2">
                                                 <small class="text-muted">
                                                     <i class="fas fa-tag me-1"></i>
                                                     <?= esc($contribution['category'] ?? 'General') ?>
@@ -131,14 +138,6 @@
                                                     <i class="fas fa-clock me-1"></i>
                                                     <?= date('M d, Y', strtotime($contribution['created_at'])) ?>
                                                 </small>
-                                            </div>
-                                            
-                                            <!-- Add Payment Button -->
-                                            <div class="mt-3">
-                                                <button class="btn btn-primary btn-sm w-100 add-payment-btn" 
-                                                        data-contribution='<?= json_encode($contribution) ?>'>
-                                                    <i class="fas fa-plus me-2"></i>Add Payment
-                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -311,6 +310,43 @@
                    toggleBtn.innerHTML = '<i class="fas fa-chevron-down me-1"></i>Show Groups';
                }
            };
+           
+           // Add click event listeners to payment group items
+           document.addEventListener('click', function(e) {
+               const groupItem = e.target.closest('.payment-group-item');
+               if (groupItem) {
+                   e.stopPropagation(); // Prevent triggering parent card click
+                   
+                   const contributionId = groupItem.getAttribute('data-contribution-id');
+                   const paymentSequence = groupItem.getAttribute('data-payment-sequence');
+                   const groupDataStr = groupItem.getAttribute('data-group-data');
+                   
+                   if (contributionId && paymentSequence && groupDataStr) {
+                       try {
+                           const groupData = JSON.parse(groupDataStr);
+                           // Show payment progress modal when clicking on a group
+                           showPaymentProgressModal(contributionId, paymentSequence, groupData);
+                       } catch (error) {
+                           console.error('Error parsing group data:', error);
+                       }
+                   }
+               }
+           });
+           
+           // Make payment group items visually clickable
+           const style = document.createElement('style');
+           style.textContent = `
+               .payment-group-item {
+                   cursor: pointer;
+                   transition: all 0.2s ease;
+               }
+               .payment-group-item:hover {
+                   background-color: #e9ecef !important;
+                   transform: translateX(2px);
+                   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+               }
+           `;
+           document.head.appendChild(style);
            
            // Function to calculate payment status based on total paid vs contribution amount
            function calculatePaymentStatuses() {
@@ -621,22 +657,226 @@
         });
     }
     
-    
-    
-    // Handle Add Payment button clicks
-    document.addEventListener('click', function(e) {
-        const addPaymentBtn = e.target.closest('.add-payment-btn');
-        if (addPaymentBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation(); // Prevent other event listeners from firing
-            
-            const contributionData = JSON.parse(addPaymentBtn.getAttribute('data-contribution'));
-            
-            // Open payment request modal for this contribution
-            openPaymentRequestForContribution(contributionData);
+    // Function to show payment group selection modal
+    function showPaymentGroupSelectionModal(contributionData) {
+        const groups = contributionData.payment_groups || [];
+        const partialGroups = groups.filter(g => g.computed_status !== 'fully paid');
+        
+        let groupsHtml = '';
+        if (partialGroups.length > 0) {
+            groupsHtml = partialGroups.map((group, index) => {
+                const groupId = `group-${contributionData.id}-${group.payment_sequence}-${index}`;
+                // Store group data in window object to avoid JSON escaping issues
+                window[groupId] = {
+                    group: group,
+                    contribution: contributionData,
+                    contributionId: contributionData.id
+                };
+                
+                return `
+                    <div class="card mb-2 payment-group-select-item" 
+                         style="cursor: pointer; transition: all 0.2s;"
+                         data-group-id="${groupId}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Group ${group.payment_sequence} 
+                                        <span class="badge bg-warning ms-1">Partial</span>
+                                    </h6>
+                                    <small class="text-muted">
+                                        ${group.payment_count} payment${group.payment_count > 1 ? 's' : ''} • 
+                                        Remaining: ₱${parseFloat(group.remaining_balance || 0).toFixed(2)}
+                                    </small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold text-success">₱${parseFloat(group.total_paid || 0).toFixed(2)}</div>
+                                    <small class="text-muted">Paid</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            groupsHtml = '<p class="text-muted">All payment groups are fully paid.</p>';
         }
-    }, true); // Use capture phase to catch events early
+        
+        const contributionId = contributionData.id;
+        const contributionDataId = `contribution-${contributionId}`;
+        window[contributionDataId] = contributionData;
+        
+        // Determine if we should allow creating a new group (only if all groups are fully paid)
+        const canCreateNewGroup = partialGroups.length === 0;
+        
+        const modalHtml = `
+            <div class="modal fade" id="paymentGroupSelectionModal" tabindex="-1" aria-labelledby="paymentGroupSelectionModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title" id="paymentGroupSelectionModalLabel">
+                                <i class="fas fa-folder-open me-2"></i>Select Payment Group - ${contributionData.title}
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                ${partialGroups.length > 0 
+                                    ? '<strong>Complete your partial payment groups first</strong> before creating a new group.'
+                                    : '<strong>Select a payment group</strong> to add a payment, or create a new group for this contribution.'
+                                }
+                            </div>
+                            
+                            ${partialGroups.length > 0 ? `
+                                <h6 class="mb-3">Existing Partial Groups:</h6>
+                                <div id="existingGroupsContainer">
+                                    ${groupsHtml}
+                                </div>
+                            ` : `
+                                <div class="alert alert-success mb-3">
+                                    <i class="fas fa-check-circle me-2"></i>
+                                    All existing payment groups are completed. You can now create a new payment group.
+                                </div>
+                                <div id="existingGroupsContainer">
+                                    ${groupsHtml}
+                                </div>
+                            `}
+                            
+                            ${canCreateNewGroup ? `
+                                <hr class="my-4">
+                                
+                                <div class="text-center">
+                                    <button type="button" class="btn btn-outline-primary btn-lg" 
+                                            data-contribution-id="${contributionDataId}">
+                                        <i class="fas fa-plus-circle me-2"></i>Create New Payment Group
+                                    </button>
+                                </div>
+                                
+                                <div class="alert alert-warning mt-3">
+                                    <i class="fas fa-lightbulb me-2"></i>
+                                    <strong>Note:</strong> Each payment group is independent and tracked separately. 
+                                    Creating a new group allows you to make payments for the same contribution type again.
+                                </div>
+                            ` : `
+                                <div class="alert alert-warning mt-3">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>You cannot create a new payment group</strong> while you have partial payment groups. 
+                                    Please complete or pay off the remaining balance in your existing partial groups first.
+                                </div>
+                            `}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('paymentGroupSelectionModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Add click handlers for group selection
+        document.querySelectorAll('.payment-group-select-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const groupId = this.getAttribute('data-group-id');
+                if (window[groupId]) {
+                    const { group, contribution, contributionId } = window[groupId];
+                    selectPaymentGroup(contributionId, group.payment_sequence, group, contribution);
+                }
+            });
+            
+            item.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#f8f9fa';
+                this.style.transform = 'translateX(5px)';
+            });
+            item.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '';
+                this.style.transform = '';
+            });
+        });
+        
+        // Add click handler for create new group button (only if allowed)
+        if (canCreateNewGroup) {
+            const createBtn = document.querySelector(`[data-contribution-id="${contributionDataId}"]`);
+            if (createBtn) {
+                createBtn.addEventListener('click', function() {
+                    createNewPaymentGroup(contributionId, contributionData);
+                });
+            }
+        }
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('paymentGroupSelectionModal'));
+        modal.show();
+        
+        // Clean up modal when hidden
+        document.getElementById('paymentGroupSelectionModal').addEventListener('hidden.bs.modal', function() {
+            // Clean up stored data
+            partialGroups.forEach((group, index) => {
+                const groupId = `group-${contributionId}-${group.payment_sequence}-${index}`;
+                delete window[groupId];
+            });
+            delete window[contributionDataId];
+            this.remove();
+        });
+    }
+    
+    // Function to select a payment group
+    window.selectPaymentGroup = function(contributionId, paymentSequence, groupData, contributionData) {
+        // Close selection modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('paymentGroupSelectionModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Prepare contribution data with payment sequence
+        const modifiedContributionData = {
+            ...contributionData,
+            payment_sequence: paymentSequence,
+            remaining_balance: groupData.remaining_balance || 0,
+            total_paid: groupData.total_paid || 0
+        };
+        
+        // Open payment request modal for this specific group
+        if (typeof window.openPaymentRequestModal === 'function') {
+            window.openPaymentRequestModal(modifiedContributionData);
+        } else {
+            console.error('openPaymentRequestModal function not available');
+            alert('Payment request functionality not available. Please refresh the page.');
+        }
+    };
+    
+    // Function to create new payment group
+    window.createNewPaymentGroup = function(contributionId, contributionData) {
+        // Close selection modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('paymentGroupSelectionModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Prepare contribution data without payment sequence (will create new group)
+        const modifiedContributionData = {
+            ...contributionData,
+            payment_sequence: null, // No sequence means new group
+            remaining_balance: contributionData.amount || 0, // Reset to full amount for new group
+            total_paid: 0 // Reset for new group
+        };
+        
+        // Open payment request modal for new group
+        if (typeof window.openPaymentRequestModal === 'function') {
+            window.openPaymentRequestModal(modifiedContributionData);
+        } else {
+            console.error('openPaymentRequestModal function not available');
+            alert('Payment request functionality not available. Please refresh the page.');
+        }
+    };
     
     // Function to open payment request modal for a contribution
     function openPaymentRequestForContribution(contributionData) {
