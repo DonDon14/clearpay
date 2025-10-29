@@ -155,7 +155,19 @@
                     const modal = bootstrap.Modal.getInstance(editModal);
                     if (modal) {
                         modal.hide();
+                    } else {
+                        // If no instance, manually close
+                        editModal.classList.remove('show');
+                        editModal.setAttribute('aria-hidden', 'true');
+                        editModal.setAttribute('style', 'display: none');
                     }
+                    
+                    // Clean up backdrop immediately
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
                     
                     // Show success message
                     if (typeof showNotification === 'function') {
@@ -187,11 +199,16 @@
         // Update remaining balance when amount changes
         if (editAmountPaid) {
             editAmountPaid.addEventListener('input', function() {
-                updateEditRemainingBalance();
+                // Try server-based calculation first, fallback to client-side
+                if (typeof updateEditRemainingBalanceFromServer === 'function') {
+                    updateEditRemainingBalanceFromServer();
+                } else {
+                    updateEditRemainingBalance();
+                }
             });
         }
         
-        // Reset form when modal is hidden
+        // Reset form when modal is hidden and clean up backdrop
         editModal.addEventListener('hidden.bs.modal', function() {
             const form = document.getElementById('editPaymentForm');
             if (form) {
@@ -200,6 +217,38 @@
             confirmBtn.disabled = false;
             confirmBtn.innerHTML = '<i class="fas fa-save me-2"></i>Update Payment';
             confirmBtn.dataset.handlersAttached = 'false'; // Reset flag
+            
+            // Clean up any lingering backdrop elements
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+            
+            // Remove modal-open class from body if no modals are open
+            const openModals = document.querySelectorAll('.modal.show');
+            if (openModals.length === 0) {
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+            }
+        });
+        
+        // Handle close button and cancel button to ensure proper cleanup
+        // Use event delegation to catch clicks on close buttons
+        editModal.addEventListener('click', function(e) {
+            const target = e.target.closest('[data-bs-dismiss="modal"], .btn-close');
+            if (target) {
+                // Allow Bootstrap to handle the close, then clean up after a short delay
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    const openModals = document.querySelectorAll('.modal.show');
+                    
+                    if (openModals.length === 0) {
+                        backdrops.forEach(backdrop => backdrop.remove());
+                        document.body.classList.remove('modal-open');
+                        document.body.style.overflow = '';
+                        document.body.style.paddingRight = '';
+                    }
+                }, 150);
+            }
         });
     }
     
@@ -228,10 +277,27 @@
 })();
 
 // Update remaining balance function (global, using vanilla JS)
+// This now calculates based on payment sequence group total, not just this payment
 function updateEditRemainingBalance() {
     const contributionAmount = parseFloat(document.getElementById('editContributionAmount')?.value) || 0;
     const amountPaid = parseFloat(document.getElementById('editAmountPaid')?.value) || 0;
-    const remainingBalance = Math.max(0, contributionAmount - amountPaid);
+    const paymentId = document.getElementById('editPaymentId')?.value;
+    const groupTotalPaid = parseFloat(document.getElementById('editPaymentId')?.dataset.groupTotalPaid) || 0;
+    const currentPaymentAmount = parseFloat(document.getElementById('editPaymentId')?.dataset.currentAmount) || 0;
+    
+    // Get other payments total in the sequence group
+    // If we have group total data, use it; otherwise calculate from scratch
+    let otherPaymentsTotal = 0;
+    if (groupTotalPaid > 0 && currentPaymentAmount > 0) {
+        // Calculate: group total - current payment = other payments total
+        otherPaymentsTotal = groupTotalPaid - currentPaymentAmount;
+    }
+    
+    // New group total = other payments + new amount for this payment
+    const newGroupTotal = otherPaymentsTotal + amountPaid;
+    
+    // Remaining balance = contribution amount - new group total
+    const remainingBalance = Math.max(0, contributionAmount - newGroupTotal);
     
     const remainingBalanceEl = document.getElementById('editRemainingBalance');
     const paymentStatusEl = document.getElementById('editPaymentStatus');
@@ -250,7 +316,59 @@ function updateEditRemainingBalance() {
     }
 }
 
-// Make updateEditRemainingBalance globally available
+// Function to fetch and calculate remaining balance from server for accurate calculation
+async function updateEditRemainingBalanceFromServer() {
+    const paymentId = document.getElementById('editPaymentId')?.value;
+    const amountPaid = parseFloat(document.getElementById('editAmountPaid')?.value) || 0;
+    
+    if (!paymentId) return;
+    
+    try {
+        // Fetch payment details to get group total
+        const response = await fetch(`${window.APP_BASE_URL || ''}/payments/get-details/${paymentId}`);
+        const data = await response.json();
+        
+        if (data.success && data.payment) {
+            const payment = data.payment;
+            const contributionAmount = parseFloat(payment.contribution_amount || 0);
+            
+            // Get group total paid from server data
+            const groupTotalPaid = parseFloat(payment.group_total_paid || 0);
+            const currentPaymentAmount = parseFloat(payment.amount_paid || 0);
+            
+            // Calculate other payments total
+            const otherPaymentsTotal = groupTotalPaid - currentPaymentAmount;
+            
+            // New group total = other payments + new amount
+            const newGroupTotal = otherPaymentsTotal + amountPaid;
+            
+            // Remaining balance = contribution - new group total
+            const remainingBalance = Math.max(0, contributionAmount - newGroupTotal);
+            
+            const remainingBalanceEl = document.getElementById('editRemainingBalance');
+            const paymentStatusEl = document.getElementById('editPaymentStatus');
+            
+            if (remainingBalanceEl) {
+                remainingBalanceEl.value = remainingBalance.toFixed(2);
+            }
+            
+            if (paymentStatusEl) {
+                if (remainingBalance <= 0.01) {
+                    paymentStatusEl.value = 'fully paid';
+                } else {
+                    paymentStatusEl.value = 'partial';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching payment group data:', error);
+        // Fallback to simple calculation if server call fails
+        updateEditRemainingBalance();
+    }
+}
+
+// Make functions globally available
 window.updateEditRemainingBalance = updateEditRemainingBalance;
+window.updateEditRemainingBalanceFromServer = updateEditRemainingBalanceFromServer;
 </script>
 

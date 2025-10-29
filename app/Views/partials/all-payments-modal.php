@@ -470,7 +470,14 @@ function openEditPaymentModal(payment) {
     const editPaymentStatus = document.getElementById('editPaymentStatus');
     const editPaymentDate = document.getElementById('editPaymentDate');
     
-    if (editPaymentId) editPaymentId.value = payment.id || '';
+    if (editPaymentId) {
+        editPaymentId.value = payment.id || '';
+        // Store group total and current amount for calculation
+        if (payment.group_total_paid !== undefined) {
+            editPaymentId.dataset.groupTotalPaid = payment.group_total_paid || 0;
+        }
+        editPaymentId.dataset.currentAmount = payment.amount_paid || 0;
+    }
     if (editPayerName) editPayerName.value = payment.payer_name || '';
     if (editContribution) editContribution.value = payment.contribution_title || '';
     if (editAmountPaid) editAmountPaid.value = parseFloat(payment.amount_paid || 0).toFixed(2);
@@ -487,8 +494,14 @@ function openEditPaymentModal(payment) {
         editPaymentDate.value = formattedDate;
     }
     
-    // Calculate remaining balance
-    if (typeof updateEditRemainingBalance === 'function') {
+    // Calculate remaining balance using server data if available
+    if (payment.group_total_paid !== undefined && typeof updateEditRemainingBalanceFromServer === 'function') {
+        // Use server data for accurate calculation
+        setTimeout(() => {
+            updateEditRemainingBalanceFromServer();
+        }, 100);
+    } else if (typeof updateEditRemainingBalance === 'function') {
+        // Fallback to client-side calculation
         updateEditRemainingBalance();
     }
     
@@ -498,17 +511,55 @@ function openEditPaymentModal(payment) {
         confirmBtn.dataset.handlersAttached = 'false'; // Reset to allow re-attachment
     }
     
+    // Check if there's an existing modal instance and dispose it first
+    const existingModal = bootstrap.Modal.getInstance(editModal);
+    if (existingModal) {
+        existingModal.dispose();
+    }
+    
     // Show modal using Bootstrap
-    const modal = new bootstrap.Modal(editModal);
+    const modal = new bootstrap.Modal(editModal, {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+    });
     modal.show();
     
-    // Re-initialize handlers after modal is shown
+    // Re-initialize handlers after modal is shown and recalculate remaining balance
     setTimeout(() => {
-        const initScript = editModal.querySelector('script');
-        if (initScript && typeof window.updateEditRemainingBalance === 'function') {
+        // Recalculate remaining balance based on group total
+        if (payment.group_total_paid !== undefined && typeof window.updateEditRemainingBalanceFromServer === 'function') {
+            window.updateEditRemainingBalanceFromServer();
+        } else if (typeof window.updateEditRemainingBalance === 'function') {
             window.updateEditRemainingBalance();
         }
     }, 200);
+    
+    // Add cleanup listener when this modal is hidden
+    editModal.addEventListener('hidden.bs.modal', function cleanupBackdrop() {
+        // Clean up any lingering backdrop elements (but keep parent modal backdrop if it exists)
+        const allBackdrops = document.querySelectorAll('.modal-backdrop');
+        const openModals = document.querySelectorAll('.modal.show');
+        
+        // If no modals are open, remove all backdrops
+        if (openModals.length === 0) {
+            allBackdrops.forEach(backdrop => backdrop.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        } else if (openModals.length === 1 && !openModals[0].isSameNode(editModal)) {
+            // If only one other modal is open, ensure only one backdrop exists
+            if (allBackdrops.length > 1) {
+                // Keep the first backdrop, remove extras
+                for (let i = 1; i < allBackdrops.length; i++) {
+                    allBackdrops[i].remove();
+                }
+            }
+        }
+        
+        // Remove this listener after cleanup
+        editModal.removeEventListener('hidden.bs.modal', cleanupBackdrop);
+    }, { once: true });
 }
 
 // Update remaining balance when amount changes (for edit modal)

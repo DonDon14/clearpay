@@ -319,15 +319,43 @@ class DashboardController extends BaseController
             $paymentId = $this->createPaymentFromRequest($request, $processedBy);
             
             if ($paymentId) {
-                // Get the payment record to get the receipt number
+                // Get the payment record with full details
                 $paymentModel = new PaymentModel();
-                $paymentRecord = $paymentModel->find($paymentId);
+                $paymentRecord = $paymentModel->select('
+                    payments.*,
+                    payers.payer_name,
+                    contributions.title as contribution_title
+                ')
+                ->join('payers', 'payers.id = payments.payer_id', 'left')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->find($paymentId);
+                
                 $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
                 
                 // Get payer information for activity log
                 $payerModel = new \App\Models\PayerModel();
                 $payer = $payerModel->find($request['payer_id']);
-                $payerName = $payer ? $payer['payer_name'] : 'Unknown Payer';
+                $payerName = $payer ? $payer['payer_name'] : ($paymentRecord['payer_name'] ?? 'Unknown Payer');
+                $contributionTitle = $paymentRecord['contribution_title'] ?? 'Unknown Contribution';
+                
+                // Check if payment was added to a partially paid contribution
+                $wasAddedToPartialGroup = false;
+                if ($paymentRecord && $paymentRecord['payment_status'] === 'partial' && !empty($paymentRecord['payment_sequence'])) {
+                    // Check if there were existing payments in this group BEFORE this one was added
+                    // Exclude the newly inserted payment to get accurate count
+                    $existingGroupPaymentsCount = $paymentModel
+                        ->where('payer_id', $request['payer_id'])
+                        ->where('contribution_id', $request['contribution_id'])
+                        ->where('payment_sequence', $paymentRecord['payment_sequence'])
+                        ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
+                        ->where('deleted_at', null)
+                        ->countAllResults(false);
+                    
+                    // If there were existing payments in this group before this one was added
+                    if ($existingGroupPaymentsCount > 0) {
+                        $wasAddedToPartialGroup = true;
+                    }
+                }
                 
                 // Mark payment request as approved
                 $result = $paymentRequestModel->approveRequest($requestId, $processedBy, $adminNotes);
@@ -339,6 +367,12 @@ class DashboardController extends BaseController
                     
                     // Log activity for admin dashboard (user_activities table)
                     $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved for {$payerName} - Receipt: {$receiptNumber}");
+                    
+                    // Log if payment was added to partially paid contribution
+                    if ($wasAddedToPartialGroup) {
+                        $description = "Payment added to partially paid contribution for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
+                        $this->logUserActivity('create', 'payment', $paymentId, $description);
+                    }
                     
                     return $this->response->setJSON([
                         'success' => true,
@@ -466,6 +500,44 @@ class DashboardController extends BaseController
             $paymentId = $this->createPaymentFromRequest($request, $processedBy);
             
             if ($paymentId) {
+                // Get the payment record with full details
+                $paymentModel = new PaymentModel();
+                $paymentRecord = $paymentModel->select('
+                    payments.*,
+                    payers.payer_name,
+                    contributions.title as contribution_title
+                ')
+                ->join('payers', 'payers.id = payments.payer_id', 'left')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->find($paymentId);
+                
+                $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
+                
+                // Get payer information for activity log
+                $payerModel = new \App\Models\PayerModel();
+                $payer = $payerModel->find($request['payer_id']);
+                $payerName = $payer ? $payer['payer_name'] : ($paymentRecord['payer_name'] ?? 'Unknown Payer');
+                $contributionTitle = $paymentRecord['contribution_title'] ?? 'Unknown Contribution';
+                
+                // Check if payment was added to a partially paid contribution
+                $wasAddedToPartialGroup = false;
+                if ($paymentRecord && $paymentRecord['payment_status'] === 'partial' && !empty($paymentRecord['payment_sequence'])) {
+                    // Check if there were existing payments in this group BEFORE this one was added
+                    // Exclude the newly inserted payment to get accurate count
+                    $existingGroupPaymentsCount = $paymentModel
+                        ->where('payer_id', $request['payer_id'])
+                        ->where('contribution_id', $request['contribution_id'])
+                        ->where('payment_sequence', $paymentRecord['payment_sequence'])
+                        ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
+                        ->where('deleted_at', null)
+                        ->countAllResults(false);
+                    
+                    // If there were existing payments in this group before this one was added
+                    if ($existingGroupPaymentsCount > 0) {
+                        $wasAddedToPartialGroup = true;
+                    }
+                }
+                
                 // Mark payment request as processed
                 $paymentRequestModel->processRequest($requestId, $processedBy, $adminNotes);
                 
@@ -473,18 +545,14 @@ class DashboardController extends BaseController
                 $activityLogger = new ActivityLogger();
                 $activityLogger->logPaymentRequest('processed', $request);
                 
-                // Get the payment record to get the receipt number
-                $paymentModel = new PaymentModel();
-                $paymentRecord = $paymentModel->find($paymentId);
-                $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
-                
-                // Get payer information for activity log
-                $payerModel = new \App\Models\PayerModel();
-                $payer = $payerModel->find($request['payer_id']);
-                $payerName = $payer ? $payer['payer_name'] : 'Unknown Payer';
-                
                 // Log activity for admin dashboard (user_activities table)
                 $this->logUserActivity('processed', 'payment_request', $requestId, "Payment request processed for {$payerName} - Receipt: {$receiptNumber}");
+                
+                // Log if payment was added to partially paid contribution
+                if ($wasAddedToPartialGroup) {
+                    $description = "Payment added to partially paid contribution for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
+                    $this->logUserActivity('create', 'payment', $paymentId, $description);
+                }
                 
                 return $this->response->setJSON([
                     'success' => true,

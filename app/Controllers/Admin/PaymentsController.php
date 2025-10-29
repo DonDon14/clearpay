@@ -335,12 +335,36 @@ class PaymentsController extends BaseController
                 // Get the payment ID (for new payments)
                 $paymentId = $id ?: $paymentModel->getInsertID();
                 
+                // Check if this payment was added to an existing partial group
+                // IMPORTANT: We need to check BEFORE the payment is inserted to see if there were existing payments
+                // Since the payment was just inserted, we exclude it from the count
+                $wasAddedToPartialGroup = false;
+                if (!$id && $paymentStatus === 'partial' && !empty($paymentSequence)) {
+                    // Check if there were existing payments in this group BEFORE this one was added
+                    // Exclude the newly inserted payment to get accurate count of pre-existing payments
+                    $existingGroupPaymentsCount = $paymentModel
+                        ->where('payer_id', $payerDbId)
+                        ->where('contribution_id', $this->request->getPost('contribution_id'))
+                        ->where('payment_sequence', $paymentSequence)
+                        ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
+                        ->where('deleted_at', null)
+                        ->countAllResults(false);
+                    
+                    // Log for debugging
+                    log_message('debug', "Payment added check - Payment ID: {$paymentId}, Sequence: {$paymentSequence}, Existing Count: {$existingGroupPaymentsCount}, Status: {$paymentStatus}");
+                    
+                    // If there were existing payments in this group before this one was added
+                    if ($existingGroupPaymentsCount > 0) {
+                        $wasAddedToPartialGroup = true;
+                        log_message('debug', "Payment was added to existing partial group - will log activity");
+                    }
+                }
                 
                 // Consolidate any existing multiple partial groups before processing
                 $this->consolidatePartialGroups($payerDbId, $this->request->getPost('contribution_id'));
                 
                 // If this payment makes the total fully paid, update all previous payments in the same group
-                if (!$isDuplicatePayment && $newTotalPaid >= $contributionAmount) {
+                if (!$isDuplicatePayment && isset($newTotalPaid) && $newTotalPaid >= $contributionAmount) {
                     $this->updatePaymentGroupStatus($payerDbId, $this->request->getPost('contribution_id'), $paymentSequence);
                 }
                 
@@ -356,6 +380,45 @@ class PaymentsController extends BaseController
                     // Create new payment - use the insert result as ID
                     $data['id'] = $result;
                     $activityLogger->logPayment('created', $data);
+                }
+                
+                // Return the full payment data so frontend can show QR receipt
+                $paymentData = $paymentModel->select('
+                    payments.id,
+                    payments.receipt_number,
+                    payments.payment_date,
+                    payments.amount_paid,
+                    payments.payment_method,
+                    payments.payment_status,
+                    payers.payer_id,
+                    payers.payer_name,
+                    payers.contact_number,
+                    payers.email_address,
+                    contributions.title as contribution_title
+                ')
+                ->join('payers', 'payers.id = payments.payer_id', 'left')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->find($paymentId);
+                
+                // Log to user_activities table if payment was added to partial group
+                if (!$id && $wasAddedToPartialGroup && $paymentData) {
+                    $payerName = $paymentData['payer_name'] ?? 'Unknown Payer';
+                    $receiptNumber = $paymentData['receipt_number'] ?? $receiptNumber ?? 'N/A';
+                    $contributionTitle = $paymentData['contribution_title'] ?? $contribution['title'] ?? 'Unknown Contribution';
+                    
+                    $description = "Payment added to partially paid contribution for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
+                    
+                    log_message('debug', "Logging payment added to partial group - Payer: {$payerName}, Receipt: {$receiptNumber}");
+                    
+                    $result = $this->logUserActivity('create', 'payment', $paymentId, $description);
+                    
+                    if (!$result) {
+                        log_message('error', "Failed to log payment added to partial group activity");
+                    } else {
+                        log_message('debug', "Successfully logged payment added to partial group activity");
+                    }
+                } else {
+                    log_message('debug', "Payment added check conditions - id: " . ($id ? 'true' : 'false') . ", wasAddedToPartialGroup: " . ($wasAddedToPartialGroup ? 'true' : 'false') . ", paymentData exists: " . ($paymentData ? 'true' : 'false'));
                 }
                 
                 // Generate QR receipt for new payments (disabled temporarily)
@@ -381,24 +444,6 @@ class PaymentsController extends BaseController
                 // }
                 
                 session()->setFlashdata('success', $message);
-                
-                // Return the full payment data so frontend can show QR receipt
-                $paymentData = $paymentModel->select('
-                    payments.id,
-                    payments.receipt_number,
-                    payments.payment_date,
-                    payments.amount_paid,
-                    payments.payment_method,
-                    payments.payment_status,
-                    payers.payer_id,
-                    payers.payer_name,
-                    payers.contact_number,
-                    payers.email_address,
-                    contributions.title as contribution_title
-                ')
-                ->join('payers', 'payers.id = payments.payer_id', 'left')
-                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
-                ->find($paymentId);
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -751,6 +796,31 @@ class PaymentsController extends BaseController
                 ]);
             }
 
+            // Get contribution details and payment sequence for correct calculation
+            $contributionModel = new \App\Models\ContributionModel();
+            $contribution = $contributionModel->find($contributionId);
+            $contributionAmount = $contribution ? (float) $contribution['amount'] : 0;
+            
+            // Get the payment's sequence to calculate based on the group total
+            $paymentSequence = $payment['payment_sequence'] ?? 1;
+            $payerId = $payment['payer_id'];
+            
+            // Get all payments in this sequence group (excluding the one being edited)
+            $groupPayments = $paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contributionId)
+                ->where('payment_sequence', $paymentSequence)
+                ->where('payments.id !=', $paymentId) // Exclude the payment being edited
+                ->where('deleted_at', null)
+                ->findAll();
+            
+            // Calculate total paid in the group (other payments + new amount for this payment)
+            $otherPaymentsTotal = array_sum(array_column($groupPayments, 'amount_paid'));
+            $newGroupTotal = $otherPaymentsTotal + (float) $amountPaid;
+            
+            // Calculate remaining balance based on group total, not individual payment
+            $calculatedRemainingBalance = max(0, $contributionAmount - $newGroupTotal);
+            
             // Update payment data
             $updateData = [
                 'contribution_id' => (int) $contributionId,
@@ -760,24 +830,97 @@ class PaymentsController extends BaseController
                 'updated_at' => date('Y-m-d H:i:s')
             ];
 
-            // Handle partial payment status
-            $isPartialValue = ($isPartial == '1' || $isPartial === 1 || $isPartial === true);
-            $remainingBalanceValue = (float) $remainingBalance;
-            
-            if ($isPartialValue && $remainingBalanceValue > 0) {
+            // Determine payment status based on calculated remaining balance
+            if ($calculatedRemainingBalance > 0.01) {
+                // Still partial payment
                 $updateData['payment_status'] = 'partial';
                 $updateData['is_partial_payment'] = 1;
-                $updateData['remaining_balance'] = $remainingBalanceValue;
+                $updateData['remaining_balance'] = $calculatedRemainingBalance;
             } else {
+                // Fully paid
                 $updateData['payment_status'] = 'fully paid';
                 $updateData['is_partial_payment'] = 0;
                 $updateData['remaining_balance'] = 0;
             }
 
+            // Store old payment data for logging
+            $oldPaymentData = $payment;
+            
             // Update the payment (skip validation to avoid issues)
             $updated = $paymentModel->skipValidation()->update($paymentId, $updateData);
 
             if ($updated) {
+                // Fetch updated payment with payer and contribution details for logging
+                $updatedPayment = $paymentModel->select('
+                    payments.id,
+                    payments.receipt_number,
+                    payments.amount_paid,
+                    payments.payment_method,
+                    payments.payment_status,
+                    payments.payment_date,
+                    payments.remaining_balance,
+                    payers.payer_name,
+                    payers.payer_id as payer_id_number,
+                    contributions.title as contribution_title
+                ')
+                ->join('payers', 'payers.id = payments.payer_id', 'left')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->find($paymentId);
+                
+                // Log activity to user_activities table
+                if ($updatedPayment) {
+                    $payerName = $updatedPayment['payer_name'] ?? 'Unknown Payer';
+                    $receiptNumber = $updatedPayment['receipt_number'] ?? 'N/A';
+                    
+                    // Build description with change details
+                    $changes = [];
+                    
+                    // Compare amount_paid (using floating point comparison)
+                    $oldAmount = isset($oldPaymentData['amount_paid']) ? (float) $oldPaymentData['amount_paid'] : 0;
+                    $newAmount = isset($updatedPayment['amount_paid']) ? (float) $updatedPayment['amount_paid'] : 0;
+                    if (abs($oldAmount - $newAmount) > 0.01) {
+                        $changes[] = "Amount: ₱" . number_format($oldAmount, 2) . " → ₱" . number_format($newAmount, 2);
+                    }
+                    
+                    // Compare payment_method
+                    $oldMethod = isset($oldPaymentData['payment_method']) ? trim((string) $oldPaymentData['payment_method']) : '';
+                    $newMethod = isset($updatedPayment['payment_method']) ? trim((string) $updatedPayment['payment_method']) : '';
+                    if ($oldMethod !== $newMethod && !empty($oldMethod) && !empty($newMethod)) {
+                        $changes[] = "Method: {$oldMethod} → {$newMethod}";
+                    }
+                    
+                    // Compare payment_status
+                    $oldStatus = isset($oldPaymentData['payment_status']) ? trim((string) $oldPaymentData['payment_status']) : '';
+                    $newStatus = isset($updatedPayment['payment_status']) ? trim((string) $updatedPayment['payment_status']) : '';
+                    if ($oldStatus !== $newStatus && !empty($oldStatus)) {
+                        $changes[] = "Status: {$oldStatus} → {$newStatus}";
+                    }
+                    
+                    // Compare remaining_balance
+                    $oldRemaining = isset($oldPaymentData['remaining_balance']) ? (float) $oldPaymentData['remaining_balance'] : 0;
+                    $newRemaining = isset($updatedPayment['remaining_balance']) ? (float) $updatedPayment['remaining_balance'] : 0;
+                    if (abs($oldRemaining - $newRemaining) > 0.01) {
+                        $changes[] = "Remaining: ₱" . number_format($oldRemaining, 2) . " → ₱" . number_format($newRemaining, 2);
+                    }
+                    
+                    // Debug logging
+                    log_message('debug', "Payment edit logging - Old: " . json_encode($oldPaymentData) . ", New: " . json_encode($updatedPayment) . ", Changes: " . json_encode($changes));
+                    
+                    $description = "Payment edited for {$payerName} - Receipt: {$receiptNumber}";
+                    if (!empty($changes)) {
+                        $description .= " (" . implode(', ', $changes) . ")";
+                    } else {
+                        // If no specific changes detected, log a general edit message
+                        $description .= " (Payment details updated)";
+                    }
+                    
+                    log_message('debug', "Logging payment edit activity: {$description}");
+                    $logResult = $this->logUserActivity('update', 'payment', $paymentId, $description);
+                    if (!$logResult) {
+                        log_message('error', "Failed to log payment edit activity");
+                    }
+                }
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Payment updated successfully'
@@ -833,8 +976,34 @@ class PaymentsController extends BaseController
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->find($paymentId);
-
+            
+            // Calculate remaining balance based on payment sequence group total
             if ($payment) {
+                $paymentSequence = $payment['payment_sequence'] ?? 1;
+                $payerId = $payment['payer_id'];
+                $contributionId = $payment['contribution_id'];
+                $contributionAmount = (float) ($payment['contribution_amount'] ?? 0);
+                
+                // Get all payments in this sequence group
+                $groupPayments = $paymentModel
+                    ->where('payer_id', $payerId)
+                    ->where('contribution_id', $contributionId)
+                    ->where('payment_sequence', $paymentSequence)
+                    ->where('deleted_at', null)
+                    ->findAll();
+                
+                // Calculate total paid in the group
+                $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
+                
+                // Calculate remaining balance for the group
+                $groupRemainingBalance = max(0, $contributionAmount - $groupTotalPaid);
+                
+                // Add this to the payment data for frontend calculation
+                $payment['payment_sequence'] = $paymentSequence;
+                $payment['group_total_paid'] = $groupTotalPaid;
+                $payment['group_remaining_balance'] = $groupRemainingBalance;
+                $payment['other_payments_count'] = count($groupPayments) - 1; // Excluding current payment
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'payment' => $payment
@@ -1814,6 +1983,41 @@ class PaymentsController extends BaseController
                 'success' => false,
                 'message' => 'An error occurred while checking contribution status'
             ]);
+        }
+    }
+
+    /**
+     * Log user activity to user_activities table for admin dashboard
+     */
+    private function logUserActivity($action, $entityType, $entityId, $description)
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            $userId = session()->get('user-id') ?? 1;
+            
+            $data = [
+                'user_id' => $userId,
+                'activity_type' => $action, // Use 'update' for payment edits
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'description' => $description,
+                'ip_address' => $this->request->getIPAddress(),
+                'user_agent' => $this->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            
+            $result = $db->table('user_activities')->insert($data);
+            
+            if (!$result) {
+                log_message('error', 'Failed to insert user activity for payment edit');
+            }
+            
+            return $result;
+        } catch (\Exception $e) {
+            // Log error but don't fail the main operation
+            log_message('error', 'Failed to log user activity: ' . $e->getMessage());
+            return false;
         }
     }
 }
