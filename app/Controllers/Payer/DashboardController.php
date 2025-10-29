@@ -9,6 +9,8 @@ use App\Models\AnnouncementModel;
 use App\Models\ContributionModel;
 use App\Models\ActivityLogModel;
 use App\Models\PaymentRequestModel;
+use App\Models\RefundModel;
+use App\Models\RefundMethodModel;
 
 class DashboardController extends BaseController
 {
@@ -18,6 +20,7 @@ class DashboardController extends BaseController
     protected $contributionModel;
     protected $activityLogModel;
     protected $paymentRequestModel;
+    protected $refundModel;
 
     public function __construct()
     {
@@ -27,6 +30,7 @@ class DashboardController extends BaseController
         $this->contributionModel = new ContributionModel();
         $this->activityLogModel = new ActivityLogModel();
         $this->paymentRequestModel = new PaymentRequestModel();
+        $this->refundModel = new RefundModel();
     }
 
     public function index()
@@ -286,11 +290,16 @@ class DashboardController extends BaseController
             $contributionsWithPayments[$contributionId]['payments'][] = $payment;
         }
         
-        // Calculate total paid for each contribution
+        // Calculate total paid and refund statuses for each contribution
         foreach ($contributionsWithPayments as &$contribution) {
             $totalPaid = 0;
-            foreach ($contribution['payments'] as $payment) {
+            foreach ($contribution['payments'] as &$payment) {
                 $totalPaid += $payment['amount_paid'];
+                
+                // Get refund status for each payment
+                $payment['refund_status'] = $this->paymentModel->getPaymentRefundStatus($payment['id']);
+                $payment['total_refunded'] = $this->paymentModel->getPaymentTotalRefunded($payment['id']);
+                $payment['available_refund'] = (float)$payment['amount_paid'] - (float)$payment['total_refunded'];
             }
             $contribution['total_paid'] = $totalPaid;
             $contribution['remaining_amount'] = $contribution['amount'] - $totalPaid;
@@ -340,6 +349,40 @@ class DashboardController extends BaseController
             ->groupBy('COALESCE(payment_sequence, 1)')
             ->orderBy('payment_sequence', 'ASC')
             ->findAll();
+            
+            // Add refund statuses to payment groups
+            $refundModel = new \App\Models\RefundModel();
+            foreach ($paymentGroups as &$group) {
+                // Get all payments in this group
+                $groupPayments = $this->paymentModel
+                    ->where('payer_id', $payerId)
+                    ->where('contribution_id', $contribution['id'])
+                    ->where('COALESCE(payment_sequence, 1)', $group['payment_sequence'])
+                    ->where('deleted_at', null)
+                    ->findAll();
+                
+                // Calculate total refunded for this group
+                $totalRefunded = 0;
+                foreach ($groupPayments as $payment) {
+                    $refunds = $refundModel
+                        ->selectSum('refund_amount')
+                        ->where('payment_id', $payment['id'])
+                        ->where('status', 'completed')
+                        ->first();
+                    $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
+                }
+                
+                $group['total_refunded'] = $totalRefunded;
+                
+                // Determine refund status for the group
+                if ($totalRefunded >= (float)$group['total_paid']) {
+                    $group['refund_status'] = 'fully_refunded';
+                } elseif ($totalRefunded > 0) {
+                    $group['refund_status'] = 'partially_refunded';
+                } else {
+                    $group['refund_status'] = 'no_refund';
+                }
+            }
             
             $contribution['payment_groups'] = $paymentGroups;
             
@@ -848,5 +891,234 @@ class DashboardController extends BaseController
                 'message' => 'Error: ' . $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Refund requests page
+     */
+    public function refundRequests()
+    {
+        $payerId = session('payer_id');
+        
+        // Get payer's refund requests
+        $refundRequests = $this->refundModel->getRequestsByPayer($payerId);
+        
+        // Get active refund methods for refund request form
+        $refundMethodModel = new RefundMethodModel();
+        $refundMethods = $refundMethodModel->getActiveMethods();
+        
+        // Get payments that can be refunded (completed payments with available refund amount)
+        $payments = $this->paymentModel->select('
+            payments.id,
+            payments.amount_paid,
+            payments.payment_method,
+            payments.receipt_number,
+            payments.payment_date,
+            payments.contribution_id,
+            contributions.title as contribution_title
+        ')
+        ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->where('payments.payer_id', $payerId)
+        ->where('payments.deleted_at', null)
+        ->orderBy('payments.payment_date', 'DESC')
+        ->findAll();
+        
+        // Filter payments that have available refund amount
+        $refundablePayments = [];
+        foreach ($payments as $payment) {
+            $availableAmount = $this->getAvailableRefundAmount($payment['id']);
+            if ($availableAmount > 0) {
+                $payment['available_refund'] = $availableAmount;
+                $payment['refund_status'] = $this->paymentModel->getPaymentRefundStatus($payment['id']);
+                $refundablePayments[] = $payment;
+            }
+        }
+        
+        $data = [
+            'title' => 'Refund Requests',
+            'pageTitle' => 'Refund Requests',
+            'pageSubtitle' => 'Request refunds for your payments',
+            'refundRequests' => $refundRequests,
+            'refundMethods' => $refundMethods,
+            'refundablePayments' => $refundablePayments
+        ];
+        
+        return view('payer/refund-requests', $data);
+    }
+
+    /**
+     * Submit a refund request
+     */
+    public function submitRefundRequest()
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Please log in to submit refund requests'
+            ]);
+        }
+
+        $validation = \Config\Services::validation();
+        
+        // Get valid refund method codes
+        $refundMethodModel = new RefundMethodModel();
+        $validRefundMethods = $refundMethodModel->getActiveMethods();
+        $validRefundMethodCodes = array_column($validRefundMethods, 'code');
+        $validRefundMethodCodes[] = 'original_method'; // Allow original method
+        
+        $validation->setRules([
+            'payment_id' => 'required|integer',
+            'refund_amount' => 'required|decimal|greater_than[0]',
+            'refund_method' => 'required',
+            'refund_reason' => 'permit_empty|string|max_length[500]'
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validation->getErrors()
+            ]);
+        }
+
+        try {
+            $paymentId = $this->request->getPost('payment_id');
+            $refundAmount = (float)$this->request->getPost('refund_amount');
+            $refundMethod = $this->request->getPost('refund_method');
+            $refundReason = $this->request->getPost('refund_reason');
+            
+            // Validate refund method
+            if (!in_array($refundMethod, $validRefundMethodCodes)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid refund method selected'
+                ]);
+            }
+
+            // Get payment details
+            $payment = $this->paymentModel
+                ->select('payments.*, contributions.id as contribution_id')
+                ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->where('payments.id', $paymentId)
+                ->where('payments.payer_id', $payerId)
+                ->where('payments.deleted_at', null)
+                ->first();
+
+            if (!$payment) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment not found'
+                ]);
+            }
+
+            // Check available refund amount
+            $availableAmount = $this->getAvailableRefundAmount($paymentId);
+            
+            if ($refundAmount > $availableAmount) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => "Refund amount cannot exceed available amount (₱" . number_format($availableAmount, 2) . ")"
+                ]);
+            }
+
+            // Check for existing pending or processing refunds
+            $existingRefund = $this->refundModel
+                ->where('payment_id', $paymentId)
+                ->whereIn('status', ['pending', 'processing'])
+                ->first();
+
+            if ($existingRefund) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'This payment already has a pending or processing refund request'
+                ]);
+            }
+
+            // Determine final refund method
+            $finalRefundMethod = $refundMethod;
+            if ($refundMethod === 'original_method') {
+                $paymentMethod = $payment['payment_method'] ?? 'cash';
+                $methodMapping = [
+                    'cash' => 'cash',
+                    'online' => 'bank_transfer',
+                    'bank' => 'bank_transfer',
+                    'check' => 'bank_transfer',
+                    'bank_transfer' => 'bank_transfer',
+                    'gcash' => 'gcash',
+                    'paymaya' => 'paymaya'
+                ];
+                $finalRefundMethod = $methodMapping[$paymentMethod] ?? 'cash';
+            }
+
+            // Create refund request
+            $refundData = [
+                'payment_id' => $paymentId,
+                'payer_id' => $payerId,
+                'contribution_id' => $payment['contribution_id'],
+                'refund_amount' => round($refundAmount, 2),
+                'refund_reason' => $refundReason ?: null,
+                'refund_method' => $finalRefundMethod,
+                'status' => 'pending',
+                'request_type' => 'payer_requested',
+                'requested_by_payer' => 1,
+                'payer_notes' => $refundReason ?: null
+            ];
+
+            $refundId = $this->refundModel->insert($refundData);
+
+            if ($refundId) {
+                // Log activity
+                $activityLogger = new \App\Services\ActivityLogger();
+                $refundData['id'] = $refundId;
+                $activityLogger->logRefund('requested', $refundData);
+
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Refund request submitted successfully! Reference: ' . ($refundData['refund_reference'] ?? 'REF-' . date('Ymd') . '-' . strtoupper(substr(md5($refundId), 0, 12))),
+                    'refund_id' => $refundId
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to submit refund request. Please try again.'
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            log_message('error', 'Refund request error: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get available refund amount for a payment
+     */
+    private function getAvailableRefundAmount($paymentId)
+    {
+        $payment = $this->paymentModel->find($paymentId);
+        if (!$payment) {
+            return 0;
+        }
+
+        $totalRefunded = $this->refundModel
+            ->selectSum('refund_amount')
+            ->where('payment_id', $paymentId)
+            ->where('status', 'completed')
+            ->first();
+
+        $refundedAmount = $totalRefunded['refund_amount'] ?? 0;
+        return (float)$payment['amount_paid'] - (float)$refundedAmount;
     }
 }

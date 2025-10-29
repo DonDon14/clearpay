@@ -633,7 +633,8 @@ class RefundsController extends BaseController
     }
 
     /**
-     * Approve a refund request from payer
+     * Approve and complete a refund request from payer
+     * When admin approves, it automatically processes and completes the refund
      */
     public function approveRequest()
     {
@@ -671,8 +672,11 @@ class RefundsController extends BaseController
 
         $userId = session()->get('user-id');
         $adminNotes = $this->request->getPost('admin_notes');
+        $refundReference = $this->request->getPost('refund_reference');
 
-        $refundModel->approveRequest($refundId, $userId, $adminNotes);
+        // Approve and complete the refund in one step
+        // When admin approves, it means they've processed and confirmed the refund
+        $refundModel->completeRefund($refundId, $userId, $adminNotes, $refundReference);
 
         // Log activity with admin name
         $activityLogger = new ActivityLogger();
@@ -683,12 +687,12 @@ class RefundsController extends BaseController
         // Get updated refund data
         $updatedRefund = $refundModel->find($refundId);
         if ($updatedRefund) {
-            $activityLogger->logRefund('approved', $updatedRefund, $adminName);
+            $activityLogger->logRefund('completed', $updatedRefund, $adminName);
         }
 
         return $this->response->setJSON([
             'success' => true,
-            'message' => 'Refund request approved successfully'
+            'message' => 'Refund request approved and completed successfully'
         ]);
     }
 

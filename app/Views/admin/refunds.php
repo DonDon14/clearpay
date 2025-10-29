@@ -148,10 +148,10 @@
                                                         <small><?= esc(substr($request['payer_notes'] ?? $request['refund_reason'] ?? 'No reason provided', 0, 50)) ?>...</small>
                                                     </td>
                                                     <td>
-                                                        <button type="button" class="btn btn-sm btn-success approve-request-btn" data-id="<?= $request['id'] ?>" title="Approve">
+                                                        <button type="button" class="btn btn-sm btn-success approve-request-btn" data-id="<?= $request['id'] ?>" title="Approve & Complete Refund">
                                                             <i class="fas fa-check"></i>
                                                         </button>
-                                                        <button type="button" class="btn btn-sm btn-danger reject-request-btn" data-id="<?= $request['id'] ?>" title="Reject">
+                                                        <button type="button" class="btn btn-sm btn-danger reject-request-btn" data-id="<?= $request['id'] ?>" title="Reject Request">
                                                             <i class="fas fa-times"></i>
                                                         </button>
                                                         <button type="button" class="btn btn-sm btn-info view-request-btn" data-id="<?= $request['id'] ?>" title="View Details">
@@ -261,9 +261,22 @@
             <div class="modal-body">
                 <form id="approveRejectForm">
                     <input type="hidden" id="modal_refund_id" name="refund_id">
+                    <div id="approveFields" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Note:</strong> Approving this refund request will automatically process and complete the refund.
+                        </div>
+                        <div class="mb-3">
+                            <label for="modal_refund_reference" class="form-label">Refund Reference Number</label>
+                            <input type="text" class="form-control" id="modal_refund_reference" name="refund_reference" 
+                                   placeholder="Optional: Enter refund transaction reference">
+                            <small class="text-muted">Leave blank to auto-generate</small>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label for="modal_admin_notes" class="form-label">Admin Notes</label>
-                        <textarea class="form-control" id="modal_admin_notes" name="admin_notes" rows="3"></textarea>
+                        <textarea class="form-control" id="modal_admin_notes" name="admin_notes" rows="3" 
+                                  placeholder="Optional notes about this action"></textarea>
                     </div>
                 </form>
             </div>
@@ -326,8 +339,11 @@ $(document).ready(function() {
     $('.approve-request-btn').on('click', function() {
         const refundId = $(this).data('id');
         $('#modal_refund_id').val(refundId);
-        $('#approveRejectModalTitle').text('Approve Refund Request');
-        $('#modalActionBtn').removeClass('btn-danger').addClass('btn-success').text('Approve').off('click').on('click', function() {
+        $('#modal_refund_reference').val('');
+        $('#modal_admin_notes').val('');
+        $('#approveRejectModalTitle').text('Approve & Complete Refund Request');
+        $('#approveFields').show();
+        $('#modalActionBtn').removeClass('btn-danger').addClass('btn-success').text('Approve & Complete').off('click').on('click', function() {
             approveRefundRequest(refundId);
         });
         new bootstrap.Modal(document.getElementById('approveRejectModal')).show();
@@ -337,7 +353,10 @@ $(document).ready(function() {
     $('.reject-request-btn').on('click', function() {
         const refundId = $(this).data('id');
         $('#modal_refund_id').val(refundId);
+        $('#modal_refund_reference').val('');
+        $('#modal_admin_notes').val('');
         $('#approveRejectModalTitle').text('Reject Refund Request');
+        $('#approveFields').hide();
         $('#modalActionBtn').removeClass('btn-success').addClass('btn-danger').text('Reject').off('click').on('click', function() {
             rejectRefundRequest(refundId);
         });
@@ -346,17 +365,19 @@ $(document).ready(function() {
 
     function approveRefundRequest(refundId) {
         const adminNotes = $('#modal_admin_notes').val();
+        const refundReference = $('#modal_refund_reference').val();
         
         $.ajax({
             url: `${window.APP_BASE_URL}/admin/refunds/approve`,
             method: 'POST',
             data: {
                 refund_id: refundId,
-                admin_notes: adminNotes
+                admin_notes: adminNotes,
+                refund_reference: refundReference
             },
             success: function(response) {
                 if (response.success) {
-                    showNotification('Refund request approved successfully', 'success');
+                    showNotification('Refund request approved and completed successfully', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('approveRejectModal')).hide();
                     setTimeout(() => location.reload(), 1500);
                 } else {

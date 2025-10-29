@@ -149,5 +149,7 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
             $routes->post('mark-activity-read/(:num)', 'Payer\DashboardController::markActivityAsRead/$1');
             $routes->get('get-all-activities', 'Payer\DashboardController::getAllActivities');
             $routes->get('test-activity', 'Payer\DashboardController::testActivity');
+            $routes->get('refund-requests', 'Payer\DashboardController::refundRequests');
+            $routes->post('submit-refund-request', 'Payer\DashboardController::submitRefundRequest');
             $routes->get('logout', 'Payer\LoginController::logout');
         });

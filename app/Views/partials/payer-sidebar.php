@@ -51,6 +51,12 @@
                     <span class="menu-text">Payment Requests</span>
                 </a>
             </li>
+            <li>
+                <a href="<?= base_url('payer/refund-requests') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Refund Requests') ? 'active' : '' ?>" data-tooltip="Refund Requests">
+                    <i class="fas fa-undo"></i> 
+                    <span class="menu-text">Refund Requests</span>
+                </a>
+            </li>
         </ul>
     </div>
 

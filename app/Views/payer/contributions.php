@@ -89,9 +89,31 @@
                                                                             <?php if ($group['computed_status'] === 'fully paid'): ?>
                                                                                 <span class="badge bg-success ms-1">Completed</span>
                                                                             <?php else: ?>
-                                                                                <span class="badge bg-warning ms-1">Partial</span>
+                                                                                <span class="badge bg-warning text-dark ms-1">Partial</span>
                                                                             <?php endif; ?>
                                                                         </small>
+                                                                        <?php if (isset($group['refund_status']) && $group['refund_status'] !== 'no_refund'): ?>
+                                                                            <br>
+                                                                            <?php
+                                                                            $refundStatus = $group['refund_status'];
+                                                                            $refundBadgeClass = 'bg-secondary';
+                                                                            $refundBadgeText = 'NO REFUND';
+                                                                            
+                                                                            if ($refundStatus === 'fully_refunded') {
+                                                                                $refundBadgeClass = 'bg-danger';
+                                                                                $refundBadgeText = 'FULLY REFUNDED';
+                                                                            } elseif ($refundStatus === 'partially_refunded') {
+                                                                                $refundBadgeClass = 'bg-warning text-dark';
+                                                                                $refundBadgeText = 'PARTIALLY REFUNDED';
+                                                                            }
+                                                                            ?>
+                                                                            <span class="badge <?= $refundBadgeClass ?> small mt-1">
+                                                                                <?= $refundBadgeText ?>
+                                                                                <?php if (isset($group['total_refunded']) && $group['total_refunded'] > 0): ?>
+                                                                                    (₱<?= number_format($group['total_refunded'], 2) ?>)
+                                                                                <?php endif; ?>
+                                                                            </span>
+                                                                        <?php endif; ?>
                                                                     </div>
                                                                     <div class="text-end">
                                                                         <small class="fw-bold text-success">₱<?= number_format($group['total_paid'], 2) ?></small>

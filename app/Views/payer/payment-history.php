@@ -76,6 +76,7 @@
                                                                 <th>Reference Number</th>
                                                                 <th>Payment Method</th>
                                                                 <th>Payment Status</th>
+                                                                <th>Refund Status</th>
                                                                 <th>Action</th>
                                                             </tr>
                                                         </thead>
@@ -107,10 +108,41 @@
                                                                         <span class="badge <?= $statusClass ?>"><?= $statusText ?></span>
                                                                     </td>
                                                                     <td>
+                                                                        <?php
+                                                                        $refundStatus = $payment['refund_status'] ?? 'no_refund';
+                                                                        $refundStatusClass = 'bg-secondary';
+                                                                        $refundStatusText = 'NO REFUND';
+                                                                        
+                                                                        switch($refundStatus) {
+                                                                            case 'fully_refunded':
+                                                                                $refundStatusClass = 'bg-danger';
+                                                                                $refundStatusText = 'FULLY REFUNDED';
+                                                                                break;
+                                                                            case 'partially_refunded':
+                                                                                $refundStatusClass = 'bg-warning text-dark';
+                                                                                $refundStatusText = 'PARTIALLY REFUNDED';
+                                                                                break;
+                                                                            case 'no_refund':
+                                                                                $refundStatusClass = 'bg-secondary';
+                                                                                $refundStatusText = 'NO REFUND';
+                                                                                break;
+                                                                        }
+                                                                        ?>
+                                                                        <span class="badge <?= $refundStatusClass ?>"><?= $refundStatusText ?></span>
+                                                                        <?php if ($refundStatus !== 'no_refund' && isset($payment['total_refunded'])): ?>
+                                                                            <br><small class="text-muted">₱<?= number_format($payment['total_refunded'], 2) ?> refunded</small>
+                                                                        <?php endif; ?>
+                                                                    </td>
+                                                                    <td>
                                                                         <button class="btn btn-sm btn-outline-primary" 
                                                                                 onclick="event.stopPropagation(); showPaymentQRReceipt(<?= htmlspecialchars(json_encode($payment)) ?>)">
                                                                             <i class="fas fa-qrcode me-1"></i>View QR
                                                                         </button>
+                                                                        <?php if (($payment['available_refund'] ?? 0) > 0): ?>
+                                                                            <a href="<?= base_url('payer/refund-requests') ?>" class="btn btn-sm btn-outline-warning mt-1">
+                                                                                <i class="fas fa-undo me-1"></i>Request Refund
+                                                                            </a>
+                                                                        <?php endif; ?>
                                                                     </td>
                                                                 </tr>
                                                             <?php endforeach; ?>
