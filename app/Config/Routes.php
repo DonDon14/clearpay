@@ -23,6 +23,7 @@ $routes->post('/resetPassword', 'Admin\LoginController::resetPassword');
 
 $routes->post('/clearSidebarFlag', 'Admin\DashboardController::clearSidebarFlag', ['filter' => 'auth']);
 $routes->get('/dashboard', 'Admin\DashboardController::index', ['filter' => 'auth']);
+$routes->get('/admin/dashboard/pending-payment-requests-count', 'Admin\DashboardController::getPendingPaymentRequestsCount', ['filter' => 'auth']);
 $routes->get('/search', 'Admin\DashboardController::search', ['filter' => 'auth']);
 
 // Sidebar Routes

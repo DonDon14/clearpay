@@ -27,7 +27,7 @@
                         <div class="row">
                             <?php foreach ($contributions as $contribution): ?>
                                 <div class="col-lg-6 mb-3">
-                                    <div class="card contribution-card h-100" style="cursor: pointer;" 
+                                    <div class="card contribution-card h-100" 
                                          data-contribution='<?= json_encode($contribution) ?>'>
                                         <div class="card-body">
                                                    <div class="d-flex justify-content-between align-items-start mb-2">
@@ -58,11 +58,20 @@
                                             <!-- Payment Groups Section -->
                                             <?php if (!empty($contribution['payment_groups'])): ?>
                                                 <div class="mb-2">
-                                                    <small class="text-muted">Payment Groups:</small>
-                                                    <div class="mt-1">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <small class="text-muted fw-semibold">Payment Groups:</small>
+                                                        <button class="btn btn-sm btn-outline-primary" 
+                                                                onclick="togglePaymentGroups(<?= $contribution['id'] ?>)"
+                                                                id="toggleBtn-<?= $contribution['id'] ?>">
+                                                            <i class="fas fa-chevron-down me-1"></i>Show Groups
+                                                        </button>
+                                                    </div>
+                                                    <div class="payment-groups-container" 
+                                                         id="paymentGroups-<?= $contribution['id'] ?>" 
+                                                         style="display: none;">
                                                         <?php foreach ($contribution['payment_groups'] as $group): ?>
                                                             <div class="payment-group-item mb-1 p-2 border rounded" 
-                                                                 style="cursor: pointer; background-color: #f8f9fa;"
+                                                                 style="background-color: #f8f9fa;"
                                                                  data-contribution-id="<?= $contribution['id'] ?>"
                                                                  data-payment-sequence="<?= $group['payment_sequence'] ?>"
                                                                  data-group-data='<?= json_encode($group) ?>'>
@@ -284,6 +293,25 @@
            // Calculate payment status dynamically for all contribution cards
            calculatePaymentStatuses();
            
+           // Function to toggle payment groups visibility
+           window.togglePaymentGroups = function(contributionId) {
+               const container = document.getElementById(`paymentGroups-${contributionId}`);
+               const toggleBtn = document.getElementById(`toggleBtn-${contributionId}`);
+               const icon = toggleBtn.querySelector('i');
+               
+               if (container.style.display === 'none') {
+                   // Show groups
+                   container.style.display = 'block';
+                   icon.className = 'fas fa-chevron-up me-1';
+                   toggleBtn.innerHTML = '<i class="fas fa-chevron-up me-1"></i>Hide Groups';
+               } else {
+                   // Hide groups
+                   container.style.display = 'none';
+                   icon.className = 'fas fa-chevron-down me-1';
+                   toggleBtn.innerHTML = '<i class="fas fa-chevron-down me-1"></i>Show Groups';
+               }
+           };
+           
            // Function to calculate payment status based on total paid vs contribution amount
            function calculatePaymentStatuses() {
                const statusBadges = document.querySelectorAll('.payment-status-badge');
@@ -352,21 +380,8 @@
         });
     });
     
-    // Contribution card click - show payment groups instead of overall contribution
-    contributionCards.forEach(card => {
-        card.addEventListener('click', function(e) {
-            // Don't trigger if clicking on a payment group item
-            if (e.target.closest('.payment-group-item')) {
-                return;
-            }
-            
-            const contributionData = JSON.parse(this.getAttribute('data-contribution'));
-            currentContribution = contributionData;
-            
-            // Show payment groups modal instead of overall contribution modal
-            showPaymentGroupsModal(contributionData);
-        });
-    });
+    // Contribution card click - removed to prevent modal from opening
+    // Now using collapsible payment groups instead
     
     // View payment history button
     document.getElementById('viewPaymentHistoryBtn').addEventListener('click', function() {
@@ -562,164 +577,7 @@
         });
     }
     
-    // Function to show payment groups modal for a contribution
-    function showPaymentGroupsModal(contribution) {
-        const modalHtml = `
-            <div class="modal fade" id="paymentGroupsModal" tabindex="-1" aria-labelledby="paymentGroupsModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="paymentGroupsModalLabel">
-                                <i class="fas fa-layer-group me-2"></i>${contribution.title} - Payment Groups
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row mb-4">
-                                <div class="col-md-6">
-                                    <div class="card bg-primary text-white">
-                                        <div class="card-body text-center">
-                                            <h6 class="card-title">Total Amount</h6>
-                                            <h4>₱${(parseFloat(contribution.amount) || 0).toFixed(2)}</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card bg-success text-white">
-                                        <div class="card-body text-center">
-                                            <h6 class="card-title">Total Paid</h6>
-                                            <h4>₱${(parseFloat(contribution.total_paid) || 0).toFixed(2)}</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <h6>Payment Groups:</h6>
-                            <div class="row">
-                                ${contribution.payment_groups && contribution.payment_groups.length > 0 ? 
-                                    contribution.payment_groups.map(group => `
-                                        <div class="col-md-6 mb-3">
-                                            <div class="card payment-group-card" 
-                                                 style="cursor: pointer; border: 2px solid ${group.computed_status === 'fully paid' ? '#28a745' : '#ffc107'};"
-                                                 data-contribution-id="${contribution.id}"
-                                                 data-payment-sequence="${group.payment_sequence}"
-                                                 data-group-data='${JSON.stringify(group)}'>
-                                                <div class="card-body">
-                                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <h6 class="mb-0">
-                                                            <i class="fas fa-layer-group me-2"></i>
-                                                            Payment Group ${group.payment_sequence}
-                                                        </h6>
-                                                        <span class="badge ${group.computed_status === 'fully paid' ? 'bg-success' : 'bg-warning'}">
-                                                            ${group.computed_status === 'fully paid' ? 'Completed' : 'Partial'}
-                                                        </span>
-                                                    </div>
-                                                    
-                                                    <div class="row mb-2">
-                                                        <div class="col-6">
-                                                            <small class="text-muted">Amount Paid</small>
-                                                            <div class="fw-bold text-success">₱${(parseFloat(group.total_paid) || 0).toFixed(2)}</div>
-                                                        </div>
-                                                        <div class="col-6">
-                                                            <small class="text-muted">Payments</small>
-                                                            <div class="fw-bold">${group.payment_count}</div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    ${group.computed_status !== 'fully paid' ? `
-                                                        <div class="mb-2">
-                                                            <small class="text-muted">Remaining</small>
-                                                            <div class="fw-bold text-danger">₱${(parseFloat(group.remaining_balance) || 0).toFixed(2)}</div>
-                                                        </div>
-                                                    ` : ''}
-                                                    
-                                                    <div class="mb-2">
-                                                        <small class="text-muted">Last Payment</small>
-                                                        <div class="small">${new Date(group.last_payment_date).toLocaleDateString()}</div>
-                                                    </div>
-                                                    
-                                                    <div class="d-flex justify-content-between">
-                                                        <button class="btn btn-sm btn-outline-primary view-group-details-btn" 
-                                                                data-contribution-id="${contribution.id}"
-                                                                data-payment-sequence="${group.payment_sequence}"
-                                                                data-group-data='${JSON.stringify(group)}'>
-                                                            <i class="fas fa-eye me-1"></i>View Details
-                                                        </button>
-                                                        ${group.computed_status !== 'fully paid' ? `
-                                                            <button class="btn btn-sm btn-success request-payment-btn" 
-                                                                    data-contribution-id="${contribution.id}"
-                                                                    data-payment-sequence="${group.payment_sequence}"
-                                                                    data-group-data='${JSON.stringify(group)}'>
-                                                                <i class="fas fa-paper-plane me-1"></i>Request Payment
-                                                            </button>
-                                                        ` : ''}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `).join('') : 
-                                    '<div class="col-12 text-center py-4"><p class="text-muted">No payment groups found</p></div>'
-                                }
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-primary" onclick="viewPaymentHistory(${contribution.id})">
-                                <i class="fas fa-history me-2"></i>View Payment History
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Remove existing modal if any
-        const existingModal = document.getElementById('paymentGroupsModal');
-        if (existingModal) {
-            existingModal.remove();
-        }
-        
-        // Add modal to body
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('paymentGroupsModal'));
-        modal.show();
-        
-        // Add event listeners
-        document.getElementById('paymentGroupsModal').addEventListener('click', function(e) {
-            if (e.target.closest('.view-group-details-btn')) {
-                const btn = e.target.closest('.view-group-details-btn');
-                const contributionId = btn.getAttribute('data-contribution-id');
-                const paymentSequence = btn.getAttribute('data-payment-sequence');
-                const groupData = JSON.parse(btn.getAttribute('data-group-data'));
-                
-                // Close current modal
-                modal.hide();
-                
-                // Show payment progress modal for this group
-                showPaymentProgressModal(contributionId, paymentSequence, groupData);
-            }
-            
-            if (e.target.closest('.request-payment-btn')) {
-                const btn = e.target.closest('.request-payment-btn');
-                const contributionId = btn.getAttribute('data-contribution-id');
-                const paymentSequence = btn.getAttribute('data-payment-sequence');
-                const groupData = JSON.parse(btn.getAttribute('data-group-data'));
-                
-                // Close current modal
-                modal.hide();
-                
-                // Open payment request modal for this specific group
-                openPaymentRequestForGroup(contributionId, paymentSequence, groupData);
-            }
-        });
-        
-        // Clean up modal when hidden
-        document.getElementById('paymentGroupsModal').addEventListener('hidden.bs.modal', function() {
-            this.remove();
-        });
-    }
+    
     
     // Function to open payment request modal for a specific payment group
     function openPaymentRequestForGroup(contributionId, paymentSequence, groupData) {
@@ -763,21 +621,7 @@
         });
     }
     
-    // Handle payment group clicks
-    document.addEventListener('click', function(e) {
-        const paymentGroupItem = e.target.closest('.payment-group-item');
-        if (paymentGroupItem) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const contributionId = paymentGroupItem.getAttribute('data-contribution-id');
-            const paymentSequence = paymentGroupItem.getAttribute('data-payment-sequence');
-            const groupData = JSON.parse(paymentGroupItem.getAttribute('data-group-data'));
-            
-            // Show payment progress modal for this group
-            showPaymentProgressModal(contributionId, paymentSequence, groupData);
-        }
-    });
+    
     
     // Handle Add Payment button clicks
     document.addEventListener('click', function(e) {
@@ -1119,5 +963,64 @@
 
 <!-- Include Payment Request Modal -->
 <?= $this->include('partials/modal-payment-request') ?>
+
+<style>
+/* Collapsible Payment Groups Styling */
+.payment-groups-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    background-color: #ffffff;
+}
+
+.payment-group-item {
+    border: 1px solid #e9ecef !important;
+}
+
+.btn-outline-primary {
+    border-color: #0d6efd;
+    color: #0d6efd;
+    transition: all 0.2s ease;
+}
+
+.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+    transform: translateY(-1px);
+}
+
+/* Scrollbar styling for payment groups */
+.payment-groups-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.payment-groups-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.payment-groups-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.payment-groups-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .payment-groups-container {
+        max-height: 250px;
+    }
+    
+    .payment-group-item {
+        padding: 0.75rem !important;
+    }
+}
+</style>
 
 <?= $this->endSection() ?>

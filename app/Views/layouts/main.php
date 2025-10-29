@@ -48,6 +48,47 @@
     // Define base URL globally for all pages
     window.APP_BASE_URL = '<?= base_url() ?>';
     
+    // Function to update payment requests notification badge
+    window.updatePaymentRequestsBadge = function() {
+      fetch(`${window.APP_BASE_URL}/admin/dashboard/pending-payment-requests-count`, {
+        method: 'GET',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        const badge = document.getElementById('paymentRequestsBadge');
+        if (badge && data.success) {
+          const count = data.count || 0;
+          if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'flex';
+            badge.style.background = '#ef4444';
+            badge.style.color = 'white';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching payment requests count:', error);
+      });
+    };
+    
+    // Global function to refresh badge (can be called from other pages)
+    window.refreshPaymentRequestsBadge = function() {
+      updatePaymentRequestsBadge();
+    };
+    
+    // Update badge on page load and set up auto-refresh
+    document.addEventListener('DOMContentLoaded', function() {
+      updatePaymentRequestsBadge();
+      
+      // Auto-refresh badge every 30 seconds to keep it in sync
+      setInterval(updatePaymentRequestsBadge, 30000);
+    });
+    
     // Sidebar Toggle Script with State Persistence
     document.addEventListener('DOMContentLoaded', function() {
       const toggleBtn = document.getElementById('sidebarToggleBtn');

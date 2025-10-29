@@ -755,4 +755,35 @@ class DashboardController extends BaseController
             log_message('error', 'Failed to log user activity: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Get pending payment requests count for notification badge
+     */
+    public function getPendingPaymentRequestsCount()
+    {
+        try {
+            // Check if user is logged in
+            if (!session()->get('isLoggedIn')) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ]);
+            }
+
+            $paymentRequestModel = new PaymentRequestModel();
+            $count = $paymentRequestModel->getPendingCount();
+
+            return $this->response->setJSON([
+                'success' => true,
+                'count' => $count
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+                'count' => 0
+            ]);
+        }
+    }
 }

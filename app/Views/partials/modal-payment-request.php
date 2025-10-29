@@ -50,13 +50,6 @@
                                 'required' => 'required'
                             ]) ?>
                             <div class="invalid-feedback" id="modal_payment_method_error"></div>
-                            
-                            <!-- Debug button for testing -->
-                            <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-info" onclick="testGCashInstructions()">
-                                    <i class="fas fa-bug me-1"></i>Test GCash QR
-                                </button>
-                            </div>
                         </div>
 
                         <!-- Payment Instructions (Dynamic) -->
@@ -173,9 +166,15 @@ function handlePaymentMethodChange() {
         const buttonText = paymentMethodButton.textContent.trim();
         console.log('Button text:', buttonText);
         
-        // For now, just use the button text as the method name
-        selectedMethod = buttonText;
-        console.log('Using button text as method:', selectedMethod);
+        // Check if it's a placeholder/default text
+        if (buttonText === 'Select Payment Method' || buttonText === 'Choose Payment Method' || buttonText === '') {
+            console.log('No payment method selected (placeholder text)');
+            selectedMethod = '';
+        } else {
+            // For now, just use the button text as the method name
+            selectedMethod = buttonText;
+            console.log('Using button text as method:', selectedMethod);
+        }
     } else {
         console.log('No payment method elements found or no text content');
     }
@@ -352,16 +351,6 @@ function displayGenericInstructions(method, amount) {
         console.error('Error displaying generic payment instructions:', error);
     }
 }
-
-// Test function for debugging
-window.testGCashInstructions = function() {
-    console.log('=== TESTING GCASH INSTRUCTIONS ===');
-    const amount = document.getElementById('modal_requested_amount').value || '90';
-    console.log('Using amount:', amount);
-    
-    // Call the function
-    showPaymentInstructions('GCash', amount);
-};
 
 // Make function globally accessible
 window.showPaymentInstructions = showPaymentInstructions;

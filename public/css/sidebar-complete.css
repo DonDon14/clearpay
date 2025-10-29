@@ -421,6 +421,58 @@ body.sidebar-loading .main-content {
     outline-offset: 2px;
 }
 
+/* Notification Badge Styles */
+.sidebar-item .notification-badge {
+    background: #ef4444 !important;
+    color: white !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    padding: 2px 6px !important;
+    border-radius: 10px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-left: auto !important;
+    margin-right: 8px !important;
+    animation: pulse 2s infinite !important;
+    text-decoration: none !important;
+    border: none !important;
+    line-height: 1 !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+.sidebar-item .notification-badge:empty {
+    display: none !important;
+}
+
+/* Debug: Force badge to be visible for testing */
+#paymentRequestsBadge {
+    display: flex !important;
+    background: #ef4444 !important;
+    color: white !important;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+/* Hide badge when sidebar is collapsed */
+.sidebar.collapsed .sidebar-item .notification-badge {
+    display: none !important;
+}
+
 /* Hide toggle button when collapsed */
 .sidebar.collapsed .sidebar-toggle-btn {
     display: none;

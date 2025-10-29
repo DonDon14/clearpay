@@ -171,6 +171,7 @@
 <script>
 // Define base URL for API calls
 window.APP_BASE_URL = '<?= base_url() ?>';
+
 </script>
 
 <script>
