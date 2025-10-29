@@ -15,6 +15,8 @@ class PayerModel extends Model
         'email_address',
         'course_department',
         'profile_picture',
+        'email_verified',
+        'verification_token',
         'created_at',
         'updated_at'
     ];

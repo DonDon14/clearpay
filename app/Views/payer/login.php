@@ -20,7 +20,7 @@
       <!-- Top Navigation -->
       <nav class="login-nav">
         <a href="<?= base_url('/') ?>" class="nav-link active">Home</a>
-        <a href="<?= base_url('register') ?>" class="nav-link">Sign Up</a>
+        <a href="<?= base_url('payer/signup') ?>" class="nav-link">Sign Up</a>
         <a href="#" class="nav-link">Help</a>
       </nav>
 
@@ -36,11 +36,18 @@
         <!-- Sub-headline -->
         <p class="sub-headline">Access your payment information and history</p>
 
-        <!-- Display flashdata error message if exists -->
+        <!-- Display flashdata messages -->
         <?php if (session()->getFlashdata('error')): ?>
           <div class="alert alert-danger">
             <i class="fas fa-exclamation-circle"></i>
             <?= session()->getFlashdata('error') ?>
+          </div>
+        <?php endif; ?>
+
+        <?php if (session()->getFlashdata('success')): ?>
+          <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i>
+            <?= session()->getFlashdata('success') ?>
           </div>
         <?php endif; ?>
 
@@ -80,6 +87,11 @@
           </button>
 
           <div class="signup-link">
+            <span>Don't have an account?</span>
+            <a href="<?= base_url('payer/signup') ?>" class="signup-btn">Sign Up</a>
+          </div>
+          
+          <div class="signup-link mt-2">
             <span>Admin Access?</span>
             <a href="<?= base_url('/') ?>" class="signup-btn">Admin Login</a>
           </div>

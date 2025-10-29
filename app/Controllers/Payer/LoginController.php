@@ -41,15 +41,46 @@ class LoginController extends BaseController
                 ->with('error', 'Please enter valid Payer ID and Email');
         }
 
-        // Find payer by payer_id and email
-        $payer = $this->payerModel->where('payer_id', $payerId)
-            ->where('email_address', $email)
-            ->first();
+        // Find payer by payer_id and email (case-sensitive matching)
+        // Get all payers and filter by exact case-sensitive match
+        $payers = $this->payerModel->findAll();
+        $payer = null;
+        
+        foreach ($payers as $p) {
+            // Exact case-sensitive comparison
+            if ($p['payer_id'] === $payerId && $p['email_address'] === $email) {
+                $payer = $p;
+                break;
+            }
+        }
 
         if (!$payer) {
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Invalid Payer ID or Email Address');
+        }
+
+        // Check if email is verified
+        if (isset($payer['email_verified']) && !$payer['email_verified']) {
+            // Store payer info in session for resend verification
+            session()->set('pending_verification_payer_id', $payer['id']);
+            session()->set('pending_verification_email', $payer['email_address']);
+            
+            // Resend verification code if not exists
+            if (empty($payer['verification_token'])) {
+                $verificationCode = rand(100000, 999999);
+                $this->payerModel->update($payer['id'], [
+                    'verification_token' => (string) $verificationCode
+                ]);
+                
+                // Send verification email
+                $signupController = new \App\Controllers\Payer\SignupController();
+                $signupController->sendVerificationEmail($payer['email_address'], $payer['payer_name'], $verificationCode);
+            }
+            
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Please verify your email address before logging in. Please check your email for the verification code or sign up again to receive a new code.');
         }
 
         // Set session data
@@ -59,6 +90,7 @@ class LoginController extends BaseController
             'payer_email' => $payer['email_address'],
             'payer_profile_picture' => $payer['profile_picture'] ?? null,
             'payer_logged_in' => true,
+            'payer_last_activity' => time(), // Track last activity for timeout
         ]);
 
         // Force sidebar expanded on first load

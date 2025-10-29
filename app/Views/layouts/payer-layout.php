@@ -165,6 +165,9 @@
     });
   </script>
   
+         <!-- Payer Session Management (must load early) -->
+         <script src="<?= base_url('js/payer-session.js') ?>"></script>
+         
          <!-- jQuery (required for payment group interactions) -->
          <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
          

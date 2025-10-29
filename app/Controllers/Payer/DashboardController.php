@@ -31,7 +31,13 @@ class DashboardController extends BaseController
 
     public function index()
     {
+        // Check if payer is logged in (filter handles this, but double-check for safety)
         $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return redirect()->to('payer/login')
+                ->with('error', 'Please login to access the dashboard');
+        }
         
         // Get payer data
         $payer = $this->payerModel->find($payerId);
