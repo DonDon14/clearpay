@@ -133,6 +133,7 @@
                                 ?>
                                 <tr class="payer-row" 
                                     data-payer-id="<?= esc(strtolower($payer['payer_id'])) ?>"
+                                    data-payer-db-id="<?= $payer['id'] ?>"
                                     data-payer-name="<?= esc(strtolower($payer['payer_name'])) ?>"
                                     data-email="<?= esc(strtolower($payer['email_address'] ?? '')) ?>"
                                     data-contact="<?= esc($payer['contact_number'] ?? '') ?>"
@@ -171,6 +172,13 @@
                                             <button class="btn btn-outline-info" title="Export PDF" onclick="exportPayerPDF(<?= $payer['id'] ?>)">
                                                 <i class="fas fa-file-pdf"></i>
                                             </button>
+                                            <button type="button" class="btn btn-outline-danger delete-payer-btn" 
+                                                    title="Delete Payer" 
+                                                    data-payer-id="<?= $payer['id'] ?>"
+                                                    data-payer-name="<?= esc($payer['payer_name']) ?>"
+                                                    data-payment-count="<?= $payer['total_payments'] ?>">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -205,6 +213,37 @@
 <?= view('partials/modal-view-payer-details') ?>
 <?= view('partials/modal-edit-payer') ?>
 <?= view('partials/modal-qr-receipt') ?>
+
+<!-- Delete Payer Confirmation Modal -->
+<div class="modal fade" id="deletePayerModal" tabindex="-1" aria-labelledby="deletePayerModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deletePayerModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Delete Payer
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+                <div class="modal-body">
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> This action cannot be undone!
+                    </div>
+                <p id="deletePayerMessage"></p>
+                <div id="deletePayerWarning" class="alert alert-danger mt-3" style="display: none;">
+                    <i class="fas fa-ban me-2"></i>
+                    <strong>Cannot Delete:</strong> This payer has <span id="paymentCount"></span> payment(s) associated with them. Please remove or reassign payments before deleting this payer.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeletePayerBtn" onclick="deletePayer()">
+                    <i class="fas fa-trash me-2"></i>Delete Payer
+                    </button>
+                </div>
+        </div>
+    </div>
+</div>
 
 <script>
 // Search, Filter, and Sort functionality for payers list
@@ -585,6 +624,123 @@ function showNotification(message, type) {
     setTimeout(() => {
         alertDiv.remove();
     }, 3000);
+}
+
+// Delete Payer Functions
+let currentPayerIdToDelete = null;
+
+// Add event listeners to delete buttons
+document.addEventListener('DOMContentLoaded', function() {
+    // Use event delegation for dynamically loaded content
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-payer-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = e.target.closest('.delete-payer-btn');
+            const payerId = btn.getAttribute('data-payer-id');
+            const payerName = btn.getAttribute('data-payer-name');
+            const paymentCount = parseInt(btn.getAttribute('data-payment-count') || '0');
+            confirmDeletePayer(payerId, payerName, paymentCount);
+        }
+    });
+});
+
+function confirmDeletePayer(payerId, payerName, paymentCount) {
+    currentPayerIdToDelete = payerId;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deletePayerModal'));
+    const messageEl = document.getElementById('deletePayerMessage');
+    const warningEl = document.getElementById('deletePayerWarning');
+    const paymentCountEl = document.getElementById('paymentCount');
+    const confirmBtn = document.getElementById('confirmDeletePayerBtn');
+    
+    // Set message
+    messageEl.textContent = `Are you sure you want to delete "${payerName}"?`;
+    
+    // Show warning if payer has payments
+    if (paymentCount > 0) {
+        warningEl.style.display = 'block';
+        paymentCountEl.textContent = paymentCount;
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-ban me-2"></i>Cannot Delete';
+    } else {
+        warningEl.style.display = 'none';
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fas fa-trash me-2"></i>Delete Payer';
+    }
+    
+    deleteModal.show();
+}
+
+function deletePayer() {
+    if (!currentPayerIdToDelete) return;
+    
+    const confirmBtn = document.getElementById('confirmDeletePayerBtn');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Deleting...';
+    
+    fetch(`<?= base_url('payers/delete/') ?>${currentPayerIdToDelete}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deletePayerModal'));
+            deleteModal.hide();
+            
+            // Show success notification
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(data.message || 'Payer deleted successfully', 'success');
+            } else {
+                showNotification(data.message || 'Payer deleted successfully', 'success');
+            }
+            
+            // Remove the row from table
+            const row = document.querySelector(`tr[data-payer-db-id="${currentPayerIdToDelete}"]`);
+            if (row) {
+                row.style.transition = 'opacity 0.3s';
+                row.style.opacity = '0';
+                setTimeout(() => {
+                    row.remove();
+                    // Update counts
+                    const visibleRows = document.querySelectorAll('.payer-row:not([style*="display: none"])');
+                    if (visibleRows.length === 0) {
+                        document.getElementById('noResultsRow').style.display = '';
+                    }
+                }, 300);
+            }
+            
+            // Reload page after a short delay to refresh the list
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            // Show error notification
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(data.message || 'Failed to delete payer', 'error');
+            } else {
+                showNotification(data.message || 'Failed to delete payer', 'error');
+            }
+            
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting payer:', error);
+        if (typeof window.showNotification === 'function') {
+            window.showNotification('An error occurred while deleting the payer', 'error');
+        } else {
+            showNotification('An error occurred while deleting the payer', 'error');
+        }
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = originalText;
+    });
 }
 </script>
 

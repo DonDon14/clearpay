@@ -74,11 +74,22 @@ class PayersController extends BaseController
         try {
             $payerModel = new PayerModel();
             
+            // Sanitize and validate phone number using phone_helper
+            $contactNumber = !empty($jsonData['payer_phone']) ? sanitize_phone_number($jsonData['payer_phone']) : '';
+            
+            if (!empty($contactNumber) && !validate_phone_number($contactNumber)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contact number must be exactly 11 digits (numbers only)'
+                ]);
+            }
+            
             $data = [
-                'payer_name' => $jsonData['payer_name'],
-                'payer_id' => $jsonData['new_payer_id'],
-                'email_address' => $jsonData['payer_email'],
-                'contact_number' => $jsonData['payer_phone'],
+                'payer_name' => trim($jsonData['payer_name']),
+                'payer_id' => trim($jsonData['new_payer_id']),
+                'email_address' => trim($jsonData['payer_email']),
+                'contact_number' => $contactNumber,
+                'course_department' => !empty($jsonData['course_department']) ? trim($jsonData['course_department']) : null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s')
             ];

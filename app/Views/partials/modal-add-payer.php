@@ -87,22 +87,6 @@
         }, 4000);
     }
     
-    // Phone number validation helper (must be exactly 11 digits, numbers only)
-    function validatePhoneNumber(phoneNumber) {
-        if (!phoneNumber || phoneNumber.trim() === '') {
-            return true; // Empty is allowed (optional field)
-        }
-        // Remove whitespace and check if exactly 11 digits
-        const cleaned = phoneNumber.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-        return /^[0-9]{11}$/.test(cleaned);
-    }
-    
-    // Sanitize phone number (remove non-numeric characters)
-    function sanitizePhoneNumber(phoneNumber) {
-        if (!phoneNumber) return '';
-        return phoneNumber.replace(/[^0-9]/g, '');
-    }
-    
     // Validate email format
     function validateEmail(email) {
         if (!email || email.trim() === '') {
@@ -151,51 +135,11 @@
         
         if (!addPayerForm) return;
         
-        // Phone number input handler - only allow numbers and limit to 11 digits
-        if (contactNumberField) {
-            contactNumberField.addEventListener('input', function(e) {
-                // Remove any non-numeric characters
-                let value = sanitizePhoneNumber(e.target.value);
-                
-                // Limit to 11 digits
-                if (value.length > 11) {
-                    value = value.substring(0, 11);
-                }
-                
-                e.target.value = value;
-                
-                // Validate on blur
-                if (value && !validatePhoneNumber(value)) {
-                    showFieldError('contact_number', 'Contact number must be exactly 11 digits');
-                } else {
-                    clearFieldError('contact_number');
-                }
-            });
-            
-            contactNumberField.addEventListener('blur', function(e) {
-                const value = e.target.value.trim();
-                if (value && !validatePhoneNumber(value)) {
-                    showFieldError('contact_number', 'Contact number must be exactly 11 digits');
-                } else {
-                    clearFieldError('contact_number');
-                }
-            });
-            
-            // Prevent non-numeric input
-            contactNumberField.addEventListener('keypress', function(e) {
-                // Allow: backspace, delete, tab, escape, enter
-                if ([8, 9, 27, 13, 46].indexOf(e.keyCode) !== -1 ||
-                    // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                    (e.keyCode === 65 && e.ctrlKey === true) ||
-                    (e.keyCode === 67 && e.ctrlKey === true) ||
-                    (e.keyCode === 86 && e.ctrlKey === true) ||
-                    (e.keyCode === 88 && e.ctrlKey === true)) {
-                    return;
-                }
-                // Ensure that it is a number and stop the keypress
-                if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
-                    e.preventDefault();
-                }
+        // Initialize phone number field using the helper
+        if (contactNumberField && typeof window.initPhoneNumberField === 'function') {
+            window.initPhoneNumberField('contact_number', {
+                required: false,
+                errorMessage: 'Contact number must be exactly 11 digits'
             });
         }
         
@@ -260,7 +204,7 @@
             }
             
             // Validate phone number if provided
-            if (contactNumber && !validatePhoneNumber(contactNumber)) {
+            if (contactNumber && typeof window.validatePhoneNumber === 'function' && !window.validatePhoneNumber(contactNumber)) {
                 showFieldError('contact_number', 'Contact number must be exactly 11 digits (numbers only)');
                 isValid = false;
             }
@@ -275,8 +219,8 @@
             sanitizedFormData.append('payer_id', payerId);
             sanitizedFormData.append('payer_name', payerName);
             sanitizedFormData.append('email_address', emailAddress); // Email is now required
-            if (contactNumber) {
-                sanitizedFormData.append('contact_number', sanitizePhoneNumber(contactNumber));
+            if (contactNumber && typeof window.sanitizePhoneNumber === 'function') {
+                sanitizedFormData.append('contact_number', window.sanitizePhoneNumber(contactNumber));
             }
             const courseDepartment = formData.get('course_department')?.trim() || '';
             if (courseDepartment) {

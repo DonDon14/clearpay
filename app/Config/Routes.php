@@ -33,6 +33,7 @@ $routes->post('/payers/save', 'Admin\SidebarController::savePayer', ['filter' =>
 $routes->get('/payers/get/(:num)', 'Admin\SidebarController::getPayer/$1', ['filter' => 'auth']);
 $routes->get('/payers/get-details/(:num)', 'Admin\SidebarController::getPayerDetails/$1', ['filter' => 'auth']);
 $routes->post('/payers/update/(:num)', 'Admin\SidebarController::updatePayer/$1', ['filter' => 'auth']);
+$routes->post('/payers/delete/(:num)', 'Admin\SidebarController::deletePayer/$1', ['filter' => 'auth']);
 $routes->get('/payers/export-pdf/(:num)', 'Admin\SidebarController::exportPayerPDF/$1', ['filter' => 'auth']);
 $routes->get('/announcements', 'Admin\SidebarController::announcements', ['filter' => 'auth']);
 $routes->get('/announcements/index', 'Admin\AnnouncementsController::index', ['filter' => 'auth']);

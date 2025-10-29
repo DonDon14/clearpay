@@ -315,6 +315,9 @@
 <!-- Contribution Payments Modal (for payment history) -->
 <?= view('partials/modal-contribution-payments') ?>
 
+<!-- Edit Payment Modal -->
+<?= view('partials/modal-edit-payment') ?>
+
 <!-- Payment Methods Modal -->
 <?= payment_methods_modal($paymentMethods ?? []) ?>
 

@@ -282,6 +282,9 @@
     </div>
 </div>
 
+<!-- Include Edit Payment Modal -->
+<?= view('partials/modal-edit-payment') ?>
+
 <!-- Include QR Receipt Modal -->
 <?= $this->include('partials/modal-qr-receipt') ?>
 
@@ -359,7 +362,12 @@ $(document).ready(function() {
     });
 
     // Handle individual payment click in history modal
-    $(document).on('click', '.payment-item-row', function() {
+    $(document).on('click', '.payment-item-row', function(e) {
+        // Don't trigger if clicking on action buttons
+        if ($(e.target).closest('.edit-payment-btn, .delete-payment-btn, button').length > 0) {
+            return;
+        }
+        
         const paymentId = $(this).data('payment-id');
         
         // Fetch payment data for QR receipt
@@ -510,6 +518,12 @@ $(document).ready(function() {
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
+                                <button type="button" class="btn btn-sm btn-outline-warning edit-payment-btn" 
+                                        data-payment-id="${payment.id}" 
+                                        data-payment-data='${JSON.stringify(payment)}'
+                                        title="Edit Payment">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger delete-payment-btn" 
                                         data-payment-id="${payment.id}" 
                                         data-payer-name="${payment.payer_name}"
@@ -886,6 +900,69 @@ $(document).ready(function() {
 
     // Note: checkPayerUnpaidContributions function has been moved to the modal
     // and is now handled automatically when contributions are selected
+
+    // Handle edit payment button click
+    $(document).on('click', '.edit-payment-btn', function(e) {
+        e.stopPropagation(); // Prevent row click
+        e.preventDefault();
+        
+        const paymentId = $(this).data('payment-id');
+        const paymentDataStr = $(this).data('payment-data');
+        
+        if (!paymentId) {
+            alert('Payment ID not found');
+            return;
+        }
+        
+        // Fetch full payment details including contribution amount
+        fetch(`<?= base_url('payments/get-details/') ?>${paymentId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.payment) {
+                    // Use the fetched payment data
+                    if (typeof openEditPaymentModal === 'function') {
+                        openEditPaymentModal(data.payment);
+                    } else {
+                        // Fallback to direct modal population
+                        populateEditModal(data.payment);
+                    }
+                } else {
+                    alert('Error loading payment details: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading payment details');
+            });
+    });
+    
+    // Fallback function to populate edit modal directly
+    function populateEditModal(payment) {
+        $('#editPaymentId').val(payment.id);
+        $('#editPayerName').val(payment.payer_name || '');
+        $('#editContribution').val(payment.contribution_title || '');
+        $('#editAmountPaid').val(parseFloat(payment.amount_paid || 0).toFixed(2));
+        $('#editPaymentMethod').val(payment.payment_method || '');
+        $('#editReceiptNumber').val(payment.receipt_number || '');
+        $('#editContributionId').val(payment.contribution_id || '');
+        $('#editContributionAmount').val(payment.contribution_amount || 0);
+        $('#editPaymentStatus').val(payment.payment_status || 'fully paid');
+        
+        // Format payment date for datetime-local input
+        if (payment.payment_date) {
+            const paymentDate = new Date(payment.payment_date);
+            const formattedDate = paymentDate.toISOString().slice(0, 16);
+            $('#editPaymentDate').val(formattedDate);
+        }
+        
+        // Calculate remaining balance
+        if (typeof updateEditRemainingBalance === 'function') {
+            updateEditRemainingBalance();
+        }
+        
+        // Show modal
+        $('#editPaymentModal').modal('show');
+    }
 
     // Make functions globally available
     // Delete payment functionality

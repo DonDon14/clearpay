@@ -210,6 +210,9 @@
   <!-- jsQR Library for QR Code Scanning -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   
+  <!-- Phone Number Validation Helper -->
+  <script src="<?= base_url('js/phone-helper.js') ?>"></script>
+  
   <!-- Bootstrap JavaScript Bundle (required for modals) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   

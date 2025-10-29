@@ -68,18 +68,21 @@ $payment = $payment ?? [];
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="payerPhone" class="form-label">Phone Number</label>
-                                    <input type="tel" class="form-control" id="payerPhone" name="payer_phone" required>
+                                    <input type="tel" class="form-control" id="payerPhone" name="payer_phone" 
+                                           placeholder="09123456789" maxlength="11">
+                                    <small class="form-text text-muted">Must be exactly 11 digits (numbers only)</small>
+                                    <div class="invalid-feedback"></div>
                                 </div>
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="payerCourse" class="form-label">Course/Program <small class="text-muted">(Optional)</small></label>
-                                    <input type="text" class="form-control" id="payerCourse" name="payer_course" placeholder="e.g., BSIT1, CS, IT">
+                                    <label for="payerCourse" class="form-label">Course/Department <small class="text-muted">(Optional)</small></label>
+                                    <input type="text" class="form-control" id="payerCourse" name="payer_course" placeholder="e.g., BS Computer Science, IT Department">
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <!-- Empty column for layout balance -->
-              </div>
-            </div>
+                                </div>
+                            </div>
           </div>
 
                         <!-- Contribution Selection -->
@@ -477,9 +480,35 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 });
 
+// Initialize phone number field for add payment modal
+(function() {
+  'use strict';
+  
+  function initPhoneValidation() {
+    if (typeof window.initPhoneNumberField === 'function') {
+      window.initPhoneNumberField('payerPhone', {
+        required: true,
+        errorMessage: 'Contact number must be exactly 11 digits'
+      });
+    }
+  }
+  
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPhoneValidation);
+  } else {
+    initPhoneValidation();
+  }
+  
+  // Also initialize when modal is shown (for dynamic modals)
+  const addPaymentModal = document.getElementById('addPaymentModal');
+  if (addPaymentModal) {
+    addPaymentModal.addEventListener('shown.bs.modal', initPhoneValidation);
+  }
+})();
+
 // Reset modal function
 function resetPaymentModal() {
-  // Reset form fields
   const form = document.getElementById('paymentForm');
   if (form) {
     form.reset();
@@ -868,7 +897,8 @@ function createNewPayer(formData) {
     payer_name: formData.get('payer_name'),
     new_payer_id: formData.get('new_payer_id'),
     payer_email: formData.get('payer_email'),
-    payer_phone: formData.get('payer_phone')
+    payer_phone: formData.get('payer_phone') ? (typeof window.sanitizePhoneNumber === 'function' ? window.sanitizePhoneNumber(formData.get('payer_phone')) : formData.get('payer_phone')) : '',
+    course_department: formData.get('payer_course') ? formData.get('payer_course').trim() : ''
   };
   
   console.log('Sending payer data:', payerData);

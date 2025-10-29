@@ -827,7 +827,8 @@ class PaymentsController extends BaseController
                 payers.payer_name,
                 payers.contact_number,
                 payers.email_address,
-                contributions.title as contribution_title
+                contributions.title as contribution_title,
+                contributions.amount as contribution_amount
             ')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')

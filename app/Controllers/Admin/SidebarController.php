@@ -507,6 +507,68 @@ class SidebarController extends BaseController
         }
     }
     
+    public function deletePayer($payerId)
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
+        }
+        
+        try {
+            $payerModel = new \App\Models\PayerModel();
+            $paymentModel = new \App\Models\PaymentModel();
+            
+            // Check if payer exists
+            $payer = $payerModel->find($payerId);
+            if (!$payer) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer not found'
+                ]);
+            }
+            
+            // Check if payer has any payments
+            $paymentCount = $paymentModel->where('payer_id', $payerId)->countAllResults(false);
+            
+            if ($paymentCount > 0) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => "Cannot delete payer. This payer has {$paymentCount} payment(s) associated with them. Please remove or reassign payments before deleting this payer."
+                ]);
+            }
+            
+            // Store payer name for activity log
+            $payerName = $payer['payer_name'];
+            
+            // Delete the payer
+            $result = $payerModel->delete($payerId);
+            
+            if ($result) {
+                // Log user activity
+                $this->logUserActivity('delete', 'payer', $payerId, 'Deleted payer: ' . $payerName);
+                
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Payer deleted successfully'
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to delete payer'
+                ]);
+            }
+        } catch (\Exception $e) {
+            log_message('error', 'Error deleting payer: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+    
     public function exportPayerPDF($payerId)
     {
         // Check if user is logged in
