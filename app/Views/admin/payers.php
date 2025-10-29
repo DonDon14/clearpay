@@ -50,12 +50,68 @@
             </button>
         </div>
         <div class="card-body">
+            <!-- Search Bar -->
+            <div class="mb-3">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="searchPayerInput" 
+                                   placeholder="Search by Student ID, Name, Email, or Contact Number..."
+                                   autocomplete="off">
+                            <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" style="display: none;">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-md-end">
+                        <small class="text-muted" id="searchResultsCount">
+                            Showing <?= !empty($payers) ? count($payers) : '0' ?> of <?= !empty($payers) ? count($payers) : '0' ?> payers
+                        </small>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-2">
+                        <label for="filterCourse" class="form-label small text-muted mb-1">Filter by Course/Department</label>
+                        <select class="form-select form-select-sm" id="filterCourse">
+                            <option value="">All Courses/Departments</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label for="sortBy" class="form-label small text-muted mb-1">Sort By</label>
+                        <select class="form-select form-select-sm" id="sortBy">
+                            <option value="name_asc">Name (A-Z)</option>
+                            <option value="name_desc">Name (Z-A)</option>
+                            <option value="amount_desc">Payment Total (High to Low)</option>
+                            <option value="amount_asc">Payment Total (Low to High)</option>
+                            <option value="course_asc">Course/Department (A-Z)</option>
+                            <option value="payments_desc">Total Payments (High to Low)</option>
+                            <option value="payments_asc">Total Payments (Low to High)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label for="filterStatus" class="form-label small text-muted mb-1">Filter by Status</label>
+                        <select class="form-select form-select-sm" id="filterStatus">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
                         <tr>
                             <th>Payer ID</th>
                             <th>Payer Name</th>
+                            <th>Course/Department</th>
                             <th>Email</th>
                             <th>Contact Number</th>
                             <th>Total Payments</th>
@@ -75,9 +131,33 @@
                                         default => '<span class="badge bg-light text-dark">Unknown</span>'
                                     };
                                 ?>
-                                <tr>
+                                <tr class="payer-row" 
+                                    data-payer-id="<?= esc(strtolower($payer['payer_id'])) ?>"
+                                    data-payer-name="<?= esc(strtolower($payer['payer_name'])) ?>"
+                                    data-email="<?= esc(strtolower($payer['email_address'] ?? '')) ?>"
+                                    data-contact="<?= esc($payer['contact_number'] ?? '') ?>"
+                                    data-course="<?= esc(strtolower($payer['course_department'] ?? '')) ?>"
+                                    data-total-paid="<?= $payer['total_paid'] ?>"
+                                    data-total-payments="<?= $payer['total_payments'] ?>"
+                                    data-status="<?= esc($payer['status']) ?>">
                                     <td><strong><?= esc($payer['payer_id']) ?></strong></td>
-                                    <td><?= esc($payer['payer_name']) ?></td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <?php if (!empty($payer['profile_picture']) && trim($payer['profile_picture']) !== ''): ?>
+                                                <img src="<?= base_url($payer['profile_picture']) ?>" 
+                                                     alt="<?= esc($payer['payer_name']) ?>"
+                                                     class="rounded-circle"
+                                                     style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
+                                            <?php else: ?>
+                                                <div class="rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white"
+                                                     style="width: 40px; height: 40px; flex-shrink: 0;">
+                                                    <i class="fas fa-user"></i>
+                                                </div>
+                                            <?php endif; ?>
+                                            <span><?= esc($payer['payer_name']) ?></span>
+                                        </div>
+                                    </td>
+                                    <td><?= esc($payer['course_department'] ?? 'N/A') ?></td>
                                     <td><?= esc($payer['email_address'] ?? 'N/A') ?></td>
                                     <td><?= esc($payer['contact_number'] ?? 'N/A') ?></td>
                                     <td><?= number_format($payer['total_payments']) ?></td>
@@ -97,95 +177,210 @@
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="8" class="text-center text-muted">No payers found</td>
+                                <td colspan="9" class="text-center text-muted">No payers found</td>
                             </tr>
                         <?php endif; ?>
+                        <!-- No Results Row (hidden by default) -->
+                        <tr id="noResultsRow" style="display: none;">
+                            <td colspan="9" class="text-center text-muted py-4">
+                                <i class="fas fa-search fa-2x mb-2 d-block"></i>
+                                <p class="mb-0">No payers found matching your search criteria</p>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
             
             <!-- Pagination -->
             <div class="d-flex justify-content-between align-items-center mt-3">
-                <div class="text-muted">
+                <div class="text-muted" id="paginationInfo">
                     Showing <?= !empty($payers) ? '1 to ' . count($payers) . ' of ' . count($payers) : '0' ?> entries
                 </div>
             </div>
         </div>
     </div>
 
-<!-- Add Payer Modal -->
-<div class="modal fade" id="addPayerModal" tabindex="-1" aria-labelledby="addPayerModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addPayerModalLabel">
-                    <i class="fas fa-user-plus me-2"></i>Add New Payer
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form id="addPayerForm" onsubmit="savePayer(event)">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="payer_id" class="form-label">Student ID <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="payer_id" name="payer_id" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="payer_name" class="form-label">Full Name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="payer_name" name="payer_name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="contact_number" class="form-label">Contact Number</label>
-                        <input type="tel" class="form-control" id="contact_number" name="contact_number">
-                    </div>
-                    <div class="mb-3">
-                        <label for="email_address" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="email_address" name="email_address">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Save Payer
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <!-- Include Modals -->
+<?= view('partials/modal-add-payer') ?>
 <?= view('partials/modal-view-payer-details') ?>
 <?= view('partials/modal-edit-payer') ?>
 <?= view('partials/modal-qr-receipt') ?>
 
 <script>
-function savePayer(event) {
-    event.preventDefault();
+// Search, Filter, and Sort functionality for payers list
+(function() {
+    'use strict';
     
-    const formData = new FormData(event.target);
+    const searchInput = document.getElementById('searchPayerInput');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    const searchResultsCount = document.getElementById('searchResultsCount');
+    const paginationInfo = document.getElementById('paginationInfo');
+    const noResultsRow = document.getElementById('noResultsRow');
+    const filterCourse = document.getElementById('filterCourse');
+    const filterStatus = document.getElementById('filterStatus');
+    const sortBy = document.getElementById('sortBy');
+    const tbody = document.querySelector('tbody');
+    const totalPayers = <?= !empty($payers) ? count($payers) : 0 ?>;
     
-    fetch('<?= base_url('payers/save') ?>', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showNotification('Payer added successfully!', 'success');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addPayerModal'));
-            modal.hide();
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
-        } else {
-            showNotification(data.message || 'Error adding payer', 'error');
+    if (!searchInput || !tbody) return;
+    
+    // Populate course/department filter dropdown
+    function populateCourseFilter() {
+        const courses = new Set();
+        document.querySelectorAll('.payer-row').forEach(row => {
+            const course = row.getAttribute('data-course')?.trim();
+            if (course && course !== '' && course !== 'n/a') {
+                courses.add(course);
+            }
+        });
+        
+        // Clear existing options except "All"
+        while (filterCourse.options.length > 1) {
+            filterCourse.remove(1);
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showNotification('Error adding payer', 'error');
+        
+        // Add unique courses sorted alphabetically
+        Array.from(courses).sort().forEach(course => {
+            const option = document.createElement('option');
+            option.value = course;
+            option.textContent = course.charAt(0).toUpperCase() + course.slice(1);
+            filterCourse.appendChild(option);
+        });
+    }
+    
+    // Get all visible rows
+    function getVisibleRows() {
+        return Array.from(document.querySelectorAll('.payer-row')).filter(row => {
+            return row.style.display !== 'none';
+        });
+    }
+    
+    // Function to sort rows
+    function sortRows() {
+        const sortValue = sortBy.value;
+        const rows = getVisibleRows();
+        const tbody = document.querySelector('tbody');
+        
+        rows.sort((a, b) => {
+            switch (sortValue) {
+                case 'name_asc':
+                    return (a.getAttribute('data-payer-name') || '').localeCompare(b.getAttribute('data-payer-name') || '');
+                case 'name_desc':
+                    return (b.getAttribute('data-payer-name') || '').localeCompare(a.getAttribute('data-payer-name') || '');
+                case 'amount_desc':
+                    return parseFloat(b.getAttribute('data-total-paid') || 0) - parseFloat(a.getAttribute('data-total-paid') || 0);
+                case 'amount_asc':
+                    return parseFloat(a.getAttribute('data-total-paid') || 0) - parseFloat(b.getAttribute('data-total-paid') || 0);
+                case 'course_asc':
+                    const courseA = a.getAttribute('data-course') || '';
+                    const courseB = b.getAttribute('data-course') || '';
+                    return courseA.localeCompare(courseB);
+                case 'payments_desc':
+                    return parseInt(b.getAttribute('data-total-payments') || 0) - parseInt(a.getAttribute('data-total-payments') || 0);
+                case 'payments_asc':
+                    return parseInt(a.getAttribute('data-total-payments') || 0) - parseInt(b.getAttribute('data-total-payments') || 0);
+                default:
+                    return 0;
+            }
+        });
+        
+        // Reorder rows in DOM
+        rows.forEach(row => tbody.appendChild(row));
+    }
+    
+    // Function to filter and search payers
+    function filterPayers() {
+        const searchTerm = searchInput.value.trim().toLowerCase();
+        const filterCourseValue = filterCourse.value.toLowerCase();
+        const filterStatusValue = filterStatus.value.toLowerCase();
+        const payerRows = document.querySelectorAll('.payer-row');
+        let visibleCount = 0;
+        
+        payerRows.forEach(row => {
+            const payerId = row.getAttribute('data-payer-id') || '';
+            const payerName = row.getAttribute('data-payer-name') || '';
+            const email = row.getAttribute('data-email') || '';
+            const contact = row.getAttribute('data-contact') || '';
+            const course = row.getAttribute('data-course') || '';
+            const status = row.getAttribute('data-status') || '';
+            
+            // Search filter
+            const matchesSearch = searchTerm === '' || 
+                payerId.includes(searchTerm) || 
+                payerName.includes(searchTerm) || 
+                email.includes(searchTerm) || 
+                contact.includes(searchTerm) ||
+                course.includes(searchTerm);
+            
+            // Course filter
+            const matchesCourse = filterCourseValue === '' || course === filterCourseValue;
+            
+            // Status filter
+            const matchesStatus = filterStatusValue === '' || status === filterStatusValue;
+            
+            if (matchesSearch && matchesCourse && matchesStatus) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Show/hide no results message
+        if (visibleCount === 0) {
+            noResultsRow.style.display = '';
+        } else {
+            noResultsRow.style.display = 'none';
+        }
+        
+        // Show/hide clear button
+        if (searchTerm !== '' || filterCourseValue !== '' || filterStatusValue !== '') {
+            clearBtn.style.display = 'inline-block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+        
+        updateCounts(visibleCount);
+        sortRows(); // Re-sort after filtering
+    }
+    
+    // Function to update result counts
+    function updateCounts(count) {
+        if (searchResultsCount) {
+            searchResultsCount.textContent = `Showing ${count} of ${totalPayers} payers`;
+        }
+        if (paginationInfo) {
+            paginationInfo.textContent = `Showing ${count > 0 ? '1 to ' + count : '0'} of ${totalPayers} entries`;
+        }
+    }
+    
+    // Event listeners
+    searchInput.addEventListener('input', filterPayers);
+    searchInput.addEventListener('keyup', function(e) {
+        if (e.key === 'Escape') {
+            searchInput.value = '';
+            filterPayers();
+        }
     });
-}
+    
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        filterCourse.value = '';
+        filterStatus.value = '';
+        filterPayers();
+        searchInput.focus();
+    });
+    
+    filterCourse.addEventListener('change', filterPayers);
+    filterStatus.addEventListener('change', filterPayers);
+    sortBy.addEventListener('change', sortRows);
+    
+    // Initialize course filter dropdown
+    populateCourseFilter();
+    
+    // Initial sort
+    sortRows();
+})();
 
 function viewPayerDetails(payerId) {
     console.log('View payer details:', payerId);

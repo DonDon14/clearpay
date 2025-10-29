@@ -93,6 +93,7 @@ class Autoload extends AutoloadConfig
         'form',
         'payment_helper',
         'payment_methods_helper',
-        'date_helper'
+        'date_helper',
+        'phone_helper',
     ];
 }

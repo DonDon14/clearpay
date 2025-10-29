@@ -212,6 +212,8 @@ class SidebarController extends BaseController
                 'payer_name' => $payer['payer_name'],
                 'email_address' => $payer['email_address'],
                 'contact_number' => $payer['contact_number'],
+                'course_department' => $payer['course_department'] ?? null,
+                'profile_picture' => $payer['profile_picture'] ?? null,
                 'total_payments' => count($payerPayments),
                 'total_paid' => $totalPaid,
                 'last_payment' => $lastPaymentDate,
@@ -261,17 +263,18 @@ class SidebarController extends BaseController
             
             // Get form data
             $data = [
-                'payer_id' => $this->request->getPost('payer_id'),
-                'payer_name' => $this->request->getPost('payer_name'),
-                'contact_number' => $this->request->getPost('contact_number'),
-                'email_address' => $this->request->getPost('email_address')
+                'payer_id' => trim($this->request->getPost('payer_id')),
+                'payer_name' => trim($this->request->getPost('payer_name')),
+                'contact_number' => trim($this->request->getPost('contact_number')),
+                'email_address' => trim($this->request->getPost('email_address')),
+                'course_department' => trim($this->request->getPost('course_department'))
             ];
             
             // Validate required fields
-            if (empty($data['payer_id']) || empty($data['payer_name'])) {
+            if (empty($data['payer_id']) || empty($data['payer_name']) || empty($data['email_address'])) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => 'Student ID and Name are required'
+                    'message' => 'Student ID, Name, and Email Address are required'
                 ]);
             }
             
@@ -281,6 +284,37 @@ class SidebarController extends BaseController
                 return $this->response->setJSON([
                     'success' => false,
                     'message' => 'A payer with this Student ID already exists'
+                ]);
+            }
+            
+            // Validate and sanitize phone number if provided
+            if (!empty($data['contact_number'])) {
+                // Sanitize phone number (remove non-numeric characters)
+                $data['contact_number'] = sanitize_phone_number($data['contact_number']);
+                
+                // Validate phone number format (must be exactly 11 digits)
+                if (!validate_phone_number($data['contact_number'])) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Contact number must be exactly 11 digits (numbers only)'
+                    ]);
+                }
+            }
+            
+            // Validate email format (required)
+            if (!filter_var($data['email_address'], FILTER_VALIDATE_EMAIL)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid email address format'
+                ]);
+            }
+            
+            // Check if email already exists
+            $existingEmail = $payerModel->where('email_address', $data['email_address'])->first();
+            if ($existingEmail) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'A payer with this email address already exists'
                 ]);
             }
             

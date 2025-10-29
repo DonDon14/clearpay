@@ -13,6 +13,7 @@ class PayerModel extends Model
         'payer_name',
         'contact_number',
         'email_address',
+        'course_department',
         'profile_picture',
         'created_at',
         'updated_at'

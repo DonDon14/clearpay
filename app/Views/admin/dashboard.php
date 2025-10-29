@@ -61,10 +61,6 @@
     </div>
 </div>
 
-<div>
-    <button class="btn btn-primary" onclick="testPaymentMethods()">Test Payment Methods</button>
-</div>
-
 <div class="container-fluid">
     <div class="row mb-4">
 
@@ -136,6 +132,18 @@
                         <script>
                         console.log('DEBUG: Announcements URL:', <?= json_encode(base_url('announcements') . '?open_modal=true') ?>);
                         </script>
+                        <?php 
+                        unset($modalTarget, $link); // Clear variables
+                        ?>
+                        <?= view('partials/quick-action', [
+                            'icon' => 'fas fa-user-plus',
+                            'title' => 'Add New Payer',
+                            'subtitle' => 'Register a new payer',
+                            'bgColor' => 'bg-warning',
+                            'link' => null,
+                            'modalTarget' => 'addPayerModal',
+                            'colClass' => 'col-6'
+                        ]) ?>
                         <?php 
                         unset($modalTarget, $link); // Clear variables after last call
                         ?>
@@ -301,6 +309,9 @@
 <!-- QR Scanner Modal -->
 <?= view('partials/modal-qr-scanner') ?>
 
+<!-- Add Payer Modal -->
+<?= view('partials/modal-add-payer') ?>
+
 <!-- Contribution Payments Modal (for payment history) -->
 <?= view('partials/modal-contribution-payments') ?>
 
@@ -320,12 +331,6 @@ function showPaymentReceipt(paymentData) {
     }
 }
 
-function testPaymentMethods() {
-    console.log('testPaymentMethods called');
-    // Open the payment methods management modal
-    const modal = new bootstrap.Modal(document.getElementById('paymentMethodsModal'));
-    modal.show();
-}
 </script>
 
 <?= $this->endSection() ?>
