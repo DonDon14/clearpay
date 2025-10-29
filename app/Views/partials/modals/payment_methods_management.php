@@ -2,8 +2,8 @@
 /**
  * Payment Methods Management Modal Partial
  * 
- * This partial contains all the modals and functionality for managing payment methods.
- * It can be included in any page that needs payment method management functionality.
+ * This partial contains all the modals and functionality for managing payment methods
+ * with custom instructions support.
  * 
  * Required variables:
  * - $paymentMethods: Array of payment methods data
@@ -42,84 +42,66 @@ $paymentMethods = $paymentMethods ?? [];
                             <tr>
                                 <th>Name</th>
                                 <th>Description</th>
-                                <th>Account Details</th>
+                                <th>Account Number</th>
+                                <th>Account Name</th>
+                                <th>QR Code</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <?php if (!empty($paymentMethods)): ?>
+                        <tbody id="paymentMethodsTableBody">
+                            <?php if (empty($paymentMethods)): ?>
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="fas fa-credit-card fa-2x mb-2"></i><br>
+                                        No payment methods found. Add your first payment method to get started.
+                                    </td>
+                                </tr>
+                            <?php else: ?>
                                 <?php foreach ($paymentMethods as $method): ?>
-                                    <tr>
+                                    <tr data-id="<?= $method['id'] ?>">
                                         <td>
                                             <div class="d-flex align-items-center">
-                                                <?php if (!empty($method['icon']) && file_exists(FCPATH . $method['icon'])): ?>
-                                                    <img src="<?= base_url($method['icon']) ?>" alt="<?= esc($method['name']) ?> Icon" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px;" class="me-2">
-                                                <?php else: ?>
-                                                    <div class="payment-method-placeholder me-2" style="width: 32px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;" data-method="<?= esc($method['name']) ?>">
-                                                        <?= strtoupper(substr($method['name'], 0, 2)) ?>
-                                                    </div>
+                                                <?php if ($method['icon']): ?>
+                                                    <img src="<?= base_url($method['icon']) ?>" alt="<?= esc($method['name']) ?>" class="me-2" style="width: 24px; height: 24px; object-fit: contain;">
                                                 <?php endif; ?>
                                                 <strong><?= esc($method['name']) ?></strong>
                                             </div>
                                         </td>
+                                        <td><?= esc($method['description']) ?></td>
+                                        <td><?= esc($method['account_number'] ?? 'N/A') ?></td>
+                                        <td><?= esc($method['account_name'] ?? 'N/A') ?></td>
                                         <td>
-                                            <?php if (!empty($method['description'])): ?>
-                                                <span class="text-muted"><?= esc($method['description']) ?></span>
+                                            <?php if ($method['qr_code_path']): ?>
+                                                <span class="badge bg-success">Available</span>
                                             <?php else: ?>
-                                                <span class="text-muted fst-italic">No description</span>
+                                                <span class="badge bg-secondary">None</span>
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if (!empty($method['account_details'])): ?>
-                                                <span class="text-muted"><?= esc($method['account_details']) ?></span>
-                                            <?php else: ?>
-                                                <span class="text-muted fst-italic">No details</span>
-                                            <?php endif; ?>
+                                            <span class="badge bg-<?= $method['status'] === 'active' ? 'success' : 'secondary' ?>">
+                                                <?= ucfirst($method['status']) ?>
+                                            </span>
                                         </td>
                                         <td>
-                                            <?php if ($method['status'] === 'active'): ?>
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-check-circle me-1"></i>Active
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary">
-                                                    <i class="fas fa-times-circle me-1"></i>Inactive
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="editPaymentMethod(<?= $method['id'] ?>)">
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button type="button" class="btn btn-outline-primary" onclick="editPaymentMethod(<?= $method['id'] ?>)" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-<?= $method['status'] === 'active' ? 'warning' : 'success' ?>" 
-                                                        onclick="togglePaymentMethodStatus(<?= $method['id'] ?>, '<?= $method['status'] ?>')">
+                                                <button type="button" class="btn btn-outline-<?= $method['status'] === 'active' ? 'warning' : 'success' ?>" onclick="togglePaymentMethodStatus(<?= $method['id'] ?>)" title="<?= $method['status'] === 'active' ? 'Deactivate' : 'Activate' ?>">
                                                     <i class="fas fa-<?= $method['status'] === 'active' ? 'pause' : 'play' ?>"></i>
                                                 </button>
-                                                <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="deletePaymentMethod(<?= $method['id'] ?>, '<?= esc($method['name']) ?>')">
+                                                <button type="button" class="btn btn-outline-danger" onclick="deletePaymentMethod(<?= $method['id'] ?>)" title="Delete">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5" class="text-center py-4">
-                                        <i class="fas fa-credit-card fa-2x text-muted mb-2"></i>
-                                        <p class="text-muted mb-0">No payment methods found</p>
-                                        <small class="text-muted">Add your first payment method to get started</small>
-                                    </td>
-                                </tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -127,54 +109,98 @@ $paymentMethods = $paymentMethods ?? [];
 
 <!-- Add Payment Method Modal -->
 <div class="modal fade" id="addPaymentMethodModal" tabindex="-1" aria-labelledby="addPaymentMethodModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="addPaymentMethodModalLabel">
-                    <i class="fas fa-plus-circle me-2"></i>Add New Payment Method
+                    <i class="fas fa-plus me-2"></i>Add New Payment Method
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="addPaymentMethodForm">
+            <form id="addPaymentMethodForm" enctype="multipart/form-data">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="paymentMethodName" class="form-label">Payment Method Name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="paymentMethodName" name="name" required placeholder="e.g., GCash, PayMaya, Bank Transfer">
-                    </div>
-                    <div class="mb-3">
-                        <label for="paymentMethodIcon" class="form-label">Icon</label>
-                        <div class="input-group">
-                            <input type="file" class="form-control" id="paymentMethodIcon" name="icon" accept="image/*" onchange="previewIcon(this)">
-                            <label class="input-group-text" for="paymentMethodIcon">
-                                <i class="fas fa-upload"></i>
-                            </label>
+                    <div class="row">
+                        <!-- Basic Information -->
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">Basic Information</h6>
+                            
+                            <div class="mb-3">
+                                <label for="addName" class="form-label">Payment Method Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="addName" name="name" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="addDescription" class="form-label">Description</label>
+                                <textarea class="form-control" id="addDescription" name="description" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="addAccountDetails" class="form-label">Account Details</label>
+                                <input type="text" class="form-control" id="addAccountDetails" name="account_details">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="addStatus" class="form-label">Status <span class="text-danger">*</span></label>
+                                <select class="form-select" id="addStatus" name="status" required>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-text">Upload an image file (JPG, PNG, GIF, WebP) - Max 2MB</div>
-                        <div id="iconPreview" class="mt-2" style="display: none;">
-                            <img id="iconPreviewImg" src="" alt="Icon Preview" style="max-width: 64px; max-height: 64px; border-radius: 4px;">
+                        
+                        <!-- Custom Instructions -->
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">Custom Instructions</h6>
+                            
+                            <div class="mb-3">
+                                <label for="addAccountNumber" class="form-label">Account Number</label>
+                                <input type="text" class="form-control" id="addAccountNumber" name="account_number" placeholder="e.g., 0917-123-4567">
+                                <div class="form-text">GCash number, bank account, etc.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="addAccountName" class="form-label">Account Name</label>
+                                <input type="text" class="form-control" id="addAccountName" name="account_name" placeholder="e.g., ClearPay School">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="addQrCode" class="form-label">QR Code Image</label>
+                                <input type="file" class="form-control" id="addQrCode" name="qr_code" accept="image/png,image/jpg,image/jpeg">
+                                <div class="form-text">Upload QR code for easy scanning (PNG, JPG, JPEG)</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="addReferencePrefix" class="form-label">Reference Prefix</label>
+                                <input type="text" class="form-control" id="addReferencePrefix" name="reference_prefix" placeholder="CP" maxlength="20">
+                                <div class="form-text">Prefix for payment reference numbers (default: CP)</div>
+                            </div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="paymentMethodDescription" class="form-label">Description</label>
-                        <textarea class="form-control" id="paymentMethodDescription" name="description" rows="3" placeholder="Optional description for this payment method"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="paymentMethodAccountDetails" class="form-label">Account Details</label>
-                        <input type="text" class="form-control" id="paymentMethodAccountDetails" name="account_details" placeholder="e.g., Account Number, Mobile Number, etc.">
-                    </div>
-                    <div class="mb-3">
-                        <label for="paymentMethodStatus" class="form-label">Status <span class="text-danger">*</span></label>
-                        <select class="form-select" id="paymentMethodStatus" name="status" required>
-                            <option value="">Select Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
+                    
+                    <!-- Custom Instructions HTML -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">Custom Instructions HTML</h6>
+                            <div class="mb-3">
+                                <label for="addCustomInstructions" class="form-label">Payment Instructions</label>
+                                <textarea class="form-control" id="addCustomInstructions" name="custom_instructions" rows="8" placeholder="Enter custom HTML instructions for this payment method..."></textarea>
+                                <div class="form-text">
+                                    <strong>Available placeholders:</strong><br>
+                                    <code>{account_number}</code> - Account number<br>
+                                    <code>{account_name}</code> - Account name<br>
+                                    <code>{qr_code_path}</code> - QR code image URL<br>
+                                    <code>{reference_prefix}</code> - Reference prefix<br>
+                                    <code>{method_name}</code> - Payment method name
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-1"></i>Create Payment Method
+                        <i class="fas fa-save me-1"></i>Save Payment Method
                     </button>
                 </div>
             </form>
@@ -184,7 +210,7 @@ $paymentMethods = $paymentMethods ?? [];
 
 <!-- Edit Payment Method Modal -->
 <div class="modal fade" id="editPaymentMethodModal" tabindex="-1" aria-labelledby="editPaymentMethodModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="editPaymentMethodModalLabel">
@@ -192,43 +218,86 @@ $paymentMethods = $paymentMethods ?? [];
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="editPaymentMethodForm">
-                <input type="hidden" id="editPaymentMethodId" name="id">
+            <form id="editPaymentMethodForm" enctype="multipart/form-data">
+                <input type="hidden" id="editId" name="id">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="editPaymentMethodName" class="form-label">Payment Method Name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="editPaymentMethodName" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editPaymentMethodIcon" class="form-label">Icon</label>
-                        <div class="input-group">
-                            <input type="file" class="form-control" id="editPaymentMethodIcon" name="icon" accept="image/*" onchange="previewEditIcon(this)">
-                            <label class="input-group-text" for="editPaymentMethodIcon">
-                                <i class="fas fa-upload"></i>
-                            </label>
+                    <div class="row">
+                        <!-- Basic Information -->
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">Basic Information</h6>
+                            
+                            <div class="mb-3">
+                                <label for="editName" class="form-label">Payment Method Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="editName" name="name" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editDescription" class="form-label">Description</label>
+                                <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editAccountDetails" class="form-label">Account Details</label>
+                                <input type="text" class="form-control" id="editAccountDetails" name="account_details">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editStatus" class="form-label">Status <span class="text-danger">*</span></label>
+                                <select class="form-select" id="editStatus" name="status" required>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="form-text">Upload an image file (JPG, PNG, GIF, WebP) - Max 2MB</div>
-                        <div id="editIconPreview" class="mt-2">
-                            <img id="editIconPreviewImg" src="" alt="Current Icon" style="max-width: 64px; max-height: 64px; border-radius: 4px;">
-                            <div class="mt-1">
-                                <small class="text-muted">Current icon</small>
+                        
+                        <!-- Custom Instructions -->
+                        <div class="col-md-6">
+                            <h6 class="text-primary mb-3">Custom Instructions</h6>
+                            
+                            <div class="mb-3">
+                                <label for="editAccountNumber" class="form-label">Account Number</label>
+                                <input type="text" class="form-control" id="editAccountNumber" name="account_number" placeholder="e.g., 0917-123-4567">
+                                <div class="form-text">GCash number, bank account, etc.</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editAccountName" class="form-label">Account Name</label>
+                                <input type="text" class="form-control" id="editAccountName" name="account_name" placeholder="e.g., ClearPay School">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editQrCode" class="form-label">QR Code Image</label>
+                                <input type="file" class="form-control" id="editQrCode" name="qr_code" accept="image/png,image/jpg,image/jpeg">
+                                <div class="form-text">Upload new QR code to replace existing one</div>
+                                <div id="currentQrCode" class="mt-2"></div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editReferencePrefix" class="form-label">Reference Prefix</label>
+                                <input type="text" class="form-control" id="editReferencePrefix" name="reference_prefix" placeholder="CP" maxlength="20">
+                                <div class="form-text">Prefix for payment reference numbers</div>
                             </div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="editPaymentMethodDescription" class="form-label">Description</label>
-                        <textarea class="form-control" id="editPaymentMethodDescription" name="description" rows="3"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editPaymentMethodAccountDetails" class="form-label">Account Details</label>
-                        <input type="text" class="form-control" id="editPaymentMethodAccountDetails" name="account_details">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editPaymentMethodStatus" class="form-label">Status <span class="text-danger">*</span></label>
-                        <select class="form-select" id="editPaymentMethodStatus" name="status" required>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
+                    
+                    <!-- Custom Instructions HTML -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <h6 class="text-primary mb-3">Custom Instructions HTML</h6>
+                            <div class="mb-3">
+                                <label for="editCustomInstructions" class="form-label">Payment Instructions</label>
+                                <textarea class="form-control" id="editCustomInstructions" name="custom_instructions" rows="8" placeholder="Enter custom HTML instructions for this payment method..."></textarea>
+                                <div class="form-text">
+                                    <strong>Available placeholders:</strong><br>
+                                    <code>{account_number}</code> - Account number<br>
+                                    <code>{account_name}</code> - Account name<br>
+                                    <code>{qr_code_path}</code> - QR code image URL<br>
+                                    <code>{reference_prefix}</code> - Reference prefix<br>
+                                    <code>{method_name}</code> - Payment method name
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -241,30 +310,3 @@ $paymentMethods = $paymentMethods ?? [];
         </div>
     </div>
 </div>
-
-<!-- Payment Methods Management Styles -->
-<style>
-.payment-method-placeholder {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-}
-
-.payment-method-placeholder[data-method="GCash"] {
-    background: linear-gradient(135deg, #009639, #007a2e);
-}
-
-.payment-method-placeholder[data-method="PayMaya"] {
-    background: linear-gradient(135deg, #ffc107, #e0a800);
-}
-
-.payment-method-placeholder[data-method="Bank Transfer"] {
-    background: linear-gradient(135deg, #007bff, #0056b3);
-}
-
-.payment-method-placeholder[data-method="Cash"] {
-    background: linear-gradient(135deg, #28a745, #1e7e34);
-}
-
-.payment-method-placeholder[data-method="Online Banking"] {
-    background: linear-gradient(135deg, #6c757d, #545b62);
-}
-</style>

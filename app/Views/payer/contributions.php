@@ -580,7 +580,7 @@
                                     <div class="card bg-primary text-white">
                                         <div class="card-body text-center">
                                             <h6 class="card-title">Total Amount</h6>
-                                            <h4>₱${parseFloat(contribution.amount).toFixed(2)}</h4>
+                                            <h4>₱${(parseFloat(contribution.amount) || 0).toFixed(2)}</h4>
                                         </div>
                                     </div>
                                 </div>
@@ -588,7 +588,7 @@
                                     <div class="card bg-success text-white">
                                         <div class="card-body text-center">
                                             <h6 class="card-title">Total Paid</h6>
-                                            <h4>₱${parseFloat(contribution.total_paid).toFixed(2)}</h4>
+                                            <h4>₱${(parseFloat(contribution.total_paid) || 0).toFixed(2)}</h4>
                                         </div>
                                     </div>
                                 </div>
@@ -618,7 +618,7 @@
                                                     <div class="row mb-2">
                                                         <div class="col-6">
                                                             <small class="text-muted">Amount Paid</small>
-                                                            <div class="fw-bold text-success">₱${parseFloat(group.total_paid).toFixed(2)}</div>
+                                                            <div class="fw-bold text-success">₱${(parseFloat(group.total_paid) || 0).toFixed(2)}</div>
                                                         </div>
                                                         <div class="col-6">
                                                             <small class="text-muted">Payments</small>
@@ -629,7 +629,7 @@
                                                     ${group.computed_status !== 'fully paid' ? `
                                                         <div class="mb-2">
                                                             <small class="text-muted">Remaining</small>
-                                                            <div class="fw-bold text-danger">₱${parseFloat(group.remaining_balance).toFixed(2)}</div>
+                                                            <div class="fw-bold text-danger">₱${(parseFloat(group.remaining_balance) || 0).toFixed(2)}</div>
                                                         </div>
                                                     ` : ''}
                                                     
@@ -816,6 +816,14 @@
     
     // Function to show duplicate payment confirmation modal
     function showDuplicatePaymentConfirmation(contributionData) {
+        console.log('showDuplicatePaymentConfirmation called with:', contributionData);
+        
+        // Ensure we have valid data
+        const amount = parseFloat(contributionData.amount) || 0;
+        const totalPaid = parseFloat(contributionData.total_paid) || 0;
+        
+        console.log('Parsed values:', { amount, totalPaid });
+        
         const modalHtml = `
             <div class="modal fade" id="duplicatePaymentModal" tabindex="-1" aria-labelledby="duplicatePaymentModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
@@ -835,15 +843,15 @@
                                         <strong>Description:</strong> ${contributionData.description || 'No description'}
                                     </div>
                                     <div class="col-md-6">
-                                        <strong>Total Amount:</strong> ₱${parseFloat(contributionData.amount).toFixed(2)}<br>
-                                        <strong>Total Paid:</strong> ₱${parseFloat(contributionData.total_paid).toFixed(2)}
+                                        <strong>Total Amount:</strong> ₱${amount.toFixed(2)}<br>
+                                        <strong>Total Paid:</strong> ₱${totalPaid.toFixed(2)}
                                     </div>
                                 </div>
                             </div>
                             
                             <p class="mb-3">
                                 <strong>⚠️ Contribution Already Fully Paid</strong><br>
-                                You already have fully paid contribution groups for "${contributionData.title}" (₱${parseFloat(contributionData.total_paid).toFixed(2)} total).
+                                You already have fully paid contribution groups for "${contributionData.title}" (₱${totalPaid.toFixed(2)} total).
                             </p>
                             
                             <p class="mb-3">
@@ -1007,7 +1015,7 @@
                                                         ${data.payments.map(payment => `
                                                             <tr>
                                                                 <td>${new Date(payment.payment_date).toLocaleDateString()}</td>
-                                                                <td><strong>₱${parseFloat(payment.amount_paid).toFixed(2)}</strong></td>
+                                                                <td><strong>₱${(parseFloat(payment.amount_paid) || 0).toFixed(2)}</strong></td>
                                                                 <td>${payment.payment_method.charAt(0).toUpperCase() + payment.payment_method.slice(1)}</td>
                                                                 <td><span class="badge bg-${groupData.computed_status === 'fully paid' ? 'success' : 'warning'}">${groupData.computed_status === 'fully paid' ? 'Completed' : 'Partial'}</span></td>
                                                                 <td>

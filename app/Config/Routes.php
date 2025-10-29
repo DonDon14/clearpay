@@ -54,6 +54,7 @@ $routes->get('/admin/settings/payment-methods/edit/(:num)', 'Admin\Settings\Paym
 $routes->post('/admin/settings/payment-methods/update/(:num)', 'Admin\Settings\PaymentMethodController::update/$1', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\PaymentMethodController::delete/$1', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
+$routes->get('/admin/settings/payment-methods/instructions/(:any)', 'Admin\Settings\PaymentMethodController::getInstructions/$1');
 
 // Payment Requests Management Routes
 $routes->get('/payment-requests', 'Admin\DashboardController::paymentRequests', ['filter' => 'auth']);
@@ -86,6 +87,7 @@ $routes->get('/payments/by-contribution/(:num)', 'Admin\PaymentsController::byCo
 
 // Payers Management Routes
 $routes->post('/payers/create', 'Admin\PayersController::create', ['filter' => 'auth']);
+$routes->get('/payment_methods/test', 'Admin\PaymentMethodsController::test', ['filter' => 'auth']);
 
 // Contributions Management Routes
 $routes->post('/contributions/save', 'Admin\ContributionsController::save', ['filter' => 'auth']);

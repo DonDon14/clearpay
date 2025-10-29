@@ -58,22 +58,22 @@
                                 </button>
                             </div>
                         </div>
-                        
-                        <!-- Payment Method Specific Instructions -->
+
+                        <!-- Payment Instructions (Dynamic) -->
                         <div class="col-12" id="payment_method_instructions" style="display: none;">
                             <div class="alert alert-info" id="payment_instructions_content">
-                                <!-- Dynamic content will be inserted here -->
+                                <!-- Dynamic content will be loaded here -->
                             </div>
                         </div>
-                        
+
                         <div class="col-12">
                             <label for="modal_proof_of_payment" class="form-label">Proof of Payment</label>
                             <input type="file" class="form-control" id="modal_proof_of_payment" name="proof_of_payment" 
-                                   accept="image/*,.pdf">
+                                   accept="image/jpeg,image/jpg,image/png,application/pdf">
                             <div class="form-text">Upload screenshot or receipt (JPG, PNG, PDF)</div>
                             <div class="invalid-feedback" id="modal_proof_of_payment_error"></div>
                         </div>
-                        
+
                         <div class="col-12">
                             <label for="modal_notes" class="form-label">Additional Notes</label>
                             <textarea class="form-control" id="modal_notes" name="notes" rows="3" 
@@ -85,10 +85,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times me-2"></i>Cancel
+                    <i class="fas fa-times me-1"></i>Cancel
                 </button>
-                <button type="button" class="btn btn-primary" id="modal_submitBtn">
-                    <i class="fas fa-paper-plane me-2"></i>Submit Payment Request
+                <button type="button" class="btn btn-primary" onclick="submitPaymentRequest()">
+                    <i class="fas fa-paper-plane me-1"></i>Submit Payment Request
                 </button>
             </div>
         </div>
@@ -96,185 +96,33 @@
 </div>
 
 <script>
-// Payment Request Modal JavaScript
+// Global variables for payment instructions
+let paymentInstructions = null;
+let paymentInstructionsContent = null;
+
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    const paymentRequestModal = document.getElementById('paymentRequestModal');
-    const paymentRequestForm = document.getElementById('paymentRequestForm');
-    const submitBtn = document.getElementById('modal_submitBtn');
-    const paymentInstructions = document.getElementById('payment_method_instructions');
-    const paymentInstructionsContent = document.getElementById('payment_instructions_content');
+    console.log('Payment Request Modal initialized');
     
-    // Function to open payment request modal with contribution data
-    window.openPaymentRequestModal = function(contribution) {
-        console.log('=== OPENING PAYMENT REQUEST MODAL ===');
-        console.log('Contribution data:', contribution);
-        
-        // Populate contribution details
-        document.getElementById('modal_contribution_id').value = contribution.id;
-        document.getElementById('modal_contribution_title').textContent = contribution.title;
-        document.getElementById('modal_contribution_description').textContent = contribution.description;
-        document.getElementById('modal_contribution_amount').textContent = '₱' + parseFloat(contribution.amount).toLocaleString('en-US', {minimumFractionDigits: 2});
-        
-        // Set payment sequence if provided (for payment groups)
-        if (contribution.payment_sequence) {
-            document.getElementById('modal_payment_sequence').value = contribution.payment_sequence;
-        } else {
-            document.getElementById('modal_payment_sequence').value = '';
-        }
-        
-        const remainingBalance = parseFloat(contribution.remaining_balance || contribution.amount);
-        document.getElementById('modal_remaining_balance').textContent = '₱' + remainingBalance.toLocaleString('en-US', {minimumFractionDigits: 2});
-        document.getElementById('modal_max_amount').textContent = '₱' + remainingBalance.toLocaleString('en-US', {minimumFractionDigits: 2});
-        
-        // Set max amount for requested amount input
-        const requestedAmountInput = document.getElementById('modal_requested_amount');
-        requestedAmountInput.max = remainingBalance;
-        requestedAmountInput.value = remainingBalance; // Pre-fill with remaining balance
-        
-        // Clear form validation
-        clearFormValidation();
-        
-        // Show modal
-        const modal = new bootstrap.Modal(paymentRequestModal);
-        modal.show();
-        
-        // Wait for modal to be shown, then check payment method elements
-        modal._element.addEventListener('shown.bs.modal', function() {
-            console.log('=== MODAL SHOWN - CHECKING ELEMENTS ===');
-            
-            // Check if payment method elements exist
-            const paymentMethodButton = document.getElementById('modal_payment_method_custom_button');
-            const paymentMethodInput = document.getElementById('modal_payment_method_custom_input');
-            const paymentMethodContainer = document.getElementById('modal_payment_method_custom_container');
-            
-            console.log('Payment method elements:', {
-                button: paymentMethodButton,
-                input: paymentMethodInput,
-                container: paymentMethodContainer
-            });
-            
-            if (paymentMethodButton) {
-                console.log('Button text:', paymentMethodButton.textContent);
-            }
-            if (paymentMethodInput) {
-                console.log('Input value:', paymentMethodInput.value);
-            }
-            
-            // Force check for any pre-selected payment method
-            setTimeout(() => {
-                console.log('=== FORCING PAYMENT METHOD CHECK ===');
-                handlePaymentMethodChange();
-            }, 500);
-        }, { once: true });
-    };
+    // Get DOM elements
+    paymentInstructions = document.getElementById('payment_method_instructions');
+    paymentInstructionsContent = document.getElementById('payment_instructions_content');
     
-    // Function to clear form validation
-    function clearFormValidation() {
-        const form = paymentRequestForm;
-        form.classList.remove('was-validated');
-        
-        // Clear all error messages
-        const errorElements = form.querySelectorAll('.invalid-feedback');
-        errorElements.forEach(element => {
-            element.textContent = '';
-            element.style.display = 'none';
-        });
-        
-        // Remove invalid classes
-        const inputs = form.querySelectorAll('.form-control, .form-select');
-        inputs.forEach(input => {
-            input.classList.remove('is-invalid');
-        });
-    }
+    console.log('Payment instructions elements:', {
+        container: paymentInstructions,
+        content: paymentInstructionsContent
+    });
     
-    // Payment method handler - Updated for helper dropdown
-    function handlePaymentMethodChange() {
-        console.log('=== HANDLING PAYMENT METHOD CHANGE ===');
-        
-        // Check if modal is visible and elements are ready
-        const modal = document.getElementById('paymentRequestModal');
-        if (!modal || !modal.classList.contains('show')) {
-            console.log('Modal not visible, skipping payment method change');
-            return;
-        }
-        
-        // Get the selected payment method from the helper dropdown
-        // The helper creates elements with _custom suffix
-        const paymentMethodButton = document.getElementById('modal_payment_method_custom_button');
-        const paymentMethodInput = document.getElementById('modal_payment_method_custom_input');
-        const requestedAmount = document.getElementById('modal_requested_amount').value;
-        
-        console.log('Elements found:', {
-            button: paymentMethodButton,
-            input: paymentMethodInput,
-            requestedAmount: requestedAmount
-        });
-        
-        let selectedMethod = '';
-        
-        if (paymentMethodInput && paymentMethodInput.value) {
-            selectedMethod = paymentMethodInput.value;
-            console.log('Using input value:', selectedMethod);
-        } else if (paymentMethodButton && paymentMethodButton.textContent) {
-            // Extract method name from button text - check for common payment method names
-            const buttonText = paymentMethodButton.textContent.trim().toLowerCase();
-            console.log('Button text:', buttonText);
-            
-            // Check for GCash variations
-            if (buttonText.includes('gcash') || buttonText.includes('g-cash')) {
-                selectedMethod = 'gcash';
-                console.log('Detected GCash from button text');
-            }
-            // Check for PayMaya variations
-            else if (buttonText.includes('paymaya') || buttonText.includes('maya')) {
-                selectedMethod = 'paymaya';
-                console.log('Detected PayMaya from button text');
-            }
-            // Check for bank transfer variations
-            else if (buttonText.includes('bank') || buttonText.includes('bdo') || buttonText.includes('bpi') || buttonText.includes('metrobank')) {
-                selectedMethod = 'bank_transfer';
-                console.log('Detected Bank Transfer from button text');
-            }
-            // Check for online banking
-            else if (buttonText.includes('online') || buttonText.includes('internet banking')) {
-                selectedMethod = 'online';
-                console.log('Detected Online Banking from button text');
-            }
-            // Check for cash
-            else if (buttonText.includes('cash')) {
-                selectedMethod = 'cash';
-                console.log('Detected Cash from button text');
-            }
-            // Default to the button text as-is (for custom payment methods)
-            else {
-                selectedMethod = buttonText.replace(/\s+/g, '_');
-                console.log('Using button text as method:', selectedMethod);
-            }
-        } else {
-            console.log('No payment method elements found or no text content');
-        }
-        
-        console.log('Final selected method:', selectedMethod);
-        
-        if (selectedMethod) {
-            console.log('Calling showPaymentInstructions with:', selectedMethod, requestedAmount);
-            showPaymentInstructions(selectedMethod, requestedAmount);
-        } else {
-            console.log('Hiding payment instructions');
-            paymentInstructions.style.display = 'none';
-        }
-    }
-    
-    // Listen for changes in the helper dropdown
+    // Listen for payment method changes
     document.addEventListener('click', function(e) {
         // Check if a payment method item was clicked
-        if (e.target.closest('[data-value]') && e.target.closest('#modal_payment_method_custom_container')) {
+        if (e.target.closest('[data-value]') && e.target.closest('[id*="modal_payment_method"]')) {
             console.log('Payment method item clicked:', e.target.textContent);
             setTimeout(handlePaymentMethodChange, 500); // Longer delay to ensure modal is fully rendered
         }
         
         // Also check for button clicks within the payment method dropdown
-        if (e.target.closest('#modal_payment_method_custom_container') && e.target.tagName === 'BUTTON') {
+        if (e.target.closest('[id*="modal_payment_method"]') && e.target.tagName === 'BUTTON') {
             console.log('Payment method button clicked:', e.target.textContent);
             setTimeout(handlePaymentMethodChange, 500);
         }
@@ -282,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Also listen for input changes (backup)
     document.addEventListener('input', function(e) {
-        if (e.target.id === 'modal_payment_method_custom_input') {
+        if (e.target.id && e.target.id.includes('modal_payment_method') && e.target.id.includes('input')) {
             handlePaymentMethodChange();
         }
     });
@@ -291,653 +139,285 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modal_requested_amount').addEventListener('input', function() {
         handlePaymentMethodChange();
     });
-    
-    // Function to show payment method specific instructions
-    function showPaymentInstructions(method, amount) {
-        console.log('=== SHOWING PAYMENT INSTRUCTIONS ===');
-        console.log('Method:', method);
-        console.log('Amount:', amount);
-        
-        let instructions = '';
-        
-        switch(method.toLowerCase()) {
-            case 'gcash':
-                instructions = `
-                    <div class="row">
-                        <div class="col-12">
-                            <h6><i class="fas fa-qrcode me-2"></i>GCash QR Code Payment</h6>
-                            
-                            <!-- QR Code Display -->
-                            <div class="text-center mb-4">
-                                <div class="card border-primary">
-                                    <div class="card-body">
-                                        <h6 class="card-title text-primary">
-                                            <i class="fas fa-qrcode me-2"></i>Scan QR Code to Pay
-                                        </h6>
-                                        <div class="qr-code-container mb-3">
-                                            <img src="<?= base_url('images/gcashcodesample.png') ?>" 
-                                                 alt="GCash QR Code" 
-                                                 style="width: 200px; height: 200px; cursor: pointer;" 
-                                                 class="img-fluid border rounded shadow-sm" 
-                                                 onclick="showQRCodeFullscreen('<?= base_url('images/gcashcodesample.png') ?>')" 
-                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" 
-                                                 title="Click to view full screen">
-                                            <div class="qr-placeholder bg-light p-4 rounded" style="display: none; width: 200px; height: 200px; margin: 0 auto;">
-                                                <div class="text-muted text-center">
-                                                    <i class="fas fa-qrcode fa-3x mb-2"></i><br>
-                                                    <small>QR Code Loading...</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Payment Details -->
-                                        <div class="alert alert-info mb-3">
-                                            <div class="row text-start">
-                                                <div class="col-md-6">
-                                                    <strong>Amount:</strong> ₱${parseFloat(amount).toFixed(2)}<br>
-                                                    <strong>Recipient:</strong> ClearPay School<br>
-                                                    <strong>Reference:</strong> CP-${Date.now()}
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <strong>GCash Number:</strong> 09123456789<br>
-                                                    <strong>Account Name:</strong> ClearPay School<br>
-                                                    <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="copyToClipboard('gcash_ref_${Date.now()}')">
-                                                        <i class="fas fa-copy me-1"></i>Copy Reference
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Action Buttons -->
-                                        <div class="d-flex gap-2 justify-content-center">
-                                            <button type="button" class="btn btn-primary btn-sm" onclick="showQRCodeFullscreen('<?= base_url('images/gcashcodesample.png') ?>')">
-                                                <i class="fas fa-expand me-1"></i>View Full Screen
-                                            </button>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showGCashManual('${amount}')">
-                                                <i class="fas fa-hand-holding-usd me-1"></i>Manual Transfer
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Instructions Toggle -->
-                            <div class="text-center mb-3">
-                                <button type="button" class="btn btn-link btn-sm" data-bs-toggle="collapse" data-bs-target="#gcashInstructions" aria-expanded="false" aria-controls="gcashInstructions">
-                                    <i class="fas fa-info-circle me-1"></i>Show Payment Instructions
-                                </button>
-                            </div>
-                            
-                            <!-- Collapsible Instructions -->
-                            <div class="collapse" id="gcashInstructions">
-                                <div class="card card-body mb-3">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="alert alert-success mb-2">
-                                                <h6 class="mb-2"><i class="fas fa-mobile-alt me-1"></i>Two Devices (Recommended)</h6>
-                                                <ol class="mb-0 small">
-                                                    <li>Open GCash app on your phone</li>
-                                                    <li>Tap "Scan QR"</li>
-                                                    <li>Scan the QR code above</li>
-                                                    <li>Enter amount: <strong>₱${parseFloat(amount).toFixed(2)}</strong></li>
-                                                    <li>Add reference: <strong>CP-${Date.now()}</strong></li>
-                                                    <li>Confirm payment</li>
-                                                </ol>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="alert alert-warning mb-2">
-                                                <h6 class="mb-2"><i class="fas fa-mobile-alt me-1"></i>Single Device</h6>
-                                                <ol class="mb-0 small">
-                                                    <li>Take a screenshot of the QR code</li>
-                                                    <li>Open GCash app</li>
-                                                    <li>Tap "Scan QR" → "From Gallery"</li>
-                                                    <li>Select the screenshot</li>
-                                                    <li>Enter amount: <strong>₱${parseFloat(amount).toFixed(2)}</strong></li>
-                                                    <li>Add reference: <strong>CP-${Date.now()}</strong></li>
-                                                    <li>Confirm payment</li>
-                                                </ol>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Additional Tips -->
-                                    <div class="alert alert-light border">
-                                        <h6 class="mb-2"><i class="fas fa-lightbulb me-1"></i>Pro Tips</h6>
-                                        <ul class="mb-0 small">
-                                            <li>Make sure your GCash account has sufficient balance</li>
-                                            <li>Double-check the amount before confirming</li>
-                                            <li>Save the transaction receipt for your records</li>
-                                            <li>Upload the payment proof below after completing the transaction</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'cash':
-                instructions = `
-                    <div class="alert alert-info">
-                        <h6><i class="fas fa-money-bill me-2"></i>Cash Payment Instructions</h6>
-                        <p class="mb-2">Please prepare the exact amount for cash payment:</p>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>Amount:</strong> ₱${parseFloat(amount).toFixed(2)}<br>
-                                <strong>Payment Type:</strong> Cash<br>
-                                <strong>Reference:</strong> CP-${Date.now()}
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Instructions:</strong><br>
-                                <ul class="mb-0 small">
-                                    <li>Prepare exact amount</li>
-                                    <li>Bring valid ID</li>
-                                    <li>Get official receipt</li>
-                                    <li>Keep receipt for records</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'paymaya':
-                instructions = `
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6><i class="fas fa-mobile-alt me-2"></i>PayMaya Payment Options</h6>
-                            <div class="mb-3">
-                                <strong>Option 1: QR Code Payment</strong>
-                                <div class="mt-2">
-                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="showPayMayaQR('${amount}')">
-                                        <i class="fas fa-qrcode me-1"></i>Show QR Code
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <strong>Option 2: Manual Transfer</strong>
-                                <div class="mt-2">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showPayMayaManual('${amount}')">
-                                        <i class="fas fa-hand-holding-usd me-1"></i>Manual Transfer Details
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="alert alert-warning">
-                                <h6><i class="fas fa-info-circle me-2"></i>Single Device Solution</h6>
-                                <p class="mb-1">If using the same device:</p>
-                                <ul class="mb-0">
-                                    <li>Take a screenshot of the QR code</li>
-                                    <li>Open PayMaya app</li>
-                                    <li>Go to "Scan QR" → "From Gallery"</li>
-                                    <li>Select the screenshot</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'bank_transfer':
-                instructions = `
-                    <div class="alert alert-info">
-                        <h6><i class="fas fa-university me-2"></i>Bank Transfer Instructions</h6>
-                        <p class="mb-2">Please transfer the amount to:</p>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>Bank:</strong> BDO<br>
-                                <strong>Account Name:</strong> ClearPay School<br>
-                                <strong>Account Number:</strong> 1234567890
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Reference:</strong> <span id="bank_reference">CP-${Date.now()}</span><br>
-                                <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="copyToClipboard('bank_reference')">
-                                    <i class="fas fa-copy me-1"></i>Copy Reference
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'online':
-                instructions = `
-                    <div class="alert alert-info">
-                        <h6><i class="fas fa-laptop me-2"></i>Online Banking Instructions</h6>
-                        <p class="mb-2">Please use your online banking to transfer the amount to:</p>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>Bank:</strong> BDO<br>
-                                <strong>Account Name:</strong> ClearPay School<br>
-                                <strong>Account Number:</strong> 1234567890
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Reference:</strong> <span id="online_reference">CP-${Date.now()}</span><br>
-                                <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="copyToClipboard('online_reference')">
-                                    <i class="fas fa-copy me-1"></i>Copy Reference
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                break;
-        }
-        
-        console.log('Instructions HTML length:', instructions.length);
-        console.log('Payment instructions element:', paymentInstructions);
-        console.log('Payment instructions content element:', paymentInstructionsContent);
-        
-        // Check if elements exist and are accessible
-        if (!paymentInstructions) {
-            console.error('paymentInstructions element not found');
-            return;
-        }
-        
-        if (!paymentInstructionsContent) {
-            console.error('paymentInstructionsContent element not found');
-            return;
-        }
-        
-        if (!instructions || instructions.length === 0) {
-            console.error('No instructions generated for method:', method);
-            return;
-        }
-        
-        try {
-            paymentInstructionsContent.innerHTML = instructions;
-            paymentInstructions.style.display = 'block';
-            console.log('Payment instructions displayed successfully');
-        } catch (error) {
-            console.error('Error displaying payment instructions:', error);
-        }
-    }
-    
-    // Make function globally accessible
-    window.showPaymentInstructions = showPaymentInstructions;
-    
-    // Handle form submission
-    submitBtn.addEventListener('click', function() {
-        if (paymentRequestForm.checkValidity()) {
-            submitPaymentRequest();
-        } else {
-            paymentRequestForm.classList.add('was-validated');
-        }
-    });
-    
-    // Function to submit payment request
-    function submitPaymentRequest() {
-        const formData = new FormData(paymentRequestForm);
-        
-        // Show loading state
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
-        
-        fetch('<?= base_url('payer/submit-payment-request') ?>', {
-            method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                showNotification(data.message, 'success');
-                
-                // Close modal
-                const modal = bootstrap.Modal.getInstance(paymentRequestModal);
-                modal.hide();
-                
-                // Reset form
-                paymentRequestForm.reset();
-                clearFormValidation();
-                
-                // Refresh payment requests page if we're on it
-                if (typeof loadPaymentRequests === 'function') {
-                    loadPaymentRequests();
-                }
-            } else {
-                // Show error message
-                showNotification(data.message, 'error');
-                
-                // Show validation errors
-                if (data.errors) {
-                    Object.keys(data.errors).forEach(field => {
-                        const errorElement = document.getElementById(`modal_${field}_error`);
-                        if (errorElement) {
-                            errorElement.textContent = data.errors[field];
-                            errorElement.style.display = 'block';
-                            const inputElement = document.getElementById(`modal_${field}`);
-                            if (inputElement) {
-                                inputElement.classList.add('is-invalid');
-                            }
-                        }
-                    });
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('An error occurred while submitting the payment request', 'error');
-        })
-        .finally(() => {
-            // Reset button state
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Submit Payment Request';
-        });
-    }
-    
-    // Validate requested amount
-    document.getElementById('modal_requested_amount').addEventListener('input', function() {
-        const maxAmount = parseFloat(this.max);
-        const requestedAmount = parseFloat(this.value);
-        
-        if (requestedAmount > maxAmount) {
-            this.setCustomValidity(`Amount cannot exceed ₱${maxAmount.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
-        } else {
-            this.setCustomValidity('');
-        }
-    });
-    
-    // Reset form when modal is hidden
-    paymentRequestModal.addEventListener('hidden.bs.modal', function() {
-        paymentRequestForm.reset();
-        clearFormValidation();
-    });
 });
 
-// Notification function (if not already defined)
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
-    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+// Function to handle payment method changes
+function handlePaymentMethodChange() {
+    console.log('=== HANDLING PAYMENT METHOD CHANGE ===');
     
-    notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
+    // Check if modal is visible and elements are ready
+    const modal = document.getElementById('paymentRequestModal');
+    if (!modal || !modal.classList.contains('show')) {
+        console.log('Modal not visible, skipping payment method change');
+        return;
+    }
     
-    document.body.appendChild(notification);
+    // Get the selected payment method from the helper dropdown
+    const paymentMethodButton = document.querySelector('[id*="modal_payment_method"][id*="button"]');
+    const paymentMethodInput = document.querySelector('[id*="modal_payment_method"][id*="input"]');
+    const requestedAmount = document.getElementById('modal_requested_amount').value;
     
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
+    console.log('Elements found:', {
+        button: paymentMethodButton,
+        input: paymentMethodInput,
+        requestedAmount: requestedAmount
+    });
+    
+    let selectedMethod = '';
+    
+    if (paymentMethodInput && paymentMethodInput.value) {
+        selectedMethod = paymentMethodInput.value;
+        console.log('Using input value:', selectedMethod);
+    } else if (paymentMethodButton && paymentMethodButton.textContent) {
+        // Extract method name from button text
+        const buttonText = paymentMethodButton.textContent.trim();
+        console.log('Button text:', buttonText);
+        
+        // For now, just use the button text as the method name
+        selectedMethod = buttonText;
+        console.log('Using button text as method:', selectedMethod);
+    } else {
+        console.log('No payment method elements found or no text content');
+    }
+    
+    console.log('Final selected method:', selectedMethod);
+    
+    if (selectedMethod && requestedAmount) {
+        console.log('Calling showPaymentInstructions with:', selectedMethod, requestedAmount);
+        showPaymentInstructions(selectedMethod, requestedAmount);
+    } else {
+        console.log('Hiding payment instructions');
+        if (paymentInstructions) {
+            paymentInstructions.style.display = 'none';
         }
-    }, 5000);
+    }
 }
 
-// Test function for debugging - moved outside DOMContentLoaded
+// Function to show payment method specific instructions (FULLY DYNAMIC)
+function showPaymentInstructions(method, amount) {
+    console.log('=== SHOWING PAYMENT INSTRUCTIONS ===');
+    console.log('Method:', method);
+    console.log('Amount:', amount);
+    
+    // Check if elements exist
+    if (!paymentInstructions || !paymentInstructionsContent) {
+        console.error('Payment instructions elements not found');
+        return;
+    }
+    
+    // First, try to get custom instructions from the database
+    const apiUrl = `${window.APP_BASE_URL || ''}/admin/settings/payment-methods/instructions/${encodeURIComponent(method)}`;
+    console.log('Fetching custom instructions from:', apiUrl);
+    
+    fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success && data.method && data.method.custom_instructions) {
+            console.log('Using custom instructions from database');
+            displayCustomInstructions(data.method, amount);
+        } else {
+            console.log('❌ No custom instructions found, using generic fallback');
+            console.log('Reason:', {
+                success: data.success,
+                hasMethod: !!data.method,
+                hasInstructions: !!(data.method && data.method.custom_instructions)
+            });
+            displayGenericInstructions(method, amount);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error fetching custom instructions:', error);
+        console.log('Falling back to generic instructions due to fetch error');
+        displayGenericInstructions(method, amount);
+    });
+}
+
+// Function to display custom instructions from database
+function displayCustomInstructions(method, amount) {
+    console.log('=== DISPLAYING CUSTOM INSTRUCTIONS ===');
+    console.log('Method object:', method);
+    console.log('Method QR code path:', method.qr_code_path);
+    console.log('Amount:', amount);
+    
+    let instructions = method.processed_instructions || method.custom_instructions;
+    console.log('Raw instructions:', instructions);
+    console.log('Raw instructions length:', instructions ? instructions.length : 0);
+    
+    // Replace amount placeholder with actual amount
+    if (instructions) {
+        instructions = instructions.replace(/{amount}/g, (parseFloat(amount) || 0).toFixed(2));
+        console.log('Final processed instructions:', instructions);
+        console.log('Processed instructions length:', instructions.length);
+    }
+    
+    // Check if QR code should be displayed and add it if not present
+    if (method.qr_code_path) {
+        console.log('QR code path found:', method.qr_code_path);
+        const hasQRCodeInInstructions = instructions.includes('<img') || 
+                                       instructions.includes('qr_code') || 
+                                       instructions.includes('QR') ||
+                                       instructions.includes('qr-code');
+        
+        if (!hasQRCodeInInstructions) {
+            console.log('Adding QR code to instructions');
+            
+            // Ensure QR code path is properly formatted
+            let qrCodeSrc = method.qr_code_path;
+            if (!qrCodeSrc.startsWith('http') && !qrCodeSrc.startsWith('/')) {
+                qrCodeSrc = '/' + qrCodeSrc;
+            }
+            
+            const qrCodeHtml = `
+                <div class="text-center mb-3">
+                    <h6><i class="fas fa-qrcode me-2"></i>QR Code</h6>
+                    <img src="${qrCodeSrc}" alt="QR Code" class="img-fluid" style="max-width: 200px; max-height: 200px;" onerror="console.error('QR code image failed to load:', this.src)">
+                    <p class="small text-muted mt-2">Scan this QR code to make payment</p>
+                </div>
+            `;
+            instructions = qrCodeHtml + instructions;
+        } else {
+            console.log('QR code already present in instructions');
+        }
+    } else {
+        console.log('No QR code path found in method');
+    }
+    
+    if (!instructions || instructions.length === 0) {
+        console.error('❌ No custom instructions found');
+        console.log('Method name:', method.name);
+        displayGenericInstructions(method.name, amount);
+        return;
+    }
+    
+    console.log('✅ Instructions found, displaying...');
+    console.log('paymentInstructions element:', paymentInstructions);
+    console.log('paymentInstructionsContent element:', paymentInstructionsContent);
+    
+    try {
+        paymentInstructionsContent.innerHTML = instructions;
+        paymentInstructions.style.display = 'block';
+        console.log('✅ Custom payment instructions displayed successfully');
+    } catch (error) {
+        console.error('❌ Error displaying custom payment instructions:', error);
+        displayGenericInstructions(method.name, amount);
+    }
+}
+
+// Function to display generic instructions (fallback for ANY payment method)
+function displayGenericInstructions(method, amount) {
+    console.log('=== DISPLAYING GENERIC INSTRUCTIONS ===');
+    console.log('Method:', method);
+    console.log('Amount:', amount);
+    
+    const instructions = `
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle me-2"></i>${method} Payment Instructions</h6>
+            <p class="mb-2">Please prepare the following for ${method} payment:</p>
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Amount:</strong> ₱${(parseFloat(amount) || 0).toFixed(2)}<br>
+                    <strong>Payment Type:</strong> ${method}<br>
+                    <strong>Reference:</strong> CP-${Date.now()}
+                </div>
+                <div class="col-md-6">
+                    <strong>Instructions:</strong><br>
+                    <ul class="mb-0 small">
+                        <li>Follow your preferred ${method} payment method</li>
+                        <li>Enter amount: ₱${(parseFloat(amount) || 0).toFixed(2)}</li>
+                        <li>Add reference: CP-${Date.now()}</li>
+                        <li>Upload proof of payment below</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    console.log('Generic instructions HTML length:', instructions.length);
+    
+    try {
+        paymentInstructionsContent.innerHTML = instructions;
+        paymentInstructions.style.display = 'block';
+        console.log('Generic payment instructions displayed successfully');
+    } catch (error) {
+        console.error('Error displaying generic payment instructions:', error);
+    }
+}
+
+// Test function for debugging
 window.testGCashInstructions = function() {
     console.log('=== TESTING GCASH INSTRUCTIONS ===');
     const amount = document.getElementById('modal_requested_amount').value || '90';
     console.log('Using amount:', amount);
     
-    // Call the global function
-    if (typeof window.showPaymentInstructions === 'function') {
-        window.showPaymentInstructions('gcash', amount);
-    } else {
-        console.error('showPaymentInstructions function not found');
-    }
+    // Call the function
+    showPaymentInstructions('GCash', amount);
 };
 
-// Global functions for payment methods
-window.showGCashQR = function(amount) {
-    const modalHtml = `
-        <div class="modal fade" id="gcashQRModal" tabindex="-1" aria-labelledby="gcashQRModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" id="gcashQRModalLabel">
-                            <i class="fas fa-qrcode me-2"></i>GCash QR Code Payment
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body text-center">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h6 class="card-title">QR Code</h6>
-                                        <div class="qr-code-placeholder bg-light p-4 mb-3" style="min-height: 200px; display: flex; align-items: center; justify-content: center;">
-                                            <div class="text-muted">
-                                                <i class="fas fa-qrcode fa-3x mb-2"></i><br>
-                                                QR Code for ₱${amount}
-                                            </div>
-                                        </div>
-                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="viewQRCode('images/gcashcodesample.png')">
-                                            <i class="fas fa-qrcode me-1"></i>Show QR Code
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <h6 class="card-title">Payment Details</h6>
-                                        <div class="text-start">
-                                            <p><strong>Amount:</strong> ₱${amount}</p>
-                                            <p><strong>Recipient:</strong> ClearPay School</p>
-                                            <p><strong>Reference:</strong> CP-${Date.now()}</p>
-                                        </div>
-                                        <div class="alert alert-info mt-3">
-                                            <h6><i class="fas fa-mobile-alt me-2"></i>Single Device Instructions</h6>
-                                            <ol class="mb-0 text-start">
-                                                <li>Take a screenshot of the QR code</li>
-                                                <li>Open GCash app</li>
-                                                <li>Tap "Scan QR"</li>
-                                                <li>Select "From Gallery"</li>
-                                                <li>Choose the screenshot</li>
-                                                <li>Confirm payment</li>
-                                            </ol>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" onclick="showGCashManual('${amount}')">
-                            <i class="fas fa-hand-holding-usd me-1"></i>Manual Transfer Instead
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+// Make function globally accessible
+window.showPaymentInstructions = showPaymentInstructions;
+
+// Open payment request modal function
+window.openPaymentRequestModal = function(contribution) {
+    console.log('=== OPENING PAYMENT REQUEST MODAL ===');
+    console.log('Contribution data:', contribution);
     
-    // Remove existing modal if any
-    const existingModal = document.getElementById('gcashQRModal');
-    if (existingModal) {
-        existingModal.remove();
+    // Populate contribution details
+    document.getElementById('modal_contribution_title').textContent = contribution.title || 'N/A';
+    document.getElementById('modal_contribution_description').textContent = contribution.description || 'N/A';
+    document.getElementById('modal_contribution_amount').textContent = '₱' + (parseFloat(contribution.amount || 0)).toFixed(2);
+    document.getElementById('modal_remaining_balance').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2);
+    document.getElementById('modal_max_amount').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2);
+    
+    // Reset form first
+    document.getElementById('paymentRequestForm').reset();
+    
+    // Set hidden fields
+    document.getElementById('modal_contribution_id').value = contribution.id || '';
+    document.getElementById('modal_payment_sequence').value = contribution.payment_sequence || '1';
+    
+    // Set max amount for input
+    const amountInput = document.getElementById('modal_requested_amount');
+    if (amountInput) {
+        amountInput.max = contribution.remaining_balance || contribution.amount || 0;
+        amountInput.value = (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2); // Set to remaining balance
     }
     
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    // Hide payment instructions initially
+    if (paymentInstructions) {
+        paymentInstructions.style.display = 'none';
+    }
     
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('gcashQRModal'));
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('paymentRequestModal'));
     modal.show();
     
-    // Clean up modal when hidden
-    document.getElementById('gcashQRModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
+    // Trigger payment method change after modal is shown to load instructions
+    setTimeout(() => {
+        handlePaymentMethodChange();
+    }, 500);
+    
+    console.log('Payment request modal opened successfully');
 };
 
-window.showGCashManual = function(amount) {
-    const modalHtml = `
-        <div class="modal fade" id="gcashManualModal" tabindex="-1" aria-labelledby="gcashManualModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" id="gcashManualModalLabel">
-                            <i class="fas fa-hand-holding-usd me-2"></i>GCash Manual Transfer
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <h6><i class="fas fa-info-circle me-2"></i>Manual Transfer Instructions</h6>
-                            <p>Please follow these steps to complete your payment:</p>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>Transfer Details</h6>
-                                <div class="card">
-                                    <div class="card-body">
-                                        <p><strong>Amount:</strong> ₱${amount}</p>
-                                        <p><strong>Recipient:</strong> ClearPay School</p>
-                                        <p><strong>GCash Number:</strong> <span id="gcash_number">09123456789</span></p>
-                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('gcash_number')">
-                                            <i class="fas fa-copy me-1"></i>Copy Number
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h6>Steps to Follow</h6>
-                                <ol>
-                                    <li>Open GCash app</li>
-                                    <li>Tap "Send Money"</li>
-                                    <li>Enter the GCash number above</li>
-                                    <li>Enter amount: ₱${amount}</li>
-                                    <li>Add reference: CP-${Date.now()}</li>
-                                    <li>Confirm and send</li>
-                                </ol>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-warning mt-3">
-                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Important</h6>
-                            <p class="mb-0">Please use the exact reference number above for proper tracking of your payment.</p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Remove existing modal if any
-    const existingModal = document.getElementById('gcashManualModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('gcashManualModal'));
-    modal.show();
-    
-    // Clean up modal when hidden
-    document.getElementById('gcashManualModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
-};
-
-window.showPayMayaQR = function(amount) {
-    // Use the same QR code viewer for PayMaya
-    viewQRCode('images/paymayacodesample.png');
-};
-
-window.showPayMayaManual = function(amount) {
-    const modalHtml = `
-        <div class="modal fade" id="paymayaManualModal" tabindex="-1" aria-labelledby="paymayaManualModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-primary text-white">
-                        <h5 class="modal-title" id="paymayaManualModalLabel">
-                            <i class="fas fa-hand-holding-usd me-2"></i>PayMaya Manual Transfer
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <h6><i class="fas fa-info-circle me-2"></i>Manual Transfer Instructions</h6>
-                            <p>Please follow these steps to complete your payment:</p>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6>Transfer Details</h6>
-                                <div class="card">
-                                    <div class="card-body">
-                                        <p><strong>Amount:</strong> ₱${amount}</p>
-                                        <p><strong>Recipient:</strong> ClearPay School</p>
-                                        <p><strong>PayMaya Number:</strong> <span id="paymaya_number">09123456789</span></p>
-                                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyToClipboard('paymaya_number')">
-                                            <i class="fas fa-copy me-1"></i>Copy Number
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <h6>Steps to Follow</h6>
-                                <ol>
-                                    <li>Open PayMaya app</li>
-                                    <li>Tap "Send Money"</li>
-                                    <li>Enter the PayMaya number above</li>
-                                    <li>Enter amount: ₱${amount}</li>
-                                    <li>Add reference: CP-${Date.now()}</li>
-                                    <li>Confirm and send</li>
-                                </ol>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-warning mt-3">
-                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Important</h6>
-                            <p class="mb-0">Please use the exact reference number above for proper tracking of your payment.</p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" onclick="showPayMayaQR('${amount}')">
-                            <i class="fas fa-qrcode me-1"></i>Use QR Code Instead
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Remove existing modal if any
-    const existingModal = document.getElementById('paymayaManualModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('paymayaManualModal'));
-    modal.show();
-    
-    // Clean up modal when hidden
-    document.getElementById('paymayaManualModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
-};
-
+// Copy to clipboard function
 window.copyToClipboard = function(elementId) {
     let textToCopy = '';
     
     // Handle special cases for GCash reference
     if (elementId.startsWith('gcash_ref_')) {
-        textToCopy = `CP-${Date.now()}`;
+        // Extract the reference number from the element's content or generate a new one if needed
+        // For now, we'll just generate a new one as the reference is dynamic
+        textToCopy = `CP-${Date.now()}`; 
     } else {
         const element = document.getElementById(elementId);
         if (element) {
@@ -961,131 +441,102 @@ window.copyToClipboard = function(elementId) {
     }
 };
 
-// Function to show QR code in fullscreen
-window.showQRCodeFullscreen = function(imagePath) {
-    const modalHtml = `
-        <div class="modal fade" id="qrCodeFullscreenModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-fullscreen">
-                <div class="modal-content bg-dark">
-                    <div class="modal-header border-0 justify-content-end">
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body d-flex align-items-center justify-content-center">
-                        <div class="text-center">
-                            <img src="${imagePath}" alt="QR Code Fullscreen" class="img-fluid" style="max-width: 90vw; max-height: 90vh;">
-                            <div class="mt-3">
-                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                                    <i class="fas fa-times me-1"></i>Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+// Show QR code fullscreen
+window.showQRCodeFullscreen = function(imageSrc) {
+    // Create a modal for fullscreen QR code
+    const modal = document.createElement('div');
+    modal.className = 'modal fade';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">QR Code</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="${imageSrc}" alt="QR Code" class="img-fluid">
                 </div>
             </div>
         </div>
     `;
     
-    // Remove existing modal if any
-    const existingModal = document.getElementById('qrCodeFullscreenModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
+    document.body.appendChild(modal);
+    const bsModal = new bootstrap.Modal(modal);
+    bsModal.show();
     
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('qrCodeFullscreenModal'));
-    modal.show();
-    
-    // Clean up modal when hidden
-    document.getElementById('qrCodeFullscreenModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
+    modal.addEventListener('hidden.bs.modal', function() {
+        document.body.removeChild(modal);
     });
 };
 
+// Show GCash manual transfer
+window.showGCashManual = function(amount) {
+    alert(`Manual GCash Transfer Instructions:\n\n1. Open GCash app\n2. Tap "Send Money"\n3. Enter amount: ₱${amount}\n4. Add reference: CP-${Date.now()}\n5. Confirm payment`);
+};
 
-// Function to view QR code with the actual image
-window.viewQRCode = function(imagePath) {
-    const modalHtml = `
-        <div class="modal fade" id="qrCodeModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-sm">
-                <div class="modal-content">
-                    <div class="modal-header justify-content-end">
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body text-center p-4">
-                        <img src="${imagePath}" alt="QR Code" style="width: 250px; height: 250px;" class="img-fluid">
-                    </div>
-                </div>
-            </div>
-        </div>
+// Show notification function
+function showNotification(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     
-    // Remove existing modal if any
-    const existingModal = document.getElementById('qrCodeModal');
-    if (existingModal) {
-        existingModal.remove();
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
+// Submit payment request function
+function submitPaymentRequest() {
+    const form = document.getElementById('paymentRequestForm');
+    const formData = new FormData(form);
+    
+    // Validate required fields
+    const requestedAmount = formData.get('requested_amount');
+    const paymentMethod = formData.get('payment_method');
+    const contributionId = formData.get('contribution_id');
+    
+    if (!requestedAmount || !paymentMethod || !contributionId) {
+        alert('Please fill in all required fields');
+        return;
     }
     
-    // Add modal to body
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
-    modal.show();
-    
-    // Clean up modal when hidden
-    document.getElementById('qrCodeModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
+    // Submit the form
+    fetch('<?= base_url('payer/submit-payment-request') ?>', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('paymentRequestModal'));
+            modal.hide();
+            // Reset form
+            form.reset();
+        } else {
+            showNotification(data.message || 'Failed to submit payment request', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error submitting payment request:', error);
+        showNotification('An error occurred while submitting the payment request', 'error');
     });
-};
-
-// Keep the old function for backward compatibility but update it to use viewQRCode
-window.generateQRCode = function(method, amount) {
-    const qrPlaceholder = document.querySelector('.qr-code-placeholder');
-    if (qrPlaceholder) {
-        // Show the actual static GCash QR code
-        qrPlaceholder.innerHTML = showStaticGCashQR(amount);
-    }
-};
-
-function showStaticGCashQR(amount) {
-    return `
-        <div class="text-center">
-            <div class="bg-white p-3 rounded shadow-sm mb-3">
-                <img src="images/gcashcodesample.png" alt="GCash QR Code" style="width: 200px; height: 200px;" class="img-fluid">
-            </div>
-            <div class="alert alert-success">
-                <h6><i class="fas fa-qrcode me-2"></i>GCash QR Code</h6>
-                <p class="mb-1"><strong>Recipient:</strong> ClearPay School</p>
-                <p class="mb-1"><strong>GCash Number:</strong> 09123456789</p>
-                <p class="mb-0"><strong>Amount to Pay:</strong> ₱${amount}</p>
-            </div>
-            <div class="alert alert-info">
-                <h6><i class="fas fa-info-circle me-2"></i>How to Pay</h6>
-                <ol class="mb-0 text-start">
-                    <li>Open GCash app</li>
-                    <li>Tap "Scan QR"</li>
-                    <li>Scan this QR code</li>
-                    <li>Enter amount: <strong>₱${amount}</strong></li>
-                    <li>Add reference: <strong>CP-${Date.now()}</strong></li>
-                    <li>Confirm payment</li>
-                </ol>
-            </div>
-            <div class="alert alert-warning">
-                <h6><i class="fas fa-mobile-alt me-2"></i>Single Device Solution</h6>
-                <ol class="mb-0 text-start">
-                    <li>Take a screenshot of this QR code</li>
-                    <li>Open GCash app</li>
-                    <li>Tap "Scan QR" → "From Gallery"</li>
-                    <li>Select the screenshot</li>
-                    <li>Enter amount: <strong>₱${amount}</strong></li>
-                    <li>Add reference: <strong>CP-${Date.now()}</strong></li>
-                    <li>Confirm payment</li>
-                </ol>
-            </div>
-        </div>
-    `;
 }
 </script>

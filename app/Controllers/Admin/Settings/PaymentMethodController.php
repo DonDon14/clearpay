@@ -26,9 +26,8 @@ class PaymentMethodController extends BaseController
 
         $data = [
             'title' => 'Payment Methods',
-            'pageTitle' => 'Manage Payment Methods',
-            'pageSubtitle' => 'Configure available payment methods for the system',
-            'paymentMethods' => $this->paymentMethodModel->orderBy('name', 'ASC')->findAll(),
+            'pageTitle' => 'Payment Methods',
+            'pageSubtitle' => 'Manage payment methods and their instructions',
         ];
 
         return view('admin/settings/payment_methods/index', $data);
@@ -45,8 +44,8 @@ class PaymentMethodController extends BaseController
         }
 
         $data = [
-            'title' => 'Add Payment Method',
-            'pageTitle' => 'Add New Payment Method',
+            'title' => 'Create Payment Method',
+            'pageTitle' => 'Create Payment Method',
             'pageSubtitle' => 'Create a new payment method',
         ];
 
@@ -74,6 +73,11 @@ class PaymentMethodController extends BaseController
             'icon' => 'permit_empty|max_length[255]',
             'description' => 'permit_empty|max_length[1000]',
             'account_details' => 'permit_empty|max_length[255]',
+            'account_number' => 'permit_empty|max_length[100]',
+            'account_name' => 'permit_empty|max_length[100]',
+            'qr_code' => 'permit_empty|uploaded[qr_code]|max_size[qr_code,2048]|ext_in[qr_code,png,jpg,jpeg]',
+            'custom_instructions' => 'permit_empty',
+            'reference_prefix' => 'permit_empty|max_length[20]',
             'status' => 'required|in_list[active,inactive]',
         ];
 
@@ -91,6 +95,20 @@ class PaymentMethodController extends BaseController
             ],
             'account_details' => [
                 'max_length' => 'Account details cannot exceed 255 characters.',
+            ],
+            'account_number' => [
+                'max_length' => 'Account number cannot exceed 100 characters.',
+            ],
+            'account_name' => [
+                'max_length' => 'Account name cannot exceed 100 characters.',
+            ],
+            'qr_code' => [
+                'uploaded' => 'Please upload a valid QR code image.',
+                'max_size' => 'QR code image size cannot exceed 2MB.',
+                'ext_in' => 'QR code must be a PNG, JPG, or JPEG file.',
+            ],
+            'reference_prefix' => [
+                'max_length' => 'Reference prefix cannot exceed 20 characters.',
             ],
             'status' => [
                 'required' => 'Status is required.',
@@ -111,41 +129,57 @@ class PaymentMethodController extends BaseController
                 ->with('validation_errors', $this->validator->getErrors());
         }
 
+        // Handle QR code upload
+        $qrCodePath = null;
+        $qrCodeFile = $this->request->getFile('qr_code');
+        
+        if ($qrCodeFile && $qrCodeFile->isValid() && !$qrCodeFile->hasMoved()) {
+            $uploadPath = FCPATH . 'uploads/payment_methods/qr_codes/';
+            
+            // Create directory if it doesn't exist
+            if (!is_dir($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
+            }
+            
+            $newName = 'qr_' . time() . '_' . $qrCodeFile->getRandomName();
+            if ($qrCodeFile->move($uploadPath, $newName)) {
+                $qrCodePath = 'uploads/payment_methods/qr_codes/' . $newName;
+            }
+        }
+
         $data = [
             'name' => $this->request->getPost('name'),
             'description' => $this->request->getPost('description'),
             'account_details' => $this->request->getPost('account_details'),
+            'account_number' => $this->request->getPost('account_number'),
+            'account_name' => $this->request->getPost('account_name'),
+            'qr_code_path' => $qrCodePath,
+            'custom_instructions' => $this->request->getPost('custom_instructions'),
+            'reference_prefix' => $this->request->getPost('reference_prefix') ?: 'CP',
             'status' => $this->request->getPost('status'),
         ];
 
-        // Handle icon file upload
-        $iconFile = $this->request->getFile('icon');
-        if ($iconFile && $iconFile->isValid() && !$iconFile->hasMoved()) {
-            $iconPath = $this->uploadIcon($iconFile);
-            if ($iconPath) {
-                $data['icon'] = $iconPath;
-            }
-        }
+        $result = $this->paymentMethodModel->insert($data);
 
-        if ($this->paymentMethodModel->insert($data)) {
+        if ($result) {
             if ($this->request->isAJAX()) {
                 return $this->response->setJSON([
                     'success' => true,
-                    'message' => 'Payment method created successfully.'
+                    'message' => 'Payment method created successfully'
                 ]);
             }
             return redirect()->to('/admin/settings/payment-methods')
-                ->with('success', 'Payment method created successfully.');
+                ->with('success', 'Payment method created successfully');
         } else {
             if ($this->request->isAJAX()) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => 'Failed to create payment method. Please try again.'
+                    'message' => 'Failed to create payment method'
                 ]);
             }
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Failed to create payment method. Please try again.');
+                ->with('error', 'Failed to create payment method');
         }
     }
 
@@ -160,16 +194,16 @@ class PaymentMethodController extends BaseController
         }
 
         $paymentMethod = $this->paymentMethodModel->find($id);
-        
+
         if (!$paymentMethod) {
             return redirect()->to('/admin/settings/payment-methods')
-                ->with('error', 'Payment method not found.');
+                ->with('error', 'Payment method not found');
         }
 
         $data = [
             'title' => 'Edit Payment Method',
             'pageTitle' => 'Edit Payment Method',
-            'pageSubtitle' => 'Update payment method details',
+            'pageSubtitle' => 'Edit payment method details',
             'paymentMethod' => $paymentMethod,
         ];
 
@@ -193,16 +227,16 @@ class PaymentMethodController extends BaseController
         }
 
         $paymentMethod = $this->paymentMethodModel->find($id);
-        
+
         if (!$paymentMethod) {
             if ($this->request->isAJAX()) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => 'Payment method not found.'
+                    'message' => 'Payment method not found'
                 ]);
             }
             return redirect()->to('/admin/settings/payment-methods')
-                ->with('error', 'Payment method not found.');
+                ->with('error', 'Payment method not found');
         }
 
         $rules = [
@@ -210,6 +244,11 @@ class PaymentMethodController extends BaseController
             'icon' => 'permit_empty|max_length[255]',
             'description' => 'permit_empty|max_length[1000]',
             'account_details' => 'permit_empty|max_length[255]',
+            'account_number' => 'permit_empty|max_length[100]',
+            'account_name' => 'permit_empty|max_length[100]',
+            'qr_code' => 'permit_empty|uploaded[qr_code]|max_size[qr_code,2048]|ext_in[qr_code,png,jpg,jpeg]',
+            'custom_instructions' => 'permit_empty',
+            'reference_prefix' => 'permit_empty|max_length[20]',
             'status' => 'required|in_list[active,inactive]',
         ];
 
@@ -227,6 +266,20 @@ class PaymentMethodController extends BaseController
             ],
             'account_details' => [
                 'max_length' => 'Account details cannot exceed 255 characters.',
+            ],
+            'account_number' => [
+                'max_length' => 'Account number cannot exceed 100 characters.',
+            ],
+            'account_name' => [
+                'max_length' => 'Account name cannot exceed 100 characters.',
+            ],
+            'qr_code' => [
+                'uploaded' => 'Please upload a valid QR code image.',
+                'max_size' => 'QR code image size cannot exceed 2MB.',
+                'ext_in' => 'QR code must be a PNG, JPG, or JPEG file.',
+            ],
+            'reference_prefix' => [
+                'max_length' => 'Reference prefix cannot exceed 20 characters.',
             ],
             'status' => [
                 'required' => 'Status is required.',
@@ -247,96 +300,104 @@ class PaymentMethodController extends BaseController
                 ->with('validation_errors', $this->validator->getErrors());
         }
 
+        // Handle QR code upload
+        $qrCodePath = $paymentMethod['qr_code_path']; // Keep existing if no new upload
+        $qrCodeFile = $this->request->getFile('qr_code');
+        
+        if ($qrCodeFile && $qrCodeFile->isValid() && !$qrCodeFile->hasMoved()) {
+            $uploadPath = FCPATH . 'uploads/payment_methods/qr_codes/';
+            
+            // Create directory if it doesn't exist
+            if (!is_dir($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
+            }
+            
+            // Delete old QR code if it exists
+            if ($qrCodePath && file_exists(FCPATH . $qrCodePath)) {
+                unlink(FCPATH . $qrCodePath);
+            }
+            
+            $newName = 'qr_' . time() . '_' . $qrCodeFile->getRandomName();
+            if ($qrCodeFile->move($uploadPath, $newName)) {
+                $qrCodePath = 'uploads/payment_methods/qr_codes/' . $newName;
+            }
+        }
+
         $data = [
             'name' => $this->request->getPost('name'),
             'description' => $this->request->getPost('description'),
             'account_details' => $this->request->getPost('account_details'),
+            'account_number' => $this->request->getPost('account_number'),
+            'account_name' => $this->request->getPost('account_name'),
+            'qr_code_path' => $qrCodePath,
+            'custom_instructions' => $this->request->getPost('custom_instructions'),
+            'reference_prefix' => $this->request->getPost('reference_prefix') ?: 'CP',
             'status' => $this->request->getPost('status'),
         ];
 
-        // Handle icon file upload
-        $iconFile = $this->request->getFile('icon');
-        if ($iconFile && $iconFile->isValid() && !$iconFile->hasMoved()) {
-            $iconPath = $this->uploadIcon($iconFile);
-            if ($iconPath) {
-                $data['icon'] = $iconPath;
-            }
-        }
+        $result = $this->paymentMethodModel->update($id, $data);
 
-        if ($this->paymentMethodModel->update($id, $data)) {
+        if ($result) {
             if ($this->request->isAJAX()) {
                 return $this->response->setJSON([
                     'success' => true,
-                    'message' => 'Payment method updated successfully.'
+                    'message' => 'Payment method updated successfully'
                 ]);
             }
             return redirect()->to('/admin/settings/payment-methods')
-                ->with('success', 'Payment method updated successfully.');
+                ->with('success', 'Payment method updated successfully');
         } else {
             if ($this->request->isAJAX()) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => 'Failed to update payment method. Please try again.'
+                    'message' => 'Failed to update payment method'
                 ]);
             }
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Failed to update payment method. Please try again.');
+                ->with('error', 'Failed to update payment method');
         }
     }
 
     /**
-     * Delete the specified payment method
+     * Remove the specified payment method
      */
     public function delete($id)
     {
         // Check if user is logged in
         if (!session()->get('isLoggedIn')) {
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Unauthorized'
-                ]);
-            }
-            return redirect()->to('/admin/login');
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
         }
 
         $paymentMethod = $this->paymentMethodModel->find($id);
-        
+
         if (!$paymentMethod) {
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Payment method not found.'
-                ]);
-            }
-            return redirect()->to('/admin/settings/payment-methods')
-                ->with('error', 'Payment method not found.');
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payment method not found'
+            ]);
         }
 
-        if ($this->paymentMethodModel->delete($id)) {
-            // Delete the icon file if it exists
-            if (!empty($paymentMethod['icon'])) {
-                $this->deleteIconFile($paymentMethod['icon']);
-            }
-            
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => true,
-                    'message' => 'Payment method deleted successfully.'
-                ]);
-            }
-            return redirect()->to('/admin/settings/payment-methods')
-                ->with('success', 'Payment method deleted successfully.');
+        // Delete QR code file if it exists
+        if ($paymentMethod['qr_code_path'] && file_exists(FCPATH . $paymentMethod['qr_code_path'])) {
+            unlink(FCPATH . $paymentMethod['qr_code_path']);
+        }
+
+        $result = $this->paymentMethodModel->delete($id);
+
+        if ($result) {
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Payment method deleted successfully'
+            ]);
         } else {
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Failed to delete payment method. Please try again.'
-                ]);
-            }
-            return redirect()->to('/admin/settings/payment-methods')
-                ->with('error', 'Failed to delete payment method. Please try again.');
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Failed to delete payment method'
+            ]);
         }
     }
 
@@ -347,98 +408,33 @@ class PaymentMethodController extends BaseController
     {
         // Check if user is logged in
         if (!session()->get('isLoggedIn')) {
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Unauthorized'
-                ]);
-            }
-            return redirect()->to('/admin/login');
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ]);
         }
 
-        $paymentMethod = $this->paymentMethodModel->find($id);
-        
-        if (!$paymentMethod) {
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Payment method not found.'
-                ]);
-            }
-            return redirect()->to('/admin/settings/payment-methods')
-                ->with('error', 'Payment method not found.');
-        }
+        $result = $this->paymentMethodModel->toggleStatus($id);
 
-        if ($this->paymentMethodModel->toggleStatus($id)) {
-            $newStatus = $paymentMethod['status'] === 'active' ? 'inactive' : 'active';
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => true,
-                    'message' => "Payment method status changed to {$newStatus}."
-                ]);
-            }
-            return redirect()->to('/admin/settings/payment-methods')
-                ->with('success', "Payment method status changed to {$newStatus}.");
+        if ($result) {
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Payment method status updated successfully'
+            ]);
         } else {
-            if ($this->request->isAJAX()) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Failed to update payment method status. Please try again.'
-                ]);
-            }
-            return redirect()->to('/admin/settings/payment-methods')
-                ->with('error', 'Failed to update payment method status. Please try again.');
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Failed to update payment method status'
+            ]);
         }
     }
 
     /**
-     * Upload icon file and return the path
-     */
-    private function uploadIcon($iconFile)
-    {
-        // Validate file type
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($iconFile->getMimeType(), $allowedTypes)) {
-            return false;
-        }
-
-        // Validate file size (max 2MB)
-        if ($iconFile->getSize() > 2 * 1024 * 1024) {
-            return false;
-        }
-
-        // Create directories if they don't exist
-        $uploadPath = FCPATH . 'uploads/payment_methods/';
-        if (!is_dir($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
-        }
-
-        // Generate unique filename
-        $newName = $iconFile->getRandomName();
-        
-        // Move file to upload directory
-        if ($iconFile->move($uploadPath, $newName)) {
-            return 'uploads/payment_methods/' . $newName;
-        }
-
-        return false;
-    }
-
-    /**
-     * Delete icon file
-     */
-    private function deleteIconFile($iconPath)
-    {
-        if ($iconPath && file_exists(FCPATH . $iconPath)) {
-            unlink(FCPATH . $iconPath);
-        }
-    }
-
-    /**
-     * Get payment methods data as JSON for AJAX requests
+     * Get payment methods data for AJAX requests
      */
     public function getData()
     {
+        // Check if user is logged in
         if (!session()->get('isLoggedIn')) {
             return $this->response->setJSON([
                 'success' => false,
@@ -447,7 +443,7 @@ class PaymentMethodController extends BaseController
         }
 
         $paymentMethods = $this->paymentMethodModel->orderBy('name', 'ASC')->findAll();
-        
+
         return $this->response->setJSON([
             'success' => true,
             'data' => $paymentMethods
@@ -455,13 +451,22 @@ class PaymentMethodController extends BaseController
     }
 
     /**
-     * Test payment methods
+     * Get payment method with custom instructions
      */
-    public function test()
+    public function getInstructions($name)
     {
+        $method = $this->paymentMethodModel->getMethodWithInstructions($name);
+        
+        if (!$method) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payment method not found'
+            ]);
+        }
+
         return $this->response->setJSON([
             'success' => true,
-            'message' => 'Payment methods tested successfully'
+            'method' => $method
         ]);
     }
 }
