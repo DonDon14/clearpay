@@ -51,13 +51,14 @@
               <table class="table table-hover table-fit">
                  <thead class="header-table">
                   <tr>
-                                    <th>Payer</th>
-                    <th>Contribution</th>
-                                    <th>Total Paid</th>
-                                    <th>Status</th>
-                                    <th>Payment Count</th>
-                                    <th>Last Payment</th>
-                    <th>Actions</th>
+                                <th>Payer</th>
+                                <th>Contribution</th>
+                                <th>Total Paid</th>
+                                <th>Payment Status</th>
+                                <th>Refund Status</th>
+                                <th>Payment Count</th>
+                                <th>Last Payment</th>
+                                <th>Actions</th>
                   </tr>
                 </thead>
                  <tbody id="paymentsTableBody">
@@ -108,37 +109,41 @@
                                             </td>
                                 <td>
                                     <?php 
-                                                    $status = $group['computed_status'];
+                                        // Payment Status
+                                        $status = $group['computed_status'];
+                                        $paymentBadgeClass = match($status) {
+                                            'fully paid' => 'bg-primary text-white',
+                                            'partial' => 'bg-warning text-dark',
+                                            'unpaid' => 'bg-secondary text-white',
+                                            default => 'bg-light text-dark'
+                                        };
+                                        $paymentStatusText = match($status) {
+                                            'fully paid' => 'Completed',
+                                            'partial' => 'Partial',
+                                            'unpaid' => 'Unpaid',
+                                            default => ucfirst($status)
+                                        };
+                                    ?>
+                                    <span class="badge <?= $paymentBadgeClass ?>"><?= $paymentStatusText ?></span>
+                                </td>
+                                <td>
+                                    <?php 
+                                        // Refund Status
                                         $refundStatus = $group['refund_status'] ?? 'no_refund';
                                         $totalRefunded = (float)($group['total_refunded'] ?? 0);
                                         
-                                        // Determine badge class and text based on refund status first, then payment status
                                         if ($refundStatus === 'fully_refunded') {
-                                            $badgeClass = 'bg-danger text-white';
-                                            $statusText = 'Fully Refunded';
+                                            $refundBadgeClass = 'bg-danger text-white';
+                                            $refundStatusText = 'Fully Refunded';
                                         } elseif ($refundStatus === 'partially_refunded') {
-                                            $badgeClass = 'bg-warning text-dark';
-                                            $statusText = 'Partially Refunded (₱' . number_format($totalRefunded, 2) . ')';
+                                            $refundBadgeClass = 'bg-warning text-dark';
+                                            $refundStatusText = 'Partially Refunded<br><small>₱' . number_format($totalRefunded, 2) . ' of ₱' . number_format($group['total_paid'], 2) . '</small>';
                                         } else {
-                                            // Show normal payment status
-                                            $badgeClass = match($status) {
-                                                'fully paid' => 'bg-primary text-white',
-                                                'partial' => 'bg-warning text-dark',
-                                                'unpaid' => 'bg-secondary text-white',
-                                                default => 'bg-light text-dark'
-                                            };
-                                            $statusText = match($status) {
-                                                'fully paid' => 'Completed',
-                                                'partial' => 'Partial',
-                                                'unpaid' => 'Unpaid',
-                                                default => ucfirst($status)
-                                            };
+                                            $refundBadgeClass = 'bg-success text-white';
+                                            $refundStatusText = 'No Refund';
                                         }
                                     ?>
-                                    <span class="badge <?= $badgeClass ?>"><?= $statusText ?></span>
-                                    <?php if ($refundStatus !== 'no_refund' && $refundStatus === 'partially_refunded'): ?>
-                                        <br><small class="text-muted">Original: ₱<?= number_format($group['total_paid'], 2) ?></small>
-                                    <?php endif; ?>
+                                    <span class="badge <?= $refundBadgeClass ?>"><?= $refundStatusText ?></span>
                                 </td>
                                 <td>
                                                 <span class="badge bg-info"><?= $group['payment_count'] ?> payment<?= $group['payment_count'] > 1 ? 's' : '' ?></span>
@@ -152,6 +157,13 @@
                                                             data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
                                                             title="View Payment History">
                                                         <i class="fas fa-history me-1"></i>History
+                                            </button>
+                                                    <button class="btn btn-sm btn-outline-warning refund-payment-group-btn" 
+                                                            data-payer-id="<?= esc($group['payer_id']) ?>" 
+                                                            data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                                            data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
+                                                            title="Refund this payment group">
+                                                        <i class="fas fa-undo me-1"></i>Refund
                                             </button>
                                                     <?php if ($group['computed_status'] === 'partial'): ?>
                                                         <button class="btn btn-sm btn-success add-payment-btn" 
@@ -522,7 +534,7 @@ $(document).ready(function() {
             
             html += `
                 <div class="card mb-3">
-                    <div class="card-header bg-light">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="fas fa-layer-group me-2"></i>
                             Payment Group ${group.sequence}
@@ -530,6 +542,13 @@ $(document).ready(function() {
                             <span class="badge bg-success ms-1">₱${parseFloat(group.total_amount).toFixed(2)} total</span>
                             ${groupRefundBadge}
                         </h6>
+                        <button type="button" class="btn btn-sm btn-outline-danger refund-group-btn-history"
+                                data-payer-id="${payerId}"
+                                data-contribution-id="${contributionId}"
+                                data-sequence="${group.sequence}"
+                                title="Refund entire group">
+                            <i class="fas fa-undo me-1"></i>Refund Group
+                        </button>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -573,6 +592,14 @@ $(document).ready(function() {
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger refund-payment-btn-history"
+                                        data-payment-id="${payment.id}"
+                                        data-payer-id="${payerId}"
+                                        data-contribution-id="${contributionId}"
+                                        data-sequence="${group.sequence}"
+                                        title="Refund this payment">
+                                    <i class="fas fa-undo"></i>
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-warning edit-payment-btn" 
                                         data-payment-id="${payment.id}" 
                                         data-payment-data='${JSON.stringify(payment)}'
@@ -1224,10 +1251,76 @@ $(document).ready(function() {
     window.scanIDForPayment = function() {
         alert('QR Scanner functionality will be implemented');
     };
+
+    // Refund Payment Group button (in main payments table)
+    $(document).on('click', '.refund-payment-group-btn', function(e) {
+        e.stopPropagation();
+        const payerId = $(this).data('payer-id');
+        const contributionId = $(this).data('contribution-id');
+        const sequence = $(this).data('payment-sequence');
+
+        // Call the global function from refund-transaction.js
+        if (typeof window.openRefundModalForGroup === 'function') {
+            window.openRefundModalForGroup(payerId, contributionId, sequence);
+        } else {
+            alert('Refund functionality not initialized. Please refresh the page.');
+        }
+    });
+
+    // Refund Group button (in payment history modal)
+    $(document).on('click', '.refund-group-btn-history', function(e) {
+        e.stopPropagation();
+        const payerId = $(this).data('payer-id');
+        const contributionId = $(this).data('contribution-id');
+        const sequence = $(this).data('sequence');
+
+        // Call the global function from refund-transaction.js
+        if (typeof window.openRefundModalForGroup === 'function') {
+            window.openRefundModalForGroup(payerId, contributionId, sequence);
+        } else {
+            alert('Refund functionality not initialized. Please refresh the page.');
+        }
+        
+        // Close the payment history modal
+        const historyModal = bootstrap.Modal.getInstance(document.getElementById('paymentHistoryModal'));
+        if (historyModal) {
+            historyModal.hide();
+        }
+    });
+
+    // Refund Payment button (in payment history modal - individual payment)
+    $(document).on('click', '.refund-payment-btn-history', function(e) {
+        e.stopPropagation();
+        const paymentId = $(this).data('payment-id');
+        const payerId = $(this).data('payer-id');
+        const contributionId = $(this).data('contribution-id');
+        const sequence = $(this).data('sequence');
+
+        // Call the global function from refund-transaction.js
+        if (typeof window.openRefundModalForPayment === 'function') {
+            window.openRefundModalForPayment(paymentId, payerId, contributionId, sequence);
+        } else {
+            alert('Refund functionality not initialized. Please refresh the page.');
+        }
+        
+        // Close the payment history modal
+        const historyModal = bootstrap.Modal.getInstance(document.getElementById('paymentHistoryModal'));
+        if (historyModal) {
+            historyModal.hide();
+        }
+    });
 });
 </script>
 
 <!-- Include Additional Payment Modal -->
 <?= view('partials/modal-add-payment-to-partial') ?>
+
+<!-- Include Refund Transaction Modal -->
+<?php
+// Get refund methods for the modal
+$refundMethodModel = new \App\Models\RefundMethodModel();
+$refundMethods = $refundMethodModel->getActiveMethods();
+?>
+<?= view('partials/modal-refund-transaction', ['refundMethods' => $refundMethods]) ?>
 
 <?= $this->endSection() ?>

@@ -525,3 +525,246 @@ if (typeof jQuery !== 'undefined') {
 
 console.log('Refund transaction script loaded');
 
+// --- Global Functions for Opening Refund Modal with Pre-filled Data ---
+
+/**
+ * Open refund modal for a payment group (Group Refund)
+ * Pre-selects "Group Refund" and automatically selects the specified group
+ */
+window.openRefundModalForGroup = function(payerId, contributionId, sequence) {
+    // Open the refund modal
+    const refundModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('refundTransactionModal'));
+    refundModal.show();
+
+    // Wait for the modal to be fully shown and groups loaded
+    $('#refundTransactionModal').one('shown.bs.modal', function() {
+        // Set refund type to 'group'
+        $('#refund_type').val('group').trigger('change');
+
+        // Wait for groups to be loaded - use a retry mechanism
+        let retryCount = 0;
+        const maxRetries = 10;
+        
+        const trySelectGroup = () => {
+            // Find the button - try multiple selectors
+            let selectButton = $(`#groupsList button.select-group-btn[data-payer-id="${payerId}"][data-contribution-id="${contributionId}"][data-sequence="${sequence}"]`);
+            
+            if (!selectButton.length) {
+                selectButton = $(`#groupsList button[data-payer-id="${payerId}"][data-contribution-id="${contributionId}"][data-sequence="${sequence}"]`);
+            }
+            
+            if (selectButton.length) {
+                selectButton.click();
+            } else if (retryCount < maxRetries) {
+                retryCount++;
+                setTimeout(trySelectGroup, 300); // Retry after 300ms
+            } else {
+                // If we still can't find it, directly call the select group handler with the data
+                console.log('Button not found, directly selecting group:', {payerId, contributionId, sequence});
+                // Trigger the AJAX call directly
+                $.ajax({
+                    url: window.APP_BASE_URL + 'admin/refunds/get-payment-group-details',
+                    method: 'GET',
+                    data: { 
+                        payer_id: payerId,
+                        contribution_id: contributionId,
+                        payment_sequence: sequence
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            const group = response.group;
+                            if (!group || !group.payments || group.payments.length === 0) {
+                                showNotification('No payments found in this group', 'error');
+                                return;
+                            }
+                            
+                            // Fill form fields
+                            $('#refund_payer_id').val(payerId);
+                            $('#refund_contribution_id').val(contributionId);
+                            $('#refund_payment_sequence').val(sequence);
+                            $('#refund_payment_id').val('');
+                            $('#refund_payment_ids').val('');
+                            $('#refund_amount').val(parseFloat(group.available_for_refund || 0).toFixed(2));
+                            $('#available_amount').text('₱' + parseFloat(group.available_for_refund || 0).toFixed(2));
+                            
+                            const payerName = group.payer_name || (group.payments[0] && group.payments[0].payer_name) || 'Unknown Payer';
+                            const contributionTitle = group.contribution_title || (group.payments[0] && group.payments[0].contribution_title) || 'Unknown Contribution';
+                            
+                            let paymentsHtml = '<small class="text-muted">Payments in group:</small><ul class="list-unstyled mt-2 mb-0">';
+                            group.payments.forEach(function(payment) {
+                                paymentsHtml += `<li>• Payment #${payment.id}: ₱${parseFloat(payment.amount_paid || 0).toFixed(2)} (${payment.receipt_number || 'No receipt'})</li>`;
+                            });
+                            paymentsHtml += '</ul>';
+                            
+                            const infoHtml = `
+                                <strong>${escapeHtml(payerName)}</strong><br>
+                                <small>Sequence #${sequence} | ${escapeHtml(contributionTitle)}</small><br>
+                                <span class="text-muted">Group Total: ₱${parseFloat(group.total_amount || 0).toFixed(2)}</span><br>
+                                <span class="text-danger">Already Refunded: ₱${parseFloat(group.total_refunded || 0).toFixed(2)}</span><br>
+                                ${paymentsHtml}
+                            `;
+                            $('#paymentInfoDisplay').html(infoHtml);
+                        } else {
+                            showNotification(response.message || 'Failed to load payment group details', 'error');
+                        }
+                    }
+                });
+            }
+        };
+        
+        // Start trying after initial delay
+        setTimeout(trySelectGroup, 500);
+    });
+};
+
+/**
+ * Open refund modal for a specific payment (Sequence Refund)
+ * Pre-selects "Sequence Refund" and automatically selects only the specified payment
+ */
+window.openRefundModalForPayment = function(paymentId, payerId, contributionId, sequence) {
+    // Open the refund modal
+    const refundModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('refundTransactionModal'));
+    refundModal.show();
+
+    // Wait for the modal to be fully shown
+    $('#refundTransactionModal').one('shown.bs.modal', function() {
+        // Set refund type to 'sequence'
+        $('#refund_type').val('sequence').trigger('change');
+
+        // Wait for lists to be populated - use retry mechanism
+        let retryCount = 0;
+        const maxRetries = 10;
+        
+        const trySelectSequence = () => {
+            // Find the button - try multiple selectors
+            let selectButton = $(`#sequencesList button.select-sequence-btn[data-payer-id="${payerId}"][data-contribution-id="${contributionId}"][data-sequence="${sequence}"]`);
+            
+            if (!selectButton.length) {
+                selectButton = $(`#sequencesList button[data-payer-id="${payerId}"][data-contribution-id="${contributionId}"][data-sequence="${sequence}"]`);
+            }
+            
+            if (selectButton.length) {
+                selectButton.click();
+                
+                // Wait for payment details to load, then select the specific payment
+                setTimeout(() => {
+                    selectSpecificPayment(paymentId);
+                }, 1200); // Give time for payment details to load after clicking Select Payments
+            } else if (retryCount < maxRetries) {
+                retryCount++;
+                setTimeout(trySelectSequence, 300); // Retry after 300ms
+            } else {
+                // If button still not found, directly call the AJAX to load group details
+                console.log('Button not found, directly loading sequence:', {paymentId, payerId, contributionId, sequence});
+                loadSequenceAndSelectPayment(payerId, contributionId, sequence, paymentId);
+            }
+        };
+        
+        // Helper function to select specific payment after details are loaded
+        const selectSpecificPayment = (paymentId) => {
+            // Uncheck all payment checkboxes first
+            $('.sequence-payment-check').prop('checked', false);
+            
+            // Check only the specific payment
+            const specificPaymentCheckbox = $(`#pay_${paymentId}`);
+            if (specificPaymentCheckbox.length && !specificPaymentCheckbox.is(':disabled')) {
+                specificPaymentCheckbox.prop('checked', true);
+                specificPaymentCheckbox.trigger('change');
+                if (typeof updateSequencePaymentSelection === 'function') {
+                    updateSequencePaymentSelection();
+                }
+            } else if (specificPaymentCheckbox.is(':disabled')) {
+                showNotification('This payment is already fully refunded and cannot be selected.', 'warning');
+            } else {
+                // Retry finding the checkbox
+                setTimeout(() => selectSpecificPayment(paymentId), 500);
+            }
+        };
+        
+        // Helper function to directly load sequence and select payment
+        const loadSequenceAndSelectPayment = (payerId, contributionId, sequence, paymentId) => {
+            $.ajax({
+                url: window.APP_BASE_URL + 'admin/refunds/get-payment-group-details',
+                method: 'GET',
+                data: { 
+                    payer_id: payerId,
+                    contribution_id: contributionId,
+                    payment_sequence: sequence
+                },
+                success: function(response) {
+                    if (response.success) {
+                        const group = response.group;
+                        selectedSequencePayments = group.payments || [];
+                        
+                        // Fill form fields
+                        $('#refund_payer_id').val(payerId);
+                        $('#refund_contribution_id').val(contributionId);
+                        $('#refund_payment_sequence').val(sequence);
+                        $('#refund_payment_id').val('');
+                        
+                        // Load payment details and render checkboxes
+                        const paymentPromises = group.payments.map(function(payment) {
+                            return $.ajax({
+                                url: window.APP_BASE_URL + 'admin/refunds/get-payment-details',
+                                method: 'GET',
+                                data: { payment_id: payment.id }
+                            });
+                        });
+                        
+                        Promise.all(paymentPromises).then(function(paymentResponses) {
+                            let totalAvailable = 0;
+                            let paymentsHtml = '<small class="text-muted">Select payments to refund:</small><div class="mt-2">';
+                            
+                            group.payments.forEach(function(payment, index) {
+                                const paymentResponse = paymentResponses[index];
+                                const availableForRefund = paymentResponse.success ? 
+                                    (parseFloat(paymentResponse.payment.available_for_refund) || 0) : 
+                                    parseFloat(payment.amount_paid || 0);
+                                
+                                totalAvailable += availableForRefund;
+                                const isAvailable = availableForRefund > 0;
+                                const isSelected = payment.id == paymentId && isAvailable;
+                                
+                                paymentsHtml += `
+                                    <div class="form-check">
+                                        <input class="form-check-input sequence-payment-check" type="checkbox" 
+                                               value="${payment.id}" id="pay_${payment.id}" 
+                                               data-amount="${availableForRefund}"
+                                               ${isSelected ? 'checked' : ''} ${!isAvailable ? 'disabled' : ''}>
+                                        <label class="form-check-label ${!isAvailable ? 'text-muted' : ''}" for="pay_${payment.id}">
+                                            Payment #${payment.id}: ₱${parseFloat(payment.amount_paid || 0).toFixed(2)} 
+                                            (${payment.receipt_number || 'No receipt'}) - ${payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : ''}
+                                            ${!isAvailable ? '<span class="badge bg-secondary ms-2">Fully Refunded</span>' : ''}
+                                        </label>
+                                    </div>
+                                `;
+                            });
+                            paymentsHtml += '</div>';
+                            
+                            const payerName = group.payer_name || (group.payments[0] && group.payments[0].payer_name) || 'Unknown Payer';
+                            const contributionTitle = group.contribution_title || (group.payments[0] && group.payments[0].contribution_title) || 'Unknown Contribution';
+                            
+                            const infoHtml = `
+                                <strong>${escapeHtml(payerName)}</strong><br>
+                                <small>Sequence #${sequence} | ${escapeHtml(contributionTitle)}</small><br>
+                                <span class="text-muted">Group Total: ₱${parseFloat(group.total_amount || 0).toFixed(2)}</span><br>
+                                <span class="text-danger">Already Refunded: ₱${parseFloat(group.total_refunded || 0).toFixed(2)}</span><br>
+                                ${paymentsHtml}
+                            `;
+                            $('#paymentInfoDisplay').html(infoHtml);
+                            
+                            // Update selected payments
+                            if (typeof updateSequencePaymentSelection === 'function') {
+                                updateSequencePaymentSelection();
+                            }
+                        });
+                    }
+                }
+            });
+        };
+        
+        // Start trying after initial delay
+        setTimeout(trySelectSequence, 500);
+    });
+};
+
