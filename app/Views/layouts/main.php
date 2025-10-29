@@ -59,20 +59,41 @@
       .then(response => response.json())
       .then(data => {
         const badge = document.getElementById('paymentRequestsBadge');
-        if (badge && data.success) {
-          const count = data.count || 0;
-          if (count > 0) {
-            badge.textContent = count;
-            badge.style.display = 'flex';
-            badge.style.background = '#ef4444';
-            badge.style.color = 'white';
+        if (badge) {
+          if (data.success) {
+            const count = data.count || 0;
+            if (count > 0) {
+              badge.textContent = count;
+              badge.style.setProperty('display', 'flex', 'important');
+              badge.style.setProperty('opacity', '1', 'important');
+              badge.style.setProperty('visibility', 'visible', 'important');
+              badge.style.background = '#ef4444';
+              badge.style.color = 'white';
+            } else {
+              badge.textContent = '';
+              badge.style.setProperty('display', 'none', 'important');
+              badge.style.setProperty('opacity', '0', 'important');
+              badge.style.setProperty('visibility', 'hidden', 'important');
+            }
           } else {
-            badge.style.display = 'none';
+            // Hide badge if request failed
+            badge.textContent = '';
+            badge.style.setProperty('display', 'none', 'important');
+            badge.style.setProperty('opacity', '0', 'important');
+            badge.style.setProperty('visibility', 'hidden', 'important');
           }
         }
       })
       .catch(error => {
         console.error('Error fetching payment requests count:', error);
+        // Hide badge on error
+        const badge = document.getElementById('paymentRequestsBadge');
+        if (badge) {
+          badge.textContent = '';
+          badge.style.setProperty('display', 'none', 'important');
+          badge.style.setProperty('opacity', '0', 'important');
+          badge.style.setProperty('visibility', 'hidden', 'important');
+        }
       });
     };
     

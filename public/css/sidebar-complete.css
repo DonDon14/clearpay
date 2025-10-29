@@ -449,11 +449,11 @@ body.sidebar-loading .main-content {
     display: none !important;
 }
 
-/* Debug: Force badge to be visible for testing */
+/* Hide payment requests badge by default - JavaScript will show it if needed */
 #paymentRequestsBadge {
-    display: flex !important;
-    background: #ef4444 !important;
-    color: white !important;
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
 }
 
 @keyframes pulse {

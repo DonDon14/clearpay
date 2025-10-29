@@ -51,9 +51,11 @@
                         <?php endif; ?>
                     </div>
                     <h5 class="card-title">Payment Requests</h5>
-                    <p class="card-text text-muted"><?= $pendingPaymentRequests ?? '0' ?> pending</p>
                     <?php if (($pendingPaymentRequests ?? 0) > 0): ?>
+                        <p class="card-text text-muted"><?= $pendingPaymentRequests ?> pending</p>
                         <small class="text-warning fw-bold">Action Required</small>
+                    <?php else: ?>
+                        <p class="card-text text-muted">No pending requests</p>
                     <?php endif; ?>
                 </div>
             </div>
