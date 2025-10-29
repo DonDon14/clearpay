@@ -139,6 +139,17 @@
                                                     <?= date('M d, Y', strtotime($contribution['created_at'])) ?>
                                                 </small>
                                             </div>
+                                            
+                                            <!-- Add Payment Button - Only show if no payment groups exist -->
+                                            <?php if (empty($contribution['payment_groups'])): ?>
+                                                <div class="mt-3">
+                                                    <button class="btn btn-primary btn-sm w-100 add-payment-btn" 
+                                                            data-contribution='<?= json_encode($contribution) ?>'
+                                                            onclick="event.stopPropagation();">
+                                                        <i class="fas fa-plus me-2"></i>Add Payment
+                                                    </button>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -655,7 +666,28 @@
             console.error('Error:', error);
             alert('An error occurred while loading contribution details.');
         });
-    }
+    }    
+    
+    // Handle Add Payment button clicks (for contributions with no payment groups)
+    document.addEventListener('click', function(e) {
+        const addPaymentBtn = e.target.closest('.add-payment-btn');
+        if (addPaymentBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation(); // Prevent other event listeners from firing
+            
+            const contributionData = JSON.parse(addPaymentBtn.getAttribute('data-contribution'));
+            
+            // Since there are no payment groups, open payment request modal directly
+            // This will create the first payment group
+            if (typeof window.openPaymentRequestModal === 'function') {
+                window.openPaymentRequestModal(contributionData);
+            } else {
+                console.error('openPaymentRequestModal function not available');
+                alert('Payment request functionality not available. Please refresh the page.');
+            }
+        }
+    }, true); // Use capture phase to catch events early
     
     // Function to show payment group selection modal
     function showPaymentGroupSelectionModal(contributionData) {

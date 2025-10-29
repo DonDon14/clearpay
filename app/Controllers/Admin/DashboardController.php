@@ -324,6 +324,11 @@ class DashboardController extends BaseController
                 $paymentRecord = $paymentModel->find($paymentId);
                 $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
                 
+                // Get payer information for activity log
+                $payerModel = new \App\Models\PayerModel();
+                $payer = $payerModel->find($request['payer_id']);
+                $payerName = $payer ? $payer['payer_name'] : 'Unknown Payer';
+                
                 // Mark payment request as approved
                 $result = $paymentRequestModel->approveRequest($requestId, $processedBy, $adminNotes);
                 
@@ -333,7 +338,7 @@ class DashboardController extends BaseController
                     $activityLogger->logPaymentRequest('approved', $request);
                     
                     // Log activity for admin dashboard (user_activities table)
-                    $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved and payment recorded (Receipt Number: {$receiptNumber})");
+                    $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved for {$payerName} - Receipt: {$receiptNumber}");
                     
                     return $this->response->setJSON([
                         'success' => true,
@@ -392,6 +397,11 @@ class DashboardController extends BaseController
                 ]);
             }
             
+            // Get payer information for activity log
+            $payerModel = new \App\Models\PayerModel();
+            $payer = $payerModel->find($request['payer_id']);
+            $payerName = $payer ? $payer['payer_name'] : 'Unknown Payer';
+            
             $result = $paymentRequestModel->rejectRequest($requestId, $processedBy, $adminNotes);
             
             if ($result) {
@@ -400,7 +410,7 @@ class DashboardController extends BaseController
                 $activityLogger->logPaymentRequest('rejected', $request);
                 
                 // Log activity for admin dashboard (user_activities table)
-                $this->logUserActivity('rejected', 'payment_request', $requestId, "Payment request rejected" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
+                $this->logUserActivity('rejected', 'payment_request', $requestId, "Payment request rejected for {$payerName}" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -468,8 +478,13 @@ class DashboardController extends BaseController
                 $paymentRecord = $paymentModel->find($paymentId);
                 $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
                 
+                // Get payer information for activity log
+                $payerModel = new \App\Models\PayerModel();
+                $payer = $payerModel->find($request['payer_id']);
+                $payerName = $payer ? $payer['payer_name'] : 'Unknown Payer';
+                
                 // Log activity for admin dashboard (user_activities table)
-                $this->logUserActivity('processed', 'payment_request', $requestId, "Payment request processed and payment recorded (Receipt Number: {$receiptNumber})");
+                $this->logUserActivity('processed', 'payment_request', $requestId, "Payment request processed for {$payerName} - Receipt: {$receiptNumber}");
                 
                 return $this->response->setJSON([
                     'success' => true,
