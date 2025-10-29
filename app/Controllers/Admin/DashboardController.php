@@ -319,12 +319,13 @@ class DashboardController extends BaseController
             $paymentId = $this->createPaymentFromRequest($request, $processedBy);
             
             if ($paymentId) {
-                // Get the payment record with full details
+                // Get the payment record with full details including contribution amount
                 $paymentModel = new PaymentModel();
                 $paymentRecord = $paymentModel->select('
                     payments.*,
                     payers.payer_name,
-                    contributions.title as contribution_title
+                    contributions.title as contribution_title,
+                    contributions.amount as contribution_amount
                 ')
                 ->join('payers', 'payers.id = payments.payer_id', 'left')
                 ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
@@ -340,20 +341,29 @@ class DashboardController extends BaseController
                 
                 // Check if payment was added to a partially paid contribution
                 $wasAddedToPartialGroup = false;
-                if ($paymentRecord && $paymentRecord['payment_status'] === 'partial' && !empty($paymentRecord['payment_sequence'])) {
+                if ($paymentRecord && !empty($paymentRecord['payment_sequence'])) {
                     // Check if there were existing payments in this group BEFORE this one was added
                     // Exclude the newly inserted payment to get accurate count
-                    $existingGroupPaymentsCount = $paymentModel
+                    $existingGroupPayments = $paymentModel
                         ->where('payer_id', $request['payer_id'])
                         ->where('contribution_id', $request['contribution_id'])
                         ->where('payment_sequence', $paymentRecord['payment_sequence'])
                         ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
                         ->where('deleted_at', null)
-                        ->countAllResults(false);
+                        ->findAll();
                     
-                    // If there were existing payments in this group before this one was added
+                    $existingGroupPaymentsCount = count($existingGroupPayments);
+                    
+                    // If there were existing payments in this group, check if the group was partial before adding this payment
                     if ($existingGroupPaymentsCount > 0) {
-                        $wasAddedToPartialGroup = true;
+                        // Calculate total paid in the group BEFORE adding this payment
+                        $existingGroupTotalPaid = array_sum(array_column($existingGroupPayments, 'amount_paid'));
+                        $contributionAmount = (float) ($paymentRecord['contribution_amount'] ?? 0);
+                        
+                        // Check if the group was partial (not fully paid) before adding this payment
+                        if ($existingGroupTotalPaid < $contributionAmount) {
+                            $wasAddedToPartialGroup = true;
+                        }
                     }
                 }
                 
@@ -500,12 +510,13 @@ class DashboardController extends BaseController
             $paymentId = $this->createPaymentFromRequest($request, $processedBy);
             
             if ($paymentId) {
-                // Get the payment record with full details
+                // Get the payment record with full details including contribution amount
                 $paymentModel = new PaymentModel();
                 $paymentRecord = $paymentModel->select('
                     payments.*,
                     payers.payer_name,
-                    contributions.title as contribution_title
+                    contributions.title as contribution_title,
+                    contributions.amount as contribution_amount
                 ')
                 ->join('payers', 'payers.id = payments.payer_id', 'left')
                 ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
@@ -521,20 +532,29 @@ class DashboardController extends BaseController
                 
                 // Check if payment was added to a partially paid contribution
                 $wasAddedToPartialGroup = false;
-                if ($paymentRecord && $paymentRecord['payment_status'] === 'partial' && !empty($paymentRecord['payment_sequence'])) {
+                if ($paymentRecord && !empty($paymentRecord['payment_sequence'])) {
                     // Check if there were existing payments in this group BEFORE this one was added
                     // Exclude the newly inserted payment to get accurate count
-                    $existingGroupPaymentsCount = $paymentModel
+                    $existingGroupPayments = $paymentModel
                         ->where('payer_id', $request['payer_id'])
                         ->where('contribution_id', $request['contribution_id'])
                         ->where('payment_sequence', $paymentRecord['payment_sequence'])
                         ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
                         ->where('deleted_at', null)
-                        ->countAllResults(false);
+                        ->findAll();
                     
-                    // If there were existing payments in this group before this one was added
+                    $existingGroupPaymentsCount = count($existingGroupPayments);
+                    
+                    // If there were existing payments in this group, check if the group was partial before adding this payment
                     if ($existingGroupPaymentsCount > 0) {
-                        $wasAddedToPartialGroup = true;
+                        // Calculate total paid in the group BEFORE adding this payment
+                        $existingGroupTotalPaid = array_sum(array_column($existingGroupPayments, 'amount_paid'));
+                        $contributionAmount = (float) ($paymentRecord['contribution_amount'] ?? 0);
+                        
+                        // Check if the group was partial (not fully paid) before adding this payment
+                        if ($existingGroupTotalPaid < $contributionAmount) {
+                            $wasAddedToPartialGroup = true;
+                        }
                     }
                 }
                 

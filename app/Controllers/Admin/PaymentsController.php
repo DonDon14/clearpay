@@ -339,24 +339,29 @@ class PaymentsController extends BaseController
                 // IMPORTANT: We need to check BEFORE the payment is inserted to see if there were existing payments
                 // Since the payment was just inserted, we exclude it from the count
                 $wasAddedToPartialGroup = false;
-                if (!$id && $paymentStatus === 'partial' && !empty($paymentSequence)) {
+                if (!$id && !empty($paymentSequence)) {
                     // Check if there were existing payments in this group BEFORE this one was added
                     // Exclude the newly inserted payment to get accurate count of pre-existing payments
-                    $existingGroupPaymentsCount = $paymentModel
+                    $existingGroupPayments = $paymentModel
                         ->where('payer_id', $payerDbId)
                         ->where('contribution_id', $this->request->getPost('contribution_id'))
                         ->where('payment_sequence', $paymentSequence)
                         ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
                         ->where('deleted_at', null)
-                        ->countAllResults(false);
+                        ->findAll();
                     
-                    // Log for debugging
-                    log_message('debug', "Payment added check - Payment ID: {$paymentId}, Sequence: {$paymentSequence}, Existing Count: {$existingGroupPaymentsCount}, Status: {$paymentStatus}");
+                    $existingGroupPaymentsCount = count($existingGroupPayments);
                     
-                    // If there were existing payments in this group before this one was added
+                    // If there were existing payments in this group, check if the group was partial before adding this payment
                     if ($existingGroupPaymentsCount > 0) {
-                        $wasAddedToPartialGroup = true;
-                        log_message('debug', "Payment was added to existing partial group - will log activity");
+                        // Calculate total paid in the group BEFORE adding this payment
+                        $existingGroupTotalPaid = array_sum(array_column($existingGroupPayments, 'amount_paid'));
+                        
+                        // Check if the group was partial (not fully paid) before adding this payment
+                        if ($existingGroupTotalPaid < $contributionAmount) {
+                            $wasAddedToPartialGroup = true;
+                            log_message('debug', "Payment added to existing partial group - Payment ID: {$paymentId}, Sequence: {$paymentSequence}, Existing Count: {$existingGroupPaymentsCount}, Existing Total: {$existingGroupTotalPaid}, Contribution Amount: {$contributionAmount}");
+                        }
                     }
                 }
                 
@@ -408,17 +413,17 @@ class PaymentsController extends BaseController
                     
                     $description = "Payment added to partially paid contribution for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
                     
-                    log_message('debug', "Logging payment added to partial group - Payer: {$payerName}, Receipt: {$receiptNumber}");
+                    log_message('debug', "Logging payment added to partial group - Payer: {$payerName}, Receipt: {$receiptNumber}, Sequence: {$paymentSequence}");
                     
                     $result = $this->logUserActivity('create', 'payment', $paymentId, $description);
                     
                     if (!$result) {
                         log_message('error', "Failed to log payment added to partial group activity");
                     } else {
-                        log_message('debug', "Successfully logged payment added to partial group activity");
+                        log_message('debug', "Successfully logged payment added to partial group activity - ID: {$paymentId}");
                     }
                 } else {
-                    log_message('debug', "Payment added check conditions - id: " . ($id ? 'true' : 'false') . ", wasAddedToPartialGroup: " . ($wasAddedToPartialGroup ? 'true' : 'false') . ", paymentData exists: " . ($paymentData ? 'true' : 'false'));
+                    log_message('debug', "Payment added check conditions - id: " . ($id ? 'true' : 'false') . ", wasAddedToPartialGroup: " . ($wasAddedToPartialGroup ? 'true' : 'false') . ", paymentData exists: " . ($paymentData ? 'true' : 'false') . ", paymentSequence: " . ($paymentSequence ?? 'null'));
                 }
                 
                 // Generate QR receipt for new payments (disabled temporarily)
