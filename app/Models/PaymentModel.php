@@ -126,12 +126,62 @@ class PaymentModel extends Model
     }
 
     /**
+     * Get refund status for a payment
+     * Returns: 'no_refund', 'partially_refunded', 'fully_refunded'
+     */
+    public function getPaymentRefundStatus($paymentId)
+    {
+        $refundModel = new RefundModel();
+        
+        // Get all completed refunds for this payment
+        $refunds = $refundModel
+            ->where('payment_id', $paymentId)
+            ->where('status', 'completed')
+            ->findAll();
+        
+        if (empty($refunds)) {
+            return 'no_refund';
+        }
+        
+        $payment = $this->find($paymentId);
+        if (!$payment) {
+            return 'no_refund';
+        }
+        
+        $totalRefunded = array_sum(array_column($refunds, 'refund_amount'));
+        $amountPaid = (float)$payment['amount_paid'];
+        
+        if ($totalRefunded >= $amountPaid) {
+            return 'fully_refunded';
+        } else {
+            return 'partially_refunded';
+        }
+    }
+
+    /**
+     * Get total refunded amount for a payment
+     */
+    public function getPaymentTotalRefunded($paymentId)
+    {
+        $refundModel = new RefundModel();
+        
+        $refunds = $refundModel
+            ->selectSum('refund_amount')
+            ->where('payment_id', $paymentId)
+            ->where('status', 'completed')
+            ->first();
+        
+        return (float)($refunds['refund_amount'] ?? 0);
+    }
+
+    /**
      * Get payments grouped by payer and contribution
      */
     public function getGroupedPayments()
     {
         $db = \Config\Database::connect();
         
+        // First, get payment groups
         $query = $db->query("
             SELECT 
                 p.payer_id,
@@ -146,7 +196,7 @@ class PaymentModel extends Model
                 COALESCE(contributions.description, '') as contribution_description,
                 COALESCE(contributions.amount, 0) as contribution_amount,
                 SUM(p.amount_paid) as total_paid,
-                COUNT(p.id) as payment_count,
+                COUNT(DISTINCT p.id) as payment_count,
                 MAX(p.payment_date) as last_payment_date,
                 MIN(p.payment_date) as first_payment_date,
                 CASE 
@@ -154,7 +204,8 @@ class PaymentModel extends Model
                     WHEN SUM(p.amount_paid) > 0 THEN 'partial'
                     ELSE 'unpaid'
                 END as computed_status,
-                COALESCE(contributions.amount, 0) - SUM(p.amount_paid) as remaining_balance
+                COALESCE(contributions.amount, 0) - SUM(p.amount_paid) as remaining_balance,
+                GROUP_CONCAT(DISTINCT p.id) as payment_ids
             FROM payments p
             LEFT JOIN payers ON payers.id = p.payer_id
             LEFT JOIN contributions ON contributions.id = p.contribution_id
@@ -167,7 +218,34 @@ class PaymentModel extends Model
             return [];
         }
         
-        return $query->getResultArray();
+        $groups = $query->getResultArray();
+        
+        // Calculate refund status for each group
+        $refundModel = new RefundModel();
+        foreach ($groups as &$group) {
+            $paymentIds = explode(',', $group['payment_ids']);
+            $totalRefunded = 0;
+            
+            foreach ($paymentIds as $paymentId) {
+                $paymentId = (int)trim($paymentId);
+                if ($paymentId > 0) {
+                    $refunds = $refundModel
+                        ->selectSum('refund_amount')
+                        ->where('payment_id', $paymentId)
+                        ->where('status', 'completed')
+                        ->first();
+                    
+                    $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
+                }
+            }
+            
+            $group['total_refunded'] = $totalRefunded;
+            $group['refund_status'] = ($totalRefunded >= (float)$group['total_paid']) ? 'fully_refunded' : 
+                                      (($totalRefunded > 0) ? 'partially_refunded' : 'no_refund');
+            unset($group['payment_ids']); // Remove temp field
+        }
+        
+        return $groups;
     }
 
     /**

@@ -60,6 +60,13 @@ $routes->get('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Sett
 $routes->post('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/instructions/(:any)', 'Admin\Settings\PaymentMethodController::getInstructions/$1');
 
+// Refund Methods Management Routes
+$routes->get('/admin/settings/refund-methods/data', 'Admin\Settings\RefundMethodController::getData', ['filter' => 'auth']);
+$routes->post('/admin/settings/refund-methods/store', 'Admin\Settings\RefundMethodController::store', ['filter' => 'auth']);
+$routes->post('/admin/settings/refund-methods/update/(:num)', 'Admin\Settings\RefundMethodController::update/$1', ['filter' => 'auth']);
+$routes->post('/admin/settings/refund-methods/delete/(:num)', 'Admin\Settings\RefundMethodController::delete/$1', ['filter' => 'auth']);
+$routes->post('/admin/settings/refund-methods/toggle-status/(:num)', 'Admin\Settings\RefundMethodController::toggleStatus/$1', ['filter' => 'auth']);
+
 // Payment Requests Management Routes
 $routes->get('/payment-requests', 'Admin\DashboardController::paymentRequests', ['filter' => 'auth']);
 $routes->post('/admin/approve-payment-request', 'Admin\DashboardController::approvePaymentRequest', ['filter' => 'auth']);
@@ -67,6 +74,16 @@ $routes->post('/admin/reject-payment-request', 'Admin\DashboardController::rejec
 $routes->post('/admin/process-payment-request', 'Admin\DashboardController::processPaymentRequest', ['filter' => 'auth']);
 $routes->get('/admin/get-payment-request-details', 'Admin\DashboardController::getPaymentRequestDetails', ['filter' => 'auth']);
 $routes->post('/admin/delete-payment-request', 'Admin\DashboardController::deletePaymentRequest', ['filter' => 'auth']);
+
+// Refunds Management Routes
+$routes->get('/refunds', 'Admin\RefundsController::index', ['filter' => 'auth']);
+$routes->post('/admin/refunds/process', 'Admin\RefundsController::processRefund', ['filter' => 'auth']);
+$routes->get('/admin/refunds/get-payment-details', 'Admin\RefundsController::getPaymentDetails', ['filter' => 'auth']);
+$routes->get('/admin/refunds/get-payment-group-details', 'Admin\RefundsController::getPaymentGroupDetails', ['filter' => 'auth']);
+$routes->post('/admin/refunds/approve', 'Admin\RefundsController::approveRequest', ['filter' => 'auth']);
+$routes->post('/admin/refunds/complete', 'Admin\RefundsController::completeRefund', ['filter' => 'auth']);
+$routes->post('/admin/refunds/reject', 'Admin\RefundsController::rejectRequest', ['filter' => 'auth']);
+$routes->get('/admin/refunds/get-details', 'Admin\RefundsController::getRefundDetails', ['filter' => 'auth']);
 
     // Payments Management Routes
     $routes->get('/payments', 'Admin\PaymentsController::index', ['filter' => 'auth']);

@@ -209,7 +209,7 @@ $settings = [
                             </div>
                         </div>
                         
-                        <div class="d-flex justify-content-between align-items-center py-3">
+                        <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
                             <div class="d-flex align-items-center gap-3">
                                 <div class="setting-icon bg-primary bg-opacity-10 text-primary rounded p-2">
                                     <i class="fas fa-credit-card"></i>
@@ -221,6 +221,23 @@ $settings = [
                             </div>
                             <div>
                                 <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#paymentMethodsModal">
+                                    <i class="fas fa-cog me-1"></i>Manage
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center py-3">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="setting-icon bg-warning bg-opacity-10 text-warning rounded p-2">
+                                    <i class="fas fa-undo"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1 fw-semibold">Refund Methods</h6>
+                                    <small class="text-muted">Manage available refund methods</small>
+                                </div>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#refundMethodsModal">
                                     <i class="fas fa-cog me-1"></i>Manage
                                 </button>
                             </div>
@@ -695,4 +712,12 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?= payment_methods_modal($paymentMethods ?? []) ?>
+<?= view('partials/modal-refund-methods') ?>
+
+<script>
+// Set base URL for refund methods JavaScript
+window.APP_BASE_URL = '<?= base_url() ?>';
+</script>
+<script src="<?= base_url('js/refund-methods.js') ?>"></script>
+
 <?= $this->endSection() ?>

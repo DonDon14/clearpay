@@ -109,20 +109,36 @@
                                 <td>
                                     <?php 
                                                     $status = $group['computed_status'];
-                                        $badgeClass = match($status) {
-                                            'fully paid' => 'bg-primary text-white',
-                                            'partial' => 'bg-warning text-dark',
-                                            'unpaid' => 'bg-secondary text-white',
-                                            default => 'bg-light text-dark'
-                                        };
-                                        $statusText = match($status) {
-                                            'fully paid' => 'Completed',
-                                            'partial' => 'Partial',
-                                            'unpaid' => 'Unpaid',
-                                            default => ucfirst($status)
-                                        };
+                                        $refundStatus = $group['refund_status'] ?? 'no_refund';
+                                        $totalRefunded = (float)($group['total_refunded'] ?? 0);
+                                        
+                                        // Determine badge class and text based on refund status first, then payment status
+                                        if ($refundStatus === 'fully_refunded') {
+                                            $badgeClass = 'bg-danger text-white';
+                                            $statusText = 'Fully Refunded';
+                                        } elseif ($refundStatus === 'partially_refunded') {
+                                            $badgeClass = 'bg-warning text-dark';
+                                            $statusText = 'Partially Refunded (₱' . number_format($totalRefunded, 2) . ')';
+                                        } else {
+                                            // Show normal payment status
+                                            $badgeClass = match($status) {
+                                                'fully paid' => 'bg-primary text-white',
+                                                'partial' => 'bg-warning text-dark',
+                                                'unpaid' => 'bg-secondary text-white',
+                                                default => 'bg-light text-dark'
+                                            };
+                                            $statusText = match($status) {
+                                                'fully paid' => 'Completed',
+                                                'partial' => 'Partial',
+                                                'unpaid' => 'Unpaid',
+                                                default => ucfirst($status)
+                                            };
+                                        }
                                     ?>
                                     <span class="badge <?= $badgeClass ?>"><?= $statusText ?></span>
+                                    <?php if ($refundStatus !== 'no_refund' && $refundStatus === 'partially_refunded'): ?>
+                                        <br><small class="text-muted">Original: ₱<?= number_format($group['total_paid'], 2) ?></small>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                                 <span class="badge bg-info"><?= $group['payment_count'] ?> payment<?= $group['payment_count'] > 1 ? 's' : '' ?></span>

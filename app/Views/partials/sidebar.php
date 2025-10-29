@@ -32,6 +32,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= base_url('refunds') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Refunds') ? 'active' : '' ?>" data-tooltip="Refunds">
+                        <i class="fas fa-undo"></i> 
+                        <span class="menu-text">Refunds</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= base_url('contributions') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Contributions') ? 'active' : '' ?>" data-tooltip="Contributions">
                         <i class="fas fa-hand-holding-usd"></i> 
                         <span class="menu-text">Contributions</span>
