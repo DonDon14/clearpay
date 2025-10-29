@@ -24,6 +24,8 @@ class DashboardController extends BaseController
             ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, payers.profile_picture, contributions.title as contribution_title')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->where('payments.deleted_at', null)
+            ->orderBy('payments.id', 'DESC')
             ->orderBy('payments.payment_date', 'DESC')
             ->findAll();
 
@@ -63,9 +65,11 @@ class DashboardController extends BaseController
             ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, payers.profile_picture, contributions.title as contribution_title, contributions.id as contrib_id')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->where('payments.deleted_at', null)
+            ->orderBy('payments.id', 'DESC')
             ->orderBy('payments.payment_date', 'DESC')
             ->limit(7)
-            ->findAll(); // last 6 payments
+            ->findAll(); // last 7 payments
 
         // Add computed status to each payment
         foreach ($recentPayments as &$payment) {

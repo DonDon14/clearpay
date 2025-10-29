@@ -446,8 +446,10 @@ class PaymentsController extends BaseController
             ')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->where('payments.deleted_at', null)
+            ->orderBy('payments.id', 'DESC')
             ->orderBy('payments.payment_date', 'DESC')
-            ->limit(20)
+            ->limit(100)
             ->findAll();
 
             return $this->response->setJSON([
