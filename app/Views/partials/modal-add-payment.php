@@ -1099,7 +1099,7 @@ function processPayment(formData) {
       // Check if this is a fully paid contribution confirmation case
       if (data.message && data.message.includes('Already Fully Paid')) {
         // Show confirmation dialog instead of error alert
-        const confirmed = confirm(data.message + '\n\nDo you want to add another payment group for this contribution?');
+        const confirmed = confirm(data.message);
         if (confirmed) {
           // Add bypass flag and resubmit
           formData.set('bypass_duplicate_check', '1');
