@@ -15,7 +15,7 @@
                         <div class="input-group">
                             <input type="text" class="form-control" id="payer_id" name="payer_id" required 
                                    placeholder="Enter student ID">
-                            <button type="button" class="btn btn-outline-primary" onclick="openSchoolIDScanner()" title="Scan School ID">
+                            <button type="button" class="btn btn-outline-primary" id="openPayerQRScannerBtn" title="Scan School ID">
                                 <i class="fas fa-qrcode"></i>
                             </button>
                         </div>
@@ -59,6 +59,25 @@
             </form>
         </div>
     </div>
+</div>
+
+<!-- Inline QR scanner UI -->
+<div class="modal fade" id="addPayerQRScanner" tabindex="-1" aria-labelledby="addPayerQRScannerLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>Scan School ID / QR</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <video id="payerQRVideo" style="width:100%;border-radius:8px;border:2px solid #0d6efd;display:none" autoplay muted playsinline></video>
+        <div id="payerQRStatus" class="mt-2 text-muted">Initializing camera...</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="fas fa-times me-1"></i>Close</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -325,6 +344,96 @@
             }
         }
     };
+
+    // Function to fill Add Payer modal fields from a scan/QR decode
+    function parseSmartQR(data) {
+        let obj = null;
+        try { obj = typeof data === 'string' ? JSON.parse(data) : data; } catch(e) {}
+        if (obj && typeof obj==='object') return obj;
+        // Fallback: parse as CSV "id,Name,Contact,Email,Course"
+        const parts = (''+data).split(',');
+        return {payer_id: parts[0], payer_name: parts[1], contact_number: parts[2], email_address: parts[3], course_department: parts[4]};
+    }
+
+    function fillFormWithScan(obj) {
+        if (!obj) return;
+        if (obj.payer_id) document.getElementById('payer_id').value = obj.payer_id;
+        if (obj.payer_name) document.getElementById('payer_name').value = obj.payer_name;
+        if (obj.contact_number) document.getElementById('contact_number').value = obj.contact_number;
+        if (obj.email_address) document.getElementById('email_address').value = obj.email_address;
+        if (obj.course_department) document.getElementById('course_department').value = obj.course_department;
+    }
+
+    // Self-contained QR scanner
+    let payerQRStream = null, payerQRCanvas = null, payerQRContext = null, payerQRScanActive = false;
+
+    function startPayerQRScanner() {
+        payerQRScanActive = true;
+        document.getElementById('payerQRStatus').textContent = 'Initializing camera...';
+        const video = document.getElementById('payerQRVideo');
+        video.style.display = 'block';
+        navigator.mediaDevices.getUserMedia({video: {facingMode:'environment'}}).then(stream => {
+            payerQRStream = stream; video.srcObject = stream;
+            video.onloadedmetadata = () => { video.play();
+                payerQRCanvas = document.createElement('canvas');
+                payerQRCanvas.width = video.videoWidth;
+                payerQRCanvas.height = video.videoHeight;
+                payerQRContext = payerQRCanvas.getContext('2d');
+                scanLoopQR();
+            }
+        }).catch(err => {
+            document.getElementById('payerQRStatus').textContent = 'Camera error or denied.';
+            showNotification('Unable to access camera. Check permissions.','error');
+        });
+    }
+    function stopPayerQRScanner() {
+        payerQRScanActive = false;
+        let video = document.getElementById('payerQRVideo');
+        if (payerQRStream) { payerQRStream.getTracks().forEach(track => track.stop()); payerQRStream=null; }
+        video.srcObject = null; video.style.display = 'none';
+        document.getElementById('payerQRStatus').textContent = '';
+    }
+    function scanLoopQR() {
+        if (!payerQRScanActive) return;
+        const video = document.getElementById('payerQRVideo');
+        if (video.readyState === video.HAVE_ENOUGH_DATA && payerQRContext) {
+            payerQRContext.drawImage(video,0,0,payerQRCanvas.width,payerQRCanvas.height);
+            try {
+                if (typeof jsQR!=='undefined') {
+                    const imageData = payerQRContext.getImageData(0,0,payerQRCanvas.width,payerQRCanvas.height);
+                    const qr = jsQR(imageData.data, imageData.width, imageData.height);
+                    if (qr && qr.data) {
+                        stopPayerQRScanner();
+                        const obj = parseSmartQR(qr.data);
+                        fillFormWithScan(obj);
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('addPayerQRScanner'));
+                        if (modal) modal.hide();
+                        showNotification('School ID scanned successfully!','success');
+                        return;
+                    }
+                }
+            } catch(e){}
+        }
+        requestAnimationFrame(scanLoopQR);
+    }
+
+    // Wire up modal and button logic
+
+    const qrBtn = document.getElementById('openPayerQRScannerBtn');
+    if (qrBtn) {
+        qrBtn.onclick = function() {
+            // Reset status
+            var modal = document.getElementById('addPayerQRScanner');
+            stopPayerQRScanner();
+            if (modal) { new bootstrap.Modal(modal).show(); }
+        }
+    }
+    const qrScannerModal = document.getElementById('addPayerQRScanner');
+    if (qrScannerModal) {
+        qrScannerModal.addEventListener('shown.bs.modal', startPayerQRScanner);
+        qrScannerModal.addEventListener('hidden.bs.modal', stopPayerQRScanner);
+    }
+    window.fillAddPayerModalFromScan = fillFormWithScan; // keep compatibility
     
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
