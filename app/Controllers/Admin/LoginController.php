@@ -21,9 +21,9 @@ class LoginController extends Controller
         $username = $this->request->getPost('username');
         $password = $this->request->getPost('password');
 
+        // Make username check case-sensitive (SQL might be case-insensitive)
         $user = $userModel->where('username', $username)->first();
-
-        if($user && password_verify($password, $user['password'])) {
+        if ($user && $user['username'] === $username && password_verify($password, $user['password'])) {
             $session->set([
                 'user-id'         => $user['id'],
                 'username'        => $user['username'],
