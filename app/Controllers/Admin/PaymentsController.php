@@ -217,12 +217,14 @@ class PaymentsController extends BaseController
                     // Use existing payer
                     $payerDbId = $existingPayer['id'];
                 } else {
-                    // Create new payer in payers table
+                    // Create new payer in payers table (admin-created accounts are auto-verified)
                     $payerData = [
                         'payer_id' => $payerId,
                         'payer_name' => $this->request->getPost('payer_name'),
                         'contact_number' => $this->request->getPost('contact_number'),
                         'email_address' => $this->request->getPost('email_address'),
+                        'email_verified' => 1,
+                        'verification_token' => null,
                     ];
                     $payerDbId = $payerModel->insert($payerData);
                     

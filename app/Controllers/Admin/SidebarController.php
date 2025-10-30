@@ -318,6 +318,9 @@ class SidebarController extends BaseController
                 ]);
             }
             
+            // Mark email verified when created by admin
+            $data['email_verified'] = 1;
+            $data['verification_token'] = null;
             // Save to database
             $result = $payerModel->insert($data);
             
