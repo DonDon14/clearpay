@@ -52,7 +52,7 @@
         alert('Your session has expired due to inactivity. You will be redirected to the login page.');
 
         // Redirect to login
-        window.location.href = window.APP_BASE_URL + 'payer/login';
+        window.location.href = '/payer/login';
     }
 
     /**

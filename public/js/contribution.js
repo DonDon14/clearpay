@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
+                if (data.session_expired) {
+                    window.location.href = '/payer/login';
+                    return;
+                }
                 if (data.success) {
                     // Show success message
                     showNotification(data.message, 'success');
