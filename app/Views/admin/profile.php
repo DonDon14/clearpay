@@ -4,7 +4,7 @@
 <?php
 // Dummy data for UI development - replace with actual controller data later
 $profile_picture = session()->get('profile_picture') ?? '';
-$phone = '+63 915 123 4567';
+$phone = $user['phone'] ?? session()->get('phone') ?? '';
 
 // User activity dummy data
 $recentActivities = [
@@ -168,7 +168,7 @@ $profileStats = [
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Phone Number</label>
-                                <input type="tel" class="form-control" id="phone" name="phone" value="' . esc($phone) . '" readonly>
+                                <input type="tel" class="form-control" id="phone" name="phone" value="<?= esc($phone) ?>" readonly>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Department</label>

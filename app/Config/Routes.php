@@ -46,6 +46,7 @@ $routes->get('/admin/analytics/export/(:any)', 'Admin\Analytics::export/$1', ['f
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
 $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'auth']);
+$routes->get('profile/get', 'Admin\SidebarController::getProfile');
 
 // Payment Methods Management Routes
 $routes->get('/admin/settings/payment-methods', 'Admin\Settings\PaymentMethodController::index', ['filter' => 'auth']);

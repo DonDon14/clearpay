@@ -56,7 +56,7 @@
             
             <div class="col-md-6 mb-3">
               <label for="profilePhone" class="form-label">Phone Number</label>
-              <input type="tel" class="form-control" id="profilePhone" name="phone" placeholder="+63 9XX XXX XXXX">
+              <input type="tel" class="form-control" id="profilePhone" name="phone" value="<?= esc(session('phone') ?? '') ?>">
               <div class="invalid-feedback"></div>
             </div>
           </div>
@@ -250,6 +250,23 @@ document.addEventListener('DOMContentLoaded', function() {
 function openProfileModal() {
     const modalElement = document.getElementById('profileModal');
     if (modalElement) {
+        // AJAX fetch user (admin) profile info before opening
+        fetch('profile/get', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success && data.user) {
+                    const user = data.user;
+                    document.getElementById('profileName').value = user.name || '';
+                    document.getElementById('profileUsername').value = user.username || '';
+                    document.getElementById('profileEmail').value = user.email || '';
+                    document.getElementById('profilePhone').value = user.phone || '';
+                    if (user.profile_picture) {
+                        document.getElementById('profilePictureImg').src = user.profile_picture;
+                        document.getElementById('profilePictureImg').style.display = 'block';
+                        document.getElementById('profileIcon').style.display = 'none';
+                    }
+                }
+            });
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
     }
