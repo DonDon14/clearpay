@@ -45,7 +45,18 @@ class LoginController extends Controller
 
     public function logout()
     {
-        session()->destroy();
+        $session = session();
+        // Remove only admin-related keys to avoid logging out payer area
+        $session->remove([
+            'user-id',
+            'username',
+            'email',
+            'name',
+            'role',
+            'profile_picture',
+            'isLoggedIn',
+            'forceSidebarExpanded'
+        ]);
         return redirect()->to('/');
     }
 
