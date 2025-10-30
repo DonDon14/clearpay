@@ -98,6 +98,14 @@ function processSchoolIDQRCode(qrData) {
         showNotification(`School ID scanned successfully! ID: ${studentID}${studentName ? `\nName: ${studentName}` : ''}${courseCode ? `\nCourse: ${courseCode}` : ''}`, 'success');
         const scannerModal = bootstrap.Modal.getInstance(document.getElementById('schoolIDScannerModal'));
         if (scannerModal) scannerModal.hide();
+        // NEW: If scan was requested from Add New Payer, reopen that modal
+        if (window._openSchoolIDFromNewPayer) {
+          setTimeout(() => {
+            const addModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('addPaymentModal'));
+            addModal.show();
+            window._openSchoolIDFromNewPayer = false;
+          }, 500); // Wait a bit so modals don't stack
+        }
     } else {
         showNotification('Could not extract student ID from QR code', 'warning');
     }
