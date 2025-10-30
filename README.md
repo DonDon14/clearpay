@@ -177,6 +177,51 @@ The application uses CodeIgniter 4's configuration system. Key configuration fil
 - `app/Config/Database.php` - Database configuration
 - `app/Config/Email.php` - Email settings
 
+### .env Setup (not included in repo)
+
+If `.env` is not present, create one in the project root. This minimal configuration works for XAMPP on Windows (adjust if your folder name or DB creds differ):
+
+```dotenv
+CI_ENVIRONMENT = production
+
+app.baseURL = 'http://localhost/ClearPay/public/'
+app.appTimezone = 'Asia/Manila'
+
+# Security key (required for encryption/sessions)
+encryption.key = base64:REPLACE_WITH_GENERATED_KEY
+
+# Database
+database.default.hostname = localhost
+database.default.database = clearpaydb
+database.default.username = root
+database.default.password =
+database.default.DBDriver = MySQLi
+database.default.DBPrefix =
+database.default.DBDebug = true
+
+# Email (optional; needed for password reset/verification)
+# email.fromEmail = 'no-reply@example.com'
+# email.fromName  = 'ClearPay'
+# email.SMTPHost  = 'smtp.gmail.com'
+# email.SMTPUser  = 'your@gmail.com'
+# email.SMTPPass  = 'your-app-password'
+# email.SMTPPort  = 587
+# email.SMTPCrypto = 'tls'
+```
+
+Then:
+- Generate a secure key: run `php spark key:generate` and copy the output into `encryption.key` (or let the command set it if supported).
+- Start MySQL in XAMPP, then run `php spark migrate` and `php spark db:seed`.
+
+### XAMPP directory placement and baseURL
+
+- Place the project at `C:\xampp\htdocs\ClearPay`.
+- Ensure `.env` `app.baseURL` matches your folder name:
+  - If the folder is `C:\xampp\htdocs\ClearPay` → `http://localhost/ClearPay/public/`
+  - If renamed to `ClearPay2` → `http://localhost/ClearPay2/public/`
+
+Optional (cleaner URL): configure an Apache VirtualHost pointing to the `public` directory (e.g., `http://clearpay.local/`) and set `app.baseURL` accordingly. Otherwise, keeping `/public/` in the URL is fine.
+
 ### File Upload Configuration
 
 Upload directories are configured in:
