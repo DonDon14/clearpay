@@ -350,9 +350,59 @@
         let obj = null;
         try { obj = typeof data === 'string' ? JSON.parse(data) : data; } catch(e) {}
         if (obj && typeof obj==='object') return obj;
-        // Fallback: parse as CSV "id,Name,Contact,Email,Course"
-        const parts = (''+data).split(',');
-        return {payer_id: parts[0], payer_name: parts[1], contact_number: parts[2], email_address: parts[3], course_department: parts[4]};
+        
+        const raw = ('' + data).trim();
+        
+        // Fallback 1: CSV "id,Name,Contact,Email,Course"
+        if (raw.includes(',')) {
+            const parts = raw.split(',');
+            return {
+                payer_id: parts[0]?.trim(),
+                payer_name: parts[1]?.trim(),
+                contact_number: parts[2]?.trim(),
+                email_address: parts[3]?.trim(),
+                course_department: parts[4]?.trim()
+            };
+        }
+        
+        // Fallback 2: Loose string like "154989Floro C.OCERO BSIT1" (no clear delimiters)
+        // Strategy: extract leading digits as ID, attempt to detect a trailing COURSE token, remaining middle is name.
+        const idMatch = raw.match(/^(\d{3,})/); // at least 3 digits at the start
+        let idNumber = null, course = null, nameStr = raw;
+        if (idMatch) {
+            idNumber = idMatch[1];
+            nameStr = raw.substring(idNumber.length).trim();
+        }
+        // Detect a course/department token at the end (e.g., BSIT, BSIT 1, BSIT-1A, BSCPE3)
+        // Prefer tokens that contain both letters and at least one digit like BSIT1/BSIT 1
+        let courseMatch = nameStr.match(/([A-Z]{2,}[\s-]?\d+[A-Z-]*)$/);
+        if (!courseMatch) {
+            // Fallback to pure letters (e.g., "IT") if placed at the end
+            courseMatch = nameStr.match(/([A-Z]{2,})$/);
+        }
+        if (courseMatch) {
+            course = courseMatch[1].replace(/\s*-\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+            // Insert a space between trailing letters and digits if missing: BSIT1 -> BSIT 1
+            course = course.replace(/([A-Z])(?=\d)/g, '$1 ').trim();
+            nameStr = nameStr.substring(0, nameStr.length - course.length).trim();
+        }
+        // Try to restore spaces in condensed names
+        // 1) space between lowercase and uppercase boundaries: "FloroC." -> "Floro C."
+        // 2) ensure space after periods
+        // 3) collapse multiple spaces
+        let prettyName = nameStr
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // e.g., C.OCERO -> C. OCERO
+            .replace(/\.(?!\s)/g, '. ')                // space after periods
+            .replace(/\s{2,}/g, ' ')                   // collapse double spaces
+            .trim();
+        if (!prettyName) prettyName = nameStr;
+        
+        return {
+            payer_id: idNumber || raw,
+            payer_name: prettyName,
+            course_department: course || ''
+        };
     }
 
     function fillFormWithScan(obj) {
