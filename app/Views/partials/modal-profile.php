@@ -32,7 +32,7 @@
         </div>
 
         <!-- Profile Form -->
-        <form id="profileForm">
+        <form id="profileForm" autocomplete="off">
           <input type="hidden" id="profileUserId" name="user_id" value="<?= session('user-id') ?>">
           
           <div class="row">
@@ -74,19 +74,19 @@
               <div class="row">
                 <div class="col-12 mb-3">
                   <label for="currentPassword" class="form-label">Current Password</label>
-                  <input type="password" class="form-control" id="currentPassword" name="current_password" placeholder="Enter current password">
+                  <input type="password" class="form-control" id="currentPassword" name="current_password" placeholder="Enter current password" autocomplete="new-password" value="">
                   <div class="invalid-feedback"></div>
                 </div>
                 
                 <div class="col-md-6 mb-3">
                   <label for="newPassword" class="form-label">New Password</label>
-                  <input type="password" class="form-control" id="newPassword" name="new_password" placeholder="Enter new password" minlength="6">
+                  <input type="password" class="form-control" id="newPassword" name="new_password" placeholder="Enter new password" minlength="6" autocomplete="new-password" value="">
                   <div class="invalid-feedback"></div>
                 </div>
                 
                 <div class="col-md-6 mb-3">
                   <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                  <input type="password" class="form-control" id="confirmPassword" name="confirm_password" placeholder="Confirm new password">
+                  <input type="password" class="form-control" id="confirmPassword" name="confirm_password" placeholder="Confirm new password" autocomplete="new-password" value="">
                   <div class="invalid-feedback"></div>
                 </div>
               </div>
@@ -131,8 +131,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Profile form submission
     const profileForm = document.getElementById('profileForm');
+    const passwordSection = document.getElementById('changePasswordSection');
+    const currentPasswordEl = document.getElementById('currentPassword');
+    const newPasswordEl = document.getElementById('newPassword');
+    const confirmPasswordEl = document.getElementById('confirmPassword');
     
     if (profileForm) {
+        // Ensure password fields are cleared and section is collapsed every time modal opens
+        const profileModal = document.getElementById('profileModal');
+        if (profileModal) {
+            profileModal.addEventListener('show.bs.modal', function() {
+                if (currentPasswordEl) currentPasswordEl.value = '';
+                if (newPasswordEl) newPasswordEl.value = '';
+                if (confirmPasswordEl) confirmPasswordEl.value = '';
+                if (passwordSection && passwordSection.classList.contains('show')) {
+                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(passwordSection, { toggle: false });
+                    bsCollapse.hide();
+                }
+            });
+        }
+
         profileForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -144,9 +162,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Get password fields
-            const currentPassword = document.getElementById('currentPassword').value;
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
+            const currentPassword = currentPasswordEl ? currentPasswordEl.value : '';
+            const newPassword = newPasswordEl ? newPasswordEl.value : '';
+            const confirmPassword = confirmPasswordEl ? confirmPasswordEl.value : '';
             
             // Validate password change if any field is filled
             if (currentPassword || newPassword || confirmPassword) {
