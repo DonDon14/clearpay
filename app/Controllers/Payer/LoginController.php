@@ -85,7 +85,10 @@ class LoginController extends BaseController
 
         // Set session data
         session()->set([
+            // Database primary key (internal)
             'payer_id' => $payer['id'],
+            // Public-facing student/payer ID (e.g., 154989)
+            'payer_student_id' => $payer['payer_id'],
             'payer_name' => $payer['payer_name'],
             'payer_email' => $payer['email_address'],
             'payer_profile_picture' => $payer['profile_picture'] ?? null,
