@@ -1103,6 +1103,43 @@ class DashboardController extends BaseController
     }
 
     /**
+     * Return active refund methods (code + name) for payer modal dropdown
+     */
+    public function getActiveRefundMethods()
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        try {
+            $refundMethodModel = new \App\Models\RefundMethodModel();
+            $methods = $refundMethodModel->getActiveMethods();
+            $data = array_map(function($m) {
+                return [
+                    'code' => $m['code'],
+                    'name' => $m['name']
+                ];
+            }, $methods);
+
+            // Also include original_method which the backend accepts
+            $data[] = ['code' => 'original_method', 'name' => 'Original Payment Method'];
+
+            return $this->response->setJSON([
+                'success' => true,
+                'methods' => $data
+            ]);
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Get available refund amount for a payment
      */
     private function getAvailableRefundAmount($paymentId)

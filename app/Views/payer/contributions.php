@@ -122,6 +122,22 @@
                                                                         <?php endif; ?>
                                                                     </div>
                                                                 </div>
+                                                                <?php 
+    $groupAmount = isset($group['amount']) ? $group['amount'] : (isset($contribution['amount']) ? $contribution['amount'] : 0);
+    $groupProgress = ($groupAmount > 0 && $group['total_paid'] >= $groupAmount) ? 100 : ($groupAmount > 0 ? round(($group['total_paid'] / $groupAmount) * 100, 1) : 0);
+?>
+<div class="mt-1">
+    <div class="d-flex justify-content-between align-items-center">
+        <small class="text-muted">Progress</small>
+        <small class="text-muted progress-percentage"><?= $groupProgress ?>%</small>
+    </div>
+    <div class="progress" style="height: 6px;">
+        <div class="progress-bar <?= $group['computed_status'] === 'fully paid' ? 'bg-success' : 'bg-warning' ?>"
+             role="progressbar"
+             style="width: <?= $groupProgress ?>%">
+        </div>
+    </div>
+</div>
                                                                 <div class="mt-1">
                                                                     <small class="text-muted">
                                                                         <?= $group['payment_count'] ?> payment<?= $group['payment_count'] > 1 ? 's' : '' ?> • 
@@ -134,36 +150,25 @@
                                                 </div>
                                             <?php endif; ?>
                                             
-                                                   <?php if ($contribution['remaining_balance'] > 0): ?>
-                                                       <div class="mb-2">
-                                                           <div class="d-flex justify-content-between align-items-center mb-1">
-                                                               <small class="text-muted">Progress</small>
-                                                               <small class="text-muted progress-percentage"><?= round(($contribution['total_paid'] / $contribution['amount']) * 100, 1) ?>%</small>
-                                                           </div>
-                                                           <div class="progress" style="height: 6px;">
-                                                               <div class="progress-bar progress-bar-dynamic" 
-                                                                    role="progressbar" 
-                                                                    data-total-paid="<?= $contribution['total_paid'] ?>"
-                                                                    data-total-amount="<?= $contribution['amount'] ?>"
-                                                                    style="width: <?= ($contribution['total_paid'] / $contribution['amount']) * 100 ?>%">
-                                                               </div>
-                                                           </div>
-                                                       </div>
-                                                   <?php endif; ?>
-                                            
-                                            <div class="d-flex justify-content-between align-items-center mt-2">
-                                                <small class="text-muted">
-                                                    <i class="fas fa-tag me-1"></i>
-                                                    <?= esc($contribution['category'] ?? 'General') ?>
-                                                </small>
-                                                <small class="text-muted">
-                                                    <i class="fas fa-clock me-1"></i>
-                                                    <?= date('M d, Y', strtotime($contribution['created_at'])) ?>
-                                                </small>
-                                            </div>
-                                            
-                                            <!-- Add Payment Button - Only show if no payment groups exist -->
-                                            <?php if (empty($contribution['payment_groups'])): ?>
+                                            <!-- Show Add Payment if no payment groups OR all payment groups are fully paid -->
+                                            <?php
+                                            $showAddPaymentBtn = false;
+                                            if (empty($contribution['payment_groups'])) {
+                                                $showAddPaymentBtn = true;
+                                            } else {
+                                                $allGroupsFullyPaid = true;
+                                                foreach ($contribution['payment_groups'] as $group) {
+                                                    if ($group['computed_status'] !== 'fully paid') {
+                                                        $allGroupsFullyPaid = false;
+                                                        break;
+                                                    }
+                                                }
+                                                if ($allGroupsFullyPaid) {
+                                                    $showAddPaymentBtn = true;
+                                                }
+                                            }
+                                            ?>
+                                            <?php if ($showAddPaymentBtn): ?>
                                                 <div class="mt-3">
                                                     <button class="btn btn-primary btn-sm w-100 add-payment-btn" 
                                                             data-contribution='<?= json_encode($contribution) ?>'
@@ -172,6 +177,7 @@
                                                     </button>
                                                 </div>
                                             <?php endif; ?>
+                                            
                                         </div>
                                     </div>
                                 </div>
@@ -454,11 +460,7 @@
     
     // View payment history button
     document.getElementById('viewPaymentHistoryBtn').addEventListener('click', function() {
-        if (currentContribution) {
-            showPaymentHistory(currentContribution);
-            contributionModal.hide();
-            paymentHistoryModal.show();
-        }
+        window.location.href = '<?= base_url('payer/payment-history') ?>';
     });
     
            function showContributionDetails(contribution) {
@@ -1251,6 +1253,11 @@
     }
     
     // QR Receipt functionality now uses the global showQRReceipt function from modal-qr-receipt.php
+    
+    // Helper to redirect to the Payment History page from group modal
+    window.viewPaymentHistory = function(contributionId) {
+        window.location.href = '<?= base_url('payer/payment-history') ?>';
+    };
     
 });
 </script>

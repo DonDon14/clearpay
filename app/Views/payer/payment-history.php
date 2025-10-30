@@ -82,9 +82,9 @@
                                                         </thead>
                                                         <tbody>
                                                             <?php foreach ($contribution['payments'] as $payment): ?>
-                                                                <tr class="payment-row" style="cursor: pointer;" 
+                                                                <tr class="payment-row"
+                                                                    style="cursor: pointer;"
                                                                     data-payment='<?= json_encode($payment) ?>'
-                                                                    title="Click to view QR receipt"
                                                                     onmouseover="this.style.backgroundColor='#f8f9fa'" 
                                                                     onmouseout="this.style.backgroundColor=''">
                                                                     <td><?= date('M d, Y', strtotime($payment['payment_date'] ?? $payment['created_at'])) ?></td>
@@ -139,9 +139,9 @@
                                                                             <i class="fas fa-qrcode me-1"></i>View QR
                                                                         </button>
                                                                         <?php if (($payment['available_refund'] ?? 0) > 0): ?>
-                                                                            <a href="<?= base_url('payer/refund-requests') ?>" class="btn btn-sm btn-outline-warning mt-1">
+                                                                            <button type="button" class="btn btn-sm btn-outline-warning mt-1" onclick="event.stopPropagation(); openRequestRefundModal(<?= htmlspecialchars(json_encode($payment)) ?>)">
                                                                                 <i class="fas fa-undo me-1"></i>Request Refund
-                                                                            </a>
+                                                                            </button>
                                                                         <?php endif; ?>
                                                                     </td>
                                                                 </tr>
@@ -164,6 +164,7 @@
 
 <!-- QR Receipt Modal -->
 <?= $this->include('partials/modal-qr-receipt') ?>
+<?= $this->include('partials/modal-request-refund') ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -195,6 +196,16 @@ function showPaymentQRReceipt(paymentData) {
         console.error('showQRReceipt function not available');
         alert('QR receipt functionality not available. Please refresh the page.');
     }
+}
+
+function openRequestRefundModal(payment) {
+    window._refundModalPayment = payment;
+    const modalEl = document.getElementById('requestRefundModal');
+    if (modalEl) {
+        try { modalEl.dataset.payment = JSON.stringify(payment); } catch(e){}
+    }
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
 }
 </script>
 
