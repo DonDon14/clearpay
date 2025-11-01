@@ -96,6 +96,7 @@
           <div class="user-details">
             <h4 class="user-full-name"><?= session('payer_name') ?? 'Payer' ?></h4>
             <p class="user-email"><?= session('payer_email') ?? 'payer@clearpay.com' ?></p>
+            <small class="text-muted" style="display:block;margin-top:-4px;">ID: <?= esc(session('payer_student_id') ?? ($payerData['student_id'] ?? '')) ?></small>
             <span class="user-status">
               <span class="status-dot"></span>
               Online
@@ -106,33 +107,33 @@
         <div class="dropdown-divider-top"></div>
         
                  <div class="dropdown-section">
-           <a href="<?= base_url('payer/my-data') ?>" class="dropdown-item">
-             <div class="item-icon">
-               <i class="fas fa-user"></i>
-             </div>
-             <div class="item-content">
-               <span class="item-title">My Data</span>
-               <span class="item-desc">View your information</span>
-             </div>
-           </a>
-           <a href="<?= base_url('payer/contributions') ?>" class="dropdown-item">
-             <div class="item-icon">
-               <i class="fas fa-hand-holding-usd"></i>
-             </div>
-             <div class="item-content">
-               <span class="item-title">Contributions</span>
-               <span class="item-desc">View active contributions</span>
-             </div>
-           </a>
-           <a href="<?= base_url('payer/payment-history') ?>" class="dropdown-item">
-             <div class="item-icon">
-               <i class="fas fa-history"></i>
-             </div>
-             <div class="item-content">
-               <span class="item-title">Payment History</span>
-               <span class="item-desc">View all transactions</span>
-             </div>
-           </a>
+          <a href="<?= base_url('payer/my-data') ?>" class="dropdown-item">
+            <div class="item-icon">
+              <i class="fas fa-user"></i>
+            </div>
+            <div class="item-content">
+              <span class="item-title">My Data</span>
+              <span class="item-desc">View your information</span>
+            </div>
+          </a>
+          <a href="<?= base_url('payer/contributions') ?>" class="dropdown-item">
+            <div class="item-icon">
+              <i class="fas fa-hand-holding-usd"></i>
+            </div>
+            <div class="item-content">
+              <span class="item-title">Contributions</span>
+              <span class="item-desc">View active contributions</span>
+            </div>
+          </a>
+          <a href="<?= base_url('payer/payment-history') ?>" class="dropdown-item">
+            <div class="item-icon">
+              <i class="fas fa-history"></i>
+            </div>
+            <div class="item-content">
+              <span class="item-title">Payment History</span>
+              <span class="item-desc">View all transactions</span>
+            </div>
+          </a>
           <a href="<?= base_url('help/index.html') ?>" class="dropdown-item" target="_blank">
             <div class="item-icon">
               <i class="fas fa-question-circle"></i>

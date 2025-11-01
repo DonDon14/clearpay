@@ -46,6 +46,7 @@ $routes->get('/admin/analytics/export/(:any)', 'Admin\Analytics::export/$1', ['f
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
 $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'auth']);
+$routes->get('profile/get', 'Admin\SidebarController::getProfile');
 
 // Payment Methods Management Routes
 $routes->get('/admin/settings/payment-methods', 'Admin\Settings\PaymentMethodController::index', ['filter' => 'auth']);
@@ -134,22 +135,24 @@ $routes->post('payer/verifyEmail', 'Payer\SignupController::verifyEmail');
 $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVerificationCode');
 
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
-            $routes->get('dashboard', 'Payer\DashboardController::index');
-            $routes->get('my-data', 'Payer\DashboardController::myData');
-            $routes->post('update-profile', 'Payer\DashboardController::updateProfile');
-            $routes->post('upload-profile-picture', 'Payer\DashboardController::uploadProfilePicture');
-            $routes->get('announcements', 'Payer\DashboardController::announcements');
-            $routes->get('contributions', 'Payer\DashboardController::contributions');
-            $routes->get('get-contribution-payments/(:num)', 'Payer\DashboardController::getContributionPayments/$1');
-            $routes->get('payment-history', 'Payer\DashboardController::paymentHistory');
-            $routes->get('payment-requests', 'Payer\DashboardController::paymentRequests');
-            $routes->post('submit-payment-request', 'Payer\DashboardController::submitPaymentRequest');
-            $routes->get('get-contribution-details', 'Payer\DashboardController::getContributionDetails');
-            $routes->get('check-new-activities', 'Payer\DashboardController::checkNewActivities');
-            $routes->post('mark-activity-read/(:num)', 'Payer\DashboardController::markActivityAsRead/$1');
-            $routes->get('get-all-activities', 'Payer\DashboardController::getAllActivities');
-            $routes->get('test-activity', 'Payer\DashboardController::testActivity');
-            $routes->get('refund-requests', 'Payer\DashboardController::refundRequests');
-            $routes->post('submit-refund-request', 'Payer\DashboardController::submitRefundRequest');
-            $routes->get('logout', 'Payer\LoginController::logout');
+            $routes->get('dashboard', 'Payer\\DashboardController::index');
+            $routes->get('my-data', 'Payer\\DashboardController::myData');
+            $routes->post('update-profile', 'Payer\\DashboardController::updateProfile');
+            $routes->post('upload-profile-picture', 'Payer\\DashboardController::uploadProfilePicture');
+            $routes->get('announcements', 'Payer\\DashboardController::announcements');
+            $routes->get('contributions', 'Payer\\DashboardController::contributions');
+            $routes->get('get-contribution-payments/(:num)', 'Payer\\DashboardController::getContributionPayments/$1');
+            $routes->get('payment-history', 'Payer\\DashboardController::paymentHistory');
+            $routes->get('payment-requests', 'Payer\\DashboardController::paymentRequests');
+            $routes->post('submit-payment-request', 'Payer\\DashboardController::submitPaymentRequest');
+            $routes->get('get-contribution-details', 'Payer\\DashboardController::getContributionDetails');
+            $routes->get('check-new-activities', 'Payer\\DashboardController::checkNewActivities');
+            $routes->post('mark-activity-read/(:num)', 'Payer\\DashboardController::markActivityAsRead/$1');
+            $routes->get('get-all-activities', 'Payer\\DashboardController::getAllActivities');
+            $routes->get('test-activity', 'Payer\\DashboardController::testActivity');
+            $routes->get('refund-requests', 'Payer\\DashboardController::refundRequests');
+            // Provide active refund methods for the payer modal dropdown
+            $routes->get('refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+            $routes->post('submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
+            $routes->get('logout', 'Payer\\LoginController::logout');
         });

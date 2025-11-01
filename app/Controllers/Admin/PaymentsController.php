@@ -217,12 +217,14 @@ class PaymentsController extends BaseController
                     // Use existing payer
                     $payerDbId = $existingPayer['id'];
                 } else {
-                    // Create new payer in payers table
+                    // Create new payer in payers table (admin-created accounts are auto-verified)
                     $payerData = [
                         'payer_id' => $payerId,
                         'payer_name' => $this->request->getPost('payer_name'),
                         'contact_number' => $this->request->getPost('contact_number'),
                         'email_address' => $this->request->getPost('email_address'),
+                        'email_verified' => 1,
+                        'verification_token' => null,
                     ];
                     $payerDbId = $payerModel->insert($payerData);
                     
@@ -1234,7 +1236,7 @@ class PaymentsController extends BaseController
         $totalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
         return [
             'allowed' => false,
-            'message' => "⚠️ Contribution Already Fully Paid\n\nYou already have fully paid contribution groups for '" . $contribution['title'] . "' (₱" . number_format($totalPaid, 2) . " total).\n\nAdd another payment group for this contribution?",
+            'message' => "⚠️ Contribution Already Fully Paid\n\nThis payer already has a fully paid contribution group for '" . $contribution['title'] . "' (₱" . number_format($totalPaid, 2) . " total).",
             'requires_confirmation' => true,
             'existing_payments' => $existingPayments
         ];

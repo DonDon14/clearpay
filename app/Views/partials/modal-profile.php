@@ -32,7 +32,7 @@
         </div>
 
         <!-- Profile Form -->
-        <form id="profileForm">
+        <form id="profileForm" autocomplete="off">
           <input type="hidden" id="profileUserId" name="user_id" value="<?= session('user-id') ?>">
           
           <div class="row">
@@ -56,7 +56,7 @@
             
             <div class="col-md-6 mb-3">
               <label for="profilePhone" class="form-label">Phone Number</label>
-              <input type="tel" class="form-control" id="profilePhone" name="phone" placeholder="+63 9XX XXX XXXX">
+              <input type="tel" class="form-control" id="profilePhone" name="phone" value="<?= esc(session('phone') ?? '') ?>">
               <div class="invalid-feedback"></div>
             </div>
           </div>
@@ -74,19 +74,28 @@
               <div class="row">
                 <div class="col-12 mb-3">
                   <label for="currentPassword" class="form-label">Current Password</label>
-                  <input type="password" class="form-control" id="currentPassword" name="current_password" placeholder="Enter current password">
+                  <div class="input-group">
+                    <input type="password" class="form-control" id="currentPassword" name="current_password" placeholder="Enter current password" autocomplete="new-password" value="">
+                    <button class="btn btn-outline-secondary toggle-password-btn" type="button" tabindex="-1"><i class="fas fa-eye"></i></button>
+                  </div>
                   <div class="invalid-feedback"></div>
                 </div>
                 
                 <div class="col-md-6 mb-3">
                   <label for="newPassword" class="form-label">New Password</label>
-                  <input type="password" class="form-control" id="newPassword" name="new_password" placeholder="Enter new password" minlength="6">
+                  <div class="input-group">
+                    <input type="password" class="form-control" id="newPassword" name="new_password" placeholder="Enter new password" minlength="6" autocomplete="new-password" value="">
+                    <button class="btn btn-outline-secondary toggle-password-btn" type="button" tabindex="-1"><i class="fas fa-eye"></i></button>
+                  </div>
                   <div class="invalid-feedback"></div>
                 </div>
                 
                 <div class="col-md-6 mb-3">
                   <label for="confirmPassword" class="form-label">Confirm New Password</label>
-                  <input type="password" class="form-control" id="confirmPassword" name="confirm_password" placeholder="Confirm new password">
+                  <div class="input-group">
+                    <input type="password" class="form-control" id="confirmPassword" name="confirm_password" placeholder="Confirm new password" autocomplete="new-password" value="">
+                    <button class="btn btn-outline-secondary toggle-password-btn" type="button" tabindex="-1"><i class="fas fa-eye"></i></button>
+                  </div>
                   <div class="invalid-feedback"></div>
                 </div>
               </div>
@@ -131,8 +140,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Profile form submission
     const profileForm = document.getElementById('profileForm');
+    const passwordSection = document.getElementById('changePasswordSection');
+    const currentPasswordEl = document.getElementById('currentPassword');
+    const newPasswordEl = document.getElementById('newPassword');
+    const confirmPasswordEl = document.getElementById('confirmPassword');
     
     if (profileForm) {
+        // Ensure password fields are cleared and section is collapsed every time modal opens
+        const profileModal = document.getElementById('profileModal');
+        if (profileModal) {
+            profileModal.addEventListener('show.bs.modal', function() {
+                if (currentPasswordEl) currentPasswordEl.value = '';
+                if (newPasswordEl) newPasswordEl.value = '';
+                if (confirmPasswordEl) confirmPasswordEl.value = '';
+                if (passwordSection && passwordSection.classList.contains('show')) {
+                    const bsCollapse = bootstrap.Collapse.getOrCreateInstance(passwordSection, { toggle: false });
+                    bsCollapse.hide();
+                }
+            });
+        }
+
         profileForm.addEventListener('submit', function(e) {
             e.preventDefault();
             
@@ -144,9 +171,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Get password fields
-            const currentPassword = document.getElementById('currentPassword').value;
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
+            const currentPassword = currentPasswordEl ? currentPasswordEl.value : '';
+            const newPassword = newPasswordEl ? newPasswordEl.value : '';
+            const confirmPassword = confirmPasswordEl ? confirmPasswordEl.value : '';
             
             // Validate password change if any field is filled
             if (currentPassword || newPassword || confirmPassword) {
@@ -244,12 +271,44 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    document.querySelectorAll('.toggle-password-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const input = btn.parentElement.querySelector('input');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.querySelector('i').classList.remove('fa-eye');
+                btn.querySelector('i').classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                btn.querySelector('i').classList.remove('fa-eye-slash');
+                btn.querySelector('i').classList.add('fa-eye');
+            }
+        });
+    });
 });
 
 // Function to open profile modal with current user data
 function openProfileModal() {
     const modalElement = document.getElementById('profileModal');
     if (modalElement) {
+        // AJAX fetch user (admin) profile info before opening
+        fetch('profile/get', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success && data.user) {
+                    const user = data.user;
+                    document.getElementById('profileName').value = user.name || '';
+                    document.getElementById('profileUsername').value = user.username || '';
+                    document.getElementById('profileEmail').value = user.email || '';
+                    document.getElementById('profilePhone').value = user.phone || '';
+                    if (user.profile_picture) {
+                        document.getElementById('profilePictureImg').src = user.profile_picture;
+                        document.getElementById('profilePictureImg').style.display = 'block';
+                        document.getElementById('profileIcon').style.display = 'none';
+                    }
+                }
+            });
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
     }

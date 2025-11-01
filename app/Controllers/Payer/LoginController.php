@@ -85,7 +85,10 @@ class LoginController extends BaseController
 
         // Set session data
         session()->set([
+            // Database primary key (internal)
             'payer_id' => $payer['id'],
+            // Public-facing student/payer ID (e.g., 154989)
+            'payer_student_id' => $payer['payer_id'],
             'payer_name' => $payer['payer_name'],
             'payer_email' => $payer['email_address'],
             'payer_profile_picture' => $payer['profile_picture'] ?? null,
@@ -101,7 +104,16 @@ class LoginController extends BaseController
 
     public function logout()
     {
-        session()->destroy();
+        // Remove only payer-related keys so admin session remains intact
+        session()->remove([
+            'payer_id',
+            'payer_student_id',
+            'payer_name',
+            'payer_email',
+            'payer_profile_picture',
+            'payer_logged_in',
+            'payer_last_activity'
+        ]);
         return redirect()->to('payer/login');
     }
 }

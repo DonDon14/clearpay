@@ -52,6 +52,7 @@
           <div class="user-details">
             <h4 class="user-full-name"><?= session('name') ?? session('username') ?? 'Administrator' ?></h4>
             <p class="user-email"><?= session('email') ?? 'administrator@clearpay.com' ?></p>
+            <small class="text-muted" style="display:block;margin-top:-4px;">ID: <?= esc(session('user-id')) ?></small>
             <span class="user-status">
               <span class="status-dot"></span>
               Online

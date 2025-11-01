@@ -32,13 +32,6 @@
                     </a>
                 </li>
                 <li>
-                    <a href="<?= base_url('payment-requests') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payment Requests Management') ? 'active' : '' ?>" data-tooltip="Payment Requests">
-                        <i class="fas fa-paper-plane"></i> 
-                        <span class="menu-text">Payment Requests</span>
-                        <span class="notification-badge" id="paymentRequestsBadge" style="display: none; background: #ef4444 !important; color: white !important; font-size: 0.75rem !important; font-weight: 600 !important; padding: 2px 6px !important; border-radius: 10px !important; min-width: 18px !important; height: 18px !important; margin-left: auto !important; margin-right: 8px !important; text-decoration: none !important; border: none !important; line-height: 1 !important; flex-shrink: 0 !important;"></span>
-                    </a>
-                </li>
-                <li>
                     <a href="<?= base_url('refunds') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Refunds') ? 'active' : '' ?>" data-tooltip="Refunds">
                         <i class="fas fa-undo"></i> 
                         <span class="menu-text">Refunds</span>

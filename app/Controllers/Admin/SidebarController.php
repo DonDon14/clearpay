@@ -318,6 +318,9 @@ class SidebarController extends BaseController
                 ]);
             }
             
+            // Mark email verified when created by admin
+            $data['email_verified'] = 1;
+            $data['verification_token'] = null;
             // Save to database
             $result = $payerModel->insert($data);
             
@@ -878,6 +881,35 @@ class SidebarController extends BaseController
             'message' => 'Profile updated successfully',
             'user' => $updatedUser,
             'profile_picture_url' => $updatedUser['profile_picture'] ? base_url($updatedUser['profile_picture']) : null
+        ]);
+    }
+
+    public function getProfile() {
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized endpoint access.'
+            ])->setStatusCode(401);
+        }
+        $user = (new \App\Models\UserModel())->find(session()->get('user-id'));
+        if (!$user) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'User not found.'
+            ]);
+        }
+        // Create absolute URL for profile pic if set
+        $user['profile_picture'] = $user['profile_picture'] ? base_url($user['profile_picture']) : '';
+        return $this->response->setJSON([
+            'success' => true,
+            'user' => [
+                'id' => $user['id'],
+                'name' => $user['name'],
+                'username' => $user['username'],
+                'email' => $user['email'],
+                'phone' => $user['phone'],
+                'profile_picture' => $user['profile_picture'],
+            ]
         ]);
     }
 

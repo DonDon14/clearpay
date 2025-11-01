@@ -148,12 +148,6 @@
                                                         <small><?= esc(substr($request['payer_notes'] ?? $request['refund_reason'] ?? 'No reason provided', 0, 50)) ?>...</small>
                                                     </td>
                                                     <td>
-                                                        <button type="button" class="btn btn-sm btn-success approve-request-btn" data-id="<?= $request['id'] ?>" title="Approve & Complete Refund">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button type="button" class="btn btn-sm btn-danger reject-request-btn" data-id="<?= $request['id'] ?>" title="Reject Request">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
                                                         <button type="button" class="btn btn-sm btn-info view-request-btn" data-id="<?= $request['id'] ?>" title="View Details">
                                                             <i class="fas fa-eye"></i>
                                                         </button>
@@ -329,6 +323,50 @@ $(document).ready(function() {
                         ${refund.payer_notes ? `<div class="mt-3"><h6>Payer Notes:</h6><p>${refund.payer_notes}</p></div>` : ''}
                     `;
                     $('#refundDetailsContent').html(html);
+
+                    // Configure actions in the refund details modal
+                    const $detailsModal = $('#refundDetailsModal');
+                    const $footer = $detailsModal.find('.modal-footer');
+                    // Remove any previously injected buttons
+                    $footer.find('.details-approve-btn, .details-reject-btn').remove();
+
+                    if (refund.status === 'pending') {
+                        // Add Approve and Reject buttons inside the details modal
+                        const approveBtn = $('<button>', {
+                            class: 'btn btn-success me-2 details-approve-btn',
+                            text: 'Approve & Complete'
+                        }).on('click', function() {
+                            $('#modal_refund_id').val(refund.id);
+                            $('#modal_refund_reference').val(refund.refund_reference || '');
+                            $('#modal_admin_notes').val('');
+                            $('#approveFields').show();
+                            $('#approveRejectModalTitle').text('Approve & Complete Refund Request');
+                            $('#modalActionBtn').removeClass('btn-danger').addClass('btn-success').text('Approve & Complete').off('click').on('click', function() {
+                                approveRefundRequest(refund.id);
+                            });
+                            bootstrap.Modal.getInstance(document.getElementById('refundDetailsModal')).hide();
+                            new bootstrap.Modal(document.getElementById('approveRejectModal')).show();
+                        });
+
+                        const rejectBtn = $('<button>', {
+                            class: 'btn btn-danger details-reject-btn',
+                            text: 'Reject'
+                        }).on('click', function() {
+                            $('#modal_refund_id').val(refund.id);
+                            $('#modal_refund_reference').val('');
+                            $('#modal_admin_notes').val('');
+                            $('#approveFields').hide();
+                            $('#approveRejectModalTitle').text('Reject Refund Request');
+                            $('#modalActionBtn').removeClass('btn-success').addClass('btn-danger').text('Reject').off('click').on('click', function() {
+                                rejectRefundRequest(refund.id);
+                            });
+                            bootstrap.Modal.getInstance(document.getElementById('refundDetailsModal')).hide();
+                            new bootstrap.Modal(document.getElementById('approveRejectModal')).show();
+                        });
+
+                        $footer.prepend(rejectBtn).prepend(approveBtn);
+                    }
+
                     new bootstrap.Modal(document.getElementById('refundDetailsModal')).show();
                 }
             }

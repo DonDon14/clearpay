@@ -66,6 +66,7 @@
                                     <?php foreach ($groupedPayments as $group): ?>
                                         <tr class="payment-group-row" 
                                             data-payer-id="<?= esc($group['payer_id']) ?>" 
+                                            data-payer-student-id="<?= esc($group['payer_student_id'] ?? $group['payer_id']) ?>" 
                                             data-contribution-id="<?= esc($group['contribution_id']) ?>"
                                             data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
                                             data-payment-status="<?= esc($group['computed_status']) ?>"
@@ -151,13 +152,6 @@
                                             <td><?= date('M d, Y', strtotime($group['last_payment_date'])) ?></td>
                                 <td>
                                         <div class="btn-group" role="group">
-                                                    <button class="btn btn-sm btn-outline-primary view-payment-history-btn" 
-                                                            data-payer-id="<?= esc($group['payer_id']) ?>" 
-                                                            data-contribution-id="<?= esc($group['contribution_id']) ?>"
-                                                            data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
-                                                            title="View Payment History">
-                                                        <i class="fas fa-history me-1"></i>History
-                                            </button>
                                                     <button class="btn btn-sm btn-outline-warning refund-payment-group-btn" 
                                                             data-payer-id="<?= esc($group['payer_id']) ?>" 
                                                             data-contribution-id="<?= esc($group['contribution_id']) ?>"
@@ -420,18 +414,21 @@ $(document).ready(function() {
         });
     });
 
-    // Search functionality
+    // Search functionality (by name, contribution, or student ID)
     $('#searchStudentName').on('input', function() {
-        const query = $(this).val().toLowerCase();
+        const query = $(this).val().toLowerCase().trim();
         $('.payment-group-row').each(function() {
-            const payerName = $(this).data('payer-name').toLowerCase();
-            const contributionTitle = $(this).data('contribution-title').toLowerCase();
-            
-            if (payerName.includes(query) || contributionTitle.includes(query)) {
-                $(this).show();
-                } else {
-                $(this).hide();
-            }
+            const payerName = String($(this).data('payer-name') || '').toLowerCase();
+            const contributionTitle = String($(this).data('contribution-title') || '').toLowerCase();
+            const studentId = String($(this).data('payer-student-id') || '').toLowerCase();
+
+            const matches =
+                query === '' ||
+                payerName.includes(query) ||
+                contributionTitle.includes(query) ||
+                studentId.includes(query);
+
+            $(this).toggle(matches);
         });
     });
 
@@ -1244,13 +1241,109 @@ $(document).ready(function() {
         }, 5000);
     }
 
-    window.scanIDInPaymentsPage = function() {
-        alert('QR Scanner functionality will be implemented');
+    // --- School ID Scanner for Payments page ---
+    let paymentsIDScannerStream = null;
+
+    function stopPaymentsIDScanner() {
+        if (paymentsIDScannerStream) {
+            paymentsIDScannerStream.getTracks().forEach(t => t.stop());
+            paymentsIDScannerStream = null;
+        }
+    }
+
+    window.scanIDInPaymentsPage = async function() {
+        try {
+            // Create/show modal
+            const modalEl = document.getElementById('idScannerModalPayments');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+
+            // Start camera
+            paymentsIDScannerStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'environment',
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
+                }
+            });
+
+            const video = document.getElementById('paymentsIDVideo');
+            video.srcObject = paymentsIDScannerStream;
+
+            video.onloadedmetadata = () => {
+                video.play();
+
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+
+                function loop() {
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        if (typeof jsQR !== 'undefined') {
+                            const code = jsQR(img.data, img.width, img.height);
+                            if (code) {
+                                // Stop and close
+                                stopPaymentsIDScanner();
+                                const inst = bootstrap.Modal.getInstance(modalEl);
+                                if (inst) inst.hide();
+
+                                // Extract ID (JSON or numeric prefix)
+                                let scanned = code.data || '';
+                                let studentId = '';
+                                try {
+                                    const parsed = JSON.parse(scanned);
+                                    studentId = String(parsed.payer_id || parsed.student_id || parsed.id || '').trim();
+                                } catch (_) {
+                                    const m = scanned.match(/^(\d{3,})/);
+                                    if (m) studentId = m[1];
+                                }
+                                if (!studentId) studentId = scanned.trim();
+
+                                // Apply to search box and trigger filter
+                                const search = document.getElementById('searchStudentName');
+                                if (search) {
+                                    search.value = studentId;
+                                    const evt = new Event('input', { bubbles: true });
+                                    search.dispatchEvent(evt);
+                                }
+                                if (typeof showNotification === 'function') {
+                                    showNotification('Filtering by ID: ' + studentId, 'success');
+                                }
+                                return;
+                            }
+                        }
+                    }
+                    requestAnimationFrame(loop);
+                }
+                loop();
+            };
+
+            // Cleanup backdrops when modal hides
+            modalEl.addEventListener('hidden.bs.modal', function onHide() {
+                stopPaymentsIDScanner();
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                // Keep at most one backdrop if parent modals are open
+                if (backdrops.length > 1) {
+                    for (let i = 1; i < backdrops.length; i++) backdrops[i].remove();
+                }
+                modalEl.removeEventListener('hidden.bs.modal', onHide);
+            }, { once: true });
+        } catch (error) {
+            console.error('Payments ID scanner error:', error);
+            const msg = (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError'))
+                ? 'Camera permission denied. Allow camera in site permissions.'
+                : (error && error.name === 'NotReadableError')
+                    ? 'Camera is in use by another app/tab. Close it and try again.'
+                    : 'Unable to access camera. Please check permissions.';
+            if (typeof showNotification === 'function') showNotification(msg, 'error');
+        }
     };
 
-    window.scanIDForPayment = function() {
-        alert('QR Scanner functionality will be implemented');
-    };
+    // For future contexts that need a direct scan callback
+    window.scanIDForPayment = window.scanIDInPaymentsPage;
 
     // Refund Payment Group button (in main payments table)
     $(document).on('click', '.refund-payment-group-btn', function(e) {
@@ -1311,6 +1404,28 @@ $(document).ready(function() {
     });
 });
 </script>
+
+<!-- Payments Page - ID Scanner Modal -->
+<div class="modal fade" id="idScannerModalPayments" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>Scan School ID</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <video id="paymentsIDVideo" autoplay playsinline style="width:100%;border:2px solid #0d6efd;border-radius:8px;"></video>
+                <div class="text-muted small mt-2">Point camera at the school ID QR code</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+    <style>
+    #idScannerModalPayments { z-index: 1065 !important; }
+    </style>
+</div>
 
 <!-- Include Additional Payment Modal -->
 <?= view('partials/modal-add-payment-to-partial') ?>

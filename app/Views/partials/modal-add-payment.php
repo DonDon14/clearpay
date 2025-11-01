@@ -55,7 +55,7 @@ $payment = $payment ?? [];
                                     <label for="payerId" class="form-label">Payer ID</label>
               <div class="input-group">
                                         <input type="text" class="form-control" id="payerId" name="new_payer_id" required>
-                                        <button type="button" class="btn btn-outline-primary" onclick="openSchoolIDScanner()" title="Scan School ID">
+                                        <button type="button" class="btn btn-outline-primary" onclick="onScanSchoolIDFromNewPayer()" title="Scan School ID">
                   <i class="fas fa-qrcode"></i>
                 </button>
               </div>
@@ -277,6 +277,49 @@ $payment = $payment ?? [];
 /* Prevent text selection during drag */
 .modal-dialog.dragging {
   user-select: none;
+}
+
+/* Fix: Make addPaymentModal stack properly above dashboard, and schoolIDScannerModal always at top */
+#addPaymentModal {
+    z-index: 1060 !important;
+}
+#addPaymentModal .modal-dialog {
+    z-index: 1061 !important;
+}
+#addPaymentModal .modal-content {
+    z-index: 1062 !important;
+    position: relative;
+}
+
+.modal-backdrop {
+    z-index: 1055 !important;
+}
+
+/* School ID Scanner Modal should always be on top */
+#schoolIDScannerModal {
+    z-index: 2000 !important;
+}
+#schoolIDScannerModal .modal-dialog {
+    z-index: 2001 !important;
+}
+#schoolIDScannerModal .modal-content {
+    z-index: 2002 !important;
+    position: relative;
+}
+body:has(#schoolIDScannerModal.show) .modal-backdrop.show:last-of-type {
+    z-index: 1999 !important;
+    background-color: rgba(0,0,0,0.8) !important;
+}
+/* Slight fade for add payment modal when schoolIDScanner shows */
+body:has(#schoolIDScannerModal.show) #addPaymentModal {
+    opacity: 0.4 !important;
+    pointer-events: none !important;
+}
+
+/* Remove padding/margin issues for overlapping modals/dialogs */
+#addPaymentModal .modal-dialog,
+#schoolIDScannerModal .modal-dialog {
+    margin: 2rem auto;
 }
 </style>
 
@@ -1056,7 +1099,7 @@ function processPayment(formData) {
       // Check if this is a fully paid contribution confirmation case
       if (data.message && data.message.includes('Already Fully Paid')) {
         // Show confirmation dialog instead of error alert
-        const confirmed = confirm(data.message + '\n\nDo you want to add another payment group for this contribution?');
+        const confirmed = confirm(data.message);
         if (confirmed) {
           // Add bypass flag and resubmit
           formData.set('bypass_duplicate_check', '1');
@@ -1072,5 +1115,38 @@ function processPayment(formData) {
     alert('An error occurred while adding the payment');
   });
 }
+</script>
+
+<script>
+window._openSchoolIDFromNewPayer = false;
+window._schoolIDScanHandlerAttached = false;
+function onScanSchoolIDFromNewPayer() {
+  window._openSchoolIDFromNewPayer = true;
+  // Forcibly hide with jQuery for bulletproof Bootstrap compability
+  if (window.jQuery) {
+    $('#addPaymentModal').modal('hide');
+  } else {
+    const addModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('addPaymentModal'));
+    addModal.hide();
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  if (window._schoolIDScanHandlerAttached) return;
+  window._schoolIDScanHandlerAttached = true;
+  const addModalElem = document.getElementById('addPaymentModal');
+  if (addModalElem) {
+    addModalElem.addEventListener('hidden.bs.modal', function() {
+      if (window._openSchoolIDFromNewPayer) {
+        // Bulletproof: Remove leftover backdrops before opening scanner
+        if (window.jQuery) {
+          $('.modal-backdrop').remove();
+        } else {
+          document.querySelectorAll('.modal-backdrop').forEach(el=>el.parentNode.removeChild(el));
+        }
+        openSchoolIDScanner();
+      }
+    });
+  }
+});
 </script>
 

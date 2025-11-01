@@ -29,7 +29,8 @@
         <?php 
         // Get payer data for header from session
         $payerData = [
-            'profile_picture' => session('payer_profile_picture')
+            'profile_picture' => session('payer_profile_picture'),
+            'student_id' => session('payer_student_id')
         ];
         
         // Debug: Check session data
@@ -37,13 +38,18 @@
         $profilePicture = session('payer_profile_picture');
         
         // If no profile picture in session, try to get from database
-        if (!$profilePicture && $payerId) {
+        if (($profilePicture === null || $payerData['student_id'] === null) && $payerId) {
             $payerModel = new \App\Models\PayerModel();
             $payer = $payerModel->find($payerId);
             if ($payer && !empty($payer['profile_picture'])) {
                 $payerData['profile_picture'] = $payer['profile_picture'];
                 // Update session for future requests
                 session()->set('payer_profile_picture', $payer['profile_picture']);
+            }
+            if ($payer && !empty($payer['payer_id'])) {
+                $payerData['student_id'] = $payer['payer_id'];
+                // Ensure session has public-facing ID for easy access
+                session()->set('payer_student_id', $payer['payer_id']);
             }
         }
         

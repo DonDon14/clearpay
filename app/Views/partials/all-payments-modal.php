@@ -173,6 +173,29 @@ body.modal-open .main-content {
     </div>
 </div>
 
+<!-- Lightweight School ID Scanner Modal used by All Payments search -->
+<div class="modal fade" id="idScannerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>Scan School ID</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <video id="idVideo" autoplay playsinline style="width: 100%; border: 2px solid #0d6efd; border-radius: 8px;"></video>
+                <div class="text-muted small mt-2">Point camera at the school ID QR code</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+    <style>
+    /* Ensure scanner modal stacks over the All Payments modal */
+    #idScannerModal { z-index: 1065 !important; }
+    </style>
+</div>
+
 <!-- 🧠 JavaScript for Prefix-Based Search -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -274,14 +297,38 @@ document.addEventListener('DOMContentLoaded', function() {
 // Function to scan ID in all payments modal
 async function scanIDInAllPayments() {
     try {
-        const modal = new bootstrap.Modal(document.getElementById('idScannerModal'));
+        const idModalEl = document.getElementById('idScannerModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(idModalEl);
         modal.show();
+
+        // Backdrop cleanup: when scanner closes, restore parent modal state
+        idModalEl.addEventListener('hidden.bs.modal', function cleanup() {
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            const parentModal = document.getElementById('allPaymentsModal');
+            // Keep only one backdrop for the parent modal if it's still open
+            if (parentModal && parentModal.classList.contains('show')) {
+                // Remove all but the first backdrop
+                for (let i = 1; i < backdrops.length; i++) {
+                    backdrops[i].remove();
+                }
+                // Ensure body reflects that a modal is still open
+                document.body.classList.add('modal-open');
+                document.body.style.overflow = 'hidden';
+            } else {
+                // No parent open; remove all backdrops
+                backdrops.forEach(b => b.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+            }
+            idModalEl.removeEventListener('hidden.bs.modal', cleanup);
+        }, { once: true });
         
         // Use the existing global ID scanner variables from modal-add-payment
         let idScannerStream = null;
         let idScannerCanvas = null;
         let idScannerContext = null;
         
+        // Request camera with the same constraints as other working scanners
         idScannerStream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
                 facingMode: 'environment',
@@ -339,7 +386,13 @@ async function scanIDInAllPayments() {
         
     } catch (error) {
         console.error('Error accessing camera:', error);
-        showNotification('Unable to access camera. Please check permissions.', 'error');
+        // Provide clearer guidance if permissions were previously denied or device busy
+        const message = (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError'))
+            ? 'Camera permission denied. Click the lock icon in the address bar to allow camera.'
+            : (error && error.name === 'NotReadableError')
+                ? 'Camera is already in use by another app/tab. Close other scanners and try again.'
+                : 'Unable to access camera. Please check permissions.';
+        showNotification(message, 'error');
     }
 }
 

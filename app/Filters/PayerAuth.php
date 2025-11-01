@@ -39,8 +39,16 @@ class PayerAuth implements FilterInterface
             
             // If session has expired
             if ($timeSinceLastActivity > $this->sessionTimeout) {
-                // Destroy session
-                session()->destroy();
+                // Clear only payer session keys to avoid terminating admin session
+                session()->remove([
+                    'payer_id',
+                    'payer_student_id',
+                    'payer_name',
+                    'payer_email',
+                    'payer_profile_picture',
+                    'payer_logged_in',
+                    'payer_last_activity'
+                ]);
                 
                 // If it's an AJAX request, return JSON error
                 if ($request->isAJAX()) {
