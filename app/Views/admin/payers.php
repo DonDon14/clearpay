@@ -45,9 +45,22 @@
                 <h5 class="card-title mb-0">Payers</h5>
                 <p class="text-muted mb-0 small">Complete list of all registered payers</p>
             </div>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
-                <i class="fas fa-plus"></i> Add New Payer
-            </button>
+            <div class="btn-group">
+                <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-file-export me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="exportPayers('csv'); return false;">
+                        <i class="fas fa-file-csv me-2"></i>Export to CSV
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportPayers('pdf'); return false;">
+                        <i class="fas fa-file-pdf me-2"></i>Export to PDF
+                    </a></li>
+                </ul>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
+                    <i class="fas fa-plus"></i> Add New Payer
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <!-- Search Bar -->
@@ -743,6 +756,41 @@ function deletePayer() {
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = originalText;
     });
+}
+
+// Export payers function
+function exportPayers(format) {
+    // Get current filter values
+    const searchTerm = document.getElementById('searchPayerInput').value;
+    const courseFilter = document.getElementById('filterCourse').value;
+    const statusFilter = document.getElementById('filterStatus').value;
+    
+    // Build query string with filters
+    const params = new URLSearchParams();
+    if (searchTerm) params.append('search', searchTerm);
+    if (courseFilter && courseFilter !== 'all') params.append('course', courseFilter);
+    if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+    
+    // Build URL based on format
+    const baseUrl = window.APP_BASE_URL || '';
+    let url = '';
+    
+    if (format === 'csv') {
+        url = `${baseUrl}/payers/export/csv`;
+    } else if (format === 'pdf') {
+        url = `${baseUrl}/payers/export/pdf`;
+    } else {
+        showNotification('Invalid export format', 'error');
+        return;
+    }
+    
+    // Add query parameters if any
+    if (params.toString()) {
+        url += '?' + params.toString();
+    }
+    
+    // Redirect to export endpoint
+    window.location.href = url;
 }
 </script>
 

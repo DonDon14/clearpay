@@ -111,6 +111,8 @@ $routes->get('/payments/export-contribution-pdf/(:num)', 'Admin\PaymentsControll
 
 // Payers Management Routes
 $routes->post('/payers/create', 'Admin\PayersController::create', ['filter' => 'auth']);
+$routes->get('/payers/export/pdf', 'Admin\PayersController::exportPDF', ['filter' => 'auth']);
+$routes->get('/payers/export/csv', 'Admin\PayersController::exportCSV', ['filter' => 'auth']);
 $routes->get('/payment_methods/test', 'Admin\PaymentMethodsController::test', ['filter' => 'auth']);
 
 // Contributions Management Routes
