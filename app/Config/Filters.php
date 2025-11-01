@@ -36,6 +36,7 @@ class Filters extends BaseFilters
         'performance'   => PerformanceMetrics::class,
         'auth'          => \App\Filters\Auth::class,
         'payerAuth'     => \App\Filters\PayerAuth::class,
+        'rememberme'    => \App\Filters\RememberMe::class,
     ];
 
     /**
@@ -74,6 +75,9 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
+            'rememberme' => [
+                'except' => ['/loginPost', '/logout', '/registerPost', '/verifyEmail', '/resendVerificationCode', '/forgotPasswordPost', '/verifyResetCode', '/resetPassword'] // Exclude login/logout endpoints to prevent auto-login during authentication
+            ],
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
