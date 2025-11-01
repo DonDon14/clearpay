@@ -50,6 +50,10 @@
                                 <label class="text-muted small mb-1">Contact Number</label>
                                 <p class="mb-0" id="viewPayerContact">-</p>
                             </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-muted small mb-1">Course/Department</label>
+                                <p class="mb-0" id="viewPayerCourse">-</p>
+                            </div>
                         </div>
                     </div>
                 </div>

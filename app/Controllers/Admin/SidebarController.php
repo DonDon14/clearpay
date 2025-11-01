@@ -456,7 +456,8 @@ class SidebarController extends BaseController
             $data = [
                 'payer_name' => $this->request->getPost('payer_name'),
                 'contact_number' => $this->request->getPost('contact_number'),
-                'email_address' => $this->request->getPost('email_address')
+                'email_address' => $this->request->getPost('email_address'),
+                'course_department' => $this->request->getPost('course_department')
             ];
             
             // Validate required fields
@@ -471,6 +472,7 @@ class SidebarController extends BaseController
             $oldName = $payer['payer_name'];
             $oldContact = $payer['contact_number'];
             $oldEmail = $payer['email_address'];
+            $oldCourse = $payer['course_department'] ?? null;
             
             // Build activity description with changes
             $changes = [];
@@ -482,6 +484,11 @@ class SidebarController extends BaseController
             }
             if ($data['email_address'] !== $oldEmail) {
                 $changes[] = "Email: {$oldEmail} → {$data['email_address']}";
+            }
+            if ($data['course_department'] !== $oldCourse) {
+                $oldCourseDisplay = $oldCourse ?? 'N/A';
+                $newCourseDisplay = $data['course_department'] ?? 'N/A';
+                $changes[] = "Course: {$oldCourseDisplay} → {$newCourseDisplay}";
             }
             
             // Update payer

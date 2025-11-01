@@ -437,6 +437,7 @@ function viewPayerDetails(payerId) {
                 document.getElementById('viewPayerName').textContent = payer.payer_name || '-';
                 document.getElementById('viewPayerEmail').textContent = payer.email_address || 'N/A';
                 document.getElementById('viewPayerContact').textContent = payer.contact_number || 'N/A';
+                document.getElementById('viewPayerCourse').textContent = payer.course_department || 'N/A';
                 
                 // Populate profile picture
                 const profilePicture = document.getElementById('viewPayerProfilePicture');
@@ -522,6 +523,7 @@ function editPayer(payerId) {
                 document.getElementById('editPayerName').value = payer.payer_name || '';
                 document.getElementById('editContactNumber').value = payer.contact_number || '';
                 document.getElementById('editEmailAddress').value = payer.email_address || '';
+                document.getElementById('editCourseDepartment').value = payer.course_department || '';
                 
                 // Show modal
                 const viewModal = bootstrap.Modal.getInstance(document.getElementById('viewPayerDetailsModal'));
