@@ -44,7 +44,9 @@
                                 <tr>
                                     <th>Payer ID</th>
                                     <th>Payer Name</th>
+                                    <th>Payment Group</th>
                                     <th>Total Paid</th>
+                                    <th>Remaining Balance</th>
                                     <th>Status</th>
                                     <th>Last Payment</th>
                                     <th>Actions</th>
@@ -68,6 +70,19 @@
             </div>
 
             <div class="modal-footer">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-file-export me-1"></i>Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportContributionPayments(); return false;">
+                            <i class="fas fa-file-csv me-2"></i>Export to CSV
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportContributionPaymentsPDF(); return false;">
+                            <i class="fas fa-file-pdf me-2"></i>Export to PDF
+                        </a></li>
+                    </ul>
+                </div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-1"></i>Close
                 </button>
@@ -188,17 +203,20 @@ function showContributionPayments(contributionId, contributionTitle, contributio
             document.getElementById('contributionPaymentsLoading').style.display = 'none';
             
             if (data.success && data.payments && data.payments.length > 0) {
-                // Aggregate payments by payer
+                // Aggregate payments by payer and payment_sequence
                 const payerMap = {};
                 
                 data.payments.forEach(payment => {
                     const payerId = payment.payer_id;
+                    const sequence = payment.payment_sequence || 1;
+                    const key = payerId + '_' + sequence; // Unique key for payer+sequence combination
                     
-                    if (!payerMap[payerId]) {
-                        payerMap[payerId] = {
+                    if (!payerMap[key]) {
+                        payerMap[key] = {
                             payer_id: payerId,
                             payer_student_id: payment.payer_student_id || payment.payer_id || 'N/A',
                             payer_name: payment.payer_name,
+                            payment_sequence: sequence,
                             contact_number: payment.contact_number || null,
                             email_address: payment.email_address || null,
                             total_paid: 0,
@@ -210,31 +228,31 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                         };
                     }
                     
-                    payerMap[payerId].total_paid += parseFloat(payment.amount_paid);
-                    payerMap[payerId].payments.push(payment);
+                    payerMap[key].total_paid += parseFloat(payment.amount_paid);
+                    payerMap[key].payments.push(payment);
                     
                     // Store contribution amount from the first payment
-                    if (!payerMap[payerId].contribution_amount && payment.contribution_amount) {
-                        payerMap[payerId].contribution_amount = parseFloat(payment.contribution_amount);
+                    if (!payerMap[key].contribution_amount && payment.contribution_amount) {
+                        payerMap[key].contribution_amount = parseFloat(payment.contribution_amount);
                     }
                     
                     // Store contribution title from the first payment
-                    if (!payerMap[payerId].contribution_title && payment.contribution_title) {
-                        payerMap[payerId].contribution_title = payment.contribution_title;
+                    if (!payerMap[key].contribution_title && payment.contribution_title) {
+                        payerMap[key].contribution_title = payment.contribution_title;
                     }
                     
                     // Store contact info if not already stored
-                    if (!payerMap[payerId].contact_number && payment.contact_number) {
-                        payerMap[payerId].contact_number = payment.contact_number;
+                    if (!payerMap[key].contact_number && payment.contact_number) {
+                        payerMap[key].contact_number = payment.contact_number;
                     }
-                    if (!payerMap[payerId].email_address && payment.email_address) {
-                        payerMap[payerId].email_address = payment.email_address;
+                    if (!payerMap[key].email_address && payment.email_address) {
+                        payerMap[key].email_address = payment.email_address;
                     }
                    
                     // Track latest payment date
                     const paymentDate = new Date(payment.payment_date);
-                    if (!payerMap[payerId].last_payment_date || paymentDate > new Date(payerMap[payerId].last_payment_date)) {
-                        payerMap[payerId].last_payment_date = payment.payment_date;
+                    if (!payerMap[key].last_payment_date || paymentDate > new Date(payerMap[key].last_payment_date)) {
+                        payerMap[key].last_payment_date = payment.payment_date;
                     }
                 });
                 
@@ -283,6 +301,12 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                         });
                     }
                     
+                    // Calculate remaining balance
+                    let remainingBalance = 0;
+                    if (payerData.contribution_amount) {
+                        remainingBalance = Math.max(0, payerData.contribution_amount - payerData.total_paid);
+                    }
+                    
                     // Status badge
                     let statusBadge = '';
                     if (payerData.status === 'fully paid') {
@@ -310,7 +334,11 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                     row.innerHTML = `
                         <td>${payerData.payer_student_id}</td>
                         <td>${payerData.payer_name}</td>
+                        <td><span class="badge bg-secondary">Group ${payerData.payment_sequence || 1}</span></td>
                         <td class="fw-semibold">₱${payerData.total_paid.toFixed(2)}</td>
+                        <td class="fw-semibold ${remainingBalance > 0 ? 'text-danger' : 'text-success'}">
+                            ₱${remainingBalance.toFixed(2)}
+                        </td>
                         <td>${statusBadge}</td>
                         <td>${lastPaymentDate}</td>
                         <td onclick="event.stopPropagation();">${actionsHTML}</td>
@@ -500,5 +528,68 @@ window.showPayerPaymentHistory = function(payerData) {
              row.style.display = '';
          });
      });
+ }
+ 
+ // Function to export contribution payments to CSV
+ function exportContributionPayments() {
+     const tableBody = document.getElementById('contributionPaymentsTableBody');
+     if (!tableBody || !tableBody.querySelectorAll('tr').length) {
+         showNotification('No data to export', 'warning');
+         return;
+     }
+     
+     const contributionTitle = document.getElementById('contributionModalTitle').textContent;
+     const rows = tableBody.querySelectorAll('tr');
+     
+     // CSV headers with UTF-8 BOM for Excel compatibility
+     let csvContent = 'data:text/csv;charset=utf-8,\uFEFF';
+     csvContent += 'Payer ID,Payer Name,Payment Group,Total Paid,Remaining Balance,Status,Last Payment\n';
+     
+     // Add data rows
+     rows.forEach(row => {
+         const cells = row.querySelectorAll('td');
+         if (cells.length >= 8) {
+             const payerId = cells[0].textContent.trim();
+             const payerName = cells[1].textContent.trim();
+             const paymentGroup = cells[2].textContent.trim().replace(/Group\s+/gi, ''); // Remove "Group " text
+             const totalPaid = cells[3].textContent.trim();
+             const remainingBalance = cells[4].textContent.trim();
+             const status = cells[5].textContent.trim();
+             const lastPayment = cells[6].textContent.trim();
+             
+             // Build CSV row (remove badges and formatting)
+             const cleanStatus = status.replace(/COMPLETED|PARTIAL/g, '').trim() || status;
+             const csvRow = `"${payerId}","${payerName}","${paymentGroup}","${totalPaid}","${remainingBalance}","${cleanStatus}","${lastPayment}"\n`;
+             csvContent += csvRow;
+         }
+     });
+     
+     // Create download link
+     const encodedUri = encodeURI(csvContent);
+     const link = document.createElement('a');
+     link.setAttribute('href', encodedUri);
+     
+     // Generate filename with contribution title and current date
+     const date = new Date().toISOString().split('T')[0];
+     const filename = `Contribution_${contributionTitle.replace(/[^a-z0-9]/gi, '_')}_${date}.csv`;
+     link.setAttribute('download', filename);
+     
+     // Trigger download
+     document.body.appendChild(link);
+     link.click();
+     document.body.removeChild(link);
+     
+     showNotification('Data exported successfully', 'success');
+ }
+ 
+ // Function to export contribution payments to PDF
+ function exportContributionPaymentsPDF() {
+     if (!window.currentContributionId) {
+         showNotification('No contribution selected', 'warning');
+         return;
+     }
+     
+     // Redirect to the PDF export endpoint
+     window.location.href = `${window.APP_BASE_URL || ''}/payments/export-contribution-pdf/${window.currentContributionId}`;
  }
  </script>
