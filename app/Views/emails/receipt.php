@@ -109,6 +109,36 @@
             background: #fd7e14;
             color: white;
         }
+        .qr-section {
+            background: #ffffff;
+            border: 2px solid #0d6efd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .qr-section h3 {
+            margin: 0 0 15px 0;
+            color: #0d6efd;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .qr-code img {
+            width: 150px;
+            height: 150px;
+            border: 3px solid #e5e7eb;
+            border-radius: 8px;
+            background: white;
+            display: block;
+            margin: 0 auto;
+        }
+        .qr-note {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 10px;
+            font-style: italic;
+        }
         .footer {
             margin-top: 30px;
             padding-top: 20px;
@@ -133,6 +163,20 @@
         <div class="receipt-box">
             <div class="receipt-label">Receipt Number</div>
             <div class="receipt-number"><?= esc($receiptNumber) ?></div>
+        </div>
+
+        <?php
+        // Generate QR code data - includes receipt number, payer name, amount, and date
+        $qrData = esc($receiptNumber) . '|' . esc($payerName) . '|' . $amountPaid . '|' . esc($paymentDate);
+        $qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=H&data=' . urlencode($qrData);
+        ?>
+
+        <div class="qr-section">
+            <h3>🔲 QR Receipt Code</h3>
+            <div class="qr-code">
+                <img src="<?= $qrCodeUrl ?>" alt="QR Code for Receipt <?= esc($receiptNumber) ?>" />
+            </div>
+            <div class="qr-note">Scan this QR code to verify payment authenticity</div>
         </div>
 
         <div class="info-section">
