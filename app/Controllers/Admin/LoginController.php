@@ -3,6 +3,7 @@
 namespace App\Controllers\Admin;
 
 use App\Models\UserModel;
+use App\Models\RememberTokenModel;
 use CodeIgniter\Controller;
 use CodeIgniter\Email\Email;
 
@@ -10,6 +11,11 @@ class LoginController extends Controller
 {
     public function index()
     {
+        // If already logged in, redirect to dashboard
+        if (session()->get('isLoggedIn')) {
+            return redirect()->to('/dashboard');
+        }
+        
         return view('admin/login');
     }
 
@@ -20,6 +26,7 @@ class LoginController extends Controller
 
         $username = $this->request->getPost('username');
         $password = $this->request->getPost('password');
+        $rememberMe = $this->request->getPost('remember');
 
         // Make username check case-sensitive (SQL might be case-insensitive)
         $user = $userModel->where('username', $username)->first();
@@ -37,6 +44,11 @@ class LoginController extends Controller
             // Set session flag to force sidebar expanded on first load after login
             $session->set('forceSidebarExpanded', true);
             
+            // Handle Remember Me functionality
+            if ($rememberMe) {
+                $this->setRememberMeToken($user['id']);
+            }
+            
             return redirect()->to('/dashboard');
         } else {
             return redirect()->back()->with('error', 'Invalid credentials');
@@ -46,6 +58,13 @@ class LoginController extends Controller
     public function logout()
     {
         $session = session();
+        
+        // Delete remember me token if exists
+        $userId = $session->get('user-id');
+        if ($userId) {
+            $this->clearRememberMeToken($userId);
+        }
+        
         // Remove only admin-related keys to avoid logging out payer area
         $session->remove([
             'user-id',
@@ -497,5 +516,79 @@ class LoginController extends Controller
             'message' => 'Password reset successfully! You can now login with your new password.',
             'redirect' => base_url('/')
         ]);
+    }
+
+    /**
+     * Set Remember Me token when user checks "Remember Me" checkbox
+     * Generates a secure token and stores it in both database and cookie
+     * 
+     * @param int $userId The user ID
+     * @return void
+     */
+    private function setRememberMeToken($userId)
+    {
+        try {
+            $rememberTokenModel = new RememberTokenModel();
+            
+            // Generate a secure random token (64 bytes = 128 hex characters)
+            $rawToken = bin2hex(random_bytes(32));
+            
+            // Set expiry to 30 days from now
+            $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+            
+            // Save hashed token to database
+            $rememberTokenModel->createToken($userId, $rawToken, $expiresAt);
+            
+            // Set secure cookie with the raw token
+            // Only set Secure flag in production (HTTPS required)
+            $isSecure = ENVIRONMENT === 'production';
+            $cookie = cookie('remember_token', $rawToken, [
+                'expires'  => time() + (30 * 24 * 60 * 60), // 30 days
+                'httponly' => true,
+                'secure'   => $isSecure, // Only send over HTTPS in production
+                'samesite' => 'Lax' // CSRF protection
+            ]);
+            
+            $response = service('response');
+            $response->setCookie($cookie);
+            
+            log_message('info', "Remember Me token set for user ID: {$userId}");
+        } catch (\Exception $e) {
+            // Log error but don't fail login
+            log_message('error', 'Failed to set Remember Me token: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Clear Remember Me token on logout
+     * Deletes token from database and cookie
+     * 
+     * @param int $userId The user ID
+     * @return void
+     */
+    private function clearRememberMeToken($userId)
+    {
+        try {
+            $rememberTokenModel = new RememberTokenModel();
+            
+            // Delete token from database
+            $rememberTokenModel->deleteToken($userId);
+            
+            // Clear cookie by setting it to expire in the past
+            $isSecure = ENVIRONMENT === 'production';
+            $cookie = cookie('remember_token', '', [
+                'expires'  => time() - 3600, // 1 hour ago
+                'httponly' => true,
+                'secure'   => $isSecure,
+                'samesite' => 'Lax'
+            ]);
+            
+            $response = service('response');
+            $response->setCookie($cookie);
+            
+            log_message('info', "Remember Me token cleared for user ID: {$userId}");
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to clear Remember Me token: ' . $e->getMessage());
+        }
     }
 }
