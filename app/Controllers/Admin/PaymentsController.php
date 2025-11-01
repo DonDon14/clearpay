@@ -677,6 +677,7 @@ class PaymentsController extends BaseController
                 payments.payment_status,
                 payments.remaining_balance,
                 payments.contribution_id,
+                payments.payment_sequence,
                 payers.payer_id as payer_student_id,
                 payers.payer_id as payer_id,
                 payers.payer_name,
@@ -702,6 +703,263 @@ class PaymentsController extends BaseController
                 'success' => false,
                 'message' => 'An error occurred: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Export contribution payments to PDF
+     */
+    public function exportContributionPaymentsPDF($contributionId)
+    {
+        // Check if user is logged in
+        if (!session()->get('isLoggedIn')) {
+            return redirect()->to('/login');
+        }
+
+        try {
+            $paymentModel = new PaymentModel();
+            $contributionModel = new ContributionModel();
+            
+            // Get contribution details
+            $contribution = $contributionModel->find($contributionId);
+            if (!$contribution) {
+                return redirect()->back()->with('error', 'Contribution not found');
+            }
+            
+            // Find all payments for this contribution
+            $payments = $paymentModel->select('
+                payments.id,
+                payments.receipt_number,
+                payments.payment_date,
+                payments.amount_paid,
+                payments.payment_method,
+                payments.payment_status,
+                payments.remaining_balance,
+                payments.contribution_id,
+                payments.payment_sequence,
+                payers.payer_id as payer_student_id,
+                payers.payer_id as payer_id,
+                payers.payer_name,
+                payers.contact_number,
+                payers.email_address,
+                contributions.title as contribution_title,
+                contributions.amount as contribution_amount
+            ')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->where('payments.contribution_id', $contributionId)
+            ->orderBy('payments.payment_date', 'DESC')
+            ->findAll();
+
+            // Aggregate payments by payer and payment_sequence
+            $payerMap = [];
+            foreach ($payments as $payment) {
+                $payerId = $payment['payer_id'];
+                $sequence = $payment['payment_sequence'] ?? 1;
+                $key = $payerId . '_' . $sequence; // Unique key for payer+sequence combination
+                
+                if (!isset($payerMap[$key])) {
+                    $payerMap[$key] = [
+                        'payer_id' => $payerId,
+                        'payer_student_id' => $payment['payer_student_id'] ?? $payerId ?? 'N/A',
+                        'payer_name' => $payment['payer_name'],
+                        'payment_sequence' => $sequence,
+                        'total_paid' => 0,
+                        'contribution_amount' => $payment['contribution_amount'] ?? 0,
+                        'status' => 'fully paid',
+                        'last_payment_date' => null
+                    ];
+                }
+                
+                $payerMap[$key]['total_paid'] += floatval($payment['amount_paid']);
+                
+                // Track latest payment date
+                if (!$payerMap[$key]['last_payment_date'] || 
+                    strtotime($payment['payment_date']) > strtotime($payerMap[$key]['last_payment_date'])) {
+                    $payerMap[$key]['last_payment_date'] = $payment['payment_date'];
+                }
+            }
+            
+            // Determine status and calculate remaining balance
+            foreach ($payerMap as &$payerData) {
+                if ($payerData['contribution_amount']) {
+                    if ($payerData['total_paid'] >= $payerData['contribution_amount']) {
+                        $payerData['status'] = 'COMPLETED';
+                    } else {
+                        $payerData['status'] = 'PARTIAL';
+                    }
+                } else {
+                    $payerData['status'] = 'PARTIAL';
+                }
+                $payerData['remaining_balance'] = max(0, $payerData['contribution_amount'] - $payerData['total_paid']);
+            }
+            
+            // Load TCPDF library (autoload is already loaded via bootstrap, but ensure Composer autoloader is available)
+            if (defined('COMPOSER_PATH') && file_exists(COMPOSER_PATH)) {
+                require_once COMPOSER_PATH;
+            } elseif (defined('ROOTPATH')) {
+                require_once ROOTPATH . 'vendor/autoload.php';
+            }
+            
+            // Create new PDF document
+            $pdf = new \TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+            
+            // Set document information
+            $pdf->SetCreator('ClearPay System');
+            $pdf->SetAuthor('ClearPay');
+            $pdf->SetTitle('Contribution Payments - ' . $contribution['title']);
+            $pdf->SetSubject('Payment Records');
+            
+            // Remove default header/footer
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            
+            // Set margins
+            $pdf->SetMargins(15, 15, 15);
+            $pdf->SetAutoPageBreak(TRUE, 15);
+            
+            // Add a page
+            $pdf->AddPage();
+            
+            // Set font to dejavusans which supports UTF-8 characters including ₱
+            $pdf->SetFont('dejavusans', '', 10);
+            
+            // Header Section
+            $pdf->SetFillColor(52, 152, 219);
+            $pdf->Rect(0, 0, 297, 40, 'F');
+            
+            // Logo and Title
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->SetFont('dejavusans', 'B', 24);
+            $pdf->SetXY(15, 8);
+            $pdf->Cell(0, 10, 'ClearPay', 0, 1, 'L');
+            
+            $pdf->SetFont('dejavusans', '', 12);
+            $pdf->SetXY(15, 18);
+            $pdf->Cell(0, 8, 'Contribution Payment Report', 0, 1, 'L');
+            
+            $pdf->SetFont('dejavusans', '', 10);
+            $pdf->SetXY(15, 27);
+            $pdf->Cell(0, 6, date('F j, Y g:i A'), 0, 1, 'L');
+            
+            // Reset text color
+            $pdf->SetTextColor(0, 0, 0);
+            
+            // Contribution Information Section
+            $pdf->SetY(50);
+            $pdf->SetFont('dejavusans', 'B', 14);
+            $pdf->Cell(0, 8, $contribution['title'], 0, 1, 'L');
+            
+            $pdf->SetFont('dejavusans', '', 10);
+            $pdf->Cell(0, 6, 'Contribution Amount: ₱' . number_format($contribution['amount'], 2), 0, 1, 'L');
+            $pdf->Cell(0, 6, 'Total Payers: ' . count($payerMap), 0, 1, 'L');
+            
+            // Table header
+            $pdf->SetY(75);
+            $pdf->SetFillColor(232, 232, 232);
+            $pdf->SetFont('dejavusans', 'B', 10);
+            $pdf->Cell(35, 8, 'Payer ID', 1, 0, 'C', true);
+            $pdf->Cell(55, 8, 'Payer Name', 1, 0, 'C', true);
+            $pdf->Cell(30, 8, 'Group', 1, 0, 'C', true);
+            $pdf->Cell(35, 8, 'Total Paid', 1, 0, 'C', true);
+            $pdf->Cell(35, 8, 'Remaining', 1, 0, 'C', true);
+            $pdf->Cell(30, 8, 'Status', 1, 0, 'C', true);
+            $pdf->Cell(40, 8, 'Last Payment', 1, 1, 'C', true);
+            
+            // Table body
+            $pdf->SetFont('dejavusans', '', 9);
+            foreach ($payerMap as $payerData) {
+                // Format last payment date
+                $lastPaymentDate = 'N/A';
+                if ($payerData['last_payment_date']) {
+                    $date = new \DateTime($payerData['last_payment_date']);
+                    $lastPaymentDate = $date->format('M j, Y');
+                }
+                
+                // Status badge color
+                if ($payerData['status'] === 'COMPLETED') {
+                    $pdf->SetFillColor(52, 152, 219);
+                } else {
+                    $pdf->SetFillColor(241, 196, 15);
+                }
+                
+                $pdf->SetTextColor(0, 0, 0);
+                $pdf->Cell(35, 7, $payerData['payer_student_id'], 1, 0, 'L');
+                $pdf->Cell(55, 7, $payerData['payer_name'], 1, 0, 'L');
+                
+                // Payment Group
+                $pdf->Cell(30, 7, 'Group ' . $payerData['payment_sequence'], 1, 0, 'C');
+                
+                // Reset fill color
+                $pdf->SetFillColor(255, 255, 255);
+                
+                $pdf->Cell(35, 7, '₱' . number_format($payerData['total_paid'], 2), 1, 0, 'R');
+                
+                // Remaining balance color
+                if ($payerData['remaining_balance'] > 0) {
+                    $pdf->SetTextColor(192, 57, 43);
+                } else {
+                    $pdf->SetTextColor(46, 204, 113);
+                }
+                $pdf->Cell(35, 7, '₱' . number_format($payerData['remaining_balance'], 2), 1, 0, 'R');
+                
+                // Reset text color
+                $pdf->SetTextColor(0, 0, 0);
+                $pdf->SetFont('dejavusans', 'B', 9);
+                $pdf->Cell(30, 7, $payerData['status'], 1, 0, 'C');
+                $pdf->SetFont('dejavusans', '', 9);
+                $pdf->Cell(40, 7, $lastPaymentDate, 1, 1, 'C');
+            }
+            
+            // Summary footer
+            $pdf->SetY($pdf->GetY() + 5);
+            $pdf->SetFont('dejavusans', 'B', 10);
+            $pdf->SetFillColor(52, 152, 219);
+            $pdf->SetTextColor(255, 255, 255);
+            $pdf->Cell(0, 8, 'SUMMARY', 1, 1, 'C', true);
+            
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->SetFillColor(255, 255, 255);
+            $totalPaid = array_sum(array_column($payerMap, 'total_paid'));
+            $totalPayers = count($payerMap);
+            $completedPayers = count(array_filter($payerMap, function($p) { return $p['status'] === 'COMPLETED'; }));
+            $partialPayers = $totalPayers - $completedPayers;
+            
+            $pdf->SetFont('dejavusans', '', 10);
+            $pdf->Cell(93, 7, 'Total Amount Collected:', 1, 0, 'L', true);
+            $pdf->Cell(93, 7, '₱' . number_format($totalPaid, 2), 1, 1, 'R', true);
+            
+            $pdf->Cell(93, 7, 'Total Payers:', 1, 0, 'L', true);
+            $pdf->Cell(93, 7, $totalPayers, 1, 1, 'R', true);
+            
+            $pdf->Cell(93, 7, 'Completed Payers:', 1, 0, 'L', true);
+            $pdf->SetTextColor(46, 204, 113);
+            $pdf->SetFont('dejavusans', 'B', 10);
+            $pdf->Cell(93, 7, $completedPayers, 1, 1, 'R', true);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->SetFont('dejavusans', '', 10);
+            
+            $pdf->Cell(93, 7, 'Partial Payers:', 1, 0, 'L', true);
+            $pdf->SetTextColor(192, 57, 43);
+            $pdf->SetFont('dejavusans', 'B', 10);
+            $pdf->Cell(93, 7, $partialPayers, 1, 1, 'R', true);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->SetFont('dejavusans', '', 10);
+            
+            $totalRemaining = array_sum(array_column($payerMap, 'remaining_balance'));
+            $pdf->Cell(93, 7, 'Total Remaining:', 1, 0, 'L', true);
+            $pdf->SetTextColor(192, 57, 43);
+            $pdf->SetFont('dejavusans', 'B', 10);
+            $pdf->Cell(93, 7, '₱' . number_format($totalRemaining, 2), 1, 1, 'R', true);
+            $pdf->SetTextColor(0, 0, 0);
+            
+            // Output PDF
+            $filename = 'Contribution_' . preg_replace('/[^a-z0-9]/i', '_', $contribution['title']) . '_' . date('Y-m-d_H-i-s') . '.pdf';
+            $pdf->Output($filename, 'D');
+            
+        } catch (\Exception $e) {
+            log_message('error', 'Error exporting contribution payments PDF: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error generating PDF: ' . $e->getMessage());
         }
     }
 

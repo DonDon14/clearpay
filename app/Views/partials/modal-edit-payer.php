@@ -32,6 +32,11 @@
                         <label for="editEmailAddress" class="form-label">Email Address</label>
                         <input type="email" class="form-control" id="editEmailAddress" name="email_address" placeholder="example@email.com">
                     </div>
+                    <div class="mb-3">
+                        <label for="editCourseDepartment" class="form-label">Course/Department</label>
+                        <input type="text" class="form-control" id="editCourseDepartment" name="course_department" placeholder="e.g., BS Computer Science, IT Department">
+                        <small class="form-text text-muted">Course or department name</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">

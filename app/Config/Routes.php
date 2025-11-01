@@ -107,9 +107,12 @@ $routes->get('/payments/verify/(:any)', 'Admin\PaymentsController::verify/$1', [
 $routes->delete('/payments/delete/(:num)', 'Admin\PaymentsController::delete/$1', ['filter' => 'auth']);
 $routes->get('/payments/get-details/(:num)', 'Admin\PaymentsController::getDetails/$1', ['filter' => 'auth']);
 $routes->get('/payments/by-contribution/(:num)', 'Admin\PaymentsController::byContribution/$1', ['filter' => 'auth']);
+$routes->get('/payments/export-contribution-pdf/(:num)', 'Admin\PaymentsController::exportContributionPaymentsPDF/$1', ['filter' => 'auth']);
 
 // Payers Management Routes
 $routes->post('/payers/create', 'Admin\PayersController::create', ['filter' => 'auth']);
+$routes->get('/payers/export/pdf', 'Admin\PayersController::exportPDF', ['filter' => 'auth']);
+$routes->get('/payers/export/csv', 'Admin\PayersController::exportCSV', ['filter' => 'auth']);
 $routes->get('/payment_methods/test', 'Admin\PaymentMethodsController::test', ['filter' => 'auth']);
 
 // Contributions Management Routes
