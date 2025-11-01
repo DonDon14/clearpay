@@ -428,6 +428,8 @@ class PaymentsController extends BaseController
                     payments.amount_paid,
                     payments.payment_method,
                     payments.payment_status,
+                    payments.reference_number,
+                    payments.remaining_balance,
                     payers.payer_id,
                     payers.payer_name,
                     payers.contact_number,
@@ -437,6 +439,20 @@ class PaymentsController extends BaseController
                 ->join('payers', 'payers.id = payments.payer_id', 'left')
                 ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
                 ->find($paymentId);
+                
+                // Send receipt email to payer for successful payments
+                if ($paymentData && !$id) { // Only send for new payments
+                    try {
+                        $emailSent = $this->sendReceiptEmail($paymentData);
+                        if ($emailSent) {
+                            log_message('info', "Receipt email sent successfully for payment ID: {$paymentId}");
+                        }
+                    } catch (\Exception $e) {
+                        log_message('error', 'Exception while sending receipt email (non-fatal): ' . $e->getMessage());
+                    } catch (\Error $e) {
+                        log_message('error', 'Error while sending receipt email (non-fatal): ' . $e->getMessage());
+                    }
+                }
                 
                 // Log to user_activities table if payment was added to partial group
                 if (!$id && $wasAddedToPartialGroup && $paymentData) {
@@ -2055,6 +2071,96 @@ class PaymentsController extends BaseController
         } catch (\Exception $e) {
             // Log error but don't fail the main operation
             log_message('error', 'Failed to log user activity: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Send payment receipt email to payer
+     */
+    private function sendReceiptEmail($paymentData)
+    {
+        try {
+            // Check if payer has an email address
+            if (empty($paymentData['email_address'])) {
+                log_message('info', 'No email address for payer, skipping receipt email');
+                return false;
+            }
+
+            // Initialize email service
+            $emailService = \Config\Services::email();
+            
+            // Use configured email settings
+            $config = config('Email');
+            $fromEmail = $config->fromEmail;
+            $fromName = $config->fromName;
+            
+            $emailService->setFrom($fromEmail, $fromName);
+            $emailService->setTo($paymentData['email_address']);
+            $emailService->setSubject('Payment Receipt - ' . ($paymentData['receipt_number'] ?? 'ClearPay'));
+            
+            // Format payment method
+            $paymentMethod = ucwords(str_replace('_', ' ', $paymentData['payment_method']));
+            
+            // Format status
+            $status = $paymentData['computed_status'] ?? $paymentData['payment_status'] ?? 'pending';
+            $statusText = 'COMPLETED';
+            $statusBadgeClass = 'badge-success';
+            
+            if ($status === 'partial') {
+                $statusText = 'PARTIAL PAYMENT';
+                $statusBadgeClass = 'badge-warning';
+            } elseif ($status === 'fully paid') {
+                $statusText = 'COMPLETED';
+                $statusBadgeClass = 'badge-success';
+            }
+            
+            // Format date
+            $paymentDate = $paymentData['payment_date'] ?? date('Y-m-d H:i:s');
+            $formattedDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
+            
+            // Build email message
+            $message = view('emails/receipt', [
+                'payerName' => $paymentData['payer_name'] ?? 'Valued Payer',
+                'receiptNumber' => $paymentData['receipt_number'] ?? 'N/A',
+                'referenceNumber' => $paymentData['reference_number'] ?? 'N/A',
+                'paymentDate' => $formattedDate,
+                'payerId' => $paymentData['payer_id'] ?? 'N/A',
+                'contactNumber' => $paymentData['contact_number'] ?? '',
+                'contributionTitle' => $paymentData['contribution_title'] ?? 'N/A',
+                'paymentMethod' => $paymentMethod,
+                'amountPaid' => $paymentData['amount_paid'] ?? 0,
+                'remainingBalance' => $paymentData['remaining_balance'] ?? null,
+                'statusText' => $statusText,
+                'statusBadgeClass' => $statusBadgeClass
+            ]);
+            
+            $emailService->setMessage($message);
+            
+            // Log email attempt
+            log_message('info', "Attempting to send receipt email to: {$paymentData['email_address']}");
+            
+            // Send email
+            $oldErrorReporting = error_reporting(0);
+            $result = @$emailService->send();
+            error_reporting($oldErrorReporting);
+            
+            if ($result) {
+                log_message('info', "Receipt email sent successfully to: {$paymentData['email_address']}");
+                return true;
+            } else {
+                $error = $emailService->printDebugger(['headers', 'subject']);
+                log_message('error', "Failed to send receipt email: {$error}");
+                return false;
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the payment
+            log_message('error', 'Failed to send receipt email: ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        } catch (\Error $e) {
+            log_message('error', 'Failed to send receipt email (Error): ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
     }
