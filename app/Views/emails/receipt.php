@@ -219,6 +219,12 @@
                 <span class="info-label">Contribution Type:</span>
                 <span class="info-value"><?= esc($contributionTitle) ?></span>
             </div>
+            <?php if (!empty($contributionCode)): ?>
+            <div class="info-row">
+                <span class="info-label">Contribution Code:</span>
+                <span class="info-value"><code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-family: monospace;"><?= esc($contributionCode) ?></code></span>
+            </div>
+            <?php endif; ?>
             <div class="info-row">
                 <span class="info-label">Payment Method:</span>
                 <span class="info-value"><?= esc($paymentMethod) ?></span>

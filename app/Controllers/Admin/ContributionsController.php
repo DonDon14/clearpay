@@ -51,15 +51,16 @@ class ContributionsController extends BaseController
 
             // Gather POST data
             $data = [
-                'title'       => $this->request->getPost('title'),
-                'description' => $this->request->getPost('description'),
-                'amount'      => $this->request->getPost('amount'),
-                'cost_price'  => $this->request->getPost('cost_price') ?: 0,
-                'category'    => $this->request->getPost('category'),
-                'status'      => $this->request->getPost('status'),
-                'created_by'  => $createdBy ?: null, // Ensure it's NULL not empty string
-                'created_at'  => date('Y-m-d H:i:s'),
-                'updated_at'  => date('Y-m-d H:i:s')
+                'title'             => $this->request->getPost('title'),
+                'contribution_code' => $this->request->getPost('contribution_code') ?: null,
+                'description'       => $this->request->getPost('description'),
+                'amount'            => $this->request->getPost('amount'),
+                'cost_price'        => $this->request->getPost('cost_price') ?: 0,
+                'category'          => $this->request->getPost('category'),
+                'status'            => $this->request->getPost('status'),
+                'created_by'        => $createdBy ?: null, // Ensure it's NULL not empty string
+                'created_at'        => date('Y-m-d H:i:s'),
+                'updated_at'        => date('Y-m-d H:i:s')
             ];
 
             $id = $this->request->getPost('id');
@@ -169,13 +170,14 @@ class ContributionsController extends BaseController
 
             // Gather POST data
             $data = [
-                'title'       => $this->request->getPost('title'),
-                'description' => $this->request->getPost('description'),
-                'amount'      => $this->request->getPost('amount'),
-                'cost_price'  => $this->request->getPost('cost_price') ?: 0,
-                'category'    => $this->request->getPost('category'),
-                'status'      => $this->request->getPost('status'),
-                'updated_at'  => date('Y-m-d H:i:s')
+                'title'             => $this->request->getPost('title'),
+                'contribution_code' => $this->request->getPost('contribution_code') ?: null,
+                'description'       => $this->request->getPost('description'),
+                'amount'            => $this->request->getPost('amount'),
+                'cost_price'        => $this->request->getPost('cost_price') ?: 0,
+                'category'          => $this->request->getPost('category'),
+                'status'            => $this->request->getPost('status'),
+                'updated_at'        => date('Y-m-d H:i:s')
             ];
 
             $result = $model->update($id, $data);

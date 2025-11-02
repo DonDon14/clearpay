@@ -491,6 +491,7 @@ $(document).ready(function() {
                         <div class="col-md-6">
                             <h6 class="text-primary">Contribution Details</h6>
                             <p><strong>Title:</strong> ${request.contribution_title}</p>
+                            ${request.contribution_code ? `<p><strong>Code:</strong> <code>${request.contribution_code}</code></p>` : ''}
                             <p><strong>Description:</strong> ${request.contribution_description}</p>
                             <p><strong>Total Amount:</strong> ₱${parseFloat(request.contribution_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</p>
                         </div>

@@ -263,6 +263,7 @@ class PaymentModel extends Model
             contributions.title as contribution_title,
             contributions.description as contribution_description,
             contributions.amount as contribution_amount,
+            contributions.contribution_code,
             users.username as recorded_by_name
         ')
         ->join('payers', 'payers.id = payments.payer_id', 'left')

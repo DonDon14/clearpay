@@ -541,7 +541,8 @@ class PaymentsController extends BaseController
                 payers.payer_name,
                 payers.contact_number,
                 payers.email_address,
-                contributions.title as contribution_title
+                contributions.title as contribution_title,
+                contributions.contribution_code
             ')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
@@ -1283,7 +1284,8 @@ class PaymentsController extends BaseController
                 payers.contact_number,
                 payers.email_address,
                 contributions.title as contribution_title,
-                contributions.amount as contribution_amount
+                contributions.amount as contribution_amount,
+                contributions.contribution_code
             ')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
@@ -1982,7 +1984,8 @@ class PaymentsController extends BaseController
      */
     public function getPaymentDetails()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
+        // Allow both AJAX and regular GET requests
+        if ($this->request->getMethod() !== 'GET') {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
@@ -2011,6 +2014,7 @@ class PaymentsController extends BaseController
                 contributions.title as contribution_title,
                 contributions.description as contribution_description,
                 contributions.amount as contribution_amount,
+                contributions.contribution_code,
                 users.username as recorded_by_name
             ')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
@@ -2026,16 +2030,62 @@ class PaymentsController extends BaseController
                     'message' => 'Payment not found'
                 ]);
             }
+            
+            // Store the database payer_id for queries
+            $payerDbId = $payment['payer_id'];
+            
+            // Map payer_student_id to payer_id for frontend compatibility (student ID, not DB ID)
+            if (isset($payment['payer_student_id'])) {
+                $payment['payer_id'] = $payment['payer_student_id'];
+            }
+            
+            // Calculate computed status based on total paid vs contribution amount
+            if (!empty($payment['contribution_amount'])) {
+                $contributionId = $payment['contribution_id'];
+                
+                // Get all payments for this payer and contribution using database ID
+                $allPayments = $paymentModel
+                    ->where('payer_id', $payerDbId)
+                    ->where('contribution_id', $contributionId)
+                    ->where('deleted_at', null)
+                    ->findAll();
+                
+                $totalPaid = array_sum(array_column($allPayments, 'amount_paid'));
+                $contributionAmount = (float) $payment['contribution_amount'];
+                
+                if ($totalPaid >= $contributionAmount) {
+                    $payment['computed_status'] = 'fully paid';
+                    $payment['remaining_balance'] = 0;
+                } elseif ($totalPaid > 0) {
+                    $payment['computed_status'] = 'partial';
+                    $payment['remaining_balance'] = $contributionAmount - $totalPaid;
+                } else {
+                    $payment['computed_status'] = 'unpaid';
+                    $payment['remaining_balance'] = $contributionAmount;
+                }
+            }
 
+            // Log success for debugging
+            log_message('info', 'getPaymentDetails success for payment_id: ' . $paymentId);
+            
             return $this->response->setJSON([
                 'success' => true,
                 'payment' => $payment
             ]);
 
         } catch (\Exception $e) {
+            log_message('error', 'getPaymentDetails Exception: ' . $e->getMessage());
+            log_message('error', 'getPaymentDetails Trace: ' . $e->getTraceAsString());
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
+            ]);
+        } catch (\Error $e) {
+            log_message('error', 'getPaymentDetails Fatal Error: ' . $e->getMessage());
+            log_message('error', 'getPaymentDetails Trace: ' . $e->getTraceAsString());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Fatal Error: ' . $e->getMessage()
             ]);
         }
     }
@@ -2386,6 +2436,7 @@ class PaymentsController extends BaseController
                 'payerId' => $paymentData['payer_id'] ?? 'N/A',
                 'contactNumber' => $paymentData['contact_number'] ?? '',
                 'contributionTitle' => $paymentData['contribution_title'] ?? 'N/A',
+                'contributionCode' => $paymentData['contribution_code'] ?? null,
                 'paymentMethod' => $paymentMethod,
                 'amountPaid' => $paymentData['amount_paid'] ?? 0,
                 'remainingBalance' => $paymentData['remaining_balance'] ?? null,

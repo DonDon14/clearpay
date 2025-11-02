@@ -400,17 +400,36 @@ $(document).ready(function() {
                 'Accept': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text().then(text => {
+                console.log('Response text:', text);
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('JSON parse error:', e);
+                    throw new Error('Invalid JSON response: ' + text.substring(0, 100));
+                }
+            });
+        })
         .then(data => {
+            console.log('Payment data received:', data);
             if (data.success) {
-                showQRReceipt(data.payment);
-                    } else {
-                alert('Error: ' + data.message);
+                if (typeof showQRReceipt === 'function') {
+                    showQRReceipt(data.payment);
+                } else {
+                    alert('showQRReceipt function not available. Please refresh the page.');
+                }
+            } else {
+                alert('Error: ' + (data.message || 'Unknown error'));
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while fetching payment details.');
+            console.error('Fetch error:', error);
+            alert('An error occurred while fetching payment details: ' + error.message);
         });
     });
 
