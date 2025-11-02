@@ -20,8 +20,8 @@ class PaymentsController extends BaseController
         $contributionModel = new ContributionModel();
         $paymentModel = new PaymentModel();
         
-        // Get all contributions
-        $contributions = $contributionModel->findAll();
+        // Get only active contributions for payment recording
+        $contributions = $contributionModel->where('status', 'active')->findAll();
         
         // Get grouped payments (grouped by payer and contribution)
         $groupedPayments = $paymentModel->getGroupedPayments();
@@ -256,7 +256,24 @@ class PaymentsController extends BaseController
             // Get contribution amount to calculate proper status
             $contributionModel = new \App\Models\ContributionModel();
             $contribution = $contributionModel->find($this->request->getPost('contribution_id'));
-            $contributionAmount = $contribution ? $contribution['amount'] : 0;
+            
+            // Check if contribution exists
+            if (!$contribution) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+            
+            // Check if contribution is inactive - prevent adding payments to inactive contributions
+            if ($contribution['status'] === 'inactive') {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Cannot add payment to an inactive contribution. This contribution is no longer active.'
+                ]);
+            }
+            
+            $contributionAmount = $contribution['amount'];
             $amountPaid = (float) $this->request->getPost('amount_paid');
             
             // Calculate actual remaining balance
@@ -1030,6 +1047,24 @@ class PaymentsController extends BaseController
                 ]);
             }
 
+            // Check if contribution is inactive - prevent adding payments to inactive contributions
+            $contributionModel = new \App\Models\ContributionModel();
+            $contribution = $contributionModel->find($json['contribution_id']);
+            
+            if (!$contribution) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Contribution not found'
+                ]);
+            }
+            
+            if ($contribution['status'] === 'inactive') {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Cannot add payment to an inactive contribution. This contribution is no longer active.'
+                ]);
+            }
+
             // Calculate new remaining balance
             $newPaymentAmount = (float) $json['amount_paid'];
             $currentRemaining = (float) ($originalPayment['remaining_balance'] ?? 0);
@@ -1735,12 +1770,13 @@ class PaymentsController extends BaseController
         $paymentModel = new PaymentModel();
         $contributionModel = new \App\Models\ContributionModel();
         
-        // Get all contributions except the one being paid (if specified)
+        // Get only active contributions except the one being paid (if specified)
+        // We don't want to show warnings for inactive contributions
+        $builder = $contributionModel->where('status', 'active');
         if ($excludeContributionId) {
-            $allContributions = $contributionModel->where('id !=', $excludeContributionId)->findAll();
-        } else {
-            $allContributions = $contributionModel->findAll();
+            $builder->where('id !=', $excludeContributionId);
         }
+        $allContributions = $builder->findAll();
         
         $unpaidContributions = [];
         

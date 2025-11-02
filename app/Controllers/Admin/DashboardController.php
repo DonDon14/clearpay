@@ -774,7 +774,18 @@ class DashboardController extends BaseController
         
         // Get contribution details
         $contribution = $contributionModel->find($request['contribution_id']);
-        $contributionAmount = $contribution ? $contribution['amount'] : 0;
+        
+        // Check if contribution exists and is active
+        if (!$contribution) {
+            throw new \Exception('Contribution not found');
+        }
+        
+        // Check if contribution is inactive - prevent processing payment requests for inactive contributions
+        if ($contribution['status'] === 'inactive') {
+            throw new \Exception('Cannot process payment request for an inactive contribution. This contribution is no longer active.');
+        }
+        
+        $contributionAmount = $contribution['amount'];
         $amountPaid = (float) $request['requested_amount'];
         
         // Get existing payments to determine proper grouping and status

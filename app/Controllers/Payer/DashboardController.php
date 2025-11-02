@@ -345,10 +345,34 @@ class DashboardController extends BaseController
     {
         $payerId = session('payer_id');
         
-        // Get active contributions
-        $contributions = $this->contributionModel->where('status', 'active')
+        // Get all contributions (both active and inactive)
+        $allContributions = $this->contributionModel
             ->orderBy('created_at', 'DESC')
             ->findAll();
+        
+        // Filter contributions:
+        // - Show active contributions (always show)
+        // - Show inactive contributions ONLY if payer has transactions for them
+        $contributions = [];
+        foreach ($allContributions as $contribution) {
+            if ($contribution['status'] === 'active') {
+                // Always show active contributions
+                $contributions[] = $contribution;
+            } else {
+                // For inactive contributions, check if payer has transactions
+                $hasTransactions = $this->paymentModel
+                    ->where('payer_id', $payerId)
+                    ->where('contribution_id', $contribution['id'])
+                    ->where('deleted_at', null)
+                    ->countAllResults() > 0;
+                
+                if ($hasTransactions) {
+                    // Show inactive contribution only if payer has transactions
+                    $contributions[] = $contribution;
+                }
+                // If no transactions, don't include this inactive contribution
+            }
+        }
         
         // Get payment data for each contribution with payment groups
         foreach ($contributions as &$contribution) {
@@ -419,7 +443,7 @@ class DashboardController extends BaseController
         $data = [
             'title' => 'Contributions',
             'pageTitle' => 'Contributions',
-            'pageSubtitle' => 'View active contributions and payment status',
+            'pageSubtitle' => 'View contributions and payment status',
             'contributions' => $contributions
         ];
         
