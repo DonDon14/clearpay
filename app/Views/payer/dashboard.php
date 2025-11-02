@@ -22,6 +22,39 @@
         </div>
     </div>
 
+    <!-- Quick Actions Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="fas fa-bolt me-2 text-warning"></i>Quick Actions
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <a href="<?= base_url('payer/payment-requests') ?>" class="btn btn-lg btn-primary w-100 d-flex align-items-center justify-content-center" style="min-height: 100px;">
+                                <div class="text-center">
+                                    <i class="fas fa-money-bill-wave fa-3x mb-2 d-block"></i>
+                                    <h6 class="mb-1">Payment Request</h6>
+                                    <small class="d-block text-white-50">Submit an online payment</small>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-6">
+                            <a href="<?= base_url('payer/refund-requests') ?>" class="btn btn-lg btn-warning w-100 d-flex align-items-center justify-content-center" style="min-height: 100px;">
+                                <div class="text-center">
+                                    <i class="fas fa-undo fa-3x mb-2 d-block"></i>
+                                    <h6 class="mb-1">Refund Request</h6>
+                                    <small class="d-block text-white-50">Request a refund for your payment</small>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Stats Cards -->
     <div class="row mb-4">
         <div class="col-md-6 col-lg-3 mb-3">
