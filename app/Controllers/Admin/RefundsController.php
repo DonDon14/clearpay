@@ -412,6 +412,40 @@ class RefundsController extends BaseController
                 $activityLogger->logRefund('processed', $firstRefund, $adminName);
             }
 
+            // Send emails for all processed refunds
+            foreach ($refundIds as $refundId) {
+                try {
+                    // Get refund with full details (including payer email)
+                    $refundDetails = $refundModel->select('
+                        refunds.*,
+                        payments.amount_paid,
+                        payments.payment_method as original_payment_method,
+                        payments.receipt_number,
+                        payments.payment_date,
+                        payers.payer_name,
+                        payers.payer_id as payer_student_id,
+                        payers.contact_number,
+                        payers.email_address,
+                        payers.profile_picture,
+                        contributions.title as contribution_title,
+                        contributions.description as contribution_description
+                    ')
+                    ->join('payments', 'payments.id = refunds.payment_id', 'left')
+                    ->join('payers', 'payers.id = refunds.payer_id', 'left')
+                    ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+                    ->where('refunds.id', $refundId)
+                    ->first();
+
+                    // Send email to payer if email address is available
+                    if ($refundDetails && !empty($refundDetails['email_address'])) {
+                        $this->sendRefundApprovalEmail($refundDetails, $adminNotes, $refundReference);
+                    }
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to send refund approval email for refund ID ' . $refundId . ': ' . $e->getMessage());
+                    // Continue processing other refunds even if one email fails
+                }
+            }
+
             return $this->response->setJSON([
                 'success' => true,
                 'message' => 'Refund processed successfully',
@@ -674,6 +708,28 @@ class RefundsController extends BaseController
         $adminNotes = $this->request->getPost('admin_notes');
         $refundReference = $this->request->getPost('refund_reference');
 
+        // Get refund with full details (including payer email) before approval
+        // Query the specific refund with all necessary joins
+        $refundDetails = $refundModel->select('
+            refunds.*,
+            payments.amount_paid,
+            payments.payment_method as original_payment_method,
+            payments.receipt_number,
+            payments.payment_date,
+            payers.payer_name,
+            payers.payer_id as payer_student_id,
+            payers.contact_number,
+            payers.email_address,
+            payers.profile_picture,
+            contributions.title as contribution_title,
+            contributions.description as contribution_description
+        ')
+        ->join('payments', 'payments.id = refunds.payment_id', 'left')
+        ->join('payers', 'payers.id = refunds.payer_id', 'left')
+        ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+        ->where('refunds.id', $refundId)
+        ->first();
+
         // Approve and complete the refund in one step
         // When admin approves, it means they've processed and confirmed the refund
         $refundModel->completeRefund($refundId, $userId, $adminNotes, $refundReference);
@@ -684,10 +740,25 @@ class RefundsController extends BaseController
         $admin = $userModel->find($userId);
         $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
         
-        // Get updated refund data
+        // Get updated refund data (with processed_at timestamp)
         $updatedRefund = $refundModel->find($refundId);
         if ($updatedRefund) {
             $activityLogger->logRefund('completed', $updatedRefund, $adminName);
+            
+            // Merge updated refund data (especially processed_at) into refund details for email
+            if ($refundDetails) {
+                $refundDetails['processed_at'] = $updatedRefund['processed_at'] ?? date('Y-m-d H:i:s');
+            }
+        }
+
+        // Send email to payer if email address is available
+        if ($refundDetails && !empty($refundDetails['email_address'])) {
+            try {
+                $this->sendRefundApprovalEmail($refundDetails, $adminNotes, $refundReference);
+            } catch (\Exception $e) {
+                log_message('error', 'Failed to send refund approval email: ' . $e->getMessage());
+                // Don't fail the refund approval if email fails
+            }
         }
 
         return $this->response->setJSON([
@@ -733,11 +804,36 @@ class RefundsController extends BaseController
         }
 
         $userId = session()->get('user-id');
+        $refundId = $this->request->getPost('refund_id');
+        $adminNotes = $this->request->getPost('admin_notes');
+        $refundReference = $this->request->getPost('refund_reference');
+
+        // Get refund with full details (including payer email) before completion
+        $refundDetails = $refundModel->select('
+            refunds.*,
+            payments.amount_paid,
+            payments.payment_method as original_payment_method,
+            payments.receipt_number,
+            payments.payment_date,
+            payers.payer_name,
+            payers.payer_id as payer_student_id,
+            payers.contact_number,
+            payers.email_address,
+            payers.profile_picture,
+            contributions.title as contribution_title,
+            contributions.description as contribution_description
+        ')
+        ->join('payments', 'payments.id = refunds.payment_id', 'left')
+        ->join('payers', 'payers.id = refunds.payer_id', 'left')
+        ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+        ->where('refunds.id', $refundId)
+        ->first();
+
         $refundModel->completeRefund(
-            $this->request->getPost('refund_id'),
+            $refundId,
             $userId,
-            $this->request->getPost('admin_notes'),
-            $this->request->getPost('refund_reference')
+            $adminNotes,
+            $refundReference
         );
 
         // Log activity with admin name
@@ -746,11 +842,25 @@ class RefundsController extends BaseController
         $admin = $userModel->find($userId);
         $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
         
-        // Get updated refund data
-        $refundModel = new RefundModel();
-        $updatedRefund = $refundModel->find($this->request->getPost('refund_id'));
+        // Get updated refund data (with processed_at timestamp)
+        $updatedRefund = $refundModel->find($refundId);
         if ($updatedRefund) {
             $activityLogger->logRefund('completed', $updatedRefund, $adminName);
+            
+            // Merge updated refund data (especially processed_at) into refund details for email
+            if ($refundDetails) {
+                $refundDetails['processed_at'] = $updatedRefund['processed_at'] ?? date('Y-m-d H:i:s');
+            }
+        }
+
+        // Send email to payer if email address is available
+        if ($refundDetails && !empty($refundDetails['email_address'])) {
+            try {
+                $this->sendRefundApprovalEmail($refundDetails, $adminNotes, $refundReference);
+            } catch (\Exception $e) {
+                log_message('error', 'Failed to send refund approval email: ' . $e->getMessage());
+                // Don't fail the refund completion if email fails
+            }
         }
 
         return $this->response->setJSON([
@@ -854,5 +964,85 @@ class RefundsController extends BaseController
             'success' => true,
             'refund' => $refundDetails
         ]);
+    }
+
+    /**
+     * Send refund approval email to payer
+     */
+    private function sendRefundApprovalEmail($refundDetails, $adminNotes = null, $refundReference = null)
+    {
+        try {
+            // Check if payer has an email address
+            if (empty($refundDetails['email_address'])) {
+                log_message('info', 'No email address for payer, skipping refund approval email');
+                return false;
+            }
+
+            // Initialize email service
+            $emailService = \Config\Services::email();
+            
+            // Use configured email settings
+            $config = config('Email');
+            $fromEmail = $config->fromEmail;
+            $fromName = $config->fromName;
+            
+            $emailService->setFrom($fromEmail, $fromName);
+            $emailService->setTo($refundDetails['email_address']);
+            $emailService->setSubject('Refund Approved - ClearPay');
+            
+            // Format refund method
+            $refundMethod = ucwords(str_replace('_', ' ', $refundDetails['refund_method'] ?? 'N/A'));
+            
+            // Format dates
+            $paymentDate = $refundDetails['payment_date'] ?? date('Y-m-d H:i:s');
+            $formattedPaymentDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
+            
+            $processedDate = $refundDetails['processed_at'] ?? date('Y-m-d H:i:s');
+            $formattedProcessedDate = date('F j, Y \a\t g:i A', strtotime($processedDate));
+            
+            // Build email message
+            $message = view('emails/refund_approved', [
+                'payerName' => $refundDetails['payer_name'] ?? 'Valued Payer',
+                'refundId' => $refundDetails['id'] ?? 'N/A',
+                'refundAmount' => $refundDetails['refund_amount'] ?? 0,
+                'refundMethod' => $refundMethod,
+                'refundReference' => $refundReference ?? $refundDetails['refund_reference'] ?? null,
+                'refundReason' => $refundDetails['refund_reason'] ?? null,
+                'adminNotes' => $adminNotes ?? $refundDetails['admin_notes'] ?? null,
+                'receiptNumber' => $refundDetails['receipt_number'] ?? 'N/A',
+                'paymentDate' => $formattedPaymentDate,
+                'processedDate' => $formattedProcessedDate,
+                'contributionTitle' => $refundDetails['contribution_title'] ?? 'N/A',
+                'amountPaid' => $refundDetails['amount_paid'] ?? 0
+            ]);
+            
+            $emailService->setMessage($message);
+            
+            // Log email attempt
+            log_message('info', "Attempting to send refund approval email to: {$refundDetails['email_address']}");
+            
+            // Send email
+            $oldErrorReporting = error_reporting(0);
+            $result = @$emailService->send();
+            error_reporting($oldErrorReporting);
+            
+            if ($result) {
+                log_message('info', "Refund approval email sent successfully to: {$refundDetails['email_address']}");
+                return true;
+            } else {
+                $error = $emailService->printDebugger(['headers', 'subject']);
+                log_message('error', "Failed to send refund approval email: {$error}");
+                return false;
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the refund approval
+            log_message('error', 'Failed to send refund approval email: ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        } catch (\Error $e) {
+            log_message('error', 'Failed to send refund approval email (Error): ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        }
     }
 }
