@@ -6,7 +6,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>Active Contributions</h5>
+                    <h5 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>Contributions</h5>
                     <div class="search-container">
                         <div class="input-group" style="width: 300px;">
                             <span class="input-group-text">
@@ -20,8 +20,8 @@
                     <?php if (empty($contributions)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
-                            <h5 class="text-muted">No Active Contributions</h5>
-                            <p class="text-muted">There are currently no active contributions</p>
+                            <h5 class="text-muted">No Contributions</h5>
+                            <p class="text-muted">There are currently no contributions available</p>
                         </div>
                     <?php else: ?>
                         <div class="row">
@@ -31,10 +31,17 @@
                                          data-contribution='<?= json_encode($contribution) ?>'>
                                         <div class="card-body">
                                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                                       <h6 class="card-title mb-0">
-                                                           <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
-                                                           <?= esc($contribution['title']) ?>
-                                                       </h6>
+                                                       <div class="d-flex align-items-center">
+                                                           <h6 class="card-title mb-0">
+                                                               <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
+                                                               <?= esc($contribution['title']) ?>
+                                                           </h6>
+                                                           <?php if ($contribution['status'] === 'inactive'): ?>
+                                                               <span class="badge bg-secondary ms-2" title="This contribution is inactive">
+                                                                   <i class="fas fa-ban me-1"></i>Inactive
+                                                               </span>
+                                                           <?php endif; ?>
+                                                       </div>
                                                        <span class="badge payment-status-badge" data-total-paid="<?= $contribution['total_paid'] ?>" data-total-amount="<?= $contribution['amount'] ?>">
                                                            <!-- Status will be calculated by JavaScript -->
                                                        </span>
@@ -151,20 +158,26 @@
                                             <?php endif; ?>
                                             
                                             <!-- Show Add Payment if no payment groups OR all payment groups are fully paid -->
+                                            <!-- BUT disable if contribution is inactive -->
                                             <?php
                                             $showAddPaymentBtn = false;
-                                            if (empty($contribution['payment_groups'])) {
-                                                $showAddPaymentBtn = true;
-                                            } else {
-                                                $allGroupsFullyPaid = true;
-                                                foreach ($contribution['payment_groups'] as $group) {
-                                                    if ($group['computed_status'] !== 'fully paid') {
-                                                        $allGroupsFullyPaid = false;
-                                                        break;
-                                                    }
-                                                }
-                                                if ($allGroupsFullyPaid) {
+                                            $isInactive = ($contribution['status'] === 'inactive');
+                                            
+                                            if (!$isInactive) {
+                                                // Only show add payment button for active contributions
+                                                if (empty($contribution['payment_groups'])) {
                                                     $showAddPaymentBtn = true;
+                                                } else {
+                                                    $allGroupsFullyPaid = true;
+                                                    foreach ($contribution['payment_groups'] as $group) {
+                                                        if ($group['computed_status'] !== 'fully paid') {
+                                                            $allGroupsFullyPaid = false;
+                                                            break;
+                                                        }
+                                                    }
+                                                    if ($allGroupsFullyPaid) {
+                                                        $showAddPaymentBtn = true;
+                                                    }
                                                 }
                                             }
                                             ?>
@@ -175,6 +188,17 @@
                                                             onclick="event.stopPropagation();">
                                                         <i class="fas fa-plus me-2"></i>Add Payment
                                                     </button>
+                                                </div>
+                                            <?php elseif ($isInactive): ?>
+                                                <div class="mt-3">
+                                                    <button class="btn btn-secondary btn-sm w-100" 
+                                                            disabled
+                                                            title="This contribution is inactive. You cannot add new payments, but you can view your existing payments and request refunds.">
+                                                        <i class="fas fa-ban me-2"></i>Add Payment (Disabled)
+                                                    </button>
+                                                    <small class="text-muted d-block mt-1 text-center">
+                                                        <i class="fas fa-info-circle me-1"></i>Contribution is inactive. You can still view payments and request refunds.
+                                                    </small>
                                                 </div>
                                             <?php endif; ?>
                                             
