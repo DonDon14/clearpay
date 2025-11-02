@@ -298,10 +298,10 @@ class SidebarController extends BaseController
             ];
             
             // Validate required fields
-            if (empty($data['payer_id']) || empty($data['payer_name']) || empty($data['email_address'])) {
+            if (empty($data['payer_id']) || empty($data['payer_name'])) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => 'Student ID, Name, and Email Address are required'
+                    'message' => 'Student ID and Name are required'
                 ]);
             }
             
@@ -328,26 +328,38 @@ class SidebarController extends BaseController
                 }
             }
             
-            // Validate email format (required)
-            if (!filter_var($data['email_address'], FILTER_VALIDATE_EMAIL)) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Invalid email address format'
-                ]);
+            // Validate email format if provided (optional for admin-created accounts)
+            if (!empty($data['email_address'])) {
+                if (!filter_var($data['email_address'], FILTER_VALIDATE_EMAIL)) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Invalid email address format'
+                    ]);
+                }
+                
+                // Check if email already exists
+                $existingEmail = $payerModel->where('email_address', $data['email_address'])->first();
+                if ($existingEmail) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'A payer with this email address already exists'
+                    ]);
+                }
+            } else {
+                $data['email_address'] = null;
             }
             
-            // Check if email already exists
-            $existingEmail = $payerModel->where('email_address', $data['email_address'])->first();
-            if ($existingEmail) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'A payer with this email address already exists'
-                ]);
-            }
+            // Set password to payer_id (hashed) for admin-created accounts
+            $data['password'] = password_hash($data['payer_id'], PASSWORD_DEFAULT);
             
-            // Mark email verified when created by admin
-            $data['email_verified'] = 1;
+            // Mark email verified when created by admin (if email provided)
+            if (!empty($data['email_address'])) {
+                $data['email_verified'] = 1;
+            } else {
+                $data['email_verified'] = 1; // No email verification needed if no email
+            }
             $data['verification_token'] = null;
+            
             // Save to database
             $result = $payerModel->insert($data);
             

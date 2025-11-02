@@ -27,28 +27,27 @@ class LoginController extends BaseController
     public function loginPost()
     {
         $payerId = $this->request->getPost('payer_id');
-        $email = $this->request->getPost('email_address');
+        $password = $this->request->getPost('password');
 
         $validation = \Config\Services::validation();
         $validation->setRules([
             'payer_id' => 'required',
-            'email_address' => 'required|valid_email'
+            'password' => 'required'
         ]);
 
         if (!$validation->withRequest($this->request)->run()) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Please enter valid Payer ID and Email');
+                ->with('error', 'Please enter your Username and Password');
         }
 
-        // Find payer by payer_id and email (case-sensitive matching)
-        // Get all payers and filter by exact case-sensitive match
+        // Find payer by payer_id (case-sensitive matching)
         $payers = $this->payerModel->findAll();
         $payer = null;
         
         foreach ($payers as $p) {
             // Exact case-sensitive comparison
-            if ($p['payer_id'] === $payerId && $p['email_address'] === $email) {
+            if ($p['payer_id'] === $payerId) {
                 $payer = $p;
                 break;
             }
@@ -57,11 +56,25 @@ class LoginController extends BaseController
         if (!$payer) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Invalid Payer ID or Email Address');
+                ->with('error', 'Invalid Username or Password');
+        }
+        
+        // Check if password exists (required for all payers)
+        if (empty($payer['password'])) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Password not set. Please contact administrator.');
+        }
+        
+        // Verify password
+        if (!password_verify($password, $payer['password'])) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Invalid Username or Password');
         }
 
-        // Check if email is verified
-        if (isset($payer['email_verified']) && !$payer['email_verified']) {
+        // Check if email is verified (only if email exists)
+        if (!empty($payer['email_address']) && isset($payer['email_verified']) && !$payer['email_verified']) {
             // Store payer info in session for resend verification
             session()->set('pending_verification_payer_id', $payer['id']);
             session()->set('pending_verification_email', $payer['email_address']);

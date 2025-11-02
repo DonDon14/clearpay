@@ -10,6 +10,7 @@ class PayerModel extends Model
     protected $primaryKey = 'id';
     protected $allowedFields = [
         'payer_id',
+        'password',
         'payer_name',
         'contact_number',
         'email_address',

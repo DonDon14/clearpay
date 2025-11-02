@@ -35,13 +35,18 @@ class SignupController extends BaseController
             'email_address' => trim($this->request->getPost('email_address')),
             'course_department' => trim($this->request->getPost('course_department'))
         ];
+        
+        $password = $this->request->getPost('password');
+        $confirmPassword = $this->request->getPost('confirm_password');
 
         // Validate required fields
         $validation = \Config\Services::validation();
         $validation->setRules([
             'payer_id' => 'required|min_length[3]|max_length[50]',
+            'password' => 'required|min_length[6]|max_length[255]',
+            'confirm_password' => 'required|matches[password]',
             'payer_name' => 'required|min_length[3]|max_length[255]',
-            'email_address' => 'required|valid_email|max_length[100]',
+            'email_address' => 'permit_empty|valid_email|max_length[100]',
             'contact_number' => 'permit_empty',
             'course_department' => 'permit_empty|max_length[100]'
         ]);
@@ -63,12 +68,16 @@ class SignupController extends BaseController
                         ->withInput()
                         ->with('error', 'A payer with this Student ID already exists');
                 }
-                if ($p['email_address'] === $data['email_address']) {
+                // Only check email if provided
+                if (!empty($data['email_address']) && $p['email_address'] === $data['email_address']) {
                     return redirect()->back()
                         ->withInput()
                         ->with('error', 'A payer with this email address already exists');
                 }
             }
+            
+            // Hash password
+            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
 
             // Validate and sanitize phone number if provided
             if (!empty($data['contact_number'])) {
@@ -85,11 +94,16 @@ class SignupController extends BaseController
                 $data['contact_number'] = null;
             }
 
-            // Validate email format
-            if (!filter_var($data['email_address'], FILTER_VALIDATE_EMAIL)) {
+            // Validate email format if provided
+            if (!empty($data['email_address']) && !filter_var($data['email_address'], FILTER_VALIDATE_EMAIL)) {
                 return redirect()->back()
                     ->withInput()
                     ->with('error', 'Invalid email address format');
+            }
+            
+            // Set email to null if empty
+            if (empty($data['email_address'])) {
+                $data['email_address'] = null;
             }
 
             // Handle profile picture upload if provided
@@ -136,12 +150,20 @@ class SignupController extends BaseController
                 $data['profile_picture'] = $profilePicturePath;
             }
 
-            // Generate verification code
-            $verificationCode = rand(100000, 999999);
-            
-            // Add email verification fields
-            $data['email_verified'] = false;
-            $data['verification_token'] = (string) $verificationCode;
+            // Handle email verification only if email is provided
+            $verificationCode = null;
+            if (!empty($data['email_address'])) {
+                // Generate verification code
+                $verificationCode = rand(100000, 999999);
+                
+                // Add email verification fields
+                $data['email_verified'] = false;
+                $data['verification_token'] = (string) $verificationCode;
+            } else {
+                // No email provided - auto-verify (no email verification needed)
+                $data['email_verified'] = true;
+                $data['verification_token'] = null;
+            }
 
             // Save to database
             $result = $this->payerModel->insert($data);
@@ -149,24 +171,30 @@ class SignupController extends BaseController
             if ($result) {
                 $payerId = $this->payerModel->getInsertID();
                 
-                // Store payer ID in session for verification
-                session()->set('pending_verification_payer_id', $payerId);
-                session()->set('pending_verification_email', $data['email_address']);
-                
-                // Send verification email - wrap in try-catch to prevent registration failure
                 $emailSent = false;
-                try {
-                    $emailSent = $this->sendVerificationEmail($data['email_address'], $data['payer_name'], $verificationCode);
-                } catch (\Exception $e) {
-                    log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
-                } catch (\Error $e) {
-                    log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
+                
+                // Only send verification email if email is provided
+                if (!empty($data['email_address']) && $verificationCode) {
+                    // Store payer ID in session for verification
+                    session()->set('pending_verification_payer_id', $payerId);
+                    session()->set('pending_verification_email', $data['email_address']);
+                    
+                    // Send verification email - wrap in try-catch to prevent registration failure
+                    try {
+                        $emailSent = $this->sendVerificationEmail($data['email_address'], $data['payer_name'], $verificationCode);
+                    } catch (\Exception $e) {
+                        log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
+                    } catch (\Error $e) {
+                        log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
+                    }
                 }
                 
                 // Log payer signup activity for admin notification
                 try {
                     $activityLogger = new \App\Services\ActivityLogger();
                     $payerData = array_merge($data, ['id' => $payerId]);
+                    // Remove password from activity log
+                    unset($payerData['password']);
                     $activityLogger->logPayer('created', $payerData);
                 } catch (\Exception $e) {
                     log_message('error', 'Failed to log payer signup activity: ' . $e->getMessage());
@@ -175,14 +203,26 @@ class SignupController extends BaseController
                 // Log success
                 log_message('info', 'New payer signed up: ' . $data['payer_name'] . ' (ID: ' . $data['payer_id'] . ')');
                 
-                // Return JSON response to show verification modal
-                return $this->response->setJSON([
-                    'success' => true,
-                    'message' => 'Account created successfully! Please verify your email.',
-                    'email_sent' => $emailSent,
-                    'email' => $data['email_address'],
-                    'verification_code' => $verificationCode // For testing purposes
-                ]);
+                // Return JSON response
+                if (!empty($data['email_address']) && $verificationCode) {
+                    // Email provided - show verification modal
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'message' => 'Account created successfully! Please verify your email.',
+                        'email_sent' => $emailSent,
+                        'email' => $data['email_address'],
+                        'verification_code' => $verificationCode, // For testing purposes
+                        'requires_verification' => true
+                    ]);
+                } else {
+                    // No email - account created successfully
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'message' => 'Account created successfully! You can now login.',
+                        'requires_verification' => false,
+                        'redirect' => base_url('payer/login')
+                    ]);
+                }
             } else {
                 return $this->response->setJSON([
                     'success' => false,
