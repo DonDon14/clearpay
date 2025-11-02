@@ -76,6 +76,28 @@ class SidebarController extends BaseController
             }
         }
 
+        // Calculate payment totals for each contribution
+        $paymentModel = new PaymentModel();
+        foreach ($allContributions as &$contribution) {
+            // Get all payments for this contribution (excluding soft-deleted)
+            $payments = $paymentModel
+                ->selectSum('amount_paid', 'total_collected')
+                ->where('contribution_id', $contribution['id'])
+                ->where('deleted_at', null)
+                ->first();
+            
+            $totalCollected = (float)($payments['total_collected'] ?? 0);
+            // Use grand_total if available, otherwise fall back to amount per payer
+            $targetAmount = (float)($contribution['grand_total'] ?? $contribution['amount'] ?? 0);
+            $totalRemaining = max(0, $targetAmount - $totalCollected);
+            $progressPercentage = $targetAmount > 0 ? min(100, ($totalCollected / $targetAmount) * 100) : 0;
+            
+            $contribution['total_collected'] = $totalCollected;
+            $contribution['total_remaining'] = $totalRemaining;
+            $contribution['target_amount'] = $targetAmount; // Store the target amount used for calculation
+            $contribution['progress_percentage'] = round($progressPercentage, 2);
+        }
+
         // Sort contributions: active first, then by date
         usort($allContributions, function($a, $b) {
             // First sort by status (active first)

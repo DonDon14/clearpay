@@ -29,15 +29,59 @@
                                 <p class="text-muted mb-2"><?= esc($contribution['description'] ?? 'No description available') ?></p>
                                 
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <div class="contribution-amount">
-                                        <span class="h5 text-primary fw-bold">₱<?= number_format($contribution['amount'], 2) ?></span>
-                                        <small class="text-muted d-block">
-                                            <span class="badge bg-info me-2"><?= ucfirst(esc($contribution['category'] ?? 'other')) ?></span>
-                                            Status: 
-                                            <span class="badge <?= $contribution['status'] === 'active' ? 'bg-success' : 'bg-secondary' ?>">
-                                                <?= ucfirst($contribution['status']) ?>
-                                            </span>
-                                        </small>
+                                    <div class="contribution-amount flex-grow-1">
+                                        <div class="mb-2">
+                                            <span class="h5 text-primary fw-bold">₱<?= number_format($contribution['amount'], 2) ?></span>
+                                            <small class="text-muted d-block">
+                                                <span class="badge bg-info me-2"><?= ucfirst(esc($contribution['category'] ?? 'other')) ?></span>
+                                                Status: 
+                                                <span class="badge <?= $contribution['status'] === 'active' ? 'bg-success' : 'bg-secondary' ?>">
+                                                    <?= ucfirst($contribution['status']) ?>
+                                                </span>
+                                            </small>
+                                        </div>
+                                        
+                                        <!-- Collection Stats -->
+                                        <div class="collection-stats mb-2">
+                                            <div class="mb-1">
+                                                <small class="text-muted d-block mb-1">
+                                                    <i class="fas fa-bullseye text-info me-1"></i>
+                                                    Target: <strong class="text-info">₱<?= number_format($contribution['target_amount'] ?? $contribution['grand_total'] ?? $contribution['amount'] ?? 0, 2) ?></strong>
+                                                    <span class="text-muted">(₱<?= number_format($contribution['amount'] ?? 0, 2) ?> per payer)</span>
+                                                </small>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-check-circle text-success me-1"></i>
+                                                    Collected: 
+                                                    <strong class="text-success">₱<?= number_format($contribution['total_collected'] ?? 0, 2) ?></strong>
+                                                </small>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-clock text-warning me-1"></i>
+                                                    Remaining: 
+                                                    <strong class="text-warning">₱<?= number_format($contribution['total_remaining'] ?? 0, 2) ?></strong>
+                                                </small>
+                                            </div>
+                                            
+                                            <!-- Progress Bar -->
+                                            <div class="progress" style="height: 8px; border-radius: 4px;">
+                                                <?php 
+                                                $progressPercentage = $contribution['progress_percentage'] ?? 0;
+                                                $progressClass = $progressPercentage >= 100 ? 'bg-success' : ($progressPercentage >= 50 ? 'bg-info' : 'bg-warning');
+                                                ?>
+                                                <div class="progress-bar <?= $progressClass ?>" 
+                                                     role="progressbar" 
+                                                     style="width: <?= $progressPercentage ?>%" 
+                                                     aria-valuenow="<?= $progressPercentage ?>" 
+                                                     aria-valuemin="0" 
+                                                     aria-valuemax="100"
+                                                     title="<?= round($progressPercentage, 1) ?>% Collected">
+                                                </div>
+                                            </div>
+                                            <small class="text-muted d-block mt-1">
+                                                <strong><?= round($progressPercentage, 1) ?>%</strong> collected
+                                            </small>
+                                        </div>
                                     </div>
                                     <div class="contribution-actions" onclick="event.stopPropagation();">
                                         <button class="btn btn-sm btn-outline-warning me-2" 

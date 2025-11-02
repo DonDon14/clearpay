@@ -185,6 +185,7 @@ function editContribution(contributionId) {
                 document.getElementById('contributionCode').value = contribution.contribution_code || '';
                 document.getElementById('contributionDescription').value = contribution.description || '';
                 document.getElementById('contributionAmount').value = contribution.amount || '0.00';
+                document.getElementById('contributionGrandTotal').value = contribution.grand_total || '';
                 document.getElementById('contributionCostPrice').value = contribution.cost_price || '0.00';
                 document.getElementById('contributionCategory').value = contribution.category || '';
                 document.getElementById('contributionStatus').value = contribution.status || 'active';

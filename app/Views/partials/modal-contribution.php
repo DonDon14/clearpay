@@ -29,9 +29,18 @@
 
                     <div class="row">
                         <div class="mb-3 col-md-6">
-                            <label for="contributionAmount" class="form-label">Amount</label>
+                            <label for="contributionAmount" class="form-label">Amount <span class="text-muted">(Per Payer)</span></label>
                             <input type="number" step="0.01" class="form-control" id="contributionAmount" name="amount" value="<?= isset($contribution['amount']) ? $contribution['amount'] : '0.00' ?>" required>
+                            <div class="form-text">Amount to be paid by each payer</div>
                         </div>
+                        <div class="mb-3 col-md-6">
+                            <label for="contributionGrandTotal" class="form-label">Grand Total <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" id="contributionGrandTotal" name="grand_total" value="<?= isset($contribution['grand_total']) ? $contribution['grand_total'] : '' ?>" required>
+                            <div class="form-text">Total target amount to be collected from all payers</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <div class="mb-3 col-md-6">
                             <label for="contributionCostPrice" class="form-label">Cost Price</label>
                             <input type="number" step="0.01" class="form-control" id="contributionCostPrice" name="cost_price" value="<?= isset($contribution['cost_price']) ? $contribution['cost_price'] : '0.00' ?>">
