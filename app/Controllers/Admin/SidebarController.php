@@ -58,6 +58,10 @@ class SidebarController extends BaseController
         // Fetch contributions from database
         $contributionModel = new ContributionModel();
         $allContributions = $contributionModel->findAll();
+        
+        // Fetch contribution categories for dropdown
+        $categoryModel = new \App\Models\ContributionCategoryModel();
+        $categories = $categoryModel->getActiveCategories();
 
         // Calculate counts
         $activeCount = 0;
@@ -92,6 +96,7 @@ class SidebarController extends BaseController
             'activeCount' => $activeCount,
             'inactiveCount' => $inactiveCount,
             'totalCount' => $totalCount,
+            'categories' => $categories,
         ];
 
         return view('admin/contributions', $data);

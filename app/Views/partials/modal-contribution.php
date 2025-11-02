@@ -42,17 +42,14 @@
                         <label for="contributionCategory" class="form-label">Category</label>
                         <select class="form-select" id="contributionCategory" name="category">
                             <option value="">-- Select Category --</option>
-                            <option value="tuition" <?= (isset($contribution['category']) && $contribution['category'] === 'tuition') ? 'selected' : '' ?>>Tuition Fee</option>
-                            <option value="library" <?= (isset($contribution['category']) && $contribution['category'] === 'library') ? 'selected' : '' ?>>Library Fee</option>
-                            <option value="laboratory" <?= (isset($contribution['category']) && $contribution['category'] === 'laboratory') ? 'selected' : '' ?>>Laboratory Fee</option>
-                            <option value="registration" <?= (isset($contribution['category']) && $contribution['category'] === 'registration') ? 'selected' : '' ?>>Registration Fee</option>
-                            <option value="development" <?= (isset($contribution['category']) && $contribution['category'] === 'development') ? 'selected' : '' ?>>Development Fee</option>
-                            <option value="medical" <?= (isset($contribution['category']) && $contribution['category'] === 'medical') ? 'selected' : '' ?>>Medical Fee</option>
-                            <option value="guidance" <?= (isset($contribution['category']) && $contribution['category'] === 'guidance') ? 'selected' : '' ?>>Guidance Fee</option>
-                            <option value="athletic" <?= (isset($contribution['category']) && $contribution['category'] === 'athletic') ? 'selected' : '' ?>>Athletic Fee</option>
-                            <option value="computer" <?= (isset($contribution['category']) && $contribution['category'] === 'computer') ? 'selected' : '' ?>>Computer Fee</option>
-                            <option value="damage" <?= (isset($contribution['category']) && $contribution['category'] === 'damage') ? 'selected' : '' ?>>Damage Fee</option>
-                            <option value="other" <?= (isset($contribution['category']) && $contribution['category'] === 'other') ? 'selected' : '' ?>>Other</option>
+                            <?php 
+                            $categories = $categories ?? [];
+                            foreach ($categories as $category): 
+                            ?>
+                                <option value="<?= $category['code'] ?>" <?= (isset($contribution['category']) && $contribution['category'] === $category['code']) ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($category['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
 

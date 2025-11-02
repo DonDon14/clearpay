@@ -110,17 +110,12 @@
                         </label>
                         <select id="filterCategory" class="form-select">
                             <option value="">All Categories</option>
-                            <option value="tuition">Tuition Fee</option>
-                            <option value="library">Library Fee</option>
-                            <option value="laboratory">Laboratory Fee</option>
-                            <option value="registration">Registration Fee</option>
-                            <option value="development">Development Fee</option>
-                            <option value="medical">Medical Fee</option>
-                            <option value="guidance">Guidance Fee</option>
-                            <option value="athletic">Athletic Fee</option>
-                            <option value="computer">Computer Fee</option>
-                            <option value="damage">Damage Fee</option>
-                            <option value="other">Other</option>
+                            <?php 
+                            $categories = $categories ?? [];
+                            foreach ($categories as $category): 
+                            ?>
+                                <option value="<?= $category['code'] ?>"><?= htmlspecialchars($category['name']) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-md-3">
