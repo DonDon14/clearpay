@@ -187,6 +187,7 @@ function editContribution(contributionId) {
                 // Populate all form fields with existing data
                 document.getElementById('contributionId').value = contribution.id;
                 document.getElementById('contributionTitle').value = contribution.title || '';
+                document.getElementById('contributionCode').value = contribution.contribution_code || '';
                 document.getElementById('contributionDescription').value = contribution.description || '';
                 document.getElementById('contributionAmount').value = contribution.amount || '0.00';
                 document.getElementById('contributionCostPrice').value = contribution.cost_price || '0.00';

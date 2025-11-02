@@ -17,6 +17,12 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="contributionCode" class="form-label">Contribution Code</label>
+                        <input type="text" class="form-control" id="contributionCode" name="contribution_code" value="<?= isset($contribution['contribution_code']) ? $contribution['contribution_code'] : '' ?>" placeholder="Enter reference code for campus papers (e.g., CC-2025-001)">
+                        <div class="form-text">Reference code for real papers that the campus needs</div>
+                    </div>
+
+                    <div class="mb-3">
                         <label for="contributionDescription" class="form-label">Description</label>
                         <textarea class="form-control" id="contributionDescription" name="description" rows="3"><?= isset($contribution['description']) ? $contribution['description'] : '' ?></textarea>
                     </div>

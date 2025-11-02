@@ -20,6 +20,12 @@
                             
                             <div class="flex-grow-1">
                                 <h5 class="mb-1 fw-semibold"><?= esc($contribution['title']) ?></h5>
+                                <?php if (!empty($contribution['contribution_code'])): ?>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-hashtag me-1"></i>
+                                        <strong>Code:</strong> <code><?= esc($contribution['contribution_code']) ?></code>
+                                    </p>
+                                <?php endif; ?>
                                 <p class="text-muted mb-2"><?= esc($contribution['description'] ?? 'No description available') ?></p>
                                 
                                 <div class="d-flex justify-content-between align-items-center">

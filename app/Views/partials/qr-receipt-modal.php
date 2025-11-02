@@ -97,6 +97,10 @@
                                 <span class="detail-label">Title:</span>
                                 <span class="detail-value fw-bold" id="qrContributionTitle">N/A</span>
                             </div>
+                            <div class="detail-item mb-1" id="qrContributionCodeContainer" style="display: none;">
+                                <span class="detail-label">Code:</span>
+                                <span class="detail-value"><code id="qrContributionCode">N/A</code></span>
+                            </div>
                         </div>
                     </div>
 

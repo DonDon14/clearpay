@@ -62,7 +62,7 @@ class DashboardController extends BaseController
 
         // --- Fetch Recent Payments ---
         $recentPayments = $paymentModel
-            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, payers.profile_picture, contributions.title as contribution_title, contributions.id as contrib_id')
+            ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, payers.profile_picture, contributions.title as contribution_title, contributions.contribution_code, contributions.id as contrib_id')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->where('payments.deleted_at', null)
@@ -658,6 +658,7 @@ class DashboardController extends BaseController
                 contributions.title as contribution_title,
                 contributions.description as contribution_description,
                 contributions.amount as contribution_amount,
+                contributions.contribution_code,
                 users.username as processed_by_name
             ')
             ->join('payers', 'payers.id = payment_requests.payer_id', 'left')
@@ -956,6 +957,7 @@ class DashboardController extends BaseController
                 'payerId' => $paymentData['payer_id'] ?? 'N/A',
                 'contactNumber' => $paymentData['contact_number'] ?? '',
                 'contributionTitle' => $paymentData['contribution_title'] ?? 'N/A',
+                'contributionCode' => $paymentData['contribution_code'] ?? null,
                 'paymentMethod' => $paymentMethod,
                 'amountPaid' => $paymentData['amount_paid'] ?? 0,
                 'remainingBalance' => $paymentData['remaining_balance'] ?? null,

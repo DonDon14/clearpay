@@ -23,7 +23,7 @@ class SidebarController extends BaseController
 
         // Fetch ALL payments (not just recent 10) like dashboard
         $paymentModel = new PaymentModel();
-        $recentPayments = $paymentModel->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title, contributions.id as contrib_id')
+        $recentPayments = $paymentModel->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, contributions.title as contribution_title, contributions.contribution_code, contributions.id as contrib_id')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
             ->orderBy('payments.payment_date', 'DESC')
