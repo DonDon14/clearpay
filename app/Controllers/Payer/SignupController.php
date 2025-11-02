@@ -163,6 +163,15 @@ class SignupController extends BaseController
                     log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
                 }
                 
+                // Log payer signup activity for admin notification
+                try {
+                    $activityLogger = new \App\Services\ActivityLogger();
+                    $payerData = array_merge($data, ['id' => $payerId]);
+                    $activityLogger->logPayer('created', $payerData);
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to log payer signup activity: ' . $e->getMessage());
+                }
+                
                 // Log success
                 log_message('info', 'New payer signed up: ' . $data['payer_name'] . ' (ID: ' . $data['payer_id'] . ')');
                 

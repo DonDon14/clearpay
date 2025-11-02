@@ -8,6 +8,7 @@ use App\Models\PaymentModel;
 use App\Models\ContributionModel;
 use App\Models\PaymentRequestModel;
 use App\Models\PaymentMethodModel;
+use App\Models\ActivityLogModel;
 use App\Services\ActivityLogger;
 
 class DashboardController extends BaseController
@@ -379,11 +380,18 @@ class DashboardController extends BaseController
                     $activityLogger->logPaymentRequest('approved', $request);
                     
                     // Log activity for admin dashboard (user_activities table)
-                    $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved for {$payerName} - Receipt: {$receiptNumber}");
+                    // Include both admin and payer names
+                    $userModel = new \App\Models\UserModel();
+                    $admin = $userModel->find($processedBy);
+                    $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+                    $this->logUserActivity('approved', 'payment_request', $requestId, "Payment request approved by {$adminName} for {$payerName} - Receipt: {$receiptNumber}");
                     
                     // Log if payment was added to partially paid contribution
                     if ($wasAddedToPartialGroup) {
-                        $description = "Payment added to partially paid contribution for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
+                        $userModel = new \App\Models\UserModel();
+                        $admin = $userModel->find($processedBy);
+                        $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+                        $description = "Payment added to partially paid contribution by {$adminName} for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
                         $this->logUserActivity('create', 'payment', $paymentId, $description);
                     }
                     
@@ -471,7 +479,11 @@ class DashboardController extends BaseController
                 $activityLogger->logPaymentRequest('rejected', $request);
                 
                 // Log activity for admin dashboard (user_activities table)
-                $this->logUserActivity('rejected', 'payment_request', $requestId, "Payment request rejected for {$payerName}" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
+                // Include both admin and payer names
+                $userModel = new \App\Models\UserModel();
+                $admin = $userModel->find($processedBy);
+                $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+                $this->logUserActivity('rejected', 'payment_request', $requestId, "Payment request rejected by {$adminName} for {$payerName}" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -586,11 +598,18 @@ class DashboardController extends BaseController
                 $activityLogger->logPaymentRequest('processed', $request);
                 
                 // Log activity for admin dashboard (user_activities table)
-                $this->logUserActivity('processed', 'payment_request', $requestId, "Payment request processed for {$payerName} - Receipt: {$receiptNumber}");
+                // Include both admin and payer names
+                $userModel = new \App\Models\UserModel();
+                $admin = $userModel->find($processedBy);
+                $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+                $this->logUserActivity('processed', 'payment_request', $requestId, "Payment request processed by {$adminName} for {$payerName} - Receipt: {$receiptNumber}");
                 
                 // Log if payment was added to partially paid contribution
                 if ($wasAddedToPartialGroup) {
-                    $description = "Payment added to partially paid contribution for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
+                    $userModel = new \App\Models\UserModel();
+                    $admin = $userModel->find($processedBy);
+                    $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
+                    $description = "Payment added to partially paid contribution by {$adminName} for {$payerName} - Receipt: {$receiptNumber} - Contribution: {$contributionTitle}";
                     $this->logUserActivity('create', 'payment', $paymentId, $description);
                 }
                 
@@ -993,5 +1012,386 @@ class DashboardController extends BaseController
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
+    }
+
+    /**
+     * Check for new admin notifications
+     */
+    public function checkNewActivities()
+    {
+        // Get the current admin user ID from session
+        $userId = session()->get('user-id');
+        
+        if (!$userId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'User not authenticated',
+                'activities' => [],
+                'newActivities' => [],
+                'hasNew' => false
+            ]);
+        }
+
+        // Get the last activity ID that was shown to this admin
+        $lastShownId = $this->request->getGet('last_shown_id') ?: 0;
+        
+        // Debug logging
+        log_message('info', "Checking for new activities for admin user {$userId}. Last shown ID: {$lastShownId}");
+        
+        // Get recent activities for admin users (limit to 10 for better UX)
+        $activityLogModel = new ActivityLogModel();
+        $activities = $activityLogModel->getRecentForAdmins(10, $userId);
+        
+        log_message('info', "Found " . count($activities) . " activities for admin user {$userId}");
+        
+        if (!empty($activities)) {
+            // Format activities for frontend
+            foreach ($activities as &$activity) {
+                // Ensure activity_type is explicitly set (debugging)
+                if (!isset($activity['activity_type']) || empty($activity['activity_type'])) {
+                    log_message('warning', 'Activity missing activity_type: ' . json_encode($activity));
+                }
+                
+                // Format the created_at time for Philippines timezone (UTC+8)
+                $createdAt = new \DateTime($activity['created_at'], new \DateTimeZone('UTC'));
+                $createdAt->setTimezone(new \DateTimeZone('Asia/Manila'));
+                $activity['created_at_formatted'] = $createdAt->format('Y-m-d H:i:s');
+                $activity['created_at_time'] = $createdAt->format('g:i A');
+                $activity['created_at_date'] = $createdAt->format('M d, Y');
+                
+                // Check if activity is read by this admin
+                $activity['is_read'] = $activity['is_read_by_admin'] ?? 0;
+                
+                // Ensure activity_type is present for frontend (explicit check)
+                if (!isset($activity['activity_type']) || empty($activity['activity_type'])) {
+                    $activity['activity_type'] = $activity['entity_type'] ?? 'unknown';
+                    log_message('warning', 'Using entity_type as fallback for activity_type: ' . $activity['activity_type']);
+                }
+                
+                // Format activity data for frontend
+                $activity['activity_icon'] = $this->getActivityIcon($activity['activity_type'] ?? 'unknown', $activity['action'] ?? '');
+                $activity['activity_color'] = $this->getActivityColor($activity['activity_type'] ?? 'unknown', $activity['action'] ?? '');
+            }
+            
+            // Check if there are new activities (greater than last shown ID OR unread on first load)
+            $newActivities = array_filter($activities, function($activity) use ($lastShownId) {
+                $isReadByAdmin = ($activity['is_read_by_admin'] ?? 0) == 1;
+                // If lastShownId is 0 (first load), include all unread activities
+                if ($lastShownId == 0) {
+                    return !$isReadByAdmin;
+                }
+                // Otherwise, include activities that are new (greater than last shown) and unread
+                return $activity['id'] > $lastShownId && !$isReadByAdmin;
+            });
+            
+            // Get unread count
+            $unreadCount = $activityLogModel->getUnreadCountForAdmin($userId);
+            
+            log_message('info', "Found " . count($newActivities) . " new activities for admin user {$userId}");
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'activities' => $activities,
+                'newActivities' => array_values($newActivities),
+                'hasNew' => !empty($newActivities),
+                'unreadCount' => $unreadCount
+            ]);
+        }
+        
+        log_message('info', "No activities found for admin user {$userId}");
+        
+        return $this->response->setJSON([
+            'success' => false,
+            'message' => 'No activities',
+            'activities' => [],
+            'newActivities' => [],
+            'hasNew' => false,
+            'unreadCount' => 0
+        ]);
+    }
+
+    /**
+     * Mark activity as read for admin
+     */
+    public function markActivityAsRead($activityId)
+    {
+        try {
+            $userId = session()->get('user-id');
+            
+            if (!$userId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ]);
+            }
+
+            $activityLogModel = new ActivityLogModel();
+            $result = $activityLogModel->markAsReadByAdmin($activityId, $userId);
+
+            if ($result) {
+                // Get updated unread count
+                $unreadCount = $activityLogModel->getUnreadCountForAdmin($userId);
+                
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Activity marked as read',
+                    'unreadCount' => $unreadCount
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Failed to mark activity as read'
+                ]);
+            }
+        } catch (\Exception $e) {
+            log_message('error', 'Error marking activity as read: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Mark all activities as read for admin
+     */
+    public function markAllAsRead()
+    {
+        try {
+            $userId = session()->get('user-id');
+            
+            if (!$userId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ]);
+            }
+
+            $activityLogModel = new ActivityLogModel();
+            
+            // Get all unread admin activities
+            $activities = $activityLogModel->getRecentForAdmins(1000, $userId); // Get large number to mark all
+            
+            $unreadActivityIds = [];
+            foreach ($activities as $activity) {
+                if (!($activity['is_read_by_admin'] ?? 0)) {
+                    $unreadActivityIds[] = $activity['id'];
+                }
+            }
+
+            // Mark all as read
+            $adminReadStatusModel = new \App\Models\AdminReadStatusModel();
+            if (!empty($unreadActivityIds)) {
+                $adminReadStatusModel->markMultipleAsRead($unreadActivityIds, $userId);
+            }
+
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'All activities marked as read',
+                'unreadCount' => 0
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Error marking all activities as read: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get all activities for admin
+     */
+    public function getAllActivities()
+    {
+        try {
+            $userId = session()->get('user-id');
+            
+            if (!$userId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'User not authenticated'
+                ]);
+            }
+
+            $limit = $this->request->getGet('limit') ?? 50;
+            $offset = $this->request->getGet('offset') ?? 0;
+
+            $activityLogModel = new ActivityLogModel();
+            $activities = $activityLogModel->getRecentForAdmins((int)$limit + (int)$offset, $userId);
+            
+            // Apply offset
+            $activities = array_slice($activities, (int)$offset, (int)$limit);
+
+            // Format activities for frontend
+            foreach ($activities as &$activity) {
+                // Ensure activity_type is explicitly set
+                if (!isset($activity['activity_type']) || empty($activity['activity_type'])) {
+                    $activity['activity_type'] = $activity['entity_type'] ?? 'unknown';
+                }
+                
+                // Format the created_at time for Philippines timezone (UTC+8)
+                $createdAt = new \DateTime($activity['created_at'], new \DateTimeZone('UTC'));
+                $createdAt->setTimezone(new \DateTimeZone('Asia/Manila'));
+                $activity['created_at_formatted'] = $createdAt->format('Y-m-d H:i:s');
+                $activity['created_at_time'] = $createdAt->format('g:i A');
+                $activity['created_at_date'] = $createdAt->format('M d, Y');
+                
+                // Check if activity is read by this admin
+                $activity['is_read'] = $activity['is_read_by_admin'] ?? 0;
+                
+                // Format activity data for frontend
+                $activity['activity_icon'] = $this->getActivityIcon($activity['activity_type'] ?? 'unknown', $activity['action'] ?? '');
+                $activity['activity_color'] = $this->getActivityColor($activity['activity_type'] ?? 'unknown', $activity['action'] ?? '');
+            }
+
+            return $this->response->setJSON([
+                'success' => true,
+                'activities' => $activities,
+                'count' => count($activities)
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Error getting all activities: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage(),
+                'activities' => []
+            ]);
+        }
+    }
+
+    /**
+     * Get unread count for admin
+     */
+    public function getUnreadCount()
+    {
+        try {
+            $userId = session()->get('user-id');
+            
+            if (!$userId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'User not authenticated',
+                    'unreadCount' => 0
+                ]);
+            }
+
+            $activityLogModel = new ActivityLogModel();
+            $unreadCount = $activityLogModel->getUnreadCountForAdmin($userId);
+
+            return $this->response->setJSON([
+                'success' => true,
+                'unreadCount' => $unreadCount
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Error getting unread count: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage(),
+                'unreadCount' => 0
+            ]);
+        }
+    }
+
+    /**
+     * Get icon for activity type and action
+     */
+    private function getActivityIcon($activityType, $action)
+    {
+        $icons = [
+            'announcement' => [
+                'created' => 'fas fa-bullhorn',
+                'updated' => 'fas fa-edit',
+                'published' => 'fas fa-check-circle',
+                'unpublished' => 'fas fa-times-circle'
+            ],
+            'contribution' => [
+                'created' => 'fas fa-plus-circle',
+                'updated' => 'fas fa-edit',
+                'deleted' => 'fas fa-trash'
+            ],
+            'payment' => [
+                'created' => 'fas fa-money-bill-wave',
+                'updated' => 'fas fa-edit',
+                'deleted' => 'fas fa-trash',
+                'processed' => 'fas fa-check-circle'
+            ],
+            'payer' => [
+                'created' => 'fas fa-user-plus',
+                'updated' => 'fas fa-user-edit',
+                'deleted' => 'fas fa-user-times'
+            ],
+            'user' => [
+                'created' => 'fas fa-user-plus',
+                'updated' => 'fas fa-user-edit',
+                'deleted' => 'fas fa-user-times'
+            ],
+            'payment_request' => [
+                'created' => 'fas fa-file-invoice-dollar',
+                'approved' => 'fas fa-check-circle',
+                'rejected' => 'fas fa-times-circle',
+                'processed' => 'fas fa-cog'
+            ],
+            'refund' => [
+                'requested' => 'fas fa-undo',
+                'approved' => 'fas fa-check-circle',
+                'rejected' => 'fas fa-times-circle',
+                'processed' => 'fas fa-cog',
+                'completed' => 'fas fa-check-double'
+            ]
+        ];
+        
+        return $icons[$activityType][$action] ?? 'fas fa-info-circle';
+    }
+
+    /**
+     * Get color for activity type and action
+     */
+    private function getActivityColor($activityType, $action)
+    {
+        $colors = [
+            'announcement' => [
+                'created' => 'primary',
+                'updated' => 'warning',
+                'published' => 'success',
+                'unpublished' => 'danger'
+            ],
+            'contribution' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger'
+            ],
+            'payment' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger',
+                'processed' => 'info'
+            ],
+            'payer' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger'
+            ],
+            'user' => [
+                'created' => 'success',
+                'updated' => 'warning',
+                'deleted' => 'danger'
+            ],
+            'payment_request' => [
+                'created' => 'info',
+                'approved' => 'success',
+                'rejected' => 'danger',
+                'processed' => 'primary'
+            ],
+            'refund' => [
+                'requested' => 'warning',
+                'approved' => 'success',
+                'rejected' => 'danger',
+                'processed' => 'info',
+                'completed' => 'success'
+            ]
+        ];
+        
+        return $colors[$activityType][$action] ?? 'info';
     }
 }

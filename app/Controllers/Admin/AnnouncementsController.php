@@ -91,17 +91,31 @@ class AnnouncementsController extends BaseController
             }
 
             if ($result) {
-                // Log activity using new ActivityLogger
+                // Log activity using new ActivityLogger (for notifications)
                 $activityLogger = new ActivityLogger();
+                
+                // Get announcement title and admin name for logging
+                $announcementTitle = $this->request->getPost('title');
+                $userId = session()->get('user-id');
+                $userModel = new \App\Models\UserModel();
+                $user = $userModel->find($userId);
+                $userName = $user['name'] ?? $user['username'] ?? 'Admin';
                 
                 if ($id && isset($existing)) {
                     // Update existing announcement - include the ID
                     $data['id'] = $id;
                     $activityLogger->logAnnouncement('updated', $data, $existing);
+                    
+                    // Log to user_activities table for dashboard display
+                    $this->logUserActivity('update', 'announcement', $id, "Updated announcement: {$announcementTitle}");
                 } else {
                     // Create new announcement - use the insert result as ID
                     $data['id'] = $result;
                     $activityLogger->logAnnouncement('created', $data);
+                    
+                    // Log to user_activities table for dashboard display
+                    // Include announcement title and who created it
+                    $this->logUserActivity('create', 'announcement', $result, "New announcement created: {$announcementTitle} by {$userName}");
                 }
                 
                 return $this->response->setJSON([

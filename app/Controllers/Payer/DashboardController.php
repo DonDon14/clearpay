@@ -123,6 +123,9 @@ class DashboardController extends BaseController
             'contact_number' => $this->request->getPost('contact_number')
         ];
 
+        // Get old payer data for activity logging
+        $oldPayerData = $this->payerModel->find($payerId);
+        
         $result = $this->payerModel->update($payerId, $data);
 
         if ($result) {
@@ -130,6 +133,15 @@ class DashboardController extends BaseController
             session()->set([
                 'payer_email' => $data['email_address']
             ]);
+
+            // Log payer profile update activity for admin notification
+            try {
+                $activityLogger = new \App\Services\ActivityLogger();
+                $updatedPayerData = array_merge($oldPayerData, $data, ['id' => $payerId]);
+                $activityLogger->logPayer('updated', $updatedPayerData, $oldPayerData);
+            } catch (\Exception $e) {
+                log_message('error', 'Failed to log payer profile update activity: ' . $e->getMessage());
+            }
 
             return $this->response->setJSON([
                 'success' => true,
@@ -194,6 +206,9 @@ class DashboardController extends BaseController
                     $payer = $this->payerModel->find($payerId);
                     $oldProfilePicture = $payer['profile_picture'] ?? null;
                     
+                    // Get old payer data for activity logging
+                    $oldPayerData = $this->payerModel->find($payerId);
+                    
                     // Update database with new profile picture path
                     $profilePicturePath = 'uploads/profile/' . $newName;
                     $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
@@ -204,6 +219,15 @@ class DashboardController extends BaseController
                     // Delete old profile picture if it exists
                     if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
                         unlink(FCPATH . $oldProfilePicture);
+                    }
+
+                    // Log payer profile picture update activity for admin notification
+                    try {
+                        $activityLogger = new \App\Services\ActivityLogger();
+                        $updatedPayerData = array_merge($oldPayerData, ['profile_picture' => $profilePicturePath, 'id' => $payerId]);
+                        $activityLogger->logPayer('updated', $updatedPayerData, $oldPayerData);
+                    } catch (\Exception $e) {
+                        log_message('error', 'Failed to log payer profile picture update activity: ' . $e->getMessage());
                     }
 
                     return $this->response->setJSON([

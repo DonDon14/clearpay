@@ -42,6 +42,10 @@ class ActivityLogger
      */
     public function logContribution($action, $contribution, $oldData = null)
     {
+        // Contributions are admin-created, so always notify admins
+        // Also notify payers so they know about new/updated contributions
+        $targetAudience = 'both';
+        
         $data = [
             'activity_type' => 'contribution',
             'entity_type' => 'contribution',
@@ -54,7 +58,7 @@ class ActivityLogger
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
             'payer_id' => null, // General contributions don't target specific payers
-            'target_audience' => 'payers',
+            'target_audience' => $targetAudience,
             'is_read' => 0
         ];
 
@@ -66,6 +70,11 @@ class ActivityLogger
      */
     public function logPayment($action, $payment, $oldData = null)
     {
+        // Determine target audience based on action
+        // New payments should notify both admins and payers
+        // Updates/deletes might be admin-only
+        $targetAudience = ($action === 'created') ? 'both' : 'payers';
+        
         $data = [
             'activity_type' => 'payment',
             'entity_type' => 'payment',
@@ -78,7 +87,7 @@ class ActivityLogger
             'user_id' => session('user-id') ?? 1,
             'user_type' => 'admin',
             'payer_id' => $payment['payer_id'] ?? null, // Specific payer for payment notifications
-            'target_audience' => 'payers',
+            'target_audience' => $targetAudience,
             'is_read' => 0
         ];
 
@@ -90,6 +99,17 @@ class ActivityLogger
      */
     public function logPayer($action, $payer, $oldData = null)
     {
+        // Determine user type - if payer is updating their own profile, user_type should be 'payer'
+        // Otherwise, it's an admin action
+        $userType = session('payer_id') == ($payer['id'] ?? null) ? 'payer' : 'admin';
+        $userId = session('payer_id') ?? session('user-id') ?? 1;
+        
+        // Determine target audience:
+        // - New payer signup: notify admins
+        // - Payer profile updates by payer: notify admins (so admins know about changes)
+        // - Payer updates/deletes by admin: notify admins (admin activity)
+        $targetAudience = 'admins'; // Always notify admins about payer activities
+        
         $data = [
             'activity_type' => 'payer',
             'entity_type' => 'payer',
@@ -99,10 +119,10 @@ class ActivityLogger
             'description' => $this->getPayerDescription($action, $payer, $oldData),
             'old_values' => $oldData ? json_encode($oldData) : null,
             'new_values' => json_encode($payer),
-            'user_id' => session('user-id') ?? 1,
-            'user_type' => 'admin',
+            'user_id' => $userId,
+            'user_type' => $userType,
             'payer_id' => $payer['id'] ?? null, // Specific payer for payer notifications
-            'target_audience' => 'payers',
+            'target_audience' => $targetAudience,
             'is_read' => 0
         ];
 
@@ -121,6 +141,11 @@ class ActivityLogger
         // Handle case where ID might not exist yet (for new requests)
         $entityId = $paymentRequest['id'] ?? null;
         
+        // Determine target audience:
+        // - New payment request created by payer: notify admins (they need to approve)
+        // - Request approved/rejected by admin: notify both payers (they need to know the result) and admins (they need to see activity)
+        $targetAudience = in_array($action, ['created', 'submitted']) ? 'admins' : 'both';
+        
         $data = [
             'activity_type' => 'payment_request',
             'entity_type' => 'payment_request',
@@ -133,7 +158,7 @@ class ActivityLogger
             'user_id' => $userId,
             'user_type' => $userType,
             'payer_id' => $paymentRequest['payer_id'] ?? null,
-            'target_audience' => 'payers',
+            'target_audience' => $targetAudience,
             'is_read' => 0
         ];
 
@@ -145,15 +170,24 @@ class ActivityLogger
      */
     public function logRefund($action, $refund, $adminName = null)
     {
-        $userId = session('user-id') ?? 1;
+        $userId = session('user-id') ?? session('payer_id') ?? 1;
         $payerId = $refund['payer_id'] ?? null;
         
-        // Get admin name if not provided
-        if (!$adminName && $userId) {
+        // Determine user type - payer requested or admin processed
+        $userType = session('payer_id') ? 'payer' : 'admin';
+        
+        // Get admin name if not provided and it's an admin action
+        if (!$adminName && $userType === 'admin' && $userId) {
             $userModel = new \App\Models\UserModel();
             $admin = $userModel->find($userId);
             $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
         }
+        
+        // Determine target audience:
+        // - Refund requested by payer: notify admins (they need to process)
+        // - Refund processed/approved/rejected by admin: notify payers (they need to know the result)
+        // - For consistency, also notify admins about all refund activities
+        $targetAudience = in_array($action, ['requested']) ? 'admins' : 'both';
         
         $data = [
             'activity_type' => 'refund',
@@ -165,9 +199,9 @@ class ActivityLogger
             'old_values' => null,
             'new_values' => json_encode($refund),
             'user_id' => $userId,
-            'user_type' => 'admin',
+            'user_type' => $userType,
             'payer_id' => $payerId,
-            'target_audience' => 'payers',
+            'target_audience' => $targetAudience,
             'is_read' => 0
         ];
 
@@ -441,11 +475,13 @@ class ActivityLogger
         }
     }
 
-    private function getRefundTitle($action, $refund, $adminName)
+    private function getRefundTitle($action, $refund, $adminName = null)
     {
         $amount = number_format($refund['refund_amount'], 2);
         
         switch ($action) {
+            case 'requested':
+                return "Refund Requested: ₱{$amount}";
             case 'processed':
                 return "Refund Processed: ₱{$amount}";
             case 'approved':
@@ -459,11 +495,14 @@ class ActivityLogger
         }
     }
 
-    private function getRefundDescription($action, $refund, $adminName)
+    private function getRefundDescription($action, $refund, $adminName = null)
     {
         $amount = number_format($refund['refund_amount'], 2);
         
         switch ($action) {
+            case 'requested':
+                $payerName = $refund['payer_name'] ?? 'A payer';
+                return "{$payerName} has requested a refund of ₱{$amount}.";
             case 'processed':
                 return "Refund of ₱{$amount} has been processed by {$adminName}.";
             case 'approved':
@@ -474,7 +513,89 @@ class ActivityLogger
             case 'completed':
                 return "Refund of ₱{$amount} has been completed by {$adminName}.";
             default:
-                return "Refund of ₱{$amount} has been {$action} by {$adminName}.";
+                $adminText = $adminName ? " by {$adminName}" : "";
+                return "Refund of ₱{$amount} has been {$action}{$adminText}.";
+        }
+    }
+
+    /**
+     * Log user (admin) activity - for notifying other admins
+     */
+    public function logUser($action, $user, $oldData = null)
+    {
+        $data = [
+            'activity_type' => 'user',
+            'entity_type' => 'user',
+            'entity_id' => $user['id'],
+            'action' => $action,
+            'title' => $this->getUserTitle($action, $user),
+            'description' => $this->getUserDescription($action, $user, $oldData),
+            'old_values' => $oldData ? json_encode($oldData) : null,
+            'new_values' => json_encode($user),
+            'user_id' => session('user-id') ?? 1,
+            'user_type' => 'admin',
+            'payer_id' => null, // Admin activities don't target payers
+            'target_audience' => 'admins', // Only notify admins about admin activities
+            'is_read' => 0
+        ];
+
+        return $this->activityLogModel->logActivity($data);
+    }
+
+    /**
+     * Get user activity title
+     */
+    private function getUserTitle($action, $user)
+    {
+        $userName = $user['name'] ?? $user['username'] ?? 'User';
+        
+        switch ($action) {
+            case 'created':
+                return "New Admin User Added: {$userName}";
+            case 'updated':
+                return "Admin User Updated: {$userName}";
+            case 'deleted':
+                return "Admin User Removed: {$userName}";
+            default:
+                return "Admin User {$action}: {$userName}";
+        }
+    }
+
+    /**
+     * Get user activity description
+     */
+    private function getUserDescription($action, $user, $oldData)
+    {
+        $userName = $user['name'] ?? $user['username'] ?? 'User';
+        
+        switch ($action) {
+            case 'created':
+                return "A new admin user '{$userName}' has been added to the system.";
+            case 'updated':
+                if ($oldData) {
+                    $changes = [];
+                    if (isset($oldData['name']) && $user['name'] !== $oldData['name']) {
+                        $changes[] = "Name: {$oldData['name']} → {$user['name']}";
+                    }
+                    if (isset($oldData['username']) && $user['username'] !== $oldData['username']) {
+                        $changes[] = "Username: {$oldData['username']} → {$user['username']}";
+                    }
+                    if (isset($oldData['role']) && $user['role'] !== $oldData['role']) {
+                        $changes[] = "Role: {$oldData['role']} → {$user['role']}";
+                    }
+                    if (isset($oldData['email']) && $user['email'] !== $oldData['email']) {
+                        $changes[] = "Email: {$oldData['email']} → {$user['email']}";
+                    }
+                    
+                    if (!empty($changes)) {
+                        return "Admin user '{$userName}' updated: " . implode(', ', $changes);
+                    }
+                }
+                return "Admin user '{$userName}' has been updated.";
+            case 'deleted':
+                return "Admin user '{$userName}' has been removed from the system.";
+            default:
+                return "Admin user '{$userName}' has been {$action}.";
         }
     }
 }
