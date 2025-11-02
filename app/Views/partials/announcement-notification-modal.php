@@ -605,8 +605,56 @@ function checkForNewActivities() {
                     // Show notification badge
                     showNotificationBadge();
                     
-                    // DON'T show popup - just update dropdown
-                    // The user will see notifications in the dropdown
+                    // Check for new announcement activities and show modal
+                    const announcementActivities = data.newActivities.filter(activity => 
+                        activity.activity_type === 'announcement' && 
+                        (activity.action === 'created' || activity.action === 'published')
+                    );
+                    
+                    if (announcementActivities.length > 0) {
+                        // Check if modal is already open
+                        const modalElement = document.getElementById('announcementNotificationModal');
+                        const isModalOpen = modalElement && (
+                            modalElement.classList.contains('show') || 
+                            modalElement.style.display === 'block'
+                        );
+                        
+                        if (!isModalOpen) {
+                            // Get the most recent announcement activity
+                            const latestAnnouncement = announcementActivities.sort((a, b) => 
+                                new Date(b.created_at) - new Date(a.created_at)
+                            )[0];
+                            
+                            // Parse the full announcement data from new_values
+                            let announcementData = null;
+                            if (latestAnnouncement.new_values) {
+                                try {
+                                    announcementData = typeof latestAnnouncement.new_values === 'string' 
+                                        ? JSON.parse(latestAnnouncement.new_values) 
+                                        : latestAnnouncement.new_values;
+                                    
+                                    // Merge with activity metadata for complete data
+                                    announcementData.created_at = latestAnnouncement.created_at;
+                                    announcementData.created_at_date = latestAnnouncement.created_at_date;
+                                    announcementData.created_at_time = latestAnnouncement.created_at_time;
+                                    
+                                    // Show the announcement modal
+                                    console.log('Showing announcement modal for:', announcementData.title);
+                                    showAnnouncementNotification(announcementData);
+                                } catch (e) {
+                                    console.error('Error parsing announcement data:', e);
+                                    // Fallback: use activity data
+                                    showActivityNotification(latestAnnouncement);
+                                }
+                            } else {
+                                // Fallback: use activity data directly
+                                console.log('No new_values found, using activity data');
+                                showActivityNotification(latestAnnouncement);
+                            }
+                        } else {
+                            console.log('Announcement modal is already open, skipping auto-popup');
+                        }
+                    }
                 } else {
                     console.log('No new activities found');
                     // Still show badge if there are unseen activities (Facebook-like)
