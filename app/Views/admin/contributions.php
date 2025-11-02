@@ -110,17 +110,12 @@
                         </label>
                         <select id="filterCategory" class="form-select">
                             <option value="">All Categories</option>
-                            <option value="tuition">Tuition Fee</option>
-                            <option value="library">Library Fee</option>
-                            <option value="laboratory">Laboratory Fee</option>
-                            <option value="registration">Registration Fee</option>
-                            <option value="development">Development Fee</option>
-                            <option value="medical">Medical Fee</option>
-                            <option value="guidance">Guidance Fee</option>
-                            <option value="athletic">Athletic Fee</option>
-                            <option value="computer">Computer Fee</option>
-                            <option value="damage">Damage Fee</option>
-                            <option value="other">Other</option>
+                            <?php 
+                            $categories = $categories ?? [];
+                            foreach ($categories as $category): 
+                            ?>
+                                <option value="<?= $category['code'] ?>"><?= htmlspecialchars($category['name']) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -190,6 +185,7 @@ function editContribution(contributionId) {
                 document.getElementById('contributionCode').value = contribution.contribution_code || '';
                 document.getElementById('contributionDescription').value = contribution.description || '';
                 document.getElementById('contributionAmount').value = contribution.amount || '0.00';
+                document.getElementById('contributionGrandTotal').value = contribution.grand_total || '';
                 document.getElementById('contributionCostPrice').value = contribution.cost_price || '0.00';
                 document.getElementById('contributionCategory').value = contribution.category || '';
                 document.getElementById('contributionStatus').value = contribution.status || 'active';

@@ -68,6 +68,13 @@ $routes->post('/admin/settings/refund-methods/update/(:num)', 'Admin\Settings\Re
 $routes->post('/admin/settings/refund-methods/delete/(:num)', 'Admin\Settings\RefundMethodController::delete/$1', ['filter' => 'auth']);
 $routes->post('/admin/settings/refund-methods/toggle-status/(:num)', 'Admin\Settings\RefundMethodController::toggleStatus/$1', ['filter' => 'auth']);
 
+// Contribution Categories Management Routes
+$routes->get('/admin/settings/contribution-categories/data', 'Admin\Settings\ContributionCategoryController::getData', ['filter' => 'auth']);
+$routes->post('/admin/settings/contribution-categories/store', 'Admin\Settings\ContributionCategoryController::store', ['filter' => 'auth']);
+$routes->post('/admin/settings/contribution-categories/update/(:num)', 'Admin\Settings\ContributionCategoryController::update/$1', ['filter' => 'auth']);
+$routes->post('/admin/settings/contribution-categories/delete/(:num)', 'Admin\Settings\ContributionCategoryController::delete/$1', ['filter' => 'auth']);
+$routes->post('/admin/settings/contribution-categories/toggle-status/(:num)', 'Admin\Settings\ContributionCategoryController::toggleStatus/$1', ['filter' => 'auth']);
+
 // Admin Notifications Routes
 $routes->get('/admin/check-new-activities', 'Admin\DashboardController::checkNewActivities', ['filter' => 'auth']);
 $routes->post('/admin/mark-activity-read/(:num)', 'Admin\DashboardController::markActivityAsRead/$1', ['filter' => 'auth']);

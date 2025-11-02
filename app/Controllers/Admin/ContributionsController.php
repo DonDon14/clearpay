@@ -21,6 +21,7 @@ class ContributionsController extends BaseController
             $rules = [
                 'title' => 'required|min_length[3]|max_length[255]',
                 'amount' => 'required|numeric',
+                'grand_total' => 'required|numeric|greater_than[0]',
                 'status' => 'required|in_list[active,inactive]'
             ];
 
@@ -55,6 +56,7 @@ class ContributionsController extends BaseController
                 'contribution_code' => $this->request->getPost('contribution_code') ?: null,
                 'description'       => $this->request->getPost('description'),
                 'amount'            => $this->request->getPost('amount'),
+                'grand_total'       => $this->request->getPost('grand_total') ?: null,
                 'cost_price'        => $this->request->getPost('cost_price') ?: 0,
                 'category'          => $this->request->getPost('category'),
                 'status'            => $this->request->getPost('status'),
@@ -160,6 +162,7 @@ class ContributionsController extends BaseController
             $rules = [
                 'title' => 'required|min_length[3]|max_length[255]',
                 'amount' => 'required|numeric',
+                'grand_total' => 'required|numeric|greater_than[0]',
                 'status' => 'required|in_list[active,inactive]'
             ];
 
@@ -188,6 +191,7 @@ class ContributionsController extends BaseController
                 'contribution_code' => $this->request->getPost('contribution_code') ?: null,
                 'description'       => $this->request->getPost('description'),
                 'amount'            => $this->request->getPost('amount'),
+                'grand_total'       => $this->request->getPost('grand_total') ?: null,
                 'cost_price'        => $this->request->getPost('cost_price') ?: 0,
                 'category'          => $this->request->getPost('category'),
                 'status'            => $this->request->getPost('status'),
