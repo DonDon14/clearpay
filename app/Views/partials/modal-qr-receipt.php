@@ -140,6 +140,10 @@ body:has(#qrReceiptModal.show) #allPaymentsModal {
                                 <small class="text-muted">Contribution:</small>
                                 <p class="mb-1 fw-semibold" id="qrContributionTitle">-</p>
                             </div>
+                            <div class="col-md-6" id="qrContributionCodeContainer" style="display: none;">
+                                <small class="text-muted">Code:</small>
+                                <p class="mb-1"><code id="qrContributionCode">-</code></p>
+                            </div>
                             <div class="col-md-6">
                                 <small class="text-muted">Amount Paid:</small>
                                 <p class="mb-1 fw-semibold text-success" id="qrAmountPaid">-</p>
@@ -221,6 +225,19 @@ window.showQRReceipt = function(paymentData) {
     document.getElementById('qrPayerContact').textContent = paymentData.contact_number || 'N/A';
     document.getElementById('qrPayerEmail').textContent = paymentData.email_address || 'N/A';
     document.getElementById('qrContributionTitle').textContent = paymentData.contribution_title || 'N/A';
+    
+    // Show/hide contribution code if available (check if elements exist first)
+    const contributionCodeContainer = document.getElementById('qrContributionCodeContainer');
+    const contributionCodeElement = document.getElementById('qrContributionCode');
+    if (contributionCodeContainer && contributionCodeElement) {
+        if (paymentData.contribution_code) {
+            contributionCodeElement.textContent = paymentData.contribution_code;
+            contributionCodeContainer.style.display = 'block';
+        } else {
+            contributionCodeContainer.style.display = 'none';
+        }
+    }
+    
     document.getElementById('qrAmountPaid').textContent = '₱' + parseFloat(paymentData.amount_paid || 0).toFixed(2);
     document.getElementById('qrPaymentMethod').textContent = formatPaymentMethod(paymentData.payment_method);
     
@@ -642,6 +659,12 @@ function buildReceiptHTML(paymentData) {
                         <div class="info-label">Contribution Type</div>
                         <div class="info-value">${paymentData.contribution_title || 'N/A'}</div>
                     </div>
+                    ${paymentData.contribution_code ? `
+                    <div class="info-item">
+                        <div class="info-label">Contribution Code</div>
+                        <div class="info-value"><code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-family: monospace;">${paymentData.contribution_code}</code></div>
+                    </div>
+                    ` : ''}
                     <div class="info-item">
                         <div class="info-label">Payment Method</div>
                         <div class="info-value">${formattedMethod}</div>
