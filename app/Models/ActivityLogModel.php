@@ -77,22 +77,20 @@ class ActivityLogModel extends Model
         
         if ($payerId) {
             // For specific payer: show general notifications + payer-specific notifications
+            // BUT only if target_audience is for payers (not admins)
             $query->groupStart()
                 ->groupStart()
-                    ->where('target_audience', 'payers')
-                    ->orWhere('target_audience', 'both')
-                    ->orWhere('target_audience', 'all')
-                    ->groupEnd()
+                    ->whereIn('target_audience', ['payers', 'both', 'all'])
                     ->where('payer_id IS NULL')
-                ->orWhere('payer_id', $payerId)
+                    ->groupEnd()
+                ->orGroupStart()
+                    ->where('payer_id', $payerId)
+                    ->whereIn('target_audience', ['payers', 'both', 'all'])
+                    ->groupEnd()
                 ->groupEnd();
         } else {
             // For all payers: show only general notifications
-            $query->groupStart()
-                ->where('target_audience', 'payers')
-                ->orWhere('target_audience', 'both')
-                ->orWhere('target_audience', 'all')
-                ->groupEnd()
+            $query->whereIn('target_audience', ['payers', 'both', 'all'])
                 ->where('payer_id IS NULL');
         }
         
@@ -112,7 +110,7 @@ class ActivityLogModel extends Model
             LEFT JOIN activity_read_status ars ON al.id = ars.activity_id AND ars.payer_id = ? AND ars.is_read = 1
             WHERE (
                 (al.target_audience IN ('payers', 'both', 'all') AND al.payer_id IS NULL)
-                OR al.payer_id = ?
+                OR (al.payer_id = ? AND al.target_audience IN ('payers', 'both', 'all'))
             )
             ORDER BY al.created_at DESC
             LIMIT ?
