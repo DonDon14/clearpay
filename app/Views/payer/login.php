@@ -54,13 +54,13 @@
         <!-- Login Form -->
         <form method="post" action="<?= base_url('payer/loginPost') ?>" class="login-form">
           <div class="form-group">
-            <label for="payer_id">Payer ID</label>
+            <label for="payer_id">Username / Student ID</label>
             <input 
               type="text" 
               name="payer_id" 
               id="payer_id" 
               class="form-control" 
-              placeholder="Enter your Payer ID"
+              placeholder="Enter your Student ID"
               value="<?= old('payer_id') ?>"
               required
             >
@@ -68,17 +68,16 @@
           </div>
 
           <div class="form-group">
-            <label for="email_address">Email Address</label>
+            <label for="password">Password</label>
             <input 
-              type="email" 
-              name="email_address" 
-              id="email_address" 
+              type="password" 
+              name="password" 
+              id="password" 
               class="form-control" 
-              placeholder="Enter your email address"
-              value="<?= old('email_address') ?>"
+              placeholder="Enter your password"
               required
             >
-            <i class="fas fa-envelope input-icon"></i>
+            <i class="fas fa-lock input-icon"></i>
           </div>
 
           <button type="submit" class="btn-login">
@@ -100,7 +99,7 @@
         <!-- Note -->
         <div class="alert alert-info mt-3" style="padding: 0.75rem;">
           <i class="fas fa-info-circle me-2"></i>
-          <small>Use your Payer ID and Email to access your account</small>
+          <small>Use your Student ID (username) and Password to access your account</small>
         </div>
       </div>
     </div>

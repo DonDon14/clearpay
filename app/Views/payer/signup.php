@@ -148,18 +148,49 @@
           </div>
 
           <div class="form-group">
-            <label for="payer_id">Student ID <span class="text-danger">*</span></label>
+            <label for="payer_id">Student ID / Username <span class="text-danger">*</span></label>
             <input 
               type="text" 
               name="payer_id" 
               id="payer_id" 
               class="form-control" 
               placeholder="Enter your Student ID"
-              value="<?= old('payer_id') ?>"
+              value="<?= old('payer_id') ?>" 
               required
             >
             <i class="fas fa-id-card input-icon"></i>
-            <small class="form-text text-muted">This will be used for login</small>
+            <small class="form-text text-muted">This will be your username for login</small>
+            <div class="invalid-feedback"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password <span class="text-danger">*</span></label>
+            <input 
+              type="password" 
+              name="password" 
+              id="password" 
+              class="form-control" 
+              placeholder="Enter your password"
+              required
+              minlength="6"
+            >
+            <i class="fas fa-lock input-icon"></i>
+            <small class="form-text text-muted">Minimum 6 characters</small>
+            <div class="invalid-feedback"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="confirm_password">Confirm Password <span class="text-danger">*</span></label>
+            <input 
+              type="password" 
+              name="confirm_password" 
+              id="confirm_password" 
+              class="form-control" 
+              placeholder="Confirm your password"
+              required
+              minlength="6"
+            >
+            <i class="fas fa-lock input-icon"></i>
             <div class="invalid-feedback"></div>
           </div>
 
@@ -179,18 +210,20 @@
           </div>
 
           <div class="form-group">
-            <label for="email_address">Email Address <span class="text-danger">*</span></label>
+            <label for="email_address">Email Address</label>
             <input 
               type="email" 
               name="email_address" 
               id="email_address" 
               class="form-control" 
-              placeholder="Enter your email address"
+              placeholder="Enter your email address (optional)"
               value="<?= old('email_address') ?>"
-              required
             >
             <i class="fas fa-envelope input-icon"></i>
-            <small class="form-text text-muted">This will be used for login</small>
+            <small class="form-text text-warning">
+              <i class="fas fa-info-circle me-1"></i>
+              <strong>Recommended:</strong> Having an email helps you receive important updates and notifications
+            </small>
             <div class="invalid-feedback"></div>
           </div>
 
@@ -407,7 +440,7 @@
       let isValid = true;
       
       // Check required fields
-      const requiredFields = ['payer_id', 'payer_name', 'email_address'];
+      const requiredFields = ['payer_id', 'payer_name', 'password', 'confirm_password'];
       requiredFields.forEach(function(fieldId) {
         const field = document.getElementById(fieldId);
         if (!field.value.trim()) {
@@ -417,14 +450,34 @@
           field.classList.remove('is-invalid');
         }
       });
+      
+      // Validate password match
+      const passwordField = document.getElementById('password');
+      const confirmPasswordField = document.getElementById('confirm_password');
+      if (passwordField.value !== confirmPasswordField.value) {
+        confirmPasswordField.classList.add('is-invalid');
+        confirmPasswordField.parentElement.querySelector('.invalid-feedback').textContent = 'Passwords do not match';
+        isValid = false;
+      } else {
+        confirmPasswordField.classList.remove('is-invalid');
+      }
+      
+      // Validate password length
+      if (passwordField.value && passwordField.value.length < 6) {
+        passwordField.classList.add('is-invalid');
+        passwordField.parentElement.querySelector('.invalid-feedback').textContent = 'Password must be at least 6 characters';
+        isValid = false;
+      }
 
-      // Validate email format
+      // Validate email format if provided
       const emailField = document.getElementById('email_address');
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (emailField.value && !emailRegex.test(emailField.value)) {
         emailField.classList.add('is-invalid');
         emailField.parentElement.querySelector('.invalid-feedback').textContent = 'Please enter a valid email address';
         isValid = false;
+      } else if (emailField.value) {
+        emailField.classList.remove('is-invalid');
       }
 
       // Validate contact number if provided
@@ -460,32 +513,43 @@
         const result = await response.json();
 
         if (result.success) {
-          // Show verification modal
-          document.getElementById('pendingEmail').textContent = result.email || 'your email';
-          const verificationModal = new bootstrap.Modal(document.getElementById('verificationModal'));
-          verificationModal.show();
+          // Check if email verification is required
+          if (result.requires_verification && result.email) {
+            // Show verification modal only if email is provided
+            document.getElementById('pendingEmail').textContent = result.email || 'your email';
+            const verificationModal = new bootstrap.Modal(document.getElementById('verificationModal'));
+            verificationModal.show();
 
-          // Show verification code in console for debugging
-          if (result.verification_code) {
-            console.log('🔑 Verification Code (for testing only):', result.verification_code);
-            console.log('📧 Email sent status:', result.email_sent);
+            // Show verification code in console for debugging
+            if (result.verification_code) {
+              console.log('🔑 Verification Code (for testing only):', result.verification_code);
+              console.log('📧 Email sent status:', result.email_sent);
 
-            // Show code in alert if email was not sent (for development)
-            if (!result.email_sent) {
-              alert('Email not configured. Your verification code is: ' + result.verification_code + '\n\nPlease configure SMTP settings in app/Config/Email.php');
+              // Show code in alert if email was not sent (for development)
+              if (!result.email_sent) {
+                alert('Email not configured. Your verification code is: ' + result.verification_code + '\n\nPlease configure SMTP settings in app/Config/Email.php');
+              }
             }
-          }
 
-          // Show email sent message
-          const emailSentAlert = document.getElementById('emailSentAlert');
-          emailSentAlert.classList.remove('d-none');
+            // Show email sent message
+            const emailSentAlert = document.getElementById('emailSentAlert');
+            emailSentAlert.classList.remove('d-none');
 
-          if (result.email_sent) {
-            emailSentAlert.querySelector('span').textContent = 'Verification code sent to your email!';
-            emailSentAlert.className = 'alert alert-success';
+            if (result.email_sent) {
+              emailSentAlert.querySelector('span').textContent = 'Verification code sent to your email!';
+              emailSentAlert.className = 'alert alert-success';
+            } else {
+              emailSentAlert.querySelector('span').textContent = 'Email not configured. Please check console for your verification code.';
+              emailSentAlert.className = 'alert alert-warning';
+            }
           } else {
-            emailSentAlert.querySelector('span').textContent = 'Email not configured. Please check console for your verification code.';
-            emailSentAlert.className = 'alert alert-warning';
+            // No email provided or no verification needed - redirect to login
+            alert(result.message || 'Account created successfully! You can now login.');
+            if (result.redirect) {
+              window.location.href = result.redirect;
+            } else {
+              window.location.href = '<?= base_url('payer/login') ?>';
+            }
           }
         } else {
           alert(result.error || 'Registration failed. Please try again.');

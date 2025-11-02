@@ -36,11 +36,18 @@
                         <div class="invalid-feedback"></div>
                     </div>
                     <div class="mb-3">
-                        <label for="email_address" class="form-label">Email Address <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" id="email_address" name="email_address" required
-                               placeholder="student@example.com">
-                        <small class="form-text text-muted">Required for payer login</small>
+                        <label for="email_address" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="email_address" name="email_address"
+                               placeholder="student@example.com (optional)">
+                        <small class="form-text text-warning">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Recommended:</strong> Having an email helps payers receive important updates and notifications
+                        </small>
                         <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="alert alert-info mb-3">
+                        <i class="fas fa-key me-2"></i>
+                        <small><strong>Login Credentials:</strong> Password will be set to the Student ID. The payer can change it after first login.</small>
                     </div>
                     <div class="mb-3">
                         <label for="course_department" class="form-label">Course/Department</label>
@@ -109,7 +116,7 @@
     // Validate email format
     function validateEmail(email) {
         if (!email || email.trim() === '') {
-            return false; // Email is now required
+            return true; // Email is optional, empty is valid
         }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
@@ -167,9 +174,7 @@
         if (emailField) {
             emailField.addEventListener('blur', function(e) {
                 const value = e.target.value.trim();
-                if (!value) {
-                    showFieldError('email_address', 'Email address is required');
-                } else if (!validateEmail(value)) {
+                if (value && !validateEmail(value)) {
                     showFieldError('email_address', 'Invalid email address format');
                 } else {
                     clearFieldError('email_address');
@@ -213,11 +218,8 @@
                 isValid = false;
             }
             
-            // Validate email (required)
-            if (!emailAddress) {
-                showFieldError('email_address', 'Email address is required');
-                isValid = false;
-            } else if (!validateEmail(emailAddress)) {
+            // Validate email format if provided (optional)
+            if (emailAddress && !validateEmail(emailAddress)) {
                 showFieldError('email_address', 'Invalid email address format');
                 isValid = false;
             }
