@@ -745,6 +745,12 @@ class RefundsController extends BaseController
         if ($updatedRefund) {
             $activityLogger->logRefund('completed', $updatedRefund, $adminName);
             
+            // Log to user_activities table for dashboard display
+            // Include refund amount and payer name
+            $refundAmount = number_format($updatedRefund['refund_amount'] ?? 0, 2);
+            $payerName = $refundDetails['payer_name'] ?? 'Unknown Payer';
+            $this->logUserActivity('completed', 'refund', $refundId, "Refund of ₱{$refundAmount} has been processed by {$adminName} for {$payerName}");
+            
             // Merge updated refund data (especially processed_at) into refund details for email
             if ($refundDetails) {
                 $refundDetails['processed_at'] = $updatedRefund['processed_at'] ?? date('Y-m-d H:i:s');
@@ -849,6 +855,12 @@ class RefundsController extends BaseController
             
             // Merge updated refund data (especially processed_at) into refund details for email
             if ($refundDetails) {
+                // Log to user_activities table for dashboard display
+                // Include refund amount and payer name
+                $refundAmount = number_format($updatedRefund['refund_amount'] ?? 0, 2);
+                $payerName = $refundDetails['payer_name'] ?? 'Unknown Payer';
+                $this->logUserActivity('completed', 'refund', $refundId, "Refund of ₱{$refundAmount} has been processed by {$adminName} for {$payerName}");
+                
                 $refundDetails['processed_at'] = $updatedRefund['processed_at'] ?? date('Y-m-d H:i:s');
             }
         }
@@ -904,6 +916,19 @@ class RefundsController extends BaseController
 
         $refundModel->rejectRequest($refundId, $userId, $adminNotes);
 
+        // Get refund details for logging (with payer info)
+        $refundDetails = $refundModel->select('
+            refunds.*,
+            payments.amount_paid,
+            payments.receipt_number,
+            payers.payer_name,
+            payers.payer_id as payer_student_id
+        ')
+        ->join('payments', 'payments.id = refunds.payment_id', 'left')
+        ->join('payers', 'payers.id = refunds.payer_id', 'left')
+        ->where('refunds.id', $refundId)
+        ->first();
+
         // Log activity with admin name
         $activityLogger = new ActivityLogger();
         $userModel = new \App\Models\UserModel();
@@ -914,6 +939,14 @@ class RefundsController extends BaseController
         $updatedRefund = $refundModel->find($refundId);
         if ($updatedRefund) {
             $activityLogger->logRefund('rejected', $updatedRefund, $adminName);
+            
+            // Log to user_activities table for dashboard display
+            // Include refund amount and payer name
+            if ($refundDetails) {
+                $refundAmount = number_format($updatedRefund['refund_amount'] ?? 0, 2);
+                $payerName = $refundDetails['payer_name'] ?? 'Unknown Payer';
+                $this->logUserActivity('rejected', 'refund', $refundId, "Refund of ₱{$refundAmount} rejected by {$adminName} for {$payerName}" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
+            }
         }
 
         return $this->response->setJSON([
@@ -1042,6 +1075,43 @@ class RefundsController extends BaseController
         } catch (\Error $e) {
             log_message('error', 'Failed to send refund approval email (Error): ' . $e->getMessage());
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        }
+    }
+
+    /**
+     * Log user activity to user_activities table for admin dashboard
+     */
+    private function logUserActivity($activityType, $entityType, $entityId, $description)
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            $userId = session()->get('user-id') ?? 1;
+            
+            $data = [
+                'user_id' => $userId,
+                'activity_type' => $activityType,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'description' => $description,
+                'ip_address' => $this->request->getIPAddress(),
+                'user_agent' => $this->request->getUserAgent(),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+            
+            $result = $db->table('user_activities')->insert($data);
+            
+            if ($result) {
+                log_message('info', 'User activity logged successfully');
+            } else {
+                log_message('error', 'Failed to insert user activity');
+            }
+            
+            return $result;
+        } catch (\Exception $e) {
+            // Log error but don't fail the main operation
+            log_message('error', 'Failed to log user activity: ' . $e->getMessage());
             return false;
         }
     }

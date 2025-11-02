@@ -140,6 +140,15 @@ class LoginController extends Controller
                 log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
             }
             
+            // Log admin user registration activity for other admins
+            try {
+                $activityLogger = new \App\Services\ActivityLogger();
+                $userData = array_merge($data, ['id' => $userId]);
+                $activityLogger->logUser('created', $userData);
+            } catch (\Exception $e) {
+                log_message('error', 'Failed to log admin user registration activity: ' . $e->getMessage());
+            }
+            
             return $this->response->setJSON([
                 'success' => true,
                 'message' => 'Registration successful! Please verify your email.',

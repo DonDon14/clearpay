@@ -76,18 +76,32 @@ class ContributionsController extends BaseController
             }
 
             if ($result) {
-                // Log activity using new ActivityLogger
+                // Log activity using new ActivityLogger (for notifications)
                 $activityLogger = new ActivityLogger();
+                
+                // Get contribution title for logging
+                $contributionTitle = $this->request->getPost('title');
+                $userId = session()->get('user-id');
+                $userModel = new \App\Models\UserModel();
+                $user = $userModel->find($userId);
+                $userName = $user['name'] ?? $user['username'] ?? 'Admin';
                 
                 if ($id) {
                     // Update existing contribution - get old data first and include ID
                     $oldData = $model->find($id);
                     $data['id'] = $id;
                     $activityLogger->logContribution('updated', $data, $oldData);
+                    
+                    // Log to user_activities table for dashboard display
+                    $this->logUserActivity('update', 'contribution', $id, "Updated contribution: {$contributionTitle}");
                 } else {
                     // Create new contribution - use the insert result as ID
                     $data['id'] = $result;
                     $activityLogger->logContribution('created', $data);
+                    
+                    // Log to user_activities table for dashboard display
+                    // Include contribution title and who added it
+                    $this->logUserActivity('create', 'contribution', $result, "New contribution added: {$contributionTitle} by {$userName}");
                 }
                 
                 session()->setFlashdata('success', $message);

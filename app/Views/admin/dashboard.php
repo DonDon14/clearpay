@@ -242,7 +242,43 @@
                 <div class="card-body p-0">
                     <?php if (!empty($userActivities)): ?>
                         <?php foreach ($userActivities as $activity): ?>
-                            <div class="d-flex align-items-start p-3 border-bottom">
+                            <?php
+                                // Determine click URL based on entity_type and activity_type
+                                $clickUrl = null;
+                                $entityType = strtolower($activity['entity_type'] ?? '');
+                                $activityType = strtolower($activity['activity_type'] ?? ''); // This is the action: create, update, delete, etc.
+                                
+                                // For user_activities table, entity_type determines the redirect
+                                if ($entityType === 'payment_request') {
+                                    $clickUrl = base_url('payment-requests');
+                                } elseif ($entityType === 'refund') {
+                                    // For refunds, redirect to history if rejected/processed
+                                    if (in_array($activityType, ['rejected', 'completed', 'processed'])) {
+                                        $clickUrl = base_url('refunds') . '#history';
+                                    } else {
+                                        $clickUrl = base_url('refunds');
+                                    }
+                                } elseif ($entityType === 'payment') {
+                                    $clickUrl = base_url('payments');
+                                } elseif ($entityType === 'contribution') {
+                                    $clickUrl = base_url('contributions');
+                                } elseif ($entityType === 'announcement') {
+                                    $clickUrl = base_url('announcements');
+                                } elseif ($entityType === 'payer') {
+                                    $clickUrl = base_url('payers');
+                                } elseif ($entityType === 'user') {
+                                    $clickUrl = base_url('settings/users');
+                                }
+                                
+                                $isClickable = $clickUrl !== null;
+                                $clickStyle = $isClickable ? 'cursor: pointer; transition: background-color 0.2s;' : '';
+                                $clickClass = $isClickable ? 'user-activity-clickable' : '';
+                            ?>
+                            <div class="d-flex align-items-start p-3 border-bottom <?= $clickClass ?>" 
+                                 onclick="<?= $isClickable ? "window.location.href='{$clickUrl}'" : '' ?>"
+                                 style="<?= $clickStyle ?>"
+                                 onmouseover="<?= $isClickable ? "this.style.backgroundColor='#f8f9fa'" : '' ?>"
+                                 onmouseout="<?= $isClickable ? "this.style.backgroundColor=''" : '' ?>">
                                 <div class="me-3">
                                     <?php if (!empty($activity['profile_picture'])): ?>
                                         <img src="<?= base_url($activity['profile_picture']) ?>" 
@@ -257,6 +293,10 @@
                                                 'delete' => 'fa-trash',
                                                 'login' => 'fa-sign-in-alt',
                                                 'logout' => 'fa-sign-out-alt',
+                                                'approved' => 'fa-check-circle',
+                                                'rejected' => 'fa-times-circle',
+                                                'processed' => 'fa-check-double',
+                                                'completed' => 'fa-check-double',
                                                 'refund_processed' => 'fa-undo',
                                                 'refund_approved' => 'fa-check-circle',
                                                 'refund_rejected' => 'fa-times-circle',
@@ -269,6 +309,9 @@
                                                 'delete' => 'bg-danger',
                                                 'login' => 'bg-primary',
                                                 'logout' => 'bg-secondary',
+                                                'approved' => 'bg-success',
+                                                'rejected' => 'bg-danger',
+                                                'processed', 'completed' => 'bg-primary',
                                                 'refund_processed', 'refund_approved', 'refund_completed' => 'bg-warning',
                                                 'refund_rejected' => 'bg-danger',
                                                 default => 'bg-secondary'
@@ -291,6 +334,11 @@
                                         <?= date('M d, Y h:i A', strtotime($activity['created_at'])) ?>
                                     </div>
                                 </div>
+                                <?php if ($isClickable): ?>
+                                    <div class="ms-2">
+                                        <i class="fas fa-chevron-right text-muted"></i>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     <?php else: ?>

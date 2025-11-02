@@ -328,6 +328,15 @@ class SidebarController extends BaseController
                 // Log user activity
                 $this->logUserActivity('create', 'payer', $result, 'Added new payer: ' . $data['payer_name']);
                 
+                // Log payer activity for admin notifications
+                try {
+                    $activityLogger = new \App\Services\ActivityLogger();
+                    $payerData = array_merge($data, ['id' => $result]);
+                    $activityLogger->logPayer('created', $payerData);
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to log payer create activity: ' . $e->getMessage());
+                }
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Payer added successfully'
@@ -499,6 +508,15 @@ class SidebarController extends BaseController
                 $description = !empty($changes) ? 'Updated payer (' . implode(', ', $changes) . ')' : 'Updated payer: ' . $data['payer_name'];
                 $this->logUserActivity('update', 'payer', $payerId, $description);
                 
+                // Log payer activity for admin notifications
+                try {
+                    $activityLogger = new \App\Services\ActivityLogger();
+                    $updatedPayerData = array_merge($payer, $data, ['id' => $payerId]);
+                    $activityLogger->logPayer('updated', $updatedPayerData, $payer);
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to log payer update activity: ' . $e->getMessage());
+                }
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Payer updated successfully'
@@ -559,6 +577,14 @@ class SidebarController extends BaseController
             if ($result) {
                 // Log user activity
                 $this->logUserActivity('delete', 'payer', $payerId, 'Deleted payer: ' . $payerName);
+                
+                // Log payer activity for admin notifications
+                try {
+                    $activityLogger = new \App\Services\ActivityLogger();
+                    $activityLogger->logPayer('deleted', $payer);
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to log payer delete activity: ' . $e->getMessage());
+                }
                 
                 return $this->response->setJSON([
                     'success' => true,
@@ -864,6 +890,9 @@ class SidebarController extends BaseController
             }
         }
 
+        // Get old user data for activity logging
+        $oldUserData = $user;
+        
         // Update user data
         if (!empty($updateData)) {
             $userModel->update($userId, $updateData);
@@ -882,6 +911,23 @@ class SidebarController extends BaseController
 
         // Get updated user data
         $updatedUser = $userModel->find($userId);
+        
+        // Log admin user profile update activity for other admins (only if significant changes)
+        try {
+            $activityLogger = new \App\Services\ActivityLogger();
+            $userData = array_merge($oldUserData, $updateData, ['id' => $userId]);
+            // Only log if name, email, phone, or role changed (not password or profile picture)
+            $significantChanges = false;
+            if (isset($updateData['name']) || isset($updateData['email']) || isset($updateData['phone']) || isset($updateData['role'])) {
+                $significantChanges = true;
+            }
+            
+            if ($significantChanges) {
+                $activityLogger->logUser('updated', $userData, $oldUserData);
+            }
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to log admin user update activity: ' . $e->getMessage());
+        }
 
         return $this->response->setJSON([
             'success' => true,

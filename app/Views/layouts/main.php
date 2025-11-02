@@ -240,6 +240,9 @@
   <!-- Bootstrap JavaScript Bundle (required for modals) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   
+  <!-- Admin Notification System -->
+  <script src="<?= base_url('js/admin-notifications.js') ?>"></script>
+  
   <!-- Profile Modal (included at body level to avoid overflow issues) -->
   <?= view('partials/modal-profile') ?>
   

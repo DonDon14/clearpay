@@ -68,6 +68,13 @@ $routes->post('/admin/settings/refund-methods/update/(:num)', 'Admin\Settings\Re
 $routes->post('/admin/settings/refund-methods/delete/(:num)', 'Admin\Settings\RefundMethodController::delete/$1', ['filter' => 'auth']);
 $routes->post('/admin/settings/refund-methods/toggle-status/(:num)', 'Admin\Settings\RefundMethodController::toggleStatus/$1', ['filter' => 'auth']);
 
+// Admin Notifications Routes
+$routes->get('/admin/check-new-activities', 'Admin\DashboardController::checkNewActivities', ['filter' => 'auth']);
+$routes->post('/admin/mark-activity-read/(:num)', 'Admin\DashboardController::markActivityAsRead/$1', ['filter' => 'auth']);
+$routes->post('/admin/mark-all-activities-read', 'Admin\DashboardController::markAllAsRead', ['filter' => 'auth']);
+$routes->get('/admin/get-all-activities', 'Admin\DashboardController::getAllActivities', ['filter' => 'auth']);
+$routes->get('/admin/get-unread-count', 'Admin\DashboardController::getUnreadCount', ['filter' => 'auth']);
+
 // Payment Requests Management Routes
 $routes->get('/payment-requests', 'Admin\DashboardController::paymentRequests', ['filter' => 'auth']);
 $routes->post('/admin/approve-payment-request', 'Admin\DashboardController::approvePaymentRequest', ['filter' => 'auth']);
