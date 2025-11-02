@@ -618,6 +618,7 @@ class PaymentsController extends BaseController
     {
         try {
             $paymentModel = new PaymentModel();
+            $refundModel = new \App\Models\RefundModel();
             
             // Find payment by receipt number
             $payment = $paymentModel->select('
@@ -641,6 +642,31 @@ class PaymentsController extends BaseController
             ->first();
 
             if ($payment) {
+                // Check if payment has been refunded
+                $refundStatus = $paymentModel->getPaymentRefundStatus($payment['id']);
+                $totalRefunded = $paymentModel->getPaymentTotalRefunded($payment['id']);
+                
+                // Get refund details if refunded
+                $refunds = [];
+                if ($refundStatus !== 'no_refund') {
+                    $refunds = $refundModel
+                        ->where('payment_id', $payment['id'])
+                        ->where('status', 'completed')
+                        ->orderBy('processed_at', 'DESC')
+                        ->findAll();
+                }
+                
+                // Add refund information to payment data
+                $payment['refund_status'] = $refundStatus;
+                $payment['total_refunded'] = $totalRefunded;
+                $payment['is_refunded'] = ($refundStatus === 'fully_refunded' || $refundStatus === 'partially_refunded');
+                
+                // Get latest refund date if available
+                if (!empty($refunds)) {
+                    $payment['refunded_at'] = $refunds[0]['processed_at'] ?? null;
+                    $payment['refunds'] = $refunds;
+                }
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'payment' => $payment

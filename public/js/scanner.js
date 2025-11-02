@@ -292,21 +292,44 @@ function showPaymentVerificationModal(payment) {
         });
     }
 
+    // Check if payment is refunded
+    const isRefunded = payment.is_refunded || payment.refund_status === 'fully_refunded' || payment.refund_status === 'partially_refunded';
+    const refundStatus = payment.refund_status || 'no_refund';
+    const totalRefunded = payment.total_refunded || 0;
+    const refundedAt = payment.refunded_at ? formatDateLocal(payment.refunded_at) : null;
+    
+    // Determine header and alert styling based on refund status
+    const headerClass = isRefunded ? 'bg-danger' : 'bg-success';
+    const headerIcon = isRefunded ? 'fa-exclamation-triangle' : 'fa-check-circle';
+    const headerTitle = isRefunded ? 'Payment Refunded' : 'Payment Verified';
+    
     const modal = `
         <div class="modal fade" id="paymentVerificationModal" tabindex="-1">
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
-                    <div class="modal-header bg-success text-white">
+                    <div class="modal-header ${headerClass} text-white">
                         <h5 class="modal-title">
-                            <i class="fas fa-check-circle me-2"></i>Payment Verified
+                            <i class="fas ${headerIcon} me-2"></i>${headerTitle}
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        ${isRefunded ? `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>WARNING:</strong> This payment has already been refunded!
+                            ${refundStatus === 'fully_refunded' ? 
+                                '<br>The full amount of ₱' + parseFloat(amountPaid).toFixed(2) + ' has been refunded.' :
+                                '<br>Partially refunded: ₱' + parseFloat(totalRefunded).toFixed(2) + ' of ₱' + parseFloat(amountPaid).toFixed(2) + ' has been refunded.'
+                            }
+                            ${refundedAt ? '<br>Refund processed on: ' + refundedAt : ''}
+                        </div>
+                        ` : `
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle me-2"></i>
                             This payment has been successfully verified!
                         </div>
+                        `}
                         
                         <div class="row g-3">
                             <div class="col-md-6">
@@ -362,6 +385,26 @@ function showPaymentVerificationModal(payment) {
                                     </div>
                                 </div>
                             </div>
+                            ${isRefunded ? `
+                            <div class="col-md-6">
+                                <div class="card border-0 bg-danger bg-opacity-10 border-danger">
+                                    <div class="card-body">
+                                        <h6 class="text-danger mb-2">
+                                            <i class="fas fa-undo me-1"></i>Refund Status
+                                        </h6>
+                                        ${(() => {
+                                            if (refundStatus === 'fully_refunded') {
+                                                return '<span class="badge bg-danger">FULLY REFUNDED</span><br><small class="text-muted mt-1 d-block">₱' + parseFloat(totalRefunded).toFixed(2) + ' refunded</small>';
+                                            } else if (refundStatus === 'partially_refunded') {
+                                                return '<span class="badge bg-warning text-dark">PARTIALLY REFUNDED</span><br><small class="text-muted mt-1 d-block">₱' + parseFloat(totalRefunded).toFixed(2) + ' of ₱' + parseFloat(amountPaid).toFixed(2) + ' refunded</small>';
+                                            }
+                                            return '<span class="badge bg-secondary">NO REFUND</span>';
+                                        })()}
+                                        ${refundedAt ? '<br><small class="text-muted mt-2 d-block">Refunded: ' + refundedAt + '</small>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
                     <div class="modal-footer">
