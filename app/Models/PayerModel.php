@@ -18,6 +18,8 @@ class PayerModel extends Model
         'profile_picture',
         'email_verified',
         'verification_token',
+        'reset_token',
+        'reset_expires',
         'created_at',
         'updated_at'
     ];

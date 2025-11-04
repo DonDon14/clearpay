@@ -146,6 +146,10 @@ $routes->get('/qr-receipt/show/(:num)', 'Admin\QRReceiptController::showReceipt/
 // Payer Routes
 $routes->get('payer/login', 'Payer\LoginController::index');
 $routes->post('payer/loginPost', 'Payer\LoginController::loginPost');
+$routes->get('payer/forgotPassword', 'Payer\LoginController::forgotPassword');
+$routes->post('payer/forgotPasswordPost', 'Payer\LoginController::forgotPasswordPost');
+$routes->post('payer/verifyResetCode', 'Payer\LoginController::verifyResetCode');
+$routes->post('payer/resetPassword', 'Payer\LoginController::resetPassword');
 $routes->get('payer/signup', 'Payer\SignupController::index');
 $routes->post('payer/signupPost', 'Payer\SignupController::signupPost');
 $routes->post('payer/verifyEmail', 'Payer\SignupController::verifyEmail');
