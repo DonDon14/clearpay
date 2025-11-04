@@ -8,7 +8,7 @@
 
 #password.form-control {
     padding-left: 1rem;
-    padding-right: 1rem;
+    padding-right: 3rem; /* Extra padding for password toggle button */
 }
 
 /* Input Icon Positioning - Login Page - Outside the input */
@@ -22,19 +22,18 @@
     z-index: 2;
 }
 
-/* Password Toggle Button - Login Page - Outside the input */
+/* Password Toggle Button - Login Page - Inside the input (right side) */
 .password-toggle {
     position: absolute;
-    right: -2rem;
+    right: 0.75rem;
     top: 1.9rem;
-    background: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
+    background: transparent;
+    border: none;
     color: #9ca3af;
     cursor: pointer;
     padding: 0.5rem;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2rem;
+    height: 2rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -82,6 +81,26 @@
 
 .forgot-password:hover {
     color: #3b82f6;
+}
+
+/* Forgot Password Link - Payer Login */
+.forgot-password-link {
+    text-align: right;
+    margin-top: -0.5rem;
+    margin-bottom: 1rem;
+}
+
+.forgot-link {
+    font-size: 0.875rem;
+    color: #3b82f6;
+    text-decoration: none;
+    transition: color 0.2s;
+    font-weight: 500;
+}
+
+.forgot-link:hover {
+    color: #2563eb;
+    text-decoration: underline;
 }
 
 /* Login Button */

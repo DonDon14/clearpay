@@ -78,6 +78,13 @@
               required
             >
             <i class="fas fa-lock input-icon"></i>
+            <button type="button" class="password-toggle" id="passwordToggle" aria-label="Toggle password visibility">
+              <i class="fas fa-eye" id="passwordToggleIcon"></i>
+            </button>
+          </div>
+
+          <div class="forgot-password-link">
+            <a href="<?= base_url('payer/forgotPassword') ?>" class="forgot-link">Forgot Password?</a>
           </div>
 
           <button type="submit" class="btn-login">
@@ -144,5 +151,30 @@
       </div>
     </div>
   </div>
+
+  <script>
+    // Password toggle functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.getElementById('password');
+      const passwordToggle = document.getElementById('passwordToggle');
+      const passwordToggleIcon = document.getElementById('passwordToggleIcon');
+
+      if (passwordToggle && passwordInput) {
+        passwordToggle.addEventListener('click', function() {
+          const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+          passwordInput.setAttribute('type', type);
+          
+          // Toggle icon
+          if (type === 'text') {
+            passwordToggleIcon.classList.remove('fa-eye');
+            passwordToggleIcon.classList.add('fa-eye-slash');
+          } else {
+            passwordToggleIcon.classList.remove('fa-eye-slash');
+            passwordToggleIcon.classList.add('fa-eye');
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>
