@@ -4,7 +4,7 @@ namespace App\Database\Migrations;
 
 use CodeIgniter\Database\Migration;
 
-class CreatePaymentRequestsTable extends Migration
+class CreateRefundsTable extends Migration
 {
     public function up()
     {
@@ -14,6 +14,13 @@ class CreatePaymentRequestsTable extends Migration
                 'constraint' => 11,
                 'unsigned' => true,
                 'auto_increment' => true,
+            ],
+            'payment_id' => [
+                'type' => 'INT',
+                'constraint' => 11,
+                'unsigned' => true,
+                'null' => false,
+                'comment' => 'Reference to the payment being refunded',
             ],
             'payer_id' => [
                 'type' => 'INT',
@@ -27,41 +34,44 @@ class CreatePaymentRequestsTable extends Migration
                 'unsigned' => true,
                 'null' => false,
             ],
-            'payment_sequence' => [
-                'type' => 'INT',
-                'constraint' => 11,
-                'unsigned' => true,
-                'null' => true,
-                'comment' => 'Payment group sequence for grouping related payments',
-            ],
-            'requested_amount' => [
+            'refund_amount' => [
                 'type' => 'DECIMAL',
-                'constraint' => '10,2',
+                'constraint' => '12,2',
                 'null' => false,
             ],
-            'payment_method' => [
-                'type' => 'ENUM',
-                'constraint' => ['cash', 'online', 'bank_transfer', 'gcash', 'paymaya'],
-                'default' => 'online',
+            'refund_reason' => [
+                'type' => 'TEXT',
+                'null' => true,
             ],
-            'reference_number' => [
+            'refund_method' => [
+                'type' => 'VARCHAR',
+                'constraint' => 50,
+                'null' => false,
+                'default' => 'original_method',
+                'comment' => 'Method used for refund (references refund_methods.code)',
+            ],
+            'refund_reference' => [
                 'type' => 'VARCHAR',
                 'constraint' => 100,
                 'null' => true,
-            ],
-            'proof_of_payment_path' => [
-                'type' => 'VARCHAR',
-                'constraint' => 255,
-                'null' => true,
+                'comment' => 'Reference number for refund transaction',
             ],
             'status' => [
                 'type' => 'ENUM',
-                'constraint' => ['pending', 'approved', 'rejected', 'processed'],
+                'constraint' => ['pending', 'processing', 'completed', 'rejected', 'cancelled'],
                 'default' => 'pending',
             ],
-            'notes' => [
-                'type' => 'TEXT',
-                'null' => true,
+            'request_type' => [
+                'type' => 'ENUM',
+                'constraint' => ['admin_initiated', 'payer_requested'],
+                'default' => 'admin_initiated',
+                'comment' => 'Who initiated the refund - admin or payer request',
+            ],
+            'requested_by_payer' => [
+                'type' => 'TINYINT',
+                'constraint' => 1,
+                'default' => 0,
+                'comment' => '1 if requested by payer, 0 if by admin',
             ],
             'requested_at' => [
                 'type' => 'DATETIME',
@@ -76,10 +86,16 @@ class CreatePaymentRequestsTable extends Migration
                 'constraint' => 11,
                 'unsigned' => true,
                 'null' => true,
+                'comment' => 'User ID who processed the refund',
             ],
             'admin_notes' => [
                 'type' => 'TEXT',
                 'null' => true,
+            ],
+            'payer_notes' => [
+                'type' => 'TEXT',
+                'null' => true,
+                'comment' => 'Notes from payer when requesting refund',
             ],
             'created_at' => [
                 'type' => 'DATETIME',
@@ -92,21 +108,24 @@ class CreatePaymentRequestsTable extends Migration
         ]);
 
         $this->forge->addKey('id', true);
+        $this->forge->addKey('payment_id');
         $this->forge->addKey('payer_id');
         $this->forge->addKey('contribution_id');
         $this->forge->addKey('status');
         $this->forge->addKey('requested_at');
         
         // Add foreign key constraints
+        $this->forge->addForeignKey('payment_id', 'payments', 'id', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('payer_id', 'payers', 'id', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('contribution_id', 'contributions', 'id', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('processed_by', 'users', 'id', 'SET NULL', 'CASCADE');
 
-        $this->forge->createTable('payment_requests');
+        $this->forge->createTable('refunds');
     }
 
     public function down()
     {
-        $this->forge->dropTable('payment_requests');
+        $this->forge->dropTable('refunds');
     }
 }
+

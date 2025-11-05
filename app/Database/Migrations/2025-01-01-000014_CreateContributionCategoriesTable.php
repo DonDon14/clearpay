@@ -148,3 +148,4 @@ class CreateContributionCategoriesTable extends Migration
         $this->forge->dropTable('contribution_categories', true);
     }
 }
+
