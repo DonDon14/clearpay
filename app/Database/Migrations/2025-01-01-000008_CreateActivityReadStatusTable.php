@@ -52,6 +52,8 @@ class CreateActivityReadStatusTable extends Migration
         $this->forge->addKey(['activity_id', 'payer_id'], false, true); // Unique constraint
         $this->forge->addKey('payer_id');
         $this->forge->addKey('is_read');
+        $this->forge->addKey('activity_id');
+        $this->forge->addKey(['activity_id', 'payer_id', 'is_read']);
         
         $this->forge->addForeignKey('activity_id', 'activity_logs', 'id', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('payer_id', 'payers', 'id', 'CASCADE', 'CASCADE');
@@ -64,3 +66,4 @@ class CreateActivityReadStatusTable extends Migration
         $this->forge->dropTable('activity_read_status');
     }
 }
+

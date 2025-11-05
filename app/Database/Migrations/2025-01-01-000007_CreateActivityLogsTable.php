@@ -64,6 +64,12 @@ class CreateActivityLogsTable extends Migration
                 'constraint' => ['admin', 'payer'],
                 'null' => false,
             ],
+            'payer_id' => [
+                'type' => 'INT',
+                'constraint' => 11,
+                'null' => true,
+                'comment' => 'Specific payer ID for payer-specific notifications'
+            ],
             'target_audience' => [
                 'type' => 'ENUM',
                 'constraint' => ['admins', 'payers', 'both', 'all'],
@@ -89,6 +95,10 @@ class CreateActivityLogsTable extends Migration
         $this->forge->addKey(['entity_type', 'entity_id']);
         $this->forge->addKey(['user_id', 'user_type']);
         $this->forge->addKey('is_read');
+        $this->forge->addKey('target_audience');
+        $this->forge->addKey('payer_id');
+        $this->forge->addKey('created_at');
+        $this->forge->addKey(['target_audience', 'payer_id', 'created_at']);
 
         $this->forge->createTable('activity_logs');
     }
@@ -98,3 +108,4 @@ class CreateActivityLogsTable extends Migration
         $this->forge->dropTable('activity_logs');
     }
 }
+
