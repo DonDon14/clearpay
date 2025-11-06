@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/notion_card.dart';
 import '../widgets/notion_text.dart';
+import '../widgets/payment_receipt_modal.dart';
 import 'payment_requests_screen.dart';
 import 'payment_history_screen.dart';
 
@@ -329,15 +330,39 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         else
           NotionCard(
             padding: EdgeInsets.zero,
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: paymentsList.length,
-              separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE9E9E7)),
-              itemBuilder: (context, index) {
-                final payment = paymentsList[index];
-                return _buildPaymentItem(payment);
-              },
+            child: Column(
+              children: [
+                // Table Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey[300]!),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 2, child: NotionText('Date', fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF787774))),
+                      Expanded(flex: 2, child: NotionText('Amount', fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF787774))),
+                      Expanded(flex: 2, child: NotionText('Method', fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF787774))),
+                      Expanded(flex: 2, child: NotionText('Status', fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF787774))),
+                      Expanded(flex: 1, child: NotionText('Receipt', fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF787774), textAlign: TextAlign.center)),
+                    ],
+                  ),
+                ),
+                // Payment Rows
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: paymentsList.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE9E9E7)),
+                  itemBuilder: (context, index) {
+                    final payment = paymentsList[index];
+                    return _buildPaymentItem(payment, isFullyPaid);
+                  },
+                ),
+              ],
             ),
           ),
         const SizedBox(height: 16),
@@ -403,111 +428,96 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     );
   }
 
-  Widget _buildPaymentItem(Map<String, dynamic> payment) {
+  Widget _buildPaymentItem(Map<String, dynamic> payment, bool isFullyPaid) {
     final amount = _parseDouble(payment['amount_paid'] ?? 0);
     final paymentDate = (payment['payment_date'] ?? payment['created_at'] ?? '').toString();
     final paymentMethod = (payment['payment_method'] ?? 'N/A').toString();
-    final referenceNumber = (payment['reference_number'] ?? 'N/A').toString();
-    final qrReceiptPath = payment['qr_receipt_path'];
+    final status = payment['payment_status'] ?? 'pending';
+    final receiptNumber = payment['receipt_number'] ?? 'N/A';
 
     return InkWell(
-      onTap: qrReceiptPath != null && qrReceiptPath.toString().isNotEmpty
-          ? () => _showQRReceipt(payment)
-          : null,
+      onTap: () => _showPaymentReceipt(payment),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF6366F1).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Icon(Icons.receipt, color: Color(0xFF6366F1), size: 20),
-            ),
-            const SizedBox(width: 12),
+            // Date
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  NotionText(
-                    '₱${NumberFormat('#,##0.00').format(amount)}',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  const SizedBox(height: 4),
-                  NotionText(
-                    _formatDate(paymentDate),
-                    fontSize: 12,
-                    color: const Color(0xFF787774),
-                  ),
-                  const SizedBox(height: 4),
-                  NotionText(
-                    '$paymentMethod • Ref: $referenceNumber',
-                    fontSize: 12,
-                    color: const Color(0xFF787774),
-                  ),
-                ],
+              flex: 2,
+              child: NotionText(
+                _formatDate(paymentDate),
+                fontSize: 12,
+                color: const Color(0xFF787774),
               ),
             ),
-            if (qrReceiptPath != null && qrReceiptPath.toString().isNotEmpty)
-              IconButton(
-                icon: const Icon(Icons.qr_code, color: Color(0xFF6366F1)),
-                onPressed: () => _showQRReceipt(payment),
-                tooltip: 'View Receipt',
+            // Amount
+            Expanded(
+              flex: 2,
+              child: NotionText(
+                '₱${NumberFormat('#,##0.00').format(amount)}',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
+            ),
+            // Method
+            Expanded(
+              flex: 2,
+              child: NotionText(
+                paymentMethod.replaceAll('_', ' ').toUpperCase(),
+                fontSize: 12,
+                color: const Color(0xFF787774),
+              ),
+            ),
+            // Status
+            Expanded(
+              flex: 2,
+              child: _buildStatusBadge(status, isFullyPaid),
+            ),
+            // Receipt Button
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: IconButton(
+                  icon: const Icon(Icons.qr_code, color: Color(0xFF6366F1), size: 20),
+                  onPressed: () => _showPaymentReceipt(payment),
+                  tooltip: 'View Receipt',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _showQRReceipt(Map<String, dynamic> payment) {
-    final qrReceiptPath = payment['qr_receipt_path'];
-    if (qrReceiptPath == null || qrReceiptPath.toString().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Receipt not available')),
-      );
-      return;
-    }
+  Widget _buildStatusBadge(String status, bool isFullyPaid) {
+    final statusText = (isFullyPaid || status.toLowerCase() == 'fully paid')
+        ? 'Completed'
+        : status.toUpperCase();
+    final color = (isFullyPaid || status.toLowerCase() == 'fully paid')
+        ? Colors.green
+        : Colors.orange;
 
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const NotionText('Payment Receipt', fontSize: 18, fontWeight: FontWeight.w700),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Image.network(
-                '${ApiService.baseUrl}/$qrReceiptPath',
-                errorBuilder: (context, error, stackTrace) {
-                  return const Column(
-                    children: [
-                      Icon(Icons.error_outline, size: 64, color: Colors.red),
-                      SizedBox(height: 16),
-                      Text('Failed to load receipt'),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: NotionText(
+        statusText,
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        color: color,
       ),
     );
+  }
+
+  void _showPaymentReceipt(Map<String, dynamic> payment) {
+    // Use the reusable payment receipt modal
+    PaymentReceiptModal.show(context, payment);
   }
 
   @override
