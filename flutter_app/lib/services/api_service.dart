@@ -393,7 +393,8 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/refund-requests');
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/refund-requests?payer_id=$userId');
       final response = await http.get(
         url,
         headers: {
@@ -415,7 +416,8 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getActiveRefundMethods() async {
     try {
-      final url = Uri.parse('$baseUrl/payer/refund-methods');
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/refund-methods');
       final response = await http.get(
         url,
         headers: {

@@ -392,6 +392,16 @@ class _DashboardContentWidget extends StatelessWidget {
   
   const _DashboardContentWidget(this.data, this.context);
 
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -689,7 +699,7 @@ class _DashboardContentWidget extends StatelessWidget {
         itemBuilder: (context, index) {
           final payment = payments[index];
           final date = payment['payment_date'] ?? payment['created_at'] ?? '';
-          final amount = (payment['amount_paid'] ?? 0).toDouble();
+            final amount = _parseDouble(payment['amount_paid'] ?? 0);
           final reference = payment['reference_number'] ?? 'N/A';
           final status = payment['payment_status'] ?? 'pending';
 

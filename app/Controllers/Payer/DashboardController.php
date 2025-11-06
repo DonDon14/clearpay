@@ -979,7 +979,19 @@ class DashboardController extends BaseController
      */
     public function refundRequests()
     {
-        $payerId = session('payer_id');
+        // Set CORS headers for API requests
+        $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        if ($isApiEndpoint) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Get payer_id from session (web) or query parameter (API)
+        $payerId = $isApiEndpoint 
+            ? ($this->request->getGet('payer_id') ?? session('payer_id'))
+            : session('payer_id');
         
         // Get payer's refund requests
         $refundRequests = $this->refundModel->getRequestsByPayer($payerId);
@@ -1013,6 +1025,18 @@ class DashboardController extends BaseController
                 $payment['refund_status'] = $this->paymentModel->getPaymentRefundStatus($payment['id']);
                 $refundablePayments[] = $payment;
             }
+        }
+        
+        // Return JSON for API requests, view for web requests
+        if ($isApiEndpoint) {
+            return $this->response->setJSON([
+                'success' => true,
+                'data' => [
+                    'refund_requests' => $refundRequests,
+                    'refund_methods' => $refundMethods,
+                    'refundable_payments' => $refundablePayments
+                ]
+            ]);
         }
         
         $data = [
@@ -1218,7 +1242,17 @@ class DashboardController extends BaseController
      */
     public function getActiveRefundMethods()
     {
-        if (!$this->request->isAJAX()) {
+        // Set CORS headers for API requests
+        $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        if ($isApiEndpoint) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Allow both AJAX and API requests
+        if (!$this->request->isAJAX() && !$isApiEndpoint) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
@@ -1416,7 +1450,7 @@ class DashboardController extends BaseController
             ]);
         }
         
-        // Get payments grouped by contribution
+        // Get payments grouped by contribution with payer information
         $payments = $this->paymentModel->select('
             payments.id,
             payments.payer_id,
@@ -1429,10 +1463,15 @@ class DashboardController extends BaseController
             payments.qr_receipt_path,
             payments.payment_date,
             payments.created_at,
+            payers.payer_name,
+            payers.contact_number,
+            payers.email_address,
+            payers.payer_id as payer_student_id,
             contributions.title as contribution_title,
             contributions.description as contribution_description,
             contributions.amount as contribution_amount
         ')
+        ->join('payers', 'payers.id = payments.payer_id', 'left')
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
         ->where('payments.payer_id', $payerId)
         ->orderBy('contributions.title', 'ASC')

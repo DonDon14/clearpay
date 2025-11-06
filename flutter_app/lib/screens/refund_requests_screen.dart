@@ -38,8 +38,9 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
       if (refundRequestsResponse['success'] == true) {
         final data = refundRequestsResponse['data'];
         setState(() {
-          _refundRequests = data['refundRequests'] ?? [];
-          _refundablePayments = data['refundablePayments'] ?? [];
+          // API returns snake_case, handle both formats
+          _refundRequests = data['refund_requests'] ?? data['refundRequests'] ?? [];
+          _refundablePayments = data['refundable_payments'] ?? data['refundablePayments'] ?? [];
         });
       }
 
