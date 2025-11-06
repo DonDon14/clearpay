@@ -1053,7 +1053,13 @@ function processPayment(formData) {
   
   // If payment method is missing from FormData but exists in DOM, add it manually
   if (!formData.get('payment_method') && paymentMethodInput && paymentMethodInput.value) {
-    console.log('Adding payment method manually to FormData');
+    console.log('Adding payment method manually to FormData:', paymentMethodInput.value);
+    formData.set('payment_method', paymentMethodInput.value);
+  }
+  
+  // Also check if payment_method is already in FormData but empty
+  if (formData.get('payment_method') === '' && paymentMethodInput && paymentMethodInput.value) {
+    console.log('Replacing empty payment_method with value from input:', paymentMethodInput.value);
     formData.set('payment_method', paymentMethodInput.value);
   }
   
@@ -1077,8 +1083,15 @@ function processPayment(formData) {
   formData.set('remaining_balance', remainingBalance.toString());
   
   // Ensure payer_id is set for existing payers
-  if (window.selectedPayerId) {
-    formData.set('payer_id', window.selectedPayerId);
+  // Check both the hidden field and the window variable
+  const existingPayerIdField = document.getElementById('existingPayerId');
+  const payerIdValue = existingPayerIdField ? existingPayerIdField.value : (window.selectedPayerId || null);
+  
+  if (payerIdValue) {
+    formData.set('payer_id', payerIdValue);
+    console.log('Setting payer_id to:', payerIdValue);
+  } else {
+    console.warn('Warning: payer_id is not set! Make sure you selected an existing payer.');
   }
 
   fetch(form.action, {
