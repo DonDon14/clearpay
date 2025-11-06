@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/main_navigation_screen.dart';
 import 'providers/auth_provider.dart';
+import 'providers/dashboard_provider.dart';
 import 'services/api_service.dart';
 
 void main() async {
@@ -23,6 +24,7 @@ class ClearPayApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: MaterialApp(
         title: 'ClearPay Payer',
@@ -82,7 +84,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    return _isAuthenticated ? const DashboardScreen() : const LoginScreen();
+    if (_isAuthenticated) {
+      // Load dashboard data when authenticated
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Provider.of<DashboardProvider>(context, listen: false).loadDashboard();
+      });
+      return const MainNavigationScreen();
+    } else {
+      return const LoginScreen();
+    }
   }
 }
 

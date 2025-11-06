@@ -157,6 +157,20 @@ $routes->post('payer/signupPost', 'Payer\SignupController::signupPost');
 $routes->post('payer/verifyEmail', 'Payer\SignupController::verifyEmail');
 $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVerificationCode');
 
+        // Mobile API routes (no auth filter - will check in controller)
+        // OPTIONS routes for CORS preflight
+        $routes->options('api/payer/dashboard', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/contributions', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/payment-history', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/announcements', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/payment-requests', 'Payer\\DashboardController::handleOptions');
+        // GET routes
+        $routes->get('api/payer/dashboard', 'Payer\\DashboardController::mobileDashboard');
+        $routes->get('api/payer/contributions', 'Payer\\DashboardController::mobileContributions');
+        $routes->get('api/payer/payment-history', 'Payer\\DashboardController::mobilePaymentHistory');
+        $routes->get('api/payer/announcements', 'Payer\\DashboardController::mobileAnnouncements');
+        $routes->get('api/payer/payment-requests', 'Payer\\DashboardController::mobilePaymentRequests');
+
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
             $routes->get('dashboard', 'Payer\\DashboardController::index');
             $routes->get('my-data', 'Payer\\DashboardController::myData');

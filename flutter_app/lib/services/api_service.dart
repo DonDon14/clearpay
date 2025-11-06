@@ -119,6 +119,352 @@ class ApiService {
     await setUserId(null);
   }
 
+  // Get user ID from storage
+  static Future<int?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('user_id');
+  }
+
+  // Dashboard API methods
+  static Future<Map<String, dynamic>> getDashboard() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/dashboard?payer_id=$userId');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getContributions() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/contributions?payer_id=$userId');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getPaymentHistory() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/payment-history?payer_id=$userId');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getAnnouncements() async {
+    try {
+      final url = Uri.parse('$baseUrl/api/payer/announcements');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getPaymentRequests() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/payment-requests?payer_id=$userId');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> submitPaymentRequest({
+    required int contributionId,
+    required double requestedAmount,
+    required String paymentMethod,
+    String? notes,
+    String? paymentSequence,
+    String? proofOfPaymentPath,
+  }) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/payer/submit-payment-request');
+      final requestBody = {
+        'contribution_id': contributionId,
+        'requested_amount': requestedAmount,
+        'payment_method': paymentMethod,
+        'notes': notes ?? '',
+        'payment_sequence': paymentSequence,
+      };
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getRefundRequests() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/payer/refund-requests');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'success': true, 'data': data};
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getActiveRefundMethods() async {
+    try {
+      final url = Uri.parse('$baseUrl/payer/refund-methods');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> submitRefundRequest({
+    required int paymentId,
+    required double refundAmount,
+    required String refundMethod,
+    String? refundReason,
+  }) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/payer/submit-refund-request');
+      final requestBody = {
+        'payment_id': paymentId,
+        'refund_amount': refundAmount,
+        'refund_method': refundMethod,
+        'refund_reason': refundReason ?? '',
+      };
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String emailAddress,
+    required String contactNumber,
+  }) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/payer/update-profile');
+      final requestBody = {
+        'email_address': emailAddress,
+        'contact_number': contactNumber,
+      };
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> uploadProfilePicture(String filePath) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/payer/upload-profile-picture');
+      final request = http.MultipartRequest('POST', url);
+      request.files.add(await http.MultipartFile.fromPath('profile_picture', filePath));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getContributionDetails(int contributionId) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/payer/get-contribution-details?contribution_id=$contributionId');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   // Helper method for authenticated requests
   static Future<Map<String, dynamic>> authenticatedRequest(
     String endpoint, {
