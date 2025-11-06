@@ -65,6 +65,16 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     }
   }
 
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   void _showPaymentRequestDialog({Map<String, dynamic>? preSelectedContribution}) {
     if (_contributions.isEmpty && preSelectedContribution == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -189,7 +199,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
   Widget _buildPaymentRequestCard(Map<String, dynamic> request) {
     final status = request['status'] ?? 'pending';
     final date = request['requested_at'] ?? request['created_at'] ?? '';
-    final amount = (request['requested_amount'] ?? 0).toDouble();
+    final amount = _parseDouble(request['requested_amount'] ?? 0);
     final reference = request['reference_number'] ?? 'N/A';
     final method = request['payment_method'] ?? 'N/A';
     final contribution = request['contribution_title'] ?? 'N/A';
@@ -571,7 +581,7 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
         final contribution = response['contribution'];
         setState(() {
           _selectedContribution = contribution;
-          _maxAmount = (contribution['remaining_amount'] ?? 0).toDouble();
+          _maxAmount = _parseDouble(contribution['remaining_amount'] ?? contribution['amount'] ?? 0);
           _requestedAmount = _maxAmount;
         });
         // Reload instructions if payment method is already selected
@@ -928,9 +938,9 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
                                   color: Colors.blue,
                                 ),
                               ),
-                              if ((_selectedContribution!['total_paid'] ?? 0) > 0)
+                              if (_parseDouble(_selectedContribution!['total_paid'] ?? 0) > 0)
                                 Text(
-                                  'Total Paid: ₱${NumberFormat('#,##0.00').format(_selectedContribution!['total_paid'] ?? 0)}',
+                                  'Total Paid: ₱${NumberFormat('#,##0.00').format(_parseDouble(_selectedContribution!['total_paid'] ?? 0))}',
                                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                                 ),
                             ],

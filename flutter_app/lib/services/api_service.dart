@@ -317,22 +317,28 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/submit-payment-request');
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/submit-payment-request');
       
-      // Use multipart request if file is provided
+      // Always use multipart/form-data (same as web app) - even without file
+      final request = http.MultipartRequest('POST', url);
+      
+      // Add headers (same as web app)
+      request.headers['X-Requested-With'] = 'XMLHttpRequest';
+      request.headers['Accept'] = 'application/json';
+      
+      // Add form fields (same as web app)
+      request.fields['payer_id'] = userId.toString(); // Add payer_id for API endpoint
+      request.fields['contribution_id'] = contributionId.toString();
+      request.fields['requested_amount'] = requestedAmount.toString();
+      request.fields['payment_method'] = paymentMethod;
+      request.fields['notes'] = notes ?? '';
+      if (paymentSequence != null && paymentSequence.isNotEmpty) {
+        request.fields['payment_sequence'] = paymentSequence;
+      }
+      
+      // Add file if provided (web only for now)
       if (proofOfPaymentFile != null && kIsWeb) {
-        final request = http.MultipartRequest('POST', url);
-        
-        // Add form fields
-        request.fields['contribution_id'] = contributionId.toString();
-        request.fields['requested_amount'] = requestedAmount.toString();
-        request.fields['payment_method'] = paymentMethod;
-        request.fields['notes'] = notes ?? '';
-        if (paymentSequence != null) {
-          request.fields['payment_sequence'] = paymentSequence;
-        }
-        
-        // Add file
         final htmlFile = proofOfPaymentFile as html.File;
         final fileName = htmlFile.name;
         
@@ -364,40 +370,16 @@ class ApiService {
           filename: fileName,
         );
         request.files.add(multipartFile);
-        
-        // Send request
-        final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-        final response = await http.Response.fromStream(streamedResponse);
-        
-        if (response.statusCode == 200) {
-          return jsonDecode(response.body);
-        } else {
-          return {'success': false, 'error': 'Server error: ${response.statusCode}'};
-        }
+      }
+      
+      // Send request
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
       } else {
-        // Use JSON request if no file
-        final requestBody = {
-          'contribution_id': contributionId,
-          'requested_amount': requestedAmount,
-          'payment_method': paymentMethod,
-          'notes': notes ?? '',
-          'payment_sequence': paymentSequence,
-        };
-
-        final response = await http.post(
-          url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: jsonEncode(requestBody),
-        ).timeout(const Duration(seconds: 30));
-
-        if (response.statusCode == 200) {
-          return jsonDecode(response.body);
-        } else {
-          return {'success': false, 'error': 'Server error: ${response.statusCode}'};
-        }
+        return {'success': false, 'error': 'Server error: ${response.statusCode}', 'body': response.body};
       }
     } catch (e) {
       return {'success': false, 'error': 'Network error: ${e.toString()}'};

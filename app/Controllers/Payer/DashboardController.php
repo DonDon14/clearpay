@@ -738,10 +738,20 @@ class DashboardController extends BaseController
 
     public function submitPaymentRequest()
     {
+        // Set CORS headers for API requests (same as other mobile endpoints)
+        $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        if ($isApiEndpoint) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
         // Debug: Log all incoming data
         log_message('info', 'Payment request submission started');
         log_message('info', 'Request method: ' . $this->request->getMethod());
         log_message('info', 'Is AJAX: ' . ($this->request->isAJAX() ? 'Yes' : 'No'));
+        log_message('info', 'Is API endpoint: ' . ($isApiEndpoint ? 'Yes' : 'No'));
         log_message('info', 'POST data: ' . json_encode($this->request->getPost()));
         
         // Check if it's an AJAX request or if it's a POST request (more flexible)
@@ -753,14 +763,37 @@ class DashboardController extends BaseController
             ]);
         }
 
-        $payerId = session('payer_id');
-        
-        if (!$payerId) {
-            log_message('error', 'No payer ID in session for payment request submission');
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Please log in to submit payment requests'
-            ]);
+        if ($isApiEndpoint) {
+            // For API endpoints, get payer_id from request body or query parameter
+            $payerId = $this->request->getPost('payer_id') ?? $this->request->getGet('payer_id');
+            
+            // If not in POST/GET, try to get from JSON body
+            if (!$payerId) {
+                $jsonBody = $this->request->getJSON(true);
+                if ($jsonBody && isset($jsonBody['payer_id'])) {
+                    $payerId = $jsonBody['payer_id'];
+                }
+            }
+            
+            // Validate payer_id for API requests
+            if (!$payerId) {
+                log_message('error', 'No payer ID provided for API payment request submission');
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+        } else {
+            // For web endpoints, use session
+            $payerId = session('payer_id');
+            
+            if (!$payerId) {
+                log_message('error', 'No payer ID in session for payment request submission');
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Please log in to submit payment requests'
+                ]);
+            }
         }
         
         log_message('info', 'Payer ID: ' . $payerId);
@@ -1493,6 +1526,14 @@ class DashboardController extends BaseController
      */
     public function handleOptions()
     {
-        return $this->response->setStatusCode(200);
+        // Set CORS headers for preflight request
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+        
+        // Return empty response for OPTIONS request
+        return $this->response->setStatusCode(200)->setBody('');
     }
 }

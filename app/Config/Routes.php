@@ -166,6 +166,7 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
         $routes->options('api/payer/announcements', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/payment-requests', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/payment-methods', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/submit-payment-request', 'Payer\\DashboardController::handleOptions');
         // GET routes
         $routes->get('api/payer/dashboard', 'Payer\\DashboardController::mobileDashboard');
         $routes->get('api/payer/contributions', 'Payer\\DashboardController::mobileContributions');
@@ -173,6 +174,8 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
         $routes->get('api/payer/announcements', 'Payer\\DashboardController::mobileAnnouncements');
         $routes->get('api/payer/payment-requests', 'Payer\\DashboardController::mobilePaymentRequests');
         $routes->get('api/payer/payment-methods', 'Payer\\DashboardController::getActivePaymentMethods');
+        // POST routes (API endpoints - no auth filter, will check in controller)
+        $routes->post('api/payer/submit-payment-request', 'Payer\\DashboardController::submitPaymentRequest');
 
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
             $routes->get('dashboard', 'Payer\\DashboardController::index');
