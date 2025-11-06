@@ -119,10 +119,27 @@ Make sure these PHP extensions are enabled:
    ```bash
    php spark migrate
    ```
+   This creates all database tables.
 
-4. **Seed the Database**
+4. **Seed the Database (CRITICAL - Do Not Skip!)**
    ```bash
-   php spark db:seed
+   php spark db:seed DatabaseSeeder
+   ```
+   **IMPORTANT:** This seeds:
+   - Admin user account
+   - Sample contributions
+   - **Payment methods (GCash, PayMaya, Bank Transfer, Cash, etc.)** ← Required for payment validation!
+   
+   **Without this step, payment creation will fail with validation errors!**
+
+5. **Verify Payment Methods Were Seeded**
+   ```bash
+   # Check in phpMyAdmin or run:
+   php spark db:table payment_methods
+   ```
+   You should see at least 4-5 payment methods. If empty, run:
+   ```bash
+   php spark db:seed PaymentMethodSeeder
    ```
 
 ### Step 6: Configure Application
@@ -247,12 +264,27 @@ php spark migrate:rollback
 ### Running Seeders
 
 ```bash
-# Run all seeders
-php spark db:seed
+# Run all seeders (RECOMMENDED - includes PaymentMethodSeeder)
+php spark db:seed DatabaseSeeder
 
 # Run specific seeder
 php spark db:seed UserSeeder
+php spark db:seed PaymentMethodSeeder  # CRITICAL for payment validation!
 ```
+
+### Verifying Setup
+
+```bash
+# Verify that setup is complete
+php spark setup:verify
+```
+
+This checks:
+- Database connection
+- All required tables exist
+- Payment methods are seeded (at least 4 active methods)
+- Users exist
+- Environment configuration
 
 ### CodeIgniter 4 Commands
 
