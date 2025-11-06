@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 
 class RefundRequestsScreen extends StatefulWidget {
-  const RefundRequestsScreen({super.key});
+  final bool showAppBar;
+  
+  const RefundRequestsScreen({super.key, this.showAppBar = true});
 
   @override
   State<RefundRequestsScreen> createState() => _RefundRequestsScreenState();
@@ -81,17 +83,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Refund Requests'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-          ),
-        ],
-      ),
-      body: _isLoading
+    final body = _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? _buildErrorWidget()
@@ -100,14 +92,38 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
                   child: _refundRequests.isEmpty
                       ? _buildEmptyState()
                       : _buildRefundRequestsList(),
-                ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showRefundRequestDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Request Refund'),
-        backgroundColor: const Color(0xFFFF9800),
-      ),
-    );
+                );
+    
+    if (widget.showAppBar) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Refund Requests'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadData,
+            ),
+          ],
+        ),
+        body: body,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showRefundRequestDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('Request Refund'),
+          backgroundColor: const Color(0xFFFF9800),
+        ),
+      );
+    } else {
+      return Scaffold(
+        body: body,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showRefundRequestDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('Request Refund'),
+          backgroundColor: const Color(0xFFFF9800),
+        ),
+      );
+    }
   }
 
   Widget _buildErrorWidget() {

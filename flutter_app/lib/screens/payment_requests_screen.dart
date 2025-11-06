@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 
 class PaymentRequestsScreen extends StatefulWidget {
-  const PaymentRequestsScreen({super.key});
+  final bool showAppBar;
+  
+  const PaymentRequestsScreen({super.key, this.showAppBar = true});
 
   @override
   State<PaymentRequestsScreen> createState() => _PaymentRequestsScreenState();
@@ -76,17 +78,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment Requests'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-          ),
-        ],
-      ),
-      body: _isLoading
+    final body = _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
               ? _buildErrorWidget()
@@ -95,14 +87,38 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
                   child: _paymentRequests.isEmpty
                       ? _buildEmptyState()
                       : _buildPaymentRequestsList(),
-                ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showPaymentRequestDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('Request Payment'),
-        backgroundColor: const Color(0xFF4CAF50),
-      ),
-    );
+                );
+    
+    if (widget.showAppBar) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Payment Requests'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _loadData,
+            ),
+          ],
+        ),
+        body: body,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showPaymentRequestDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('Request Payment'),
+          backgroundColor: const Color(0xFF4CAF50),
+        ),
+      );
+    } else {
+      return Scaffold(
+        body: body,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: _showPaymentRequestDialog,
+          icon: const Icon(Icons.add),
+          label: const Text('Request Payment'),
+          backgroundColor: const Color(0xFF4CAF50),
+        ),
+      );
+    }
   }
 
   Widget _buildErrorWidget() {

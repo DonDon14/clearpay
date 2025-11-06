@@ -9,6 +9,7 @@ import 'payment_history_screen.dart';
 import 'announcements_screen.dart';
 import 'payment_requests_screen.dart';
 import 'refund_requests_screen.dart';
+import 'requests_screen.dart';
 import 'profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -28,7 +29,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
   final List<Widget> _screens = [
     const DashboardContent(), // Dashboard content without bottom nav
     const ContributionsScreen(),
-    const PaymentRequestsScreen(),
+    RequestsScreen(initialTab: 0), // Combined requests screen with tabs
     const ProfileScreen(),
   ];
 
@@ -126,10 +127,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
                     heroTag: "payment_request",
                     onPressed: () {
                       _toggleFab();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()),
-                      );
+                      _onTabTapped(2); // Navigate to Requests tab
                     },
                     backgroundColor: const Color(0xFF4CAF50),
                     icon: const Icon(Icons.payment, color: Colors.white),
@@ -156,10 +154,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
                     heroTag: "refund_request",
                     onPressed: () {
                       _toggleFab();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const RefundRequestsScreen()),
-                      );
+                      _onTabTapped(2); // Navigate to Requests tab
+                      // Switch to refund requests tab
+                      setState(() {
+                        // Update the RequestsScreen to show refund tab
+                        _screens[2] = RequestsScreen(initialTab: 1);
+                      });
                     },
                     backgroundColor: const Color(0xFFFF9800),
                     icon: const Icon(Icons.undo, color: Colors.white),
