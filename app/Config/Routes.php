@@ -146,6 +146,8 @@ $routes->get('/qr-receipt/show/(:num)', 'Admin\QRReceiptController::showReceipt/
 // Payer Routes
 $routes->get('payer/login', 'Payer\LoginController::index');
 $routes->post('payer/loginPost', 'Payer\LoginController::loginPost');
+$routes->options('api/payer/login', 'Payer\LoginController::handleOptions'); // CORS preflight
+$routes->post('api/payer/login', 'Payer\LoginController::mobileLogin'); // Mobile API endpoint
 $routes->get('payer/forgotPassword', 'Payer\LoginController::forgotPassword');
 $routes->post('payer/forgotPasswordPost', 'Payer\LoginController::forgotPasswordPost');
 $routes->post('payer/verifyResetCode', 'Payer\LoginController::verifyResetCode');
@@ -154,6 +156,20 @@ $routes->get('payer/signup', 'Payer\SignupController::index');
 $routes->post('payer/signupPost', 'Payer\SignupController::signupPost');
 $routes->post('payer/verifyEmail', 'Payer\SignupController::verifyEmail');
 $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVerificationCode');
+
+        // Mobile API routes (no auth filter - will check in controller)
+        // OPTIONS routes for CORS preflight
+        $routes->options('api/payer/dashboard', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/contributions', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/payment-history', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/announcements', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/payment-requests', 'Payer\\DashboardController::handleOptions');
+        // GET routes
+        $routes->get('api/payer/dashboard', 'Payer\\DashboardController::mobileDashboard');
+        $routes->get('api/payer/contributions', 'Payer\\DashboardController::mobileContributions');
+        $routes->get('api/payer/payment-history', 'Payer\\DashboardController::mobilePaymentHistory');
+        $routes->get('api/payer/announcements', 'Payer\\DashboardController::mobileAnnouncements');
+        $routes->get('api/payer/payment-requests', 'Payer\\DashboardController::mobilePaymentRequests');
 
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
             $routes->get('dashboard', 'Payer\\DashboardController::index');

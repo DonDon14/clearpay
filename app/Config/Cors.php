@@ -34,7 +34,12 @@ class Cors extends BaseConfig
          *   - ['http://localhost:8080']
          *   - ['https://www.example.com']
          */
-        'allowedOrigins' => [],
+        'allowedOrigins' => [
+            // Base localhost origins (no port or default port 80)
+            'http://localhost',
+            'http://127.0.0.1',
+            'http://10.0.2.2', // Android emulator
+        ],
 
         /**
          * Origin regex patterns for the `Access-Control-Allow-Origin` header.
@@ -44,10 +49,17 @@ class Cors extends BaseConfig
          * NOTE: A pattern specified here is part of a regular expression. It will
          *       be actually `#\A<pattern>\z#`.
          *
+         * These patterns match any port number, so they'll work with Flutter Web's
+         * dynamic ports (e.g., localhost:54705, localhost:52630, etc.)
+         *
          * E.g.:
          *   - ['https://\w+\.example\.com']
          */
-        'allowedOriginsPatterns' => [],
+        'allowedOriginsPatterns' => [
+            'http://localhost(:\d+)?',      // Matches localhost with or without port
+            'http://127\.0\.0\.1(:\d+)?',   // Matches 127.0.0.1 with or without port
+            'http://10\.0\.2\.2(:\d+)?',    // Matches Android emulator with or without port
+        ],
 
         /**
          * Weather to send the `Access-Control-Allow-Credentials` header.
@@ -57,7 +69,7 @@ class Cors extends BaseConfig
          *
          * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials
          */
-        'supportsCredentials' => false,
+        'supportsCredentials' => true,
 
         /**
          * Set headers to allow.
@@ -68,7 +80,13 @@ class Cors extends BaseConfig
          *
          * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers
          */
-        'allowedHeaders' => [],
+        'allowedHeaders' => [
+            'Content-Type',
+            'Accept',
+            'Authorization',
+            'X-Requested-With',
+            'Origin',
+        ],
 
         /**
          * Set headers to expose.
@@ -93,7 +111,14 @@ class Cors extends BaseConfig
          *
          * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Methods
          */
-        'allowedMethods' => [],
+        'allowedMethods' => [
+            'GET',
+            'POST',
+            'PUT',
+            'DELETE',
+            'OPTIONS',
+            'PATCH',
+        ],
 
         /**
          * Set how many seconds the results of a preflight request can be cached.

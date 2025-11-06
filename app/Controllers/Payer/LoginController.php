@@ -130,6 +130,95 @@ class LoginController extends BaseController
         return redirect()->to('payer/login');
     }
 
+    /**
+     * Handle CORS preflight OPTIONS request
+     */
+    public function handleOptions()
+    {
+        return $this->response->setStatusCode(200);
+    }
+
+    /**
+     * Mobile API login endpoint - returns JSON response
+     */
+    public function mobileLogin()
+    {
+        // Check if request is JSON
+        if (!$this->request->isAJAX() && !$this->request->getHeaderLine('Content-Type')) {
+            // Allow mobile requests
+        }
+
+        $payerId = $this->request->getPost('payer_id') ?? $this->request->getJSON(true)['payer_id'] ?? null;
+        $password = $this->request->getPost('password') ?? $this->request->getJSON(true)['password'] ?? null;
+
+        if (!$payerId || !$password) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Please enter your Username and Password'
+            ]);
+        }
+
+        // Find payer by payer_id (case-sensitive matching)
+        $payers = $this->payerModel->findAll();
+        $payer = null;
+        
+        foreach ($payers as $p) {
+            if ($p['payer_id'] === $payerId) {
+                $payer = $p;
+                break;
+            }
+        }
+
+        if (!$payer) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Invalid Username or Password'
+            ]);
+        }
+        
+        // Check if password exists
+        if (empty($payer['password'])) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Password not set. Please contact administrator.'
+            ]);
+        }
+        
+        // Verify password
+        if (!password_verify($password, $payer['password'])) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Invalid Username or Password'
+            ]);
+        }
+
+        // Check if email is verified (only if email exists)
+        if (!empty($payer['email_address']) && isset($payer['email_verified']) && !$payer['email_verified']) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Please verify your email address before logging in. Please check your email for the verification code or sign up again to receive a new code.',
+                'requires_verification' => true
+            ]);
+        }
+
+        // Return user data for mobile app (don't use session for mobile)
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Login successful',
+            'data' => [
+                'id' => (int)$payer['id'], // Ensure ID is an integer
+                'payer_id' => $payer['payer_id'],
+                'payer_name' => $payer['payer_name'],
+                'email' => $payer['email_address'] ?? '',
+                'profile_picture' => $payer['profile_picture'] ?? null,
+                'phone_number' => $payer['phone_number'] ?? '',
+            ],
+            // For mobile, you might want to use JWT tokens instead
+            // For now, return a simple token (you should implement proper JWT)
+            'token' => base64_encode($payer['id'] . ':' . time())
+        ]);
+    }
+
     public function forgotPassword()
     {
         // If already logged in, redirect to dashboard

@@ -1206,4 +1206,263 @@ class DashboardController extends BaseController
         $refundedAmount = $totalRefunded['refund_amount'] ?? 0;
         return (float)$payment['amount_paid'] - (float)$refundedAmount;
     }
+
+    /**
+     * Mobile API: Get dashboard data
+     */
+    public function mobileDashboard()
+    {
+        // For mobile, get payer_id from query parameter or token
+        $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Not authenticated'
+            ]);
+        }
+        
+        // Validate payer exists and get payer data
+        $payer = $this->payerModel->find($payerId);
+        if (!$payer) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Payer not found'
+            ]);
+        }
+        
+        // Get recent payments
+        $recentPayments = $this->paymentModel->where('payer_id', $payerId)
+            ->orderBy('payment_date', 'DESC')
+            ->limit(5)
+            ->findAll();
+        
+        // Get total paid amount
+        $totalPaid = $this->paymentModel->where('payer_id', $payerId)
+            ->selectSum('amount_paid')
+            ->first();
+        
+        // Get published announcements for payers
+        $announcements = $this->announcementModel->where('status', 'published')
+            ->where("(target_audience = 'payers' OR target_audience = 'both' OR target_audience = 'all')")
+            ->orderBy('created_at', 'DESC')
+            ->limit(3)
+            ->findAll();
+        
+        // Get payment request count
+        $pendingRequests = $this->paymentRequestModel->where('payer_id', $payerId)
+            ->where('status', 'pending')
+            ->countAllResults();
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => [
+                'payer' => $payer,
+                'total_paid' => (float)($totalPaid['amount_paid'] ?? 0),
+                'recent_payments' => $recentPayments,
+                'announcements' => $announcements,
+                'pending_requests' => $pendingRequests,
+                'total_payments' => count($recentPayments)
+            ]
+        ]);
+    }
+
+    /**
+     * Mobile API: Get contributions
+     */
+    public function mobileContributions()
+    {
+        $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Not authenticated'
+            ]);
+        }
+        
+        // Get all contributions (both active and inactive)
+        $allContributions = $this->contributionModel
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+        
+        // Filter contributions
+        $contributions = [];
+        foreach ($allContributions as $contribution) {
+            if ($contribution['status'] === 'active') {
+                $contributions[] = $contribution;
+            } else {
+                $hasTransactions = $this->paymentModel
+                    ->where('payer_id', $payerId)
+                    ->where('contribution_id', $contribution['id'])
+                    ->where('deleted_at', null)
+                    ->countAllResults() > 0;
+                
+                if ($hasTransactions) {
+                    $contributions[] = $contribution;
+                }
+            }
+        }
+        
+        // Get payment data for each contribution
+        foreach ($contributions as &$contribution) {
+            $contributionAmount = $contribution['amount'];
+            $paymentGroups = $this->paymentModel->select('
+                COALESCE(payment_sequence, 1) as payment_sequence,
+                SUM(amount_paid) as total_paid,
+                COUNT(id) as payment_count,
+                MAX(payment_date) as last_payment_date,
+                MIN(payment_date) as first_payment_date,
+                CASE 
+                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN "fully paid"
+                    WHEN SUM(amount_paid) > 0 THEN "partial"
+                    ELSE "unpaid"
+                END as computed_status,
+                ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
+            ')
+            ->where('payer_id', $payerId)
+            ->where('contribution_id', $contribution['id'])
+            ->where('deleted_at', null)
+            ->groupBy('COALESCE(payment_sequence, 1)')
+            ->orderBy('payment_sequence', 'ASC')
+            ->findAll();
+            
+            $contribution['payment_groups'] = $paymentGroups;
+            $totalPaid = array_sum(array_column($paymentGroups, 'total_paid'));
+            $contribution['total_paid'] = $totalPaid;
+            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $totalPaid);
+        }
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => $contributions
+        ]);
+    }
+
+    /**
+     * Mobile API: Get payment history
+     */
+    public function mobilePaymentHistory()
+    {
+        $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Not authenticated'
+            ]);
+        }
+        
+        // Get payments grouped by contribution
+        $payments = $this->paymentModel->select('
+            payments.id,
+            payments.payer_id,
+            payments.contribution_id,
+            payments.amount_paid,
+            payments.payment_method,
+            payments.payment_status,
+            payments.reference_number,
+            payments.receipt_number,
+            payments.qr_receipt_path,
+            payments.payment_date,
+            payments.created_at,
+            contributions.title as contribution_title,
+            contributions.description as contribution_description,
+            contributions.amount as contribution_amount
+        ')
+        ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->where('payments.payer_id', $payerId)
+        ->orderBy('contributions.title', 'ASC')
+        ->orderBy('payments.payment_date', 'DESC')
+        ->findAll();
+        
+        // Group payments by contribution
+        $contributionsWithPayments = [];
+        foreach ($payments as $payment) {
+            $contributionId = $payment['contribution_id'];
+            $contributionTitle = $payment['contribution_title'];
+            
+            if (!isset($contributionsWithPayments[$contributionId])) {
+                $contributionsWithPayments[$contributionId] = [
+                    'id' => $contributionId,
+                    'title' => $contributionTitle,
+                    'description' => $payment['contribution_description'],
+                    'amount' => $payment['contribution_amount'],
+                    'payments' => []
+                ];
+            }
+            
+            $contributionsWithPayments[$contributionId]['payments'][] = $payment;
+        }
+        
+        // Calculate totals
+        foreach ($contributionsWithPayments as &$contribution) {
+            $totalPaid = 0;
+            foreach ($contribution['payments'] as &$payment) {
+                $totalPaid += $payment['amount_paid'];
+            }
+            $contribution['total_paid'] = $totalPaid;
+            $contribution['remaining_amount'] = $contribution['amount'] - $totalPaid;
+        }
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => array_values($contributionsWithPayments)
+        ]);
+    }
+
+    /**
+     * Mobile API: Get announcements
+     */
+    public function mobileAnnouncements()
+    {
+        $announcements = $this->announcementModel->where('status', 'published')
+            ->where("(target_audience = 'payers' OR target_audience = 'both' OR target_audience = 'all')")
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => $announcements
+        ]);
+    }
+
+    /**
+     * Mobile API: Get payment requests
+     */
+    public function mobilePaymentRequests()
+    {
+        $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Not authenticated'
+            ]);
+        }
+        
+        // Get active contributions
+        $contributions = $this->contributionModel->where('status', 'active')
+            ->orderBy('title', 'ASC')
+            ->findAll();
+        
+        // Get payer's payment requests
+        $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => [
+                'contributions' => $contributions,
+                'payment_requests' => $paymentRequests
+            ]
+        ]);
+    }
+
+    /**
+     * Handle CORS preflight OPTIONS request
+     */
+    public function handleOptions()
+    {
+        return $this->response->setStatusCode(200);
+    }
 }

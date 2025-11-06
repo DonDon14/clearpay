@@ -169,12 +169,13 @@ class PaymentsController extends BaseController
             
             // Debug: Log valid payment methods
             log_message('info', 'Valid payment methods: ' . $paymentMethodList);
+            log_message('info', 'Received payment_method: ' . $this->request->getPost('payment_method'));
             
             // Validation rules - conditional based on payer type
             $rules = [
                 'contribution_id' => 'required|integer',
                 'amount_paid' => 'required|numeric',
-                'payment_method' => 'required|in_list[' . $paymentMethodList . ']',
+                'payment_method' => 'required',
                 'is_partial_payment' => 'required|in_list[0,1]',
                 'payment_date' => 'required'
             ];
@@ -192,6 +193,27 @@ class PaymentsController extends BaseController
                     'success' => false,
                     'message' => 'Validation failed',
                     'errors' => $errors
+                ]);
+            }
+
+            // Custom validation: Check if payment method exists (case-insensitive)
+            $submittedPaymentMethod = $this->request->getPost('payment_method');
+            $paymentMethodExists = false;
+            foreach ($paymentMethodNames as $validMethod) {
+                if (strcasecmp(trim($submittedPaymentMethod), trim($validMethod)) === 0) {
+                    $paymentMethodExists = true;
+                    // Use the exact name from database (to handle case differences)
+                    $submittedPaymentMethod = $validMethod;
+                    break;
+                }
+            }
+            
+            if (!$paymentMethodExists) {
+                log_message('error', 'Payment method validation failed. Submitted: "' . $submittedPaymentMethod . '", Valid methods: ' . $paymentMethodList);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid payment method. Please select a valid payment method from the list.',
+                    'errors' => ['payment_method' => 'The selected payment method is not valid.']
                 ]);
             }
 
@@ -355,7 +377,7 @@ class PaymentsController extends BaseController
                 'payer_id' => $payerDbId, // This is the FK to payers.id
                 'contribution_id' => $this->request->getPost('contribution_id'),
                 'amount_paid' => $this->request->getPost('amount_paid'),
-                'payment_method' => $this->request->getPost('payment_method'),
+                'payment_method' => $submittedPaymentMethod, // Use normalized name from database
                 'payment_status' => $paymentStatus,
                 'is_partial_payment' => $isPartial ? 1 : 0,
                 'remaining_balance' => $remainingBalance,

@@ -1,0 +1,42 @@
+name: clearpay_payer
+description: ClearPay Payer Mobile App - A payment management system for payers
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # HTTP Requests
+  http: ^1.1.0
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # Local Storage
+  shared_preferences: ^2.2.2
+  
+  # UI Components
+  cupertino_icons: ^1.0.6
+  
+  # Form Validation
+  flutter_form_builder: ^10.2.0
+  form_builder_validators: ^11.2.0
+  
+  # Date Formatting
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  
+  # assets:
+  #   - images/
+
