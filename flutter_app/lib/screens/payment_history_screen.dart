@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../widgets/payment_receipt_modal.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
   const PaymentHistoryScreen({super.key});
@@ -47,6 +48,16 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+    }
+    return 0.0;
   }
 
   @override
@@ -132,9 +143,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   Widget _buildContributionSection(Map<String, dynamic> contribution) {
     final title = contribution['title'] ?? 'N/A';
     final description = contribution['description'] ?? '';
-    final totalAmount = (contribution['amount'] ?? 0).toDouble();
-    final totalPaid = (contribution['total_paid'] ?? 0).toDouble();
-    final remaining = (contribution['remaining_amount'] ?? 0).toDouble();
+    final totalAmount = _parseDouble(contribution['amount'] ?? 0);
+    final totalPaid = _parseDouble(contribution['total_paid'] ?? 0);
+    final remaining = _parseDouble(contribution['remaining_amount'] ?? 0);
     final payments = contribution['payments'] ?? [];
     final isFullyPaid = totalPaid >= totalAmount;
 
@@ -191,14 +202,19 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               ),
             ),
           const Divider(height: 1),
-          ...payments.map<Widget>((payment) => _buildPaymentItem(payment)),
+          ...payments.map<Widget>((payment) {
+            // Add contribution title to payment data
+            final paymentWithContribution = Map<String, dynamic>.from(payment);
+            paymentWithContribution['contribution_title'] = title;
+            return _buildPaymentItem(paymentWithContribution);
+          }),
         ],
       ),
     );
   }
 
   Widget _buildPaymentItem(Map<String, dynamic> payment) {
-    final amount = (payment['amount_paid'] ?? 0).toDouble();
+    final amount = _parseDouble(payment['amount_paid'] ?? 0);
     final date = payment['payment_date'] ?? payment['created_at'] ?? '';
     final method = payment['payment_method'] ?? 'N/A';
     final status = payment['payment_status'] ?? 'pending';
@@ -278,68 +294,21 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         color: Colors.grey[400],
       ),
       onTap: () {
-        // TODO: Show payment details
-        _showPaymentDetails(payment);
+        // Show payment receipt modal
+        PaymentReceiptModal.show(context, payment);
       },
     );
   }
 
-  void _showPaymentDetails(Map<String, dynamic> payment) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Payment Details'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow('Amount', '₱${NumberFormat('#,##0.00').format((payment['amount_paid'] ?? 0).toDouble())}'),
-            _buildDetailRow('Date', _formatDate(payment['payment_date'] ?? payment['created_at'] ?? '')),
-            _buildDetailRow('Method', (payment['payment_method'] ?? 'N/A').toString().replaceAll('_', ' ').toUpperCase()),
-            _buildDetailRow('Status', (payment['payment_status'] ?? 'N/A').toString().toUpperCase()),
-            if (payment['receipt_number'] != null)
-              _buildDetailRow('Receipt', payment['receipt_number']),
-            if (payment['reference_number'] != null)
-              _buildDetailRow('Reference', payment['reference_number']),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _formatDate(String dateString) {
+    if (dateString.isEmpty) return 'N/A';
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('MMM dd, yyyy • hh:mm a').format(date);
+    } catch (e) {
+      return dateString;
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -353,16 +322,6 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         return Colors.blue;
       default:
         return Colors.grey;
-    }
-  }
-
-  String _formatDate(String dateString) {
-    if (dateString.isEmpty) return 'N/A';
-    try {
-      final date = DateTime.parse(dateString);
-      return DateFormat('MMM dd, yyyy • hh:mm a').format(date);
-    } catch (e) {
-      return dateString;
     }
   }
 }

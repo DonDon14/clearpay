@@ -59,6 +59,7 @@ $routes->get('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\Pa
 $routes->post('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\PaymentMethodController::delete/$1', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
 $routes->post('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
+$routes->options('/admin/settings/payment-methods/instructions/(:any)', 'Admin\Settings\PaymentMethodController::handleInstructionsOptions');
 $routes->get('/admin/settings/payment-methods/instructions/(:any)', 'Admin\Settings\PaymentMethodController::getInstructions/$1');
 
 // Refund Methods Management Routes
@@ -164,12 +165,17 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
         $routes->options('api/payer/payment-history', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/announcements', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/payment-requests', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/payment-methods', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/submit-payment-request', 'Payer\\DashboardController::handleOptions');
         // GET routes
         $routes->get('api/payer/dashboard', 'Payer\\DashboardController::mobileDashboard');
         $routes->get('api/payer/contributions', 'Payer\\DashboardController::mobileContributions');
         $routes->get('api/payer/payment-history', 'Payer\\DashboardController::mobilePaymentHistory');
         $routes->get('api/payer/announcements', 'Payer\\DashboardController::mobileAnnouncements');
         $routes->get('api/payer/payment-requests', 'Payer\\DashboardController::mobilePaymentRequests');
+        $routes->get('api/payer/payment-methods', 'Payer\\DashboardController::getActivePaymentMethods');
+        // POST routes (API endpoints - no auth filter, will check in controller)
+        $routes->post('api/payer/submit-payment-request', 'Payer\\DashboardController::submitPaymentRequest');
 
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
             $routes->get('dashboard', 'Payer\\DashboardController::index');
@@ -191,5 +197,12 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
             // Provide active refund methods for the payer modal dropdown
             $routes->get('refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
             $routes->post('submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
+            // API endpoints for mobile (no auth filter - will check in controller)
+            $routes->options('api/payer/refund-requests', 'Payer\\DashboardController::handleOptions');
+            $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
+            $routes->options('api/payer/refund-methods', 'Payer\\DashboardController::handleOptions');
+            $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+            // Provide active payment methods for the payer
+            $routes->get('payment-methods', 'Payer\\DashboardController::getActivePaymentMethods');
             $routes->get('logout', 'Payer\\LoginController::logout');
         });

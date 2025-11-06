@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:html' as html show File, FileReader;
 
 class ApiService {
   // Automatically detect platform and set base URL
@@ -251,6 +254,54 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getActivePaymentMethods() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/payment-methods');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${authToken ?? ''}',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getPaymentMethodInstructions(String methodName) async {
+    try {
+      final url = Uri.parse('$baseUrl/admin/settings/payment-methods/instructions/$methodName');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   static Future<Map<String, dynamic>> submitPaymentRequest({
     required int contributionId,
     required double requestedAmount,
@@ -258,6 +309,7 @@ class ApiService {
     String? notes,
     String? paymentSequence,
     String? proofOfPaymentPath,
+    dynamic proofOfPaymentFile, // For web: html.File, for mobile: File
   }) async {
     try {
       final userId = await getUserId();
@@ -265,28 +317,69 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/submit-payment-request');
-      final requestBody = {
-        'contribution_id': contributionId,
-        'requested_amount': requestedAmount,
-        'payment_method': paymentMethod,
-        'notes': notes ?? '',
-        'payment_sequence': paymentSequence,
-      };
-
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(requestBody),
-      ).timeout(const Duration(seconds: 30));
-
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/submit-payment-request');
+      
+      // Always use multipart/form-data (same as web app) - even without file
+      final request = http.MultipartRequest('POST', url);
+      
+      // Add headers (same as web app)
+      request.headers['X-Requested-With'] = 'XMLHttpRequest';
+      request.headers['Accept'] = 'application/json';
+      
+      // Add form fields (same as web app)
+      request.fields['payer_id'] = userId.toString(); // Add payer_id for API endpoint
+      request.fields['contribution_id'] = contributionId.toString();
+      request.fields['requested_amount'] = requestedAmount.toString();
+      request.fields['payment_method'] = paymentMethod;
+      request.fields['notes'] = notes ?? '';
+      if (paymentSequence != null && paymentSequence.isNotEmpty) {
+        request.fields['payment_sequence'] = paymentSequence;
+      }
+      
+      // Add file if provided (web only for now)
+      if (proofOfPaymentFile != null && kIsWeb) {
+        final htmlFile = proofOfPaymentFile as html.File;
+        final fileName = htmlFile.name;
+        
+        // Read file as bytes using FileReader
+        final completer = Completer<Uint8List>();
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((e) {
+          if (reader.result != null) {
+            try {
+              // FileReader.result is an ArrayBuffer when readAsArrayBuffer is used
+              final arrayBuffer = reader.result as dynamic;
+              completer.complete(Uint8List.view(arrayBuffer));
+            } catch (e) {
+              completer.completeError('Failed to convert file: $e');
+            }
+          } else {
+            completer.completeError('Failed to read file');
+          }
+        });
+        reader.onError.listen((e) {
+          completer.completeError('Failed to read file');
+        });
+        reader.readAsArrayBuffer(htmlFile);
+        
+        final fileBytes = await completer.future;
+        final multipartFile = http.MultipartFile.fromBytes(
+          'proof_of_payment',
+          fileBytes,
+          filename: fileName,
+        );
+        request.files.add(multipartFile);
+      }
+      
+      // Send request
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+        return {'success': false, 'error': 'Server error: ${response.statusCode}', 'body': response.body};
       }
     } catch (e) {
       return {'success': false, 'error': 'Network error: ${e.toString()}'};
@@ -300,7 +393,8 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/refund-requests');
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/refund-requests?payer_id=$userId');
       final response = await http.get(
         url,
         headers: {
@@ -322,7 +416,8 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getActiveRefundMethods() async {
     try {
-      final url = Uri.parse('$baseUrl/payer/refund-methods');
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/refund-methods');
       final response = await http.get(
         url,
         headers: {
@@ -439,6 +534,88 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getNotifications({int? lastShownId}) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/check-new-activities?payer_id=$userId${lastShownId != null ? '&last_shown_id=$lastShownId' : ''}');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getAllNotifications() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/get-all-activities?payer_id=$userId');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getContributionPayments(int contributionId, {int? paymentSequence}) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      String url = '$baseUrl/api/payer/get-contribution-payments/$contributionId';
+      if (paymentSequence != null) {
+        url += '?sequence=$paymentSequence';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   static Future<Map<String, dynamic>> getContributionDetails(int contributionId) async {
     try {
       final userId = await getUserId();
@@ -446,8 +623,34 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/get-contribution-details?contribution_id=$contributionId');
+      final url = Uri.parse('$baseUrl/api/payer/get-contribution-details?contribution_id=$contributionId&payer_id=$userId');
       final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> markNotificationRead(int activityId) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/mark-activity-read/$activityId');
+      final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
