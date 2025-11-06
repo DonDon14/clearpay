@@ -649,6 +649,19 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     return 0.0;
   }
 
+  double _calculateGroupProgress(Map<String, dynamic> group, double contributionAmount) {
+    final groupTotal = _parseDouble(group['total_paid'] ?? 0);
+    // Use contribution amount as the group amount (each group targets the full contribution amount)
+    final groupAmount = contributionAmount;
+    
+    if (groupAmount > 0 && groupTotal >= groupAmount) {
+      return 100.0;
+    } else if (groupAmount > 0) {
+      return (groupTotal / groupAmount * 100).clamp(0.0, 100.0);
+    }
+    return 0.0;
+  }
+
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return 'N/A';
     try {
@@ -815,24 +828,26 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
               ],
             ),
           ],
-          const SizedBox(height: 12),
-          // Progress
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              NotionText('Progress', fontSize: 12, color: const Color(0xFF787774)),
-              NotionText('${progress.toStringAsFixed(1)}%', fontSize: 12, color: const Color(0xFF787774)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress / 100,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(
-              isFullyPaid ? Colors.green : isPartiallyPaid ? Colors.orange : Colors.grey,
+          // Progress - Only show overall progress if there are no payment groups or only one group
+          if (paymentGroups.isEmpty || paymentGroups.length <= 1) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                NotionText('Progress', fontSize: 12, color: const Color(0xFF787774)),
+                NotionText('${progress.toStringAsFixed(1)}%', fontSize: 12, color: const Color(0xFF787774)),
+              ],
             ),
-            minHeight: 6,
-          ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: progress / 100,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isFullyPaid ? Colors.green : isPartiallyPaid ? Colors.orange : Colors.grey,
+              ),
+              minHeight: 6,
+            ),
+          ],
           // Payment Groups
           if (paymentGroups.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -936,6 +951,28 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                               ],
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Progress bar for this payment group
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            NotionText('Progress', fontSize: 11, color: const Color(0xFF787774)),
+                            NotionText(
+                              '${_calculateGroupProgress(group, amount).toStringAsFixed(1)}%',
+                              fontSize: 11,
+                              color: const Color(0xFF787774),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        LinearProgressIndicator(
+                          value: _calculateGroupProgress(group, amount) / 100,
+                          backgroundColor: Colors.grey[200],
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isGroupFullyPaid ? Colors.green : Colors.orange,
+                          ),
+                          minHeight: 6,
                         ),
                         const SizedBox(height: 8),
                         Row(
