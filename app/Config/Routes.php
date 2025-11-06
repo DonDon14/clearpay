@@ -146,6 +146,8 @@ $routes->get('/qr-receipt/show/(:num)', 'Admin\QRReceiptController::showReceipt/
 // Payer Routes
 $routes->get('payer/login', 'Payer\LoginController::index');
 $routes->post('payer/loginPost', 'Payer\LoginController::loginPost');
+$routes->options('api/payer/login', 'Payer\LoginController::handleOptions'); // CORS preflight
+$routes->post('api/payer/login', 'Payer\LoginController::mobileLogin'); // Mobile API endpoint
 $routes->get('payer/forgotPassword', 'Payer\LoginController::forgotPassword');
 $routes->post('payer/forgotPasswordPost', 'Payer\LoginController::forgotPasswordPost');
 $routes->post('payer/verifyResetCode', 'Payer\LoginController::verifyResetCode');
