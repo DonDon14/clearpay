@@ -426,6 +426,9 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
   List<Map<String, dynamic>> _paymentMethods = [];
   bool _isLoadingPaymentMethods = false;
 
+  bool _isFullyPaid = false;
+  bool _hasShownFullyPaidWarning = false;
+
   @override
   void initState() {
     super.initState();
@@ -440,11 +443,27 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
             ? contributionId 
             : int.tryParse(contributionId.toString());
         _selectedContribution = contribution;
-        final remainingBalance = _parseDouble(contribution['remaining_balance'] ?? contribution['amount'] ?? 0);
-        _maxAmount = remainingBalance;
-        _requestedAmount = remainingBalance;
-        // If payment_sequence is provided, we're adding to an existing group
-        // Otherwise, it will create a new payment group
+        
+        // Check if contribution is fully paid
+        final totalPaid = _parseDouble(contribution['total_paid'] ?? 0);
+        final contributionAmount = _parseDouble(contribution['amount'] ?? 0);
+        final remainingBalance = _parseDouble(contribution['remaining_balance'] ?? contribution['remaining_amount'] ?? 0);
+        _isFullyPaid = totalPaid >= contributionAmount || remainingBalance <= 0;
+        
+        // If fully paid, set max amount to full contribution amount (for new payment group)
+        // Otherwise, use remaining balance
+        if (_isFullyPaid) {
+          // Use contribution amount if available, otherwise use a large number to allow any amount
+          _maxAmount = contributionAmount > 0 ? contributionAmount : 999999.0;
+          _requestedAmount = contributionAmount > 0 ? contributionAmount : 0.0;
+          // Show confirmation dialog for fully paid contributions
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showFullyPaidConfirmation(contribution);
+          });
+        } else {
+          _maxAmount = remainingBalance > 0 ? remainingBalance : contributionAmount;
+          _requestedAmount = _maxAmount;
+        }
         
         // Load instructions if payment method is already selected
         if (_selectedPaymentMethod != null && _requestedAmount > 0) {
@@ -452,6 +471,130 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
         }
       }
     }
+  }
+
+  void _showFullyPaidConfirmation(Map<String, dynamic> contribution) {
+    if (_hasShownFullyPaidWarning) return;
+    _hasShownFullyPaidWarning = true;
+    
+    // Get total_paid from the contribution data - use the pre-selected contribution if available
+    // as it has the correct total_paid value from the contributions list
+    final totalPaid = _parseDouble(contribution['total_paid'] ?? 0);
+    // If total_paid is 0, try to get it from payment_groups
+    double actualTotalPaid = totalPaid;
+    if (totalPaid == 0 && contribution['payment_groups'] != null) {
+      final paymentGroups = contribution['payment_groups'] as List?;
+      if (paymentGroups != null && paymentGroups.isNotEmpty) {
+        // Sum up total_paid from all payment groups
+        actualTotalPaid = paymentGroups.fold<double>(0.0, (sum, group) {
+          return sum + _parseDouble(group['total_paid'] ?? 0);
+        });
+      }
+    }
+    // If still 0, use the contribution amount as fallback
+    if (actualTotalPaid == 0) {
+      actualTotalPaid = _parseDouble(contribution['amount'] ?? 0);
+    }
+    
+    final contributionAmount = _parseDouble(contribution['amount'] ?? 0);
+    final contributionTitle = contribution['title'] ?? 'Contribution';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 24),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Contribution Already Fully Paid',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Contribution Details',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Contribution: $contributionTitle'),
+                  Text('Total Amount: ₱${NumberFormat('#,##0.00').format(contributionAmount)}'),
+                  Text('Total Paid: ₱${NumberFormat('#,##0.00').format(actualTotalPaid)}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '⚠️ Contribution Already Fully Paid',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You already have fully paid contribution groups for "$contributionTitle" (₱${NumberFormat('#,##0.00').format(actualTotalPaid)} total).',
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Add another payment group for this contribution?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Colors.orange[700], size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Note: Each payment group is independent and tracked separately in your payment history.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context); // Close payment request dialog too
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // User confirmed, continue with payment request
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+            ),
+            child: const Text('Yes, Add Another Payment Group'),
+          ),
+        ],
+      ),
+    );
   }
 
   int _parseInt(dynamic value) {
@@ -579,10 +722,31 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
       final response = await ApiService.getContributionDetails(contributionId);
       if (response['success'] == true && response['contribution'] != null) {
         final contribution = response['contribution'];
+        
+        // Check if contribution is fully paid
+        final totalPaid = _parseDouble(contribution['total_paid'] ?? 0);
+        final contributionAmount = _parseDouble(contribution['amount'] ?? 0);
+        final remainingBalance = _parseDouble(contribution['remaining_balance'] ?? contribution['remaining_amount'] ?? 0);
+        final isFullyPaid = totalPaid >= contributionAmount || remainingBalance <= 0;
+        
         setState(() {
           _selectedContribution = contribution;
-          _maxAmount = _parseDouble(contribution['remaining_amount'] ?? contribution['amount'] ?? 0);
-          _requestedAmount = _maxAmount;
+          _isFullyPaid = isFullyPaid;
+          
+          // If fully paid, set max amount to full contribution amount (for new payment group)
+          // Otherwise, use remaining balance
+          if (_isFullyPaid) {
+            // Use contribution amount if available, otherwise use a large number to allow any amount
+            _maxAmount = contributionAmount > 0 ? contributionAmount : 999999.0;
+            _requestedAmount = contributionAmount > 0 ? contributionAmount : 0.0;
+            // Show confirmation dialog for fully paid contributions
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showFullyPaidConfirmation(contribution);
+            });
+          } else {
+            _maxAmount = remainingBalance > 0 ? remainingBalance : contributionAmount;
+            _requestedAmount = _maxAmount;
+          }
         });
         // Reload instructions if payment method is already selected
         if (_selectedPaymentMethod != null && _requestedAmount > 0) {
@@ -777,9 +941,17 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
       return;
     }
 
-    if (_requestedAmount > _maxAmount) {
+    // For fully paid contributions, allow any amount (for new payment group)
+    // For partially paid contributions, enforce remaining balance limit
+    if (!_isFullyPaid && _requestedAmount > _maxAmount) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Amount cannot exceed remaining balance (₱${NumberFormat('#,##0.00').format(_maxAmount)})')),
+      );
+      return;
+    }
+    if (_isFullyPaid && _maxAmount > 0 && _maxAmount < 999999.0 && _requestedAmount > _maxAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Amount cannot exceed contribution amount (₱${NumberFormat('#,##0.00').format(_maxAmount)})')),
       );
       return;
     }
@@ -807,31 +979,28 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
 
       if (response['success'] == true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response['message'] ?? 'Payment request submitted successfully'),
-              backgroundColor: Colors.green,
-            ),
+          _showToast(
+            context,
+            response['message'] ?? 'Payment request submitted successfully!${response['reference_number'] != null ? ' Reference: ${response['reference_number']}' : ''}',
+            Colors.green,
           );
           widget.onSubmitted();
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response['message'] ?? 'Failed to submit payment request'),
-              backgroundColor: Colors.red,
-            ),
+          _showToast(
+            context,
+            response['message'] ?? 'Failed to submit payment request',
+            Colors.red,
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        _showToast(
+          context,
+          'Error: ${e.toString()}',
+          Colors.red,
         );
       }
     } finally {
@@ -922,20 +1091,49 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
                         ),
                       if (_selectedContribution != null) ...[
                         const SizedBox(height: 16),
+                        // Warning banner for fully paid contributions
+                        if (_isFullyPaid)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange[300]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: Colors.orange[700], size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'This contribution is already fully paid. Adding a payment will create a new payment group.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.orange[900],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (_isFullyPaid) const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withOpacity(0.1),
+                            color: _isFullyPaid ? Colors.orange.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Remaining Balance: ₱${NumberFormat('#,##0.00').format(_maxAmount)}',
-                                style: const TextStyle(
+                                _isFullyPaid 
+                                    ? 'Contribution Amount: ₱${NumberFormat('#,##0.00').format(_maxAmount)}'
+                                    : 'Remaining Balance: ₱${NumberFormat('#,##0.00').format(_maxAmount)}',
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
+                                  color: _isFullyPaid ? Colors.orange[700] : Colors.blue,
                                 ),
                               ),
                               if (_parseDouble(_selectedContribution!['total_paid'] ?? 0) > 0)
@@ -979,8 +1177,19 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
                           if (amount == null || amount <= 0) {
                             return 'Please enter a valid amount';
                           }
-                          if (amount > _maxAmount) {
-                            return 'Amount cannot exceed remaining balance';
+                          // For fully paid contributions, allow any amount (for new payment group)
+                          // For partially paid contributions, enforce remaining balance limit
+                          if (!_isFullyPaid) {
+                            if (amount > _maxAmount) {
+                              return 'Amount cannot exceed remaining balance';
+                            }
+                          } else {
+                            // For fully paid contributions, allow any amount up to the contribution amount
+                            // If contribution amount is not available, allow any reasonable amount
+                            if (_maxAmount > 0 && _maxAmount < 999999.0 && amount > _maxAmount) {
+                              return 'Amount cannot exceed contribution amount';
+                            }
+                            // If _maxAmount is 999999.0 (fallback), allow any amount
                           }
                           return null;
                         },
@@ -1322,5 +1531,63 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
         ),
       ),
     );
+  }
+
+  void _showToast(BuildContext context, String message, Color backgroundColor) {
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 100,
+        left: MediaQuery.of(context).size.width / 2 - 150,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 300,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  backgroundColor == Colors.green ? Icons.check_circle : Icons.error,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(overlayEntry);
+
+    // Remove after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      overlayEntry.remove();
+    });
   }
 }
