@@ -164,6 +164,17 @@ class PaymentsController extends BaseController
             // Get valid payment method names from database
             $paymentMethodModel = new \App\Models\PaymentMethodModel();
             $validPaymentMethods = $paymentMethodModel->getActiveMethods();
+            
+            // Check if payment methods exist (critical for validation)
+            if (empty($validPaymentMethods)) {
+                log_message('error', 'No payment methods found in database. Payment methods must be seeded!');
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payment methods are not configured. Please run: php spark db:seed PaymentMethodSeeder',
+                    'errors' => ['payment_method' => 'No payment methods found in database. Setup incomplete.']
+                ]);
+            }
+            
             $paymentMethodNames = array_column($validPaymentMethods, 'name');
             $paymentMethodList = implode(',', $paymentMethodNames);
             
@@ -213,7 +224,13 @@ class PaymentsController extends BaseController
                 return $this->response->setJSON([
                     'success' => false,
                     'message' => 'Invalid payment method. Please select a valid payment method from the list.',
-                    'errors' => ['payment_method' => 'The selected payment method is not valid.']
+                    'errors' => [
+                        'payment_method' => 'The selected payment method is not valid. Available methods: ' . $paymentMethodList
+                    ],
+                    'debug' => [
+                        'submitted' => $submittedPaymentMethod,
+                        'valid_methods' => $paymentMethodNames
+                    ]
                 ]);
             }
 
