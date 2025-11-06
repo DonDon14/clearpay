@@ -31,13 +31,33 @@ class ClearPayApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,
-          primaryColor: const Color(0xFF2196F3),
-          scaffoldBackgroundColor: Colors.white,
-          fontFamily: 'Roboto',
+          primaryColor: const Color(0xFF37352F),
+          scaffoldBackgroundColor: const Color(0xFFFFFBFE),
+          fontFamily: 'Inter',
           appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF2196F3),
-            foregroundColor: Colors.white,
+            backgroundColor: Colors.white,
+            foregroundColor: Color(0xFF37352F),
             elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            iconTheme: IconThemeData(
+              color: Color(0xFF37352F),
+            ),
+          ),
+          cardTheme: CardThemeData(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(3),
+              side: const BorderSide(
+                color: Color(0xFFE9E9E7),
+                width: 1,
+              ),
+            ),
+            color: Colors.white,
+          ),
+          dividerTheme: const DividerThemeData(
+            color: Color(0xFFE9E9E7),
+            thickness: 1,
+            space: 1,
           ),
         ),
         home: const AuthWrapper(),

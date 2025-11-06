@@ -11,6 +11,9 @@ import 'payment_requests_screen.dart';
 import 'refund_requests_screen.dart';
 import 'requests_screen.dart';
 import 'profile_screen.dart';
+import '../widgets/notion_app_bar.dart';
+import '../widgets/notion_card.dart';
+import '../widgets/notion_text.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -76,7 +79,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFFFFFBFE),
       body: IndexedStack(
         index: _currentIndex,
         children: _screens,
@@ -86,48 +89,60 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: SafeArea(
           child: Container(
-            height: 70,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            height: 65,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildNavItem(Icons.dashboard, 'Dashboard', 0, () => _onTabTapped(0)),
-                _buildNavItem(Icons.payment, 'Contributions', 1, () => _onTabTapped(1)),
+                Expanded(
+                  child: _buildNavItem(Icons.home_outlined, Icons.home, 'Home', 0, () => _onTabTapped(0)),
+                ),
+                Expanded(
+                  child: _buildNavItem(Icons.payment_outlined, Icons.payment, 'Contributions', 1, () => _onTabTapped(1)),
+                ),
                 const SizedBox(width: 40), // Space for FAB
-                _buildNavItem(Icons.request_quote, 'Requests', 2, () => _onTabTapped(2)),
-                _buildNavItem(Icons.person, 'Profile', 3, () => _onTabTapped(3)),
+                Expanded(
+                  child: _buildNavItem(Icons.request_quote_outlined, Icons.request_quote, 'Requests', 2, () => _onTabTapped(2)),
+                ),
+                Expanded(
+                  child: _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 3, () => _onTabTapped(3)),
+                ),
               ],
             ),
           ),
         ),
       ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
+      floatingActionButton: Stack(
+        alignment: Alignment.bottomCenter,
         children: [
           // Payment Request Button
           if (_isFabOpen)
-            FadeTransition(
-              opacity: _fabAnimation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.5),
-                  end: Offset.zero,
-                ).animate(_fabAnimation),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 10),
+            Positioned(
+              bottom: 80,
+              child: FadeTransition(
+                opacity: _fabAnimation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.3),
+                    end: Offset.zero,
+                  ).animate(_fabAnimation),
                   child: FloatingActionButton.extended(
                     heroTag: "payment_request",
                     onPressed: () {
                       _toggleFab();
                       _onTabTapped(2); // Navigate to Requests tab
+                      // Switch to payment requests tab
+                      setState(() {
+                        _screens[2] = RequestsScreen(initialTab: 0);
+                      });
                     },
                     backgroundColor: const Color(0xFF4CAF50),
                     icon: const Icon(Icons.payment, color: Colors.white),
@@ -141,15 +156,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
             ),
           // Refund Request Button
           if (_isFabOpen)
-            FadeTransition(
-              opacity: _fabAnimation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.5),
-                  end: Offset.zero,
-                ).animate(_fabAnimation),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 10),
+            Positioned(
+              bottom: 140,
+              child: FadeTransition(
+                opacity: _fabAnimation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.3),
+                    end: Offset.zero,
+                  ).animate(_fabAnimation),
                   child: FloatingActionButton.extended(
                     heroTag: "refund_request",
                     onPressed: () {
@@ -157,7 +172,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
                       _onTabTapped(2); // Navigate to Requests tab
                       // Switch to refund requests tab
                       setState(() {
-                        // Update the RequestsScreen to show refund tab
                         _screens[2] = RequestsScreen(initialTab: 1);
                       });
                     },
@@ -171,15 +185,38 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
                 ),
               ),
             ),
-          // Main FAB
-          FloatingActionButton(
-            heroTag: "main_fab",
-            onPressed: _toggleFab,
-            backgroundColor: const Color(0xFF2196F3),
-            child: AnimatedRotation(
-              turns: _isFabOpen ? 0.125 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.add, color: Colors.white, size: 28),
+          // Main FAB - Purple circular button like in the design
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366F1), // Purple color matching design
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF6366F1).withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _toggleFab,
+                borderRadius: BorderRadius.circular(28),
+                child: Center(
+                  child: AnimatedRotation(
+                    turns: _isFabOpen ? 0.125 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      _isFabOpen ? Icons.close : Icons.add,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -188,27 +225,53 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index, VoidCallback onTap) {
+  Widget _buildNavItem(IconData outlinedIcon, IconData filledIcon, String label, int index, VoidCallback onTap) {
     final isSelected = _currentIndex == index;
+    final purpleColor = const Color(0xFF6366F1); // Purple color matching the design
+    final greyColor = const Color(0xFF9CA3AF); // Light grey for inactive
+    
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        // Close FAB if open when switching tabs
+        if (_isFabOpen) {
+          _toggleFab();
+        }
+        onTap();
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 2),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF2196F3) : Colors.grey,
-              size: 24,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: isSelected
+                  ? BoxDecoration(
+                      color: purpleColor.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    )
+                  : null,
+              child: Icon(
+                isSelected ? filledIcon : outlinedIcon,
+                color: isSelected ? purpleColor : greyColor,
+                size: isSelected ? 22 : 20,
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? const Color(0xFF2196F3) : Colors.grey,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            const SizedBox(height: 1),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? purpleColor : greyColor,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  letterSpacing: 0,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -229,62 +292,34 @@ class DashboardContent extends StatelessWidget {
     final dashboardProvider = Provider.of<DashboardProvider>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: const Color(0xFF2196F3),
-        title: const Text(
-          'ClearPay',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              );
-            },
-          ),
-        ],
+      backgroundColor: const Color(0xFFFFFBFE),
+      appBar: NotionAppBar(
+        title: 'ClearPay',
+        onRefresh: () => dashboardProvider.loadDashboard(),
       ),
       body: RefreshIndicator(
         onRefresh: () => dashboardProvider.loadDashboard(),
         child: CustomScrollView(
           slivers: [
-            // Welcome Section
+            // Welcome Section - Notion Style
             SliverToBoxAdapter(
               child: Container(
-                padding: const EdgeInsets.all(20.0),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2196F3),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                ),
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    NotionText(
                       'Welcome back,',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 16,
-                      ),
+                      fontSize: 15,
+                      color: const Color(0xFF787774),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    NotionText(
                       user?['payer_name'] ?? 'User',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF37352F),
                     ),
                   ],
                 ),
@@ -303,6 +338,11 @@ class DashboardContent extends StatelessWidget {
                       : dashboardProvider.hasData
                           ? _DashboardContentWidget(dashboardProvider.dashboardData!, context)
                           : const SizedBox(),
+            ),
+            
+            // Add bottom padding to prevent overflow with bottom navigation and FAB
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 80),
             ),
           ],
         ),
@@ -355,9 +395,10 @@ class _DashboardContentWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Total Paid Card
           _buildTotalPaidCard(data.totalPaid),
@@ -390,9 +431,11 @@ class _DashboardContentWidget extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
                   );
                 },
-                child: const Text(
+                child: NotionText(
                   'See All',
-                  style: TextStyle(color: Color(0xFF2196F3)),
+                  fontSize: 14,
+                  color: const Color(0xFF37352F),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -414,9 +457,11 @@ class _DashboardContentWidget extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const AnnouncementsScreen()),
                   );
                 },
-                child: const Text(
+                child: NotionText(
                   'See All',
-                  style: TextStyle(color: Color(0xFF2196F3)),
+                  fontSize: 14,
+                  color: const Color(0xFF37352F),
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -429,60 +474,41 @@ class _DashboardContentWidget extends StatelessWidget {
   }
 
   Widget _buildTotalPaidCard(double totalPaid) {
-    return Container(
-      padding: const EdgeInsets.all(24.0),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2196F3),
-            Color(0xFF1976D2),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return NotionCard(
+      padding: const EdgeInsets.all(20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Total Paid',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 16,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NotionText(
+                  'Total Paid',
+                  fontSize: 14,
+                  color: const Color(0xFF787774),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '₱${NumberFormat('#,##0.00').format(totalPaid)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 8),
+                NotionText(
+                  '₱${NumberFormat('#,##0.00').format(totalPaid)}',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF37352F),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFFF1F1EF),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: const Icon(
               Icons.account_balance_wallet,
-              color: Colors.white,
-              size: 32,
+              color: Color(0xFF37352F),
+              size: 24,
             ),
           ),
         ],
@@ -491,13 +517,11 @@ class _DashboardContentWidget extends StatelessWidget {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
+    return NotionText(
       title,
-      style: const TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF212121),
-      ),
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xFF37352F),
     );
   }
 
@@ -544,45 +568,28 @@ class _DashboardContentWidget extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return NotionCard(
+      padding: const EdgeInsets.all(16),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.all(20.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: color, size: 32),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF212121),
-              ),
-            ),
-          ],
-        ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 12),
+          NotionText(
+            title,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -626,38 +633,24 @@ class _DashboardContentWidget extends StatelessWidget {
     required String label,
     required Color color,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return NotionCard(
+      padding: const EdgeInsets.all(16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
-          Text(
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 12),
+          NotionText(
             value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: color,
           ),
           const SizedBox(height: 4),
-          Text(
+          NotionText(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF757575),
-            ),
+            fontSize: 13,
+            color: const Color(0xFF787774),
             textAlign: TextAlign.center,
           ),
         ],
@@ -667,20 +660,18 @@ class _DashboardContentWidget extends StatelessWidget {
 
   Widget _buildRecentPayments(List<dynamic> payments) {
     if (payments.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Center(
+      return NotionCard(
+        padding: const EdgeInsets.all(40),
+        child: Center(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.receipt_long, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
+              Icon(Icons.receipt_long, size: 48, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              NotionText(
                 'No payments yet',
-                style: TextStyle(color: Colors.grey),
+                fontSize: 14,
+                color: const Color(0xFF787774),
               ),
             ],
           ),
@@ -688,23 +679,13 @@ class _DashboardContentWidget extends StatelessWidget {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return NotionCard(
+      padding: EdgeInsets.zero,
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: payments.length > 5 ? 5 : payments.length,
-        separatorBuilder: (context, index) => const Divider(height: 1, indent: 16, endIndent: 16),
+        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE9E9E7)),
         itemBuilder: (context, index) {
           final payment = payments[index];
           final date = payment['payment_date'] ?? payment['created_at'] ?? '';
@@ -712,44 +693,63 @@ class _DashboardContentWidget extends StatelessWidget {
           final reference = payment['reference_number'] ?? 'N/A';
           final status = payment['payment_status'] ?? 'pending';
 
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: _getStatusColor(status).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.receipt,
-                color: _getStatusColor(status),
-                size: 24,
-              ),
-            ),
-            title: Text(
-              '₱${NumberFormat('#,##0.00').format(amount)}',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            subtitle: Text(
-              _formatDate(date),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF757575)),
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: _getStatusColor(status).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                status.toUpperCase(),
-                style: TextStyle(
-                  color: _getStatusColor(status),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
+          return InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      Icons.receipt,
+                      color: _getStatusColor(status),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        NotionText(
+                          '₱${NumberFormat('#,##0.00').format(amount)}',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        const SizedBox(height: 4),
+                        NotionText(
+                          _formatDate(date),
+                          fontSize: 13,
+                          color: const Color(0xFF787774),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: NotionText(
+                      status.toUpperCase(),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _getStatusColor(status),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -760,20 +760,18 @@ class _DashboardContentWidget extends StatelessWidget {
 
   Widget _buildAnnouncements(List<dynamic> announcements) {
     if (announcements.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(40.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Center(
+      return NotionCard(
+        padding: const EdgeInsets.all(40),
+        child: Center(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.notifications_off, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
+              Icon(Icons.notifications_off, size: 48, color: Colors.grey[400]),
+              const SizedBox(height: 16),
+              NotionText(
                 'No announcements',
-                style: TextStyle(color: Colors.grey),
+                fontSize: 14,
+                color: const Color(0xFF787774),
               ),
             ],
           ),
@@ -781,69 +779,75 @@ class _DashboardContentWidget extends StatelessWidget {
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return NotionCard(
+      padding: EdgeInsets.zero,
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: announcements.length > 3 ? 3 : announcements.length,
-        separatorBuilder: (context, index) => const Divider(height: 1, indent: 16, endIndent: 16),
+        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE9E9E7)),
         itemBuilder: (context, index) {
           final announcement = announcements[index];
           final title = announcement['title'] ?? 'No Title';
           final text = announcement['text'] ?? '';
           final date = announcement['created_at'] ?? '';
 
-          return ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            leading: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.notifications,
-                color: Colors.orange,
-                size: 24,
-              ),
-            ),
-            title: Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  text.length > 80 ? '${text.substring(0, 80)}...' : text,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF757575)),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDate(date),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[600],
+          return InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AnnouncementsScreen()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.notifications,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        NotionText(
+                          title,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        if (text.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          NotionText(
+                            text.length > 80 ? '${text.substring(0, 80)}...' : text,
+                            fontSize: 13,
+                            color: const Color(0xFF787774),
+                            maxLines: 2,
+                          ),
+                        ],
+                        if (date.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          NotionText(
+                            _formatDate(date),
+                            fontSize: 12,
+                            color: const Color(0xFF9B9A97),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
