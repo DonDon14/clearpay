@@ -982,7 +982,15 @@ window.submitPayment = function() {
         alert('An error occurred while creating the payer');
       });
   } else {
-    // Existing payer - proceed directly with payment
+    // Existing payer - ensure payer_id is set (user must select from suggestions)
+    const existingPayerIdField = document.getElementById('existingPayerId');
+    const existingPayerValue = existingPayerIdField ? existingPayerIdField.value : null;
+    if ((!existingPayerValue || existingPayerValue.trim() === '') && !window.selectedPayerId) {
+      // Helpful hint for users: they must click a suggestion, not just type the name
+      alert('Please select an existing payer from the Search Payer suggestions by clicking a result (not just typing).');
+      return;
+    }
+
     processPayment(formData);
   }
 };
@@ -1046,10 +1054,10 @@ function processPayment(formData) {
     console.log(`${key}: ${value}`);
   }
   
-  // Debug: Check payment method specifically
-  const paymentMethodInput = document.getElementById('paymentMethod_input');
-  console.log('Payment method input element:', paymentMethodInput);
-  console.log('Payment method input value:', paymentMethodInput ? paymentMethodInput.value : 'NOT FOUND');
+  // Debug: Check payment method specifically - lookup by name to cover custom dropdown helper
+  const paymentMethodInput = document.querySelector('input[name="payment_method"]');
+  console.log('Payment method input element (by name):', paymentMethodInput);
+  console.log('Payment method input value (by name):', paymentMethodInput ? paymentMethodInput.value : 'NOT FOUND');
   
   // If payment method is missing from FormData but exists in DOM, add it manually
   if (!formData.get('payment_method') && paymentMethodInput && paymentMethodInput.value) {
