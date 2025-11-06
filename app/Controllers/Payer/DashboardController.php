@@ -452,7 +452,36 @@ class DashboardController extends BaseController
 
     public function getContributionPayments($contributionId)
     {
-        $payerId = session('payer_id');
+        // Check if this is an API request
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Get payer_id from query parameter for API requests, or from session for web requests
+        if ($isApiRequest) {
+            $payerId = $this->request->getGet('payer_id');
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+        } else {
+            $payerId = session('payer_id');
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Not authenticated'
+                ]);
+            }
+        }
+        
         $paymentSequence = $this->request->getGet('sequence'); // Get payment sequence filter
         
         // Get payments for this specific contribution and payer with all necessary fields
@@ -473,6 +502,7 @@ class DashboardController extends BaseController
             payers.payer_name,
             payers.contact_number,
             payers.email_address,
+            payers.payer_id as payer_student_id,
             contributions.title as contribution_title,
             contributions.description as contribution_description,
             contributions.amount as contribution_amount,

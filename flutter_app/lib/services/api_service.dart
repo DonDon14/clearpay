@@ -593,9 +593,9 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      String url = '$baseUrl/api/payer/get-contribution-payments/$contributionId';
+      String url = '$baseUrl/api/payer/get-contribution-payments/$contributionId?payer_id=$userId';
       if (paymentSequence != null) {
-        url += '?sequence=$paymentSequence';
+        url += '&sequence=$paymentSequence';
       }
 
       final response = await http.get(
