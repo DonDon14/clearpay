@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:html' as html show File, FileReader;
 
 class ApiService {
   // Automatically detect platform and set base URL
@@ -251,6 +254,54 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getActivePaymentMethods() async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/payment-methods');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${authToken ?? ''}',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getPaymentMethodInstructions(String methodName) async {
+    try {
+      final url = Uri.parse('$baseUrl/admin/settings/payment-methods/instructions/$methodName');
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   static Future<Map<String, dynamic>> submitPaymentRequest({
     required int contributionId,
     required double requestedAmount,
@@ -258,6 +309,7 @@ class ApiService {
     String? notes,
     String? paymentSequence,
     String? proofOfPaymentPath,
+    dynamic proofOfPaymentFile, // For web: html.File, for mobile: File
   }) async {
     try {
       final userId = await getUserId();
@@ -266,27 +318,86 @@ class ApiService {
       }
 
       final url = Uri.parse('$baseUrl/payer/submit-payment-request');
-      final requestBody = {
-        'contribution_id': contributionId,
-        'requested_amount': requestedAmount,
-        'payment_method': paymentMethod,
-        'notes': notes ?? '',
-        'payment_sequence': paymentSequence,
-      };
-
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(requestBody),
-      ).timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+      
+      // Use multipart request if file is provided
+      if (proofOfPaymentFile != null && kIsWeb) {
+        final request = http.MultipartRequest('POST', url);
+        
+        // Add form fields
+        request.fields['contribution_id'] = contributionId.toString();
+        request.fields['requested_amount'] = requestedAmount.toString();
+        request.fields['payment_method'] = paymentMethod;
+        request.fields['notes'] = notes ?? '';
+        if (paymentSequence != null) {
+          request.fields['payment_sequence'] = paymentSequence;
+        }
+        
+        // Add file
+        final htmlFile = proofOfPaymentFile as html.File;
+        final fileName = htmlFile.name;
+        
+        // Read file as bytes using FileReader
+        final completer = Completer<Uint8List>();
+        final reader = html.FileReader();
+        reader.onLoadEnd.listen((e) {
+          if (reader.result != null) {
+            try {
+              // FileReader.result is an ArrayBuffer when readAsArrayBuffer is used
+              final arrayBuffer = reader.result as dynamic;
+              completer.complete(Uint8List.view(arrayBuffer));
+            } catch (e) {
+              completer.completeError('Failed to convert file: $e');
+            }
+          } else {
+            completer.completeError('Failed to read file');
+          }
+        });
+        reader.onError.listen((e) {
+          completer.completeError('Failed to read file');
+        });
+        reader.readAsArrayBuffer(htmlFile);
+        
+        final fileBytes = await completer.future;
+        final multipartFile = http.MultipartFile.fromBytes(
+          'proof_of_payment',
+          fileBytes,
+          filename: fileName,
+        );
+        request.files.add(multipartFile);
+        
+        // Send request
+        final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+        final response = await http.Response.fromStream(streamedResponse);
+        
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body);
+        } else {
+          return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+        }
       } else {
-        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+        // Use JSON request if no file
+        final requestBody = {
+          'contribution_id': contributionId,
+          'requested_amount': requestedAmount,
+          'payment_method': paymentMethod,
+          'notes': notes ?? '',
+          'payment_sequence': paymentSequence,
+        };
+
+        final response = await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(requestBody),
+        ).timeout(const Duration(seconds: 30));
+
+        if (response.statusCode == 200) {
+          return jsonDecode(response.body);
+        } else {
+          return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+        }
       }
     } catch (e) {
       return {'success': false, 'error': 'Network error: ${e.toString()}'};

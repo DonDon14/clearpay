@@ -94,7 +94,18 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     });
   }
 
-  void _showPaymentGroupDetails(int contributionId, int paymentSequence, Map<String, dynamic> groupData) async {
+  void _showPaymentGroupDetails(dynamic contributionId, dynamic paymentSequence, Map<String, dynamic> groupData) async {
+    // Convert to int if needed
+    final contribId = contributionId is int ? contributionId : int.tryParse(contributionId.toString());
+    final seq = paymentSequence is int ? paymentSequence : int.tryParse(paymentSequence.toString());
+    
+    if (contribId == null || seq == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid contribution or payment sequence')),
+      );
+      return;
+    }
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -103,13 +114,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     );
 
     try {
-      final response = await ApiService.getContributionPayments(contributionId, paymentSequence: paymentSequence);
+      final response = await ApiService.getContributionPayments(contribId, paymentSequence: seq);
       
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
         
         if (response['success'] == true && response['payments'] != null) {
-          _showPaymentGroupModal(contributionId, paymentSequence, groupData, response['payments']);
+          _showPaymentGroupModal(contribId, seq, groupData, response['payments']);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response['error'] ?? 'Failed to load payment details')),
@@ -179,9 +190,11 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
   }
 
   Widget _buildPaymentGroupModalContent(Map<String, dynamic> groupData, List<dynamic> payments, int contributionId, int paymentSequence) {
+    // Ensure payments is not null
+    final paymentsList = payments ?? [];
     final totalPaid = _parseDouble(groupData['total_paid'] ?? 0);
     final remainingBalance = _parseDouble(groupData['remaining_balance'] ?? 0);
-    final contributionAmount = _parseDouble(groupData['amount'] ?? (payments != null && payments.isNotEmpty ? payments[0]['contribution_amount'] : 0));
+    final contributionAmount = _parseDouble(groupData['amount'] ?? (paymentsList.isNotEmpty ? paymentsList[0]['contribution_amount'] : 0));
     final progress = contributionAmount > 0 ? (totalPaid / contributionAmount * 100) : 0;
     final isFullyPaid = groupData['computed_status'] == 'fully paid';
 
@@ -319,10 +332,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: payments.length,
+              itemCount: paymentsList.length,
               separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE9E9E7)),
               itemBuilder: (context, index) {
-                final payment = payments[index];
+                final payment = paymentsList[index];
                 return _buildPaymentItem(payment);
               },
             ),
@@ -336,11 +349,23 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    // Navigate to payment request
+                    // Get contribution data for this group
+                    final firstPayment = paymentsList.isNotEmpty ? paymentsList[0] : null;
+                    final contributionData = {
+                      'id': contributionId,
+                      'title': firstPayment?['contribution_title'] ?? 'Contribution',
+                      'amount': contributionAmount,
+                      'description': firstPayment?['contribution_description'] ?? '',
+                      'remaining_balance': remainingBalance,
+                      'payment_sequence': paymentSequence,
+                    };
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => PaymentRequestsScreen(showAppBar: true),
+                        builder: (_) => PaymentRequestsScreen(
+                          showAppBar: true,
+                          preSelectedContribution: contributionData,
+                        ),
                       ),
                     );
                   },
@@ -632,7 +657,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final remaining = _parseDouble(contribution['remaining_balance']);
     final status = contribution['status'] ?? 'active';
     final paymentGroups = (contribution['payment_groups'] as List?) ?? <dynamic>[];
-    final contributionId = contribution['id'] ?? 0;
+    final contributionIdRaw = contribution['id'];
+    final contributionId = contributionIdRaw is int 
+        ? contributionIdRaw 
+        : (contributionIdRaw is String ? int.tryParse(contributionIdRaw) : null) ?? 0;
     
     final progress = amount > 0 ? (totalPaid / amount * 100) : 0;
     final isFullyPaid = totalPaid >= amount;
@@ -814,7 +842,10 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
               ...paymentGroups.map<Widget>((group) {
                 final groupTotal = _parseDouble(group['total_paid'] ?? 0);
                 final groupStatus = group['computed_status'] ?? 'unpaid';
-                final sequence = group['payment_sequence'] ?? 1;
+                final sequenceRaw = group['payment_sequence'] ?? 1;
+                final sequence = sequenceRaw is int 
+                    ? sequenceRaw 
+                    : (sequenceRaw is String ? int.tryParse(sequenceRaw) : null) ?? 1;
                 final groupRemaining = _parseDouble(group['remaining_balance'] ?? 0);
                 final isGroupFullyPaid = groupStatus == 'fully paid';
                 
@@ -927,10 +958,21 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
+                  // Get contribution data
+                  final contributionData = {
+                    'id': contributionId,
+                    'title': title,
+                    'amount': amount,
+                    'description': description,
+                    'remaining_balance': remaining,
+                  };
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => PaymentRequestsScreen(showAppBar: true),
+                      builder: (_) => PaymentRequestsScreen(
+                        showAppBar: true,
+                        preSelectedContribution: contributionData,
+                      ),
                     ),
                   );
                 },

@@ -1151,6 +1151,36 @@ class DashboardController extends BaseController
     }
 
     /**
+     * Return active payment methods for payer (mobile API)
+     */
+    public function getActivePaymentMethods()
+    {
+        try {
+            $paymentMethodModel = new \App\Models\PaymentMethodModel();
+            $methods = $paymentMethodModel->getActiveMethods();
+            $data = array_map(function($m) {
+                return [
+                    'id' => $m['id'],
+                    'name' => $m['name'],
+                    'icon' => $m['icon'] ?? null,
+                    'description' => $m['description'] ?? null,
+                ];
+            }, $methods);
+
+            return $this->response->setJSON([
+                'success' => true,
+                'methods' => $data
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Error fetching active payment methods: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error fetching payment methods: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Return active refund methods (code + name) for payer modal dropdown
      */
     public function getActiveRefundMethods()

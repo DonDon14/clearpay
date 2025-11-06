@@ -451,10 +451,29 @@ class PaymentMethodController extends BaseController
     }
 
     /**
+     * Handle CORS preflight requests for getInstructions
+     */
+    public function handleInstructionsOptions()
+    {
+        // Set CORS headers for preflight request
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+        
+        return $this->response->setStatusCode(200);
+    }
+
+    /**
      * Get payment method with custom instructions
      */
     public function getInstructions($name)
     {
+        // Set CORS headers manually if needed
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        
         $method = $this->paymentMethodModel->getMethodWithInstructions($name);
         
         if (!$method) {

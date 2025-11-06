@@ -39,6 +39,10 @@ class Cors extends BaseConfig
             'http://localhost',
             'http://127.0.0.1',
             'http://10.0.2.2', // Android emulator
+            // Flutter Web development ports
+            'http://localhost:50800',
+            'http://localhost:54705',
+            'http://localhost:52630',
         ],
 
         /**
