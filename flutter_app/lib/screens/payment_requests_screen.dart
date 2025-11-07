@@ -1032,27 +1032,65 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+        child: SizedBox(
+          width: 600,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Request Payment',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              // Header - Blue background with icon and close button
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2196F3),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    const Icon(Icons.payment, color: Colors.white, size: 22),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Request Payment',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => Navigator.pop(context),
+                          borderRadius: BorderRadius.circular(16),
+                          child: const Icon(Icons.close, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
+              // Body
+              Flexible(
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
                       DropdownButtonFormField<int>(
                         decoration: const InputDecoration(
                           labelText: 'Select Contribution *',
@@ -1551,36 +1589,45 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
                         maxLines: 3,
                         maxLength: 500,
                       ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
+              // Footer
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: Colors.grey[300]!)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
                       onPressed: _isSubmitting ? null : () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
                       onPressed: _isSubmitting ? null : _submitPaymentRequest,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50),
+                        backgroundColor: const Color(0xFF2196F3),
+                        foregroundColor: Colors.white,
                       ),
-                      child: _isSubmitting
+                      icon: _isSubmitting
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
                             )
-                          : const Text('Submit'),
+                          : const Icon(Icons.send, size: 18),
+                      label: Text(_isSubmitting ? 'Submitting...' : 'Submit Request'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
