@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../services/modal_service.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/notion_card.dart';
 import '../widgets/notion_text.dart';
@@ -384,15 +385,8 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                       'remaining_balance': remainingBalance,
                       'payment_sequence': paymentSequence,
                     };
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PaymentRequestsScreen(
-                          showAppBar: true,
-                          preSelectedContribution: contributionData,
-                        ),
-                      ),
-                    );
+                    // Use ModalService to show payment request modal
+                    ModalService.showPaymentRequestModal(preSelectedContribution: contributionData);
                   },
                   icon: const Icon(Icons.payment),
                   label: const Text('Request Payment'),
@@ -1013,15 +1007,8 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
                     'description': description,
                     'remaining_balance': remaining,
                   };
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PaymentRequestsScreen(
-                        showAppBar: true,
-                        preSelectedContribution: contributionData,
-                      ),
-                    ),
-                  );
+                  // Use ModalService to show payment request modal
+                  ModalService.showPaymentRequestModal(preSelectedContribution: contributionData);
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('Add Payment'),

@@ -995,7 +995,20 @@ class DashboardController extends BaseController
 
     public function getContributionDetails()
     {
-        if (!$this->request->isAJAX()) {
+        // Check if this is an API request
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+
+        // For web requests, check if it's AJAX
+        if (!$isApiRequest && !$this->request->isAJAX()) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
@@ -1021,10 +1034,24 @@ class DashboardController extends BaseController
                 ]);
             }
 
+            // Get payer_id from query parameter for API requests, or from session for web requests
+            if ($isApiRequest) {
+                $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
+            } else {
+                $payerId = session('payer_id');
+            }
+
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+
             // Get payer's current payments for this contribution
-            $payerId = session('payer_id');
             $totalPaid = $this->paymentModel->where('payer_id', $payerId)
                 ->where('contribution_id', $contributionId)
+                ->where('deleted_at', null)
                 ->selectSum('amount_paid')
                 ->first();
 
@@ -1040,6 +1067,7 @@ class DashboardController extends BaseController
                     'amount' => $contribution['amount'],
                     'total_paid' => $totalPaidAmount,
                     'remaining_amount' => $remainingAmount,
+                    'remaining_balance' => $remainingAmount, // Add for consistency
                     'is_fully_paid' => $remainingAmount <= 0
                 ]
             ]);

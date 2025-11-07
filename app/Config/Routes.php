@@ -180,6 +180,8 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
         // API endpoints for mobile (no auth filter - will check in controller)
         $routes->options('api/payer/get-contribution-payments/(:num)', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/get-contribution-payments/(:num)', 'Payer\\DashboardController::getContributionPayments/$1');
+        $routes->options('api/payer/get-contribution-details', 'Payer\\DashboardController::handleOptions');
+        $routes->get('api/payer/get-contribution-details', 'Payer\\DashboardController::getContributionDetails');
         
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
             $routes->get('dashboard', 'Payer\\DashboardController::index');

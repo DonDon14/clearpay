@@ -71,7 +71,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => _RefundRequestDialog(
+      builder: (context) => RefundRequestDialog(
         refundablePayments: _refundablePayments,
         refundMethods: _refundMethods,
         onSubmitted: () {
@@ -335,22 +335,22 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
   }
 }
 
-class _RefundRequestDialog extends StatefulWidget {
+class RefundRequestDialog extends StatefulWidget {
   final List<dynamic> refundablePayments;
   final List<dynamic> refundMethods;
   final VoidCallback onSubmitted;
 
-  const _RefundRequestDialog({
+  const RefundRequestDialog({
     required this.refundablePayments,
     required this.refundMethods,
     required this.onSubmitted,
   });
 
   @override
-  State<_RefundRequestDialog> createState() => _RefundRequestDialogState();
+  State<RefundRequestDialog> createState() => _RefundRequestDialogState();
 }
 
-class _RefundRequestDialogState extends State<_RefundRequestDialog> {
+class _RefundRequestDialogState extends State<RefundRequestDialog> {
   final _formKey = GlobalKey<FormState>();
   int? _selectedPaymentId;
   double _refundAmount = 0.0;

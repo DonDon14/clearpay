@@ -85,7 +85,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => _PaymentRequestDialog(
+      builder: (context) => PaymentRequestDialog(
         contributions: _contributions,
         preSelectedContribution: preSelectedContribution,
         onSubmitted: () {
@@ -388,22 +388,22 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
   }
 }
 
-class _PaymentRequestDialog extends StatefulWidget {
+class PaymentRequestDialog extends StatefulWidget {
   final List<dynamic> contributions;
   final Map<String, dynamic>? preSelectedContribution;
   final VoidCallback onSubmitted;
 
-  const _PaymentRequestDialog({
+  const PaymentRequestDialog({
     required this.contributions,
     this.preSelectedContribution,
     required this.onSubmitted,
   });
 
   @override
-  State<_PaymentRequestDialog> createState() => _PaymentRequestDialogState();
+  State<PaymentRequestDialog> createState() => _PaymentRequestDialogState();
 }
 
-class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
+class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
   final _formKey = GlobalKey<FormState>();
   int? _selectedContributionId;
   Map<String, dynamic>? _selectedContribution;
@@ -1159,14 +1159,23 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
                             : '',
                         onChanged: (value) {
                           final amount = double.tryParse(value.replaceAll(',', '').replaceAll('₱', ''));
-                          if (amount != null) {
+                          if (amount != null && amount > 0) {
                             setState(() {
                               _requestedAmount = amount;
                             });
-                            // Reload instructions if payment method is selected
-                            if (_selectedPaymentMethod != null) {
+                            // Load instructions if payment method is selected
+                            if (_selectedPaymentMethod != null && _selectedPaymentMethod!.isNotEmpty) {
                               _loadPaymentMethodInstructions(_selectedPaymentMethod!, amount);
                             }
+                          } else {
+                            setState(() {
+                              _requestedAmount = 0.0;
+                              _paymentInstructions = null;
+                              _paymentMethodName = null;
+                              _qrCodePath = null;
+                              _accountNumber = null;
+                              _accountName = null;
+                            });
                           }
                         },
                         validator: (value) {
@@ -1224,9 +1233,16 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
                                   _paymentInstructions = null;
                                   _paymentMethodName = null;
                                   _qrCodePath = null;
+                                  _accountNumber = null;
+                                  _accountName = null;
                                 });
-                                if (value != null && _requestedAmount > 0) {
-                                  _loadPaymentMethodInstructions(value, _requestedAmount);
+                                // Load instructions when payment method is selected and amount is available
+                                if (value != null) {
+                                  // If amount is already set, load instructions immediately
+                                  if (_requestedAmount > 0) {
+                                    _loadPaymentMethodInstructions(value, _requestedAmount);
+                                  }
+                                  // Otherwise, instructions will load when amount is entered
                                 }
                               },
                         validator: (value) {
