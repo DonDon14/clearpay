@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'dart:html' as html show File, FileReader, FileUploadInputElement;
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/notion_app_bar.dart';
+import '../widgets/navigation_drawer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -32,8 +34,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.user;
     if (user != null) {
-      _emailController.text = user['email_address'] ?? '';
-      _contactController.text = user['contact_number'] ?? '';
+      setState(() {
+        _emailController.text = user['email_address'] ?? '';
+        _contactController.text = user['contact_number'] ?? '';
+      });
     }
   }
 
@@ -239,14 +243,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        drawer: const AppNavigationDrawer(),
+        appBar: NotionAppBar(title: 'Profile'),
         body: const Center(child: Text('Not logged in')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Data'),
+      drawer: const AppNavigationDrawer(),
+      appBar: NotionAppBar(
+        title: 'My Data',
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -607,11 +613,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
-          enabled: _isEditing,
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
-            filled: !_isEditing,
-            fillColor: _isEditing ? null : Colors.grey[100],
+            filled: true,
+            fillColor: Colors.grey[50],
+            enabledBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF6366F1), width: 2),
+            ),
           ),
           validator: validator,
         ),

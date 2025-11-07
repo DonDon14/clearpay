@@ -6,6 +6,7 @@ import '../widgets/notion_app_bar.dart';
 import '../widgets/notion_card.dart';
 import '../widgets/notion_text.dart';
 import '../widgets/payment_receipt_modal.dart';
+import '../widgets/navigation_drawer.dart';
 import 'payment_requests_screen.dart';
 import 'payment_history_screen.dart';
 
@@ -518,6 +519,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFBFE),
+      drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'Contributions',
         onRefresh: _loadContributions,

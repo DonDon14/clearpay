@@ -9,12 +9,12 @@ import 'payment_history_screen.dart';
 import 'announcements_screen.dart';
 import 'payment_requests_screen.dart';
 import 'refund_requests_screen.dart';
-import 'requests_screen.dart';
 import 'profile_screen.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/notion_card.dart';
 import '../widgets/notion_text.dart';
-import '../services/modal_service.dart';
+import '../widgets/navigation_drawer.dart';
+import '../services/api_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -23,19 +23,36 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> with SingleTickerProviderStateMixin {
-  int _currentIndex = 0;
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Load dashboard data when screen is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<DashboardProvider>(context, listen: false).loadDashboard();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const DashboardContent();
+  }
+}
+
+// Dashboard content without bottom navigation (since it's in MainNavigationScreen)
+class DashboardContent extends StatefulWidget {
+  const DashboardContent({super.key});
+
+  @override
+  State<DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<DashboardContent> with SingleTickerProviderStateMixin {
   bool _isFabOpen = false;
   late AnimationController _fabAnimationController;
   late Animation<double> _fabAnimation;
-
-  // Keep all screens in memory
-  final List<Widget> _screens = [
-    const DashboardContent(), // Dashboard content without bottom nav
-    const ContributionsScreen(),
-    RequestsScreen(initialTab: 0), // Combined requests screen with tabs
-    const ProfileScreen(),
-  ];
+  bool _isLoadingPaymentData = false;
+  bool _isLoadingRefundData = false;
 
   @override
   void initState() {
@@ -48,10 +65,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
       parent: _fabAnimationController,
       curve: Curves.easeInOut,
     );
-    // Load dashboard data when screen is initialized
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<DashboardProvider>(context, listen: false).loadDashboard();
-    });
   }
 
   @override
@@ -71,194 +84,114 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
     });
   }
 
-  void _onTabTapped(int index) {
+  Future<void> _showPaymentRequestDialog() async {
+    _toggleFab();
     setState(() {
-      _currentIndex = index;
+      _isLoadingPaymentData = true;
     });
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFFBFE),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Container(
-            height: 65,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: _buildNavItem(Icons.home_outlined, Icons.home, 'Home', 0, () => _onTabTapped(0)),
-                ),
-                Expanded(
-                  child: _buildNavItem(Icons.payment_outlined, Icons.payment, 'Contributions', 1, () => _onTabTapped(1)),
-                ),
-                const SizedBox(width: 40), // Space for FAB
-                Expanded(
-                  child: _buildNavItem(Icons.request_quote_outlined, Icons.request_quote, 'Requests', 2, () => _onTabTapped(2)),
-                ),
-                Expanded(
-                  child: _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 3, () => _onTabTapped(3)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Payment Request and Refund Request Buttons - Side by Side
-          if (_isFabOpen)
-            FadeTransition(
-              opacity: _fabAnimation,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.5),
-                  end: Offset.zero,
-                ).animate(_fabAnimation),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Payment Request Button
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10, right: 8),
-                      child: FloatingActionButton.extended(
-                        heroTag: "payment_request",
-                        onPressed: () {
-                          _toggleFab();
-                          // Show payment request modal from anywhere
-                          ModalService.showPaymentRequestModal();
-                        },
-                        backgroundColor: const Color(0xFF4CAF50),
-                        icon: const Icon(Icons.payment, color: Colors.white),
-                        label: const Text(
-                          'Payment Request',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    // Refund Request Button
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10, left: 8),
-                      child: FloatingActionButton.extended(
-                        heroTag: "refund_request",
-                        onPressed: () {
-                          _toggleFab();
-                          // Show refund request modal from anywhere
-                          ModalService.showRefundRequestModal();
-                        },
-                        backgroundColor: const Color(0xFFFF9800),
-                        icon: const Icon(Icons.undo, color: Colors.white),
-                        label: const Text(
-                          'Refund Request',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          // Main FAB - Purple circular button like in the design
-          FloatingActionButton(
-            heroTag: "main_fab",
-            onPressed: _toggleFab,
-            backgroundColor: const Color(0xFF6366F1), // Purple color matching design
-            elevation: 4,
-            child: AnimatedRotation(
-              turns: _isFabOpen ? 0.125 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                _isFabOpen ? Icons.close : Icons.add,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
+    try {
+      final contributionsResponse = await ApiService.getContributions();
+      final paymentMethodsResponse = await ApiService.getActivePaymentMethods();
 
-  Widget _buildNavItem(IconData outlinedIcon, IconData filledIcon, String label, int index, VoidCallback onTap) {
-    final isSelected = _currentIndex == index;
-    final purpleColor = const Color(0xFF6366F1); // Purple color matching the design
-    final greyColor = const Color(0xFF9CA3AF); // Light grey for inactive
-    
-    return GestureDetector(
-      onTap: () {
-        // Close FAB if open when switching tabs
-        if (_isFabOpen) {
-          _toggleFab();
+      if (mounted) {
+        setState(() {
+          _isLoadingPaymentData = false;
+        });
+
+        if (contributionsResponse['success'] == true && paymentMethodsResponse['success'] == true) {
+          final contributions = contributionsResponse['data'] ?? [];
+          final paymentMethods = paymentMethodsResponse['methods'] ?? [];
+
+          if (contributions.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No active contributions available')),
+            );
+            return;
+          }
+
+          showDialog(
+            context: context,
+            builder: (context) => PaymentRequestDialog(
+              contributions: contributions,
+              paymentMethods: paymentMethods,
+              onSubmitted: () {
+                Navigator.pop(context);
+              },
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to load contributions')),
+          );
         }
-        onTap();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: isSelected
-                  ? BoxDecoration(
-                      color: purpleColor.withOpacity(0.15),
-                      shape: BoxShape.circle,
-                    )
-                  : null,
-              child: Icon(
-                isSelected ? filledIcon : outlinedIcon,
-                color: isSelected ? purpleColor : greyColor,
-                size: isSelected ? 22 : 20,
-              ),
-            ),
-            const SizedBox(height: 1),
-            Flexible(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? purpleColor : greyColor,
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  letterSpacing: 0,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingPaymentData = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
   }
-}
 
-// Dashboard content without bottom navigation (since it's in MainNavigationScreen)
-class DashboardContent extends StatelessWidget {
-  const DashboardContent({super.key});
+  Future<void> _showRefundRequestDialog() async {
+    _toggleFab();
+    setState(() {
+      _isLoadingRefundData = true;
+    });
+
+    try {
+      final refundRequestsResponse = await ApiService.getRefundRequests();
+      final refundMethodsResponse = await ApiService.getActiveRefundMethods();
+
+      if (mounted) {
+        setState(() {
+          _isLoadingRefundData = false;
+        });
+
+        if (refundRequestsResponse['success'] == true && refundMethodsResponse['success'] == true) {
+          final data = refundRequestsResponse['data'];
+          final refundablePayments = data['refundable_payments'] ?? data['refundablePayments'] ?? [];
+          final refundMethods = refundMethodsResponse['methods'] ?? [];
+
+          if (refundablePayments.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No refundable payments available')),
+            );
+            return;
+          }
+
+          showDialog(
+            context: context,
+            builder: (context) => RefundRequestDialog(
+              refundablePayments: refundablePayments,
+              refundMethods: refundMethods,
+              onSubmitted: () {
+                Navigator.pop(context);
+              },
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to load refund data')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRefundData = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +231,7 @@ class DashboardContent extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFBFE),
+      drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'ClearPay',
         onRefresh: () => dashboardProvider.loadDashboard(),
@@ -345,13 +279,101 @@ class DashboardContent extends StatelessWidget {
                           : const SizedBox(),
             ),
             
-            // Add bottom padding to prevent overflow with bottom navigation and FAB
+            // Add bottom padding to prevent overflow with FAB
             const SliverToBoxAdapter(
-              child: SizedBox(height: 80),
+              child: SizedBox(height: 100),
             ),
           ],
         ),
       ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Payment Request Button
+          if (_isFabOpen)
+            FadeTransition(
+              opacity: _fabAnimation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.3),
+                  end: Offset.zero,
+                ).animate(_fabAnimation),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10, right: 8),
+                  child: FloatingActionButton.extended(
+                    heroTag: "payment_request",
+                    onPressed: _isLoadingPaymentData ? null : _showPaymentRequestDialog,
+                    backgroundColor: const Color(0xFF4CAF50),
+                    icon: _isLoadingPaymentData
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.payment, color: Colors.white),
+                    label: const Text(
+                      'Payment Request',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // Refund Request Button
+          if (_isFabOpen)
+            FadeTransition(
+              opacity: _fabAnimation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.3),
+                  end: Offset.zero,
+                ).animate(_fabAnimation),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 10, right: 8),
+                  child: FloatingActionButton.extended(
+                    heroTag: "refund_request",
+                    onPressed: _isLoadingRefundData ? null : _showRefundRequestDialog,
+                    backgroundColor: const Color(0xFFFF9800),
+                    icon: _isLoadingRefundData
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Icon(Icons.undo, color: Colors.white),
+                    label: const Text(
+                      'Refund Request',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // Main FAB
+          FloatingActionButton(
+            heroTag: "main_fab",
+            onPressed: _toggleFab,
+            backgroundColor: const Color(0xFF6366F1),
+            child: AnimatedRotation(
+              turns: _isFabOpen ? 0.125 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                _isFabOpen ? Icons.close : Icons.add,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
@@ -417,13 +439,6 @@ class _DashboardContentWidget extends StatelessWidget {
         children: [
           // Total Paid Card
           _buildTotalPaidCard(data.totalPaid),
-
-          const SizedBox(height: 24),
-
-          // Quick Actions
-          _buildSectionTitle('Quick Actions'),
-          const SizedBox(height: 16),
-          _buildQuickActions(context),
 
           const SizedBox(height: 24),
 
@@ -540,74 +555,6 @@ class _DashboardContentWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildActionCard(
-            context,
-            icon: Icons.payment,
-            title: 'Payment Request',
-            color: const Color(0xFF4CAF50),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PaymentRequestsScreen()),
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildActionCard(
-            context,
-            icon: Icons.history,
-            title: 'Payment History',
-            color: const Color(0xFF2196F3),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return NotionCard(
-      padding: const EdgeInsets.all(16),
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(height: 12),
-          NotionText(
-            title,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildStatsCards(dynamic data) {
     return Row(

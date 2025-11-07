@@ -167,12 +167,19 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
         $routes->options('api/payer/payment-requests', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/payment-methods', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/submit-payment-request', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/refund-requests', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/refund-methods', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/submit-refund-request', 'Payer\\DashboardController::handleOptions');
         // GET routes
         $routes->get('api/payer/dashboard', 'Payer\\DashboardController::mobileDashboard');
         $routes->get('api/payer/contributions', 'Payer\\DashboardController::mobileContributions');
         $routes->get('api/payer/payment-history', 'Payer\\DashboardController::mobilePaymentHistory');
         $routes->get('api/payer/announcements', 'Payer\\DashboardController::mobileAnnouncements');
         $routes->get('api/payer/payment-requests', 'Payer\\DashboardController::mobilePaymentRequests');
+        $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
+        $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+        // POST routes
+        $routes->post('api/payer/submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
         $routes->get('api/payer/payment-methods', 'Payer\\DashboardController::getActivePaymentMethods');
         // POST routes (API endpoints - no auth filter, will check in controller)
         $routes->post('api/payer/submit-payment-request', 'Payer\\DashboardController::submitPaymentRequest');

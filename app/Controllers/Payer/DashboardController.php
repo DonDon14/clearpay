@@ -1102,6 +1102,14 @@ class DashboardController extends BaseController
             ? ($this->request->getGet('payer_id') ?? session('payer_id'))
             : session('payer_id');
         
+        // Validate payer_id for API requests
+        if ($isApiEndpoint && !$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID is required'
+            ]);
+        }
+        
         // Get payer's refund requests
         $refundRequests = $this->refundModel->getRequestsByPayer($payerId);
         

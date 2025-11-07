@@ -5,6 +5,8 @@ import '../services/api_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'dart:html' as html show FileUploadInputElement, File;
+import '../widgets/notion_app_bar.dart';
+import '../widgets/navigation_drawer.dart';
 
 class PaymentRequestsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -111,15 +113,11 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
     
     if (widget.showAppBar) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment Requests'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loadData,
-            ),
-          ],
-        ),
+      drawer: const AppNavigationDrawer(),
+      appBar: NotionAppBar(
+        title: 'Payment Requests',
+        onRefresh: _loadData,
+      ),
         body: body,
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _showPaymentRequestDialog,
@@ -130,6 +128,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
       );
     } else {
       return Scaffold(
+        drawer: const AppNavigationDrawer(),
         body: body,
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _showPaymentRequestDialog,
@@ -392,11 +391,14 @@ class PaymentRequestDialog extends StatefulWidget {
   final List<dynamic> contributions;
   final Map<String, dynamic>? preSelectedContribution;
   final VoidCallback onSubmitted;
+  final List<dynamic>? paymentMethods;
 
   const PaymentRequestDialog({
+    super.key,
     required this.contributions,
     this.preSelectedContribution,
     required this.onSubmitted,
+    this.paymentMethods,
   });
 
   @override
@@ -432,7 +434,13 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
   @override
   void initState() {
     super.initState();
-    _loadPaymentMethods();
+    if (widget.paymentMethods != null && widget.paymentMethods!.isNotEmpty) {
+      setState(() {
+        _paymentMethods = List<Map<String, dynamic>>.from(widget.paymentMethods!);
+      });
+    } else {
+      _loadPaymentMethods();
+    }
     // Pre-select contribution if provided
     if (widget.preSelectedContribution != null) {
       final contribution = widget.preSelectedContribution!;
