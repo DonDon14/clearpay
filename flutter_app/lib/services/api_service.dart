@@ -684,18 +684,23 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> verifyEmail(String verificationCode) async {
+  static Future<Map<String, dynamic>> verifyEmail(String verificationCode, {String? email}) async {
     try {
       final url = Uri.parse('$baseUrl/api/payer/verify-email');
+      final body = <String, dynamic>{
+        'verification_code': verificationCode,
+      };
+      if (email != null && email.isNotEmpty) {
+        body['email'] = email;
+      }
+      
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'verification_code': verificationCode,
-        }),
+        body: jsonEncode(body),
       ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import '../services/api_service.dart';
 import 'login_screen.dart';
 
 class EmailVerificationDialog extends StatefulWidget {
   final String email;
-  final int? verificationCode; // For testing purposes
+  final int? verificationCode; // For testing purposes (only shown if email failed or in debug mode)
+  final bool emailSent; // Whether email was successfully sent
 
   const EmailVerificationDialog({
     super.key,
     required this.email,
     this.verificationCode,
+    this.emailSent = true,
   });
 
   @override
@@ -42,7 +45,11 @@ class _EmailVerificationDialogState extends State<EmailVerificationDialog> {
     });
 
     try {
-      final response = await ApiService.verifyEmail(_codeController.text.trim());
+      // Pass email along with verification code to avoid session dependency
+      final response = await ApiService.verifyEmail(
+        _codeController.text.trim(),
+        email: widget.email,
+      );
 
       if (!mounted) return;
 
@@ -286,33 +293,49 @@ class _EmailVerificationDialogState extends State<EmailVerificationDialog> {
                 
                 const SizedBox(height: 16),
                 
-                // Test code display (for development/testing)
+                // Test code display (only shown if email failed to send or in debug mode)
                 if (widget.verificationCode != null)
                   Container(
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: widget.emailSent ? Colors.orange[50] : Colors.blue[50],
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[200]!),
+                      border: Border.all(
+                        color: widget.emailSent ? Colors.orange[200]! : Colors.blue[200]!,
+                      ),
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          'Test Verification Code:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
-                          ),
+                        Row(
+                          children: [
+                            Icon(
+                              widget.emailSent ? Icons.warning_amber_rounded : Icons.info_outline,
+                              size: 16,
+                              color: widget.emailSent ? Colors.orange[700] : Colors.blue[700],
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                widget.emailSent 
+                                    ? 'Email may not have been sent. Use this code for testing:'
+                                    : 'Test Verification Code (Email sending failed):',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: widget.emailSent ? Colors.orange[700] : Colors.blue[700],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         Text(
                           '${widget.verificationCode}',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
+                            color: widget.emailSent ? Colors.orange[700] : Colors.blue[700],
                             letterSpacing: 2,
                           ),
                         ),

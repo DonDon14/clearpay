@@ -560,6 +560,7 @@ class SignupController extends BaseController
 
     /**
      * Mobile API verify email endpoint
+     * Now works without session - uses email + verification code
      */
     public function mobileVerifyEmail()
     {
@@ -569,18 +570,10 @@ class SignupController extends BaseController
         $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
         $this->response->setHeader('Access-Control-Max-Age', '7200');
 
-        $session = session();
         $data = $this->request->getPost();
         $jsonData = $this->request->getJSON(true) ?? [];
         $verificationCode = $data['verification_code'] ?? $jsonData['verification_code'] ?? null;
-        $payerId = $session->get('pending_verification_payer_id');
-
-        if (!$payerId) {
-            return $this->response->setJSON([
-                'success' => false,
-                'error' => 'Session expired. Please sign up again.'
-            ]);
-        }
+        $email = $data['email'] ?? $jsonData['email'] ?? null;
 
         if (!$verificationCode) {
             return $this->response->setJSON([
@@ -589,37 +582,67 @@ class SignupController extends BaseController
             ]);
         }
 
-        $payer = $this->payerModel->find($payerId);
+        // Try to find payer by email + verification code (session-independent)
+        $payer = null;
+        
+        if ($email) {
+            // Find by email and verification code
+            $payers = $this->payerModel->where('email_address', $email)
+                ->where('verification_token', (string) $verificationCode)
+                ->where('email_verified', false)
+                ->findAll();
+            
+            if (!empty($payers)) {
+                $payer = $payers[0];
+            }
+        }
+        
+        // Fallback: Try session if available (for backward compatibility)
+        if (!$payer) {
+            $session = session();
+            $payerId = $session->get('pending_verification_payer_id');
+            
+            if ($payerId) {
+                $payer = $this->payerModel->find($payerId);
+                
+                if ($payer && (string) $payer['verification_token'] === (string) $verificationCode) {
+                    // Payer found via session
+                } else {
+                    $payer = null;
+                }
+            }
+        }
 
         if (!$payer) {
             return $this->response->setJSON([
                 'success' => false,
-                'error' => 'Payer not found.'
+                'error' => 'Invalid verification code or email. Please check your email and try again.'
             ]);
         }
 
-        // Compare verification codes (both as strings)
-        if ((string) $payer['verification_token'] === (string) $verificationCode) {
-            // Update payer as verified
-            $this->payerModel->update($payerId, [
-                'email_verified' => true,
-                'verification_token' => null
-            ]);
-
-            // Clear pending verification session
-            $session->remove('pending_verification_payer_id');
-            $session->remove('pending_verification_email');
-
-            return $this->response->setJSON([
-                'success' => true,
-                'message' => 'Email verified successfully! You can now login.'
-            ]);
-        } else {
+        // Verify the code matches
+        if ((string) $payer['verification_token'] !== (string) $verificationCode) {
             return $this->response->setJSON([
                 'success' => false,
                 'error' => 'Invalid verification code.'
             ]);
         }
+
+        // Update payer as verified
+        $this->payerModel->update($payer['id'], [
+            'email_verified' => true,
+            'verification_token' => null
+        ]);
+
+        // Clear pending verification session if exists
+        $session = session();
+        $session->remove('pending_verification_payer_id');
+        $session->remove('pending_verification_email');
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Email verified successfully! You can now login.'
+        ]);
     }
 
     /**
