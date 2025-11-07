@@ -378,5 +378,305 @@ class SignupController extends BaseController
             ]);
         }
     }
+
+    /**
+     * Handle CORS preflight OPTIONS request
+     */
+    public function handleOptions()
+    {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+        return $this->response->setStatusCode(200);
+    }
+
+    /**
+     * Mobile API signup endpoint - returns JSON response
+     */
+    public function mobileSignup()
+    {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+
+        // Get form data from POST or JSON
+        $postData = $this->request->getPost();
+        $jsonData = $this->request->getJSON(true) ?? [];
+        $data = array_merge($postData, $jsonData);
+
+        $formData = [
+            'payer_id' => trim($data['payer_id'] ?? ''),
+            'payer_name' => trim($data['payer_name'] ?? ''),
+            'contact_number' => trim($data['contact_number'] ?? ''),
+            'email_address' => trim($data['email_address'] ?? ''),
+            'course_department' => trim($data['course_department'] ?? '')
+        ];
+        
+        $password = $data['password'] ?? '';
+        $confirmPassword = $data['confirm_password'] ?? '';
+
+        // Validate required fields
+        $validation = \Config\Services::validation();
+        $validation->setRules([
+            'payer_id' => 'required|min_length[3]|max_length[50]',
+            'password' => 'required|min_length[6]|max_length[255]',
+            'confirm_password' => 'required|matches[password]',
+            'payer_name' => 'required|min_length[3]|max_length[255]',
+            'email_address' => 'permit_empty|valid_email|max_length[100]',
+            'contact_number' => 'permit_empty',
+            'course_department' => 'permit_empty|max_length[100]'
+        ]);
+
+        if (!$validation->run($data)) {
+            $errors = $validation->getErrors();
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => implode(', ', $errors)
+            ]);
+        }
+
+        try {
+            // Check if payer_id already exists (case-sensitive)
+            $allPayers = $this->payerModel->findAll();
+            foreach ($allPayers as $p) {
+                if ($p['payer_id'] === $formData['payer_id']) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'A payer with this Student ID already exists'
+                    ]);
+                }
+                // Only check email if provided
+                if (!empty($formData['email_address']) && $p['email_address'] === $formData['email_address']) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'A payer with this email address already exists'
+                    ]);
+                }
+            }
+            
+            // Hash password
+            $formData['password'] = password_hash($password, PASSWORD_DEFAULT);
+
+            // Validate and sanitize phone number if provided
+            if (!empty($formData['contact_number'])) {
+                $formData['contact_number'] = sanitize_phone_number($formData['contact_number']);
+                
+                if (!validate_phone_number($formData['contact_number'])) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Contact number must be exactly 11 digits (numbers only)'
+                    ]);
+                }
+            } else {
+                $formData['contact_number'] = null;
+            }
+
+            // Validate email format if provided
+            if (!empty($formData['email_address']) && !filter_var($formData['email_address'], FILTER_VALIDATE_EMAIL)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Invalid email address format'
+                ]);
+            }
+
+            // Handle email verification
+            $verificationCode = null;
+            if (!empty($formData['email_address'])) {
+                $verificationCode = rand(100000, 999999);
+                $formData['email_verified'] = false;
+                $formData['verification_token'] = (string) $verificationCode;
+            } else {
+                $formData['email_verified'] = true;
+                $formData['verification_token'] = null;
+            }
+
+            // Save to database
+            $result = $this->payerModel->insert($formData);
+
+            if ($result) {
+                $payerId = $this->payerModel->getInsertID();
+                
+                $emailSent = false;
+                
+                // Only send verification email if email is provided
+                if (!empty($formData['email_address']) && $verificationCode) {
+                    // Store payer ID in session for verification
+                    session()->set('pending_verification_payer_id', $payerId);
+                    session()->set('pending_verification_email', $formData['email_address']);
+                    
+                    // Send verification email
+                    try {
+                        $emailSent = $this->sendVerificationEmail($formData['email_address'], $formData['payer_name'], $verificationCode);
+                    } catch (\Exception $e) {
+                        log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
+                    }
+                }
+                
+                // Log payer signup activity
+                try {
+                    $activityLogger = new \App\Services\ActivityLogger();
+                    $payerData = array_merge($formData, ['id' => $payerId]);
+                    unset($payerData['password']);
+                    $activityLogger->logPayer('created', $payerData);
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to log payer signup activity: ' . $e->getMessage());
+                }
+                
+                // Return JSON response
+                if (!empty($formData['email_address']) && $verificationCode) {
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'message' => 'Account created successfully! Please verify your email.',
+                        'email_sent' => $emailSent,
+                        'email' => $formData['email_address'],
+                        'verification_code' => $verificationCode, // For testing purposes
+                        'requires_verification' => true
+                    ]);
+                } else {
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'message' => 'Account created successfully! You can now login.',
+                        'requires_verification' => false
+                    ]);
+                }
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Failed to create account. Please try again.'
+                ]);
+            }
+        } catch (\Exception $e) {
+            log_message('error', 'Payer signup error: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Mobile API verify email endpoint
+     */
+    public function mobileVerifyEmail()
+    {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+
+        $session = session();
+        $data = $this->request->getPost();
+        $jsonData = $this->request->getJSON(true) ?? [];
+        $verificationCode = $data['verification_code'] ?? $jsonData['verification_code'] ?? null;
+        $payerId = $session->get('pending_verification_payer_id');
+
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Session expired. Please sign up again.'
+            ]);
+        }
+
+        if (!$verificationCode) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Verification code is required.'
+            ]);
+        }
+
+        $payer = $this->payerModel->find($payerId);
+
+        if (!$payer) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Payer not found.'
+            ]);
+        }
+
+        // Compare verification codes (both as strings)
+        if ((string) $payer['verification_token'] === (string) $verificationCode) {
+            // Update payer as verified
+            $this->payerModel->update($payerId, [
+                'email_verified' => true,
+                'verification_token' => null
+            ]);
+
+            // Clear pending verification session
+            $session->remove('pending_verification_payer_id');
+            $session->remove('pending_verification_email');
+
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Email verified successfully! You can now login.'
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Invalid verification code.'
+            ]);
+        }
+    }
+
+    /**
+     * Mobile API resend verification code endpoint
+     */
+    public function mobileResendVerificationCode()
+    {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+
+        $session = session();
+        $payerId = $session->get('pending_verification_payer_id');
+        $email = $session->get('pending_verification_email');
+
+        if (!$payerId || !$email) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Session expired. Please sign up again.'
+            ]);
+        }
+
+        $payer = $this->payerModel->find($payerId);
+
+        if (!$payer) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Payer not found.'
+            ]);
+        }
+
+        // Generate new verification code
+        $verificationCode = rand(100000, 999999);
+        
+        // Update payer with new code
+        $this->payerModel->update($payerId, [
+            'verification_token' => (string) $verificationCode
+        ]);
+
+        // Send verification email
+        $emailSent = $this->sendVerificationEmail($email, $payer['payer_name'], $verificationCode);
+
+        if ($emailSent) {
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Verification code resent successfully!',
+                'verification_code' => $verificationCode // For testing purposes
+            ]);
+        } else {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Failed to send verification email. Please try again.',
+                'verification_code' => $verificationCode // For testing purposes
+            ]);
+        }
+    }
 }
 

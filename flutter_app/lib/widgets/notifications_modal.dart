@@ -46,10 +46,17 @@ class _NotificationsModalState extends State<NotificationsModal> {
             activity['entity_id'] = int.tryParse(entityId) ?? 0;
           }
           // Ensure is_unread is set correctly based on is_read_by_payer
-          final isReadByPayer = activity['is_read_by_payer'] ?? 0;
-          activity['is_unread'] = isReadByPayer == 0 || isReadByPayer == false;
+          // Use the same robust parsing logic as notion_app_bar.dart
+          final isReadValue = activity['is_read_by_payer'];
+          final isRead = isReadValue is int 
+              ? isReadValue 
+              : (isReadValue is String 
+                  ? int.tryParse(isReadValue) ?? 0 
+                  : (isReadValue == true || isReadValue == '1' || isReadValue == 1 ? 1 : 0));
+          activity['is_unread'] = isRead == 0;
+          activity['is_read_by_payer'] = isRead; // Normalize the value
           // Also set read_at for compatibility
-          activity['read_at'] = (isReadByPayer == 1 || isReadByPayer == true) ? DateTime.now().toIso8601String() : null;
+          activity['read_at'] = (isRead == 1) ? DateTime.now().toIso8601String() : null;
           return activity;
         }).toList();
         
@@ -100,8 +107,14 @@ class _NotificationsModalState extends State<NotificationsModal> {
 
   Future<void> _markAllAsRead() async {
     final unreadNotifications = _notifications.where((n) {
-      final isReadByPayer = n['is_read_by_payer'] ?? 0;
-      return isReadByPayer == 0 || isReadByPayer == false;
+      // Use the same robust parsing logic as notion_app_bar.dart
+      final isReadValue = n['is_read_by_payer'];
+      final isRead = isReadValue is int 
+          ? isReadValue 
+          : (isReadValue is String 
+              ? int.tryParse(isReadValue) ?? 0 
+              : (isReadValue == true || isReadValue == '1' || isReadValue == 1 ? 1 : 0));
+      return isRead == 0;
     }).toList();
 
     for (var notification in unreadNotifications) {
@@ -243,8 +256,14 @@ class _NotificationsModalState extends State<NotificationsModal> {
                           itemCount: _notifications.length,
                           itemBuilder: (context, index) {
                             final notification = _notifications[index];
-                            final isReadByPayer = notification['is_read_by_payer'] ?? 0;
-                            final isUnread = isReadByPayer == 0 || isReadByPayer == false;
+                            // Use the same robust parsing logic as notion_app_bar.dart
+                            final isReadValue = notification['is_read_by_payer'];
+                            final isRead = isReadValue is int 
+                                ? isReadValue 
+                                : (isReadValue is String 
+                                    ? int.tryParse(isReadValue) ?? 0 
+                                    : (isReadValue == true || isReadValue == '1' || isReadValue == 1 ? 1 : 0));
+                            final isUnread = isRead == 0;
                             
                             final title = notification['title'] ?? 'Notification';
                             final description = notification['description'] ?? '';
@@ -408,8 +427,14 @@ class _NotificationsModalState extends State<NotificationsModal> {
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: _notifications.any((n) {
-                      final isReadByPayer = n['is_read_by_payer'] ?? 0;
-                      return isReadByPayer == 0 || isReadByPayer == false;
+                      // Use the same robust parsing logic as notion_app_bar.dart
+                      final isReadValue = n['is_read_by_payer'];
+                      final isRead = isReadValue is int 
+                          ? isReadValue 
+                          : (isReadValue is String 
+                              ? int.tryParse(isReadValue) ?? 0 
+                              : (isReadValue == true || isReadValue == '1' || isReadValue == 1 ? 1 : 0));
+                      return isRead == 0;
                     }) ? _markAllAsRead : null,
                     icon: const Icon(Icons.done_all, size: 18),
                     label: const Text('Mark All as Read'),
