@@ -935,6 +935,37 @@ class DashboardController extends BaseController
     }
 
     /**
+     * Get pending refund requests count for notification badge
+     */
+    public function getPendingRefundRequestsCount()
+    {
+        try {
+            // Check if user is logged in
+            if (!session()->get('isLoggedIn')) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ]);
+            }
+
+            $refundModel = new \App\Models\RefundModel();
+            $count = $refundModel->getPendingCount();
+
+            return $this->response->setJSON([
+                'success' => true,
+                'count' => $count
+            ]);
+
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+                'count' => 0
+            ]);
+        }
+    }
+
+    /**
      * Send payment receipt email to payer
      */
     private function sendReceiptEmail($paymentData)

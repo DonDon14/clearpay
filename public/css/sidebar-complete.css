@@ -456,6 +456,13 @@ body.sidebar-loading .main-content {
     visibility: hidden !important;
 }
 
+/* Hide refund requests badge by default - JavaScript will show it if needed */
+#refundRequestsBadge {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
 @keyframes pulse {
     0% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);

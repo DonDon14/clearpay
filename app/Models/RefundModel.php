@@ -300,4 +300,14 @@ class RefundModel extends Model
             'total' => $this->countAllResults()
         ];
     }
+
+    /**
+     * Get pending refund requests count (from payers)
+     */
+    public function getPendingCount()
+    {
+        return $this->where('status', 'pending')
+                    ->where('request_type', 'payer_requested')
+                    ->countAllResults();
+    }
 }
