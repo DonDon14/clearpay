@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/notion_app_bar.dart';
+import '../widgets/navigation_drawer.dart';
 
 class RefundRequestsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -35,12 +37,27 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     try {
       final refundRequestsResponse = await ApiService.getRefundRequests();
       
+      // Debug: Print response structure
+      print('Refund Requests Response: $refundRequestsResponse');
+      
       if (refundRequestsResponse['success'] == true) {
         final data = refundRequestsResponse['data'];
+        print('Refund Requests Data: $data');
+        
         setState(() {
           // API returns snake_case, handle both formats
-          _refundRequests = data['refund_requests'] ?? data['refundRequests'] ?? [];
-          _refundablePayments = data['refundable_payments'] ?? data['refundablePayments'] ?? [];
+          final refundRequestsList = data['refund_requests'] ?? data['refundRequests'];
+          final refundablePaymentsList = data['refundable_payments'] ?? data['refundablePayments'];
+          
+          _refundRequests = refundRequestsList is List ? refundRequestsList : [];
+          _refundablePayments = refundablePaymentsList is List ? refundablePaymentsList : [];
+          
+          print('Refund Requests Count: ${_refundRequests.length}');
+          print('Refundable Payments Count: ${_refundablePayments.length}');
+        });
+      } else {
+        setState(() {
+          _errorMessage = refundRequestsResponse['error'] ?? refundRequestsResponse['message'] ?? 'Failed to load refund requests';
         });
       }
 
@@ -97,14 +114,10 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     
     if (widget.showAppBar) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Refund Requests'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loadData,
-            ),
-          ],
+        drawer: const AppNavigationDrawer(),
+        appBar: NotionAppBar(
+          title: 'Refund Requests',
+          onRefresh: _loadData,
         ),
         body: body,
         floatingActionButton: FloatingActionButton.extended(
@@ -116,6 +129,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
       );
     } else {
       return Scaffold(
+        drawer: const AppNavigationDrawer(),
         body: body,
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _showRefundRequestDialog,
@@ -182,10 +196,21 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     );
   }
 
+  // Helper function to safely convert value to double
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   Widget _buildRefundRequestCard(Map<String, dynamic> request) {
     final status = request['status'] ?? 'pending';
     final date = request['requested_at'] ?? request['created_at'] ?? '';
-    final amount = (request['refund_amount'] ?? 0).toDouble();
+    final amount = _parseDouble(request['refund_amount']);
     final reference = request['refund_reference'] ?? 'N/A';
     final method = request['refund_method'] ?? 'N/A';
     final contribution = request['contribution_title'] ?? 'N/A';
@@ -364,6 +389,17 @@ class _RefundRequestDialogState extends State<_RefundRequestDialog> {
     super.dispose();
   }
 
+  // Helper function to safely convert value to double
+  double _parseDouble(dynamic value) {
+    if (value == null) return 0.0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      return double.tryParse(value) ?? 0.0;
+    }
+    return 0.0;
+  }
+
   void _updateRefundAmount() {
     if (_selectedPaymentId != null) {
       final payment = widget.refundablePayments.firstWhere(
@@ -372,7 +408,7 @@ class _RefundRequestDialogState extends State<_RefundRequestDialog> {
       );
       if (payment != null) {
         setState(() {
-          _refundAmount = (payment['available_refund'] ?? 0).toDouble();
+          _refundAmount = _parseDouble(payment['available_refund']);
         });
       }
     }
@@ -471,7 +507,7 @@ class _RefundRequestDialogState extends State<_RefundRequestDialog> {
                         items: widget.refundablePayments.map((payment) {
                           final receipt = payment['receipt_number'] ?? 'N/A';
                           final contribution = payment['contribution_title'] ?? 'N/A';
-                          final available = (payment['available_refund'] ?? 0).toDouble();
+                          final available = _parseDouble(payment['available_refund']);
                           return DropdownMenuItem<int>(
                             value: payment['id'],
                             child: Column(

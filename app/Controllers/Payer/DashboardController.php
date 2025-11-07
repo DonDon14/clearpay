@@ -1063,6 +1063,7 @@ class DashboardController extends BaseController
             $this->response->setHeader('Access-Control-Allow-Origin', '*');
             $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
             $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
             $this->response->setHeader('Access-Control-Max-Age', '7200');
         }
         
@@ -1070,6 +1071,14 @@ class DashboardController extends BaseController
         $payerId = $isApiEndpoint 
             ? ($this->request->getGet('payer_id') ?? session('payer_id'))
             : session('payer_id');
+        
+        // Validate payer_id for API requests
+        if ($isApiEndpoint && !$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Payer ID is required'
+            ]);
+        }
         
         // Get payer's refund requests
         $refundRequests = $this->refundModel->getRequestsByPayer($payerId);

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../widgets/payment_receipt_modal.dart';
+import '../widgets/notion_app_bar.dart';
+import '../widgets/navigation_drawer.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
   const PaymentHistoryScreen({super.key});
@@ -63,14 +65,10 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadPaymentHistory,
-          ),
-        ],
+      drawer: const AppNavigationDrawer(),
+      appBar: NotionAppBar(
+        title: 'Payment History',
+        onRefresh: _loadPaymentHistory,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../widgets/notion_app_bar.dart';
+import '../widgets/navigation_drawer.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
   const AnnouncementsScreen({super.key});
@@ -52,14 +54,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Announcements'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAnnouncements,
-          ),
-        ],
+      drawer: const AppNavigationDrawer(),
+      appBar: NotionAppBar(
+        title: 'Announcements',
+        onRefresh: _loadAnnouncements,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

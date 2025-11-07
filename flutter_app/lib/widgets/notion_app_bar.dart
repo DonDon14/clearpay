@@ -8,22 +8,16 @@ import 'dart:async';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../services/api_service.dart';
-import '../screens/profile_screen.dart';
-import '../screens/contributions_screen.dart';
-import '../screens/payment_history_screen.dart';
-import '../screens/announcements_screen.dart';
 
 class NotionAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
   final bool showNotifications;
-  final bool showProfile;
   final VoidCallback? onRefresh;
   
   const NotionAppBar({
     super.key,
     required this.title,
     this.showNotifications = true,
-    this.showProfile = true,
     this.onRefresh,
   });
 
@@ -36,15 +30,11 @@ class NotionAppBar extends StatefulWidget implements PreferredSizeWidget {
 
 class _NotionAppBarState extends State<NotionAppBar> {
   bool _isNotificationOpen = false;
-  bool _isProfileOpen = false;
   List<dynamic> _notifications = [];
   int _unreadCount = 0;
   bool _isLoadingNotifications = false;
   final GlobalKey _notificationKey = GlobalKey();
-  final GlobalKey _profileKey = GlobalKey();
-  final GlobalKey _profileDropdownKey = GlobalKey();
   OverlayEntry? _notificationOverlay;
-  OverlayEntry? _profileOverlay;
 
   @override
   void initState() {
@@ -57,7 +47,6 @@ class _NotionAppBarState extends State<NotionAppBar> {
   @override
   void dispose() {
     _notificationOverlay?.remove();
-    _profileOverlay?.remove();
     super.dispose();
   }
 
@@ -123,6 +112,24 @@ class _NotionAppBarState extends State<NotionAppBar> {
           elevation: 0,
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
+          leading: Builder(
+            builder: (BuildContext context) {
+              return IconButton(
+                icon: const Icon(Icons.menu, color: Color(0xFF37352F)),
+                onPressed: () {
+                  try {
+                    Scaffold.of(context).openDrawer();
+                  } catch (e) {
+                    // If drawer is not available, try to find it in the widget tree
+                    final scaffoldState = Scaffold.maybeOf(context);
+                    if (scaffoldState != null) {
+                      scaffoldState.openDrawer();
+                    }
+                  }
+                },
+              );
+            },
+          ),
           title: Text(
             widget.title,
             style: const TextStyle(
@@ -132,6 +139,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
               letterSpacing: -0.3,
             ),
           ),
+          centerTitle: true,
           actions: [
             // Notifications
             if (widget.showNotifications)
@@ -148,7 +156,6 @@ class _NotionAppBarState extends State<NotionAppBar> {
                     onPressed: () {
                       setState(() {
                         _isNotificationOpen = !_isNotificationOpen;
-                        _isProfileOpen = false;
                       });
                       if (_isNotificationOpen) {
                         _loadNotifications();
@@ -186,44 +193,6 @@ class _NotionAppBarState extends State<NotionAppBar> {
                 ],
               ),
             
-            // Profile
-            if (widget.showProfile)
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                child: IconButton(
-                  icon: CircleAvatar(
-                    radius: 16,
-                    backgroundColor: const Color(0xFFF1F1EF),
-                    backgroundImage: effectiveUser != null && effectiveUser['profile_picture'] != null
-                        ? NetworkImage('${ApiService.baseUrl}/${effectiveUser['profile_picture']}')
-                        : null,
-                    child: effectiveUser?['profile_picture'] == null
-                        ? Text(
-                            ((effectiveUser?['payer_name'] ?? effectiveUser?['name'] ?? 'U') as String)[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Color(0xFF37352F),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          )
-                        : null,
-                  ),
-                  onPressed: () {
-                    // Direct setState is safe here as onPressed is called outside build
-                    if (mounted) {
-                      setState(() {
-                        _isProfileOpen = !_isProfileOpen;
-                        _isNotificationOpen = false;
-                      });
-                      if (_isProfileOpen) {
-                        _showProfileOverlay(context, effectiveUser);
-                      } else {
-                        _hideProfileOverlay();
-                      }
-                    }
-                  },
-                ),
-              ),
           ],
         ),
       ],
@@ -445,240 +414,6 @@ class _NotionAppBarState extends State<NotionAppBar> {
     );
   }
 
-  Widget _buildProfileDropdown(BuildContext context, Map<String, dynamic>? user) {
-    return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(8),
-      color: Colors.white,
-      shadowColor: Colors.black.withOpacity(0.15),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          key: _profileDropdownKey,
-          width: 320,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE9E9E7), width: 1),
-          ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Profile Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFFE9E9E7), width: 1)),
-              ),
-              child: Row(
-                children: [
-                  // Profile picture - non-clickable, no camera icon
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: const Color(0xFFF1F1EF),
-                    backgroundImage: user != null && user['profile_picture'] != null
-                        ? NetworkImage('${ApiService.baseUrl}/${user['profile_picture']}')
-                        : null,
-                    child: user?['profile_picture'] == null
-                        ? Text(
-                            ((user?['payer_name'] ?? user?['name'] ?? 'U') as String)[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Color(0xFF37352F),
-                              fontSize: 24,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user?['payer_name'] ?? user?['name'] ?? 'User',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF37352F),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          user?['email_address'] ?? user?['email'] ?? '',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'ID: ${user?['payer_id'] ?? user?['payer_student_id'] ?? user?['id'] ?? 'N/A'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Online',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Menu Items
-            _buildProfileMenuItem(
-              icon: Icons.person_outline,
-              title: 'My Data',
-              subtitle: 'View your information',
-              onTap: () {
-                setState(() {
-                  _isProfileOpen = false;
-                });
-                _hideProfileOverlay();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                );
-              },
-            ),
-            _buildProfileMenuItem(
-              icon: Icons.handshake_outlined,
-              title: 'Contributions',
-              subtitle: 'View active contributions',
-              onTap: () {
-                setState(() {
-                  _isProfileOpen = false;
-                });
-                _hideProfileOverlay();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ContributionsScreen()),
-                );
-              },
-            ),
-            _buildProfileMenuItem(
-              icon: Icons.history,
-              title: 'Payment History',
-              subtitle: 'View all transactions',
-              onTap: () {
-                setState(() {
-                  _isProfileOpen = false;
-                });
-                _hideProfileOverlay();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
-                );
-              },
-            ),
-            _buildProfileMenuItem(
-              icon: Icons.help_outline,
-              title: 'Help & Support',
-              subtitle: 'Get assistance',
-              onTap: () {
-                setState(() {
-                  _isProfileOpen = false;
-                });
-                _hideProfileOverlay();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Help & Support coming soon')),
-                );
-              },
-            ),
-            
-            const Divider(height: 1, color: Color(0xFFE9E9E7)),
-            
-            // Sign Out
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-              leading: Icon(Icons.logout, size: 20, color: Colors.red[600]),
-              title: const Text(
-                'Sign Out',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF37352F),
-                ),
-              ),
-              subtitle: Text(
-                'Logout from account',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-              onTap: () async {
-                setState(() {
-                  _isProfileOpen = false;
-                });
-                _hideProfileOverlay();
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                await authProvider.logout();
-                if (context.mounted) {
-                  Navigator.of(context).pushReplacementNamed('/login');
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
-
-  Widget _buildProfileMenuItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Icon(icon, size: 20, color: const Color(0xFF37352F)),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF37352F),
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
-        ),
-      ),
-      trailing: Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
-      onTap: onTap,
-    );
-  }
-
   Color _getColorFromString(String color) {
     switch (color.toLowerCase()) {
       case 'blue':
@@ -769,51 +504,4 @@ class _NotionAppBarState extends State<NotionAppBar> {
     _notificationOverlay = null;
   }
 
-  void _showProfileOverlay(BuildContext context, Map<String, dynamic>? user) {
-    _hideProfileOverlay();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final overlay = Overlay.of(context);
-      final renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) return;
-      
-      final offset = renderBox.localToGlobal(Offset.zero);
-      final screenSize = MediaQuery.of(context).size;
-      
-      _profileOverlay = OverlayEntry(
-        builder: (overlayContext) => Stack(
-          children: [
-            // Invisible backdrop to capture outside clicks
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isProfileOpen = false;
-                  });
-                  _hideProfileOverlay();
-                },
-                behavior: HitTestBehavior.translucent,
-              ),
-            ),
-            // Dropdown positioned correctly
-            Positioned(
-              top: offset.dy + 56,
-              right: 8,
-              child: GestureDetector(
-                onTap: () {}, // Prevent closing when tapping inside
-                behavior: HitTestBehavior.opaque,
-                child: _buildProfileDropdown(overlayContext, user),
-              ),
-            ),
-          ],
-        ),
-      );
-      overlay.insert(_profileOverlay!);
-    });
-  }
-
-  void _hideProfileOverlay() {
-    _profileOverlay?.remove();
-    _profileOverlay = null;
-  }
 }

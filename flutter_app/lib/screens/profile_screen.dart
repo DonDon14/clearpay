@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'dart:html' as html show File, FileReader, FileUploadInputElement;
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import '../widgets/notion_app_bar.dart';
+import '../widgets/navigation_drawer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -239,14 +241,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profile')),
+        drawer: const AppNavigationDrawer(),
+        appBar: NotionAppBar(title: 'Profile'),
         body: const Center(child: Text('Not logged in')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Data'),
+      drawer: const AppNavigationDrawer(),
+      appBar: NotionAppBar(
+        title: 'My Data',
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

@@ -404,8 +404,14 @@ class ApiService {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data};
+        final decoded = jsonDecode(response.body);
+        // Backend already returns {success: true, data: {...}}, so return it directly
+        if (decoded is Map<String, dynamic> && decoded['success'] == true) {
+          return decoded;
+        } else {
+          // Fallback: wrap if structure is different
+          return {'success': true, 'data': decoded};
+        }
       } else {
         return {'success': false, 'error': 'Server error: ${response.statusCode}'};
       }
