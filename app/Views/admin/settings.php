@@ -678,11 +678,42 @@ function createBackup() {
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
     button.disabled = true;
     
-    setTimeout(() => {
-        showNotification('Database backup created successfully', 'success');
+    // Show loading notification
+    showNotification('Creating database backup...', 'info');
+    
+    // Make API call to create backup
+    fetch('/admin/backup/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let message = 'Database backup created successfully!';
+            if (data.backup && data.backup.copied_to_documents) {
+                message += ' File saved to Documents\\clearpaybackups folder.';
+            }
+            showNotification(message, 'success');
+            
+            // Don't auto-download since file is already in Documents folder
+            // User can access it directly from C:\Users\User\Documents\clearpaybackups
+            // If they want to download, they can use the download link
+        } else {
+            showNotification('Failed to create backup: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Backup error:', error);
+        showNotification('An error occurred while creating the backup', 'error');
+    })
+    .finally(() => {
         button.innerHTML = originalText;
         button.disabled = false;
-    }, 2000);
+    });
 }
 
 function clearCache() {
