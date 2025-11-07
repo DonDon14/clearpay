@@ -95,7 +95,44 @@ class DashboardController extends BaseController
 
     public function updateProfile()
     {
-        $payerId = session('payer_id');
+        // Check if this is an API request (OPTIONS preflight or from Flutter app)
+        $isApiRequest = $this->request->getMethod() === 'OPTIONS' || 
+                       $this->request->getHeader('X-Requested-With') === 'XMLHttpRequest' ||
+                       $this->request->getHeader('Accept') === 'application/json';
+        
+        // Set CORS headers for all requests (needed for Flutter web)
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+        
+        // Handle OPTIONS preflight request
+        if ($this->request->getMethod() === 'OPTIONS') {
+            return $this->response->setStatusCode(200)->setBody('');
+        }
+        
+        // Get payer ID - try JSON body first (for API requests), then POST, then session
+        $payerId = null;
+        $jsonData = null;
+        
+        // Try to decode JSON body first (for API requests)
+        $requestBody = $this->request->getBody();
+        if (!empty($requestBody)) {
+            $jsonData = json_decode($requestBody, true);
+            if ($jsonData && isset($jsonData['payer_id'])) {
+                $payerId = $jsonData['payer_id'];
+            }
+        }
+        
+        // If not in JSON body, try POST data
+        if (!$payerId) {
+            $payerId = $this->request->getPost('payer_id');
+        }
+        
+        // If still not found, try session (for web requests)
+        if (!$payerId) {
+            $payerId = session('payer_id');
+        }
         
         if (!$payerId) {
             return $this->response->setJSON([
@@ -104,13 +141,30 @@ class DashboardController extends BaseController
             ]);
         }
 
+        // Get data from JSON body (if available) or POST
+        if ($jsonData && (isset($jsonData['email_address']) || isset($jsonData['contact_number']))) {
+            // Data is in JSON body
+            $emailAddress = $jsonData['email_address'] ?? null;
+            $contactNumber = $jsonData['contact_number'] ?? null;
+        } else {
+            // Data is in POST
+            $emailAddress = $this->request->getPost('email_address');
+            $contactNumber = $this->request->getPost('contact_number');
+        }
+        
+        // Prepare data for validation
+        $validationData = [
+            'email_address' => $emailAddress,
+            'contact_number' => $contactNumber,
+        ];
+        
         $validation = \Config\Services::validation();
         $validation->setRules([
-            'email_address' => 'required|valid_email',
-            'contact_number' => 'required|min_length[10]|max_length[15]'
+            'email_address' => 'permit_empty|valid_email',
+            'contact_number' => 'permit_empty|min_length[10]|max_length[15]'
         ]);
 
-        if (!$validation->withRequest($this->request)->run()) {
+        if (!$validation->run($validationData)) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -118,10 +172,23 @@ class DashboardController extends BaseController
             ]);
         }
 
-        $data = [
-            'email_address' => $this->request->getPost('email_address'),
-            'contact_number' => $this->request->getPost('contact_number')
-        ];
+        // Only update fields that are provided
+        $data = [];
+        
+        if ($emailAddress !== null && $emailAddress !== '') {
+            $data['email_address'] = $emailAddress;
+        }
+        if ($contactNumber !== null && $contactNumber !== '') {
+            $data['contact_number'] = $contactNumber;
+        }
+        
+        // If no fields to update, return success (allows profile picture-only updates)
+        if (empty($data)) {
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'No changes to update'
+            ]);
+        }
 
         // Get old payer data for activity logging
         $oldPayerData = $this->payerModel->find($payerId);
@@ -129,10 +196,12 @@ class DashboardController extends BaseController
         $result = $this->payerModel->update($payerId, $data);
 
         if ($result) {
-            // Update session data
-            session()->set([
-                'payer_email' => $data['email_address']
-            ]);
+            // Update session data if email was updated
+            if (isset($data['email_address'])) {
+                session()->set([
+                    'payer_email' => $data['email_address']
+                ]);
+            }
 
             // Log payer profile update activity for admin notification
             try {

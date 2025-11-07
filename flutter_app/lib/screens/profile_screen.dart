@@ -23,6 +23,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _contactController = TextEditingController();
+  Uint8List? _pendingProfilePictureBytes;
+  String? _pendingProfilePictureFileName;
 
   @override
   void initState() {
@@ -48,41 +50,126 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoading = true;
     });
 
+    bool profilePictureUploaded = false;
+    
     try {
-      final response = await ApiService.updateProfile(
-        emailAddress: _emailController.text,
-        contactNumber: _contactController.text,
-      );
+      // Upload profile picture first if there's a pending one
+      if (_pendingProfilePictureBytes != null && _pendingProfilePictureFileName != null) {
+        final uploadResponse = await ApiService.uploadProfilePictureWeb(
+          _pendingProfilePictureBytes!,
+          _pendingProfilePictureFileName!,
+        );
+        
+        if (uploadResponse['success'] == true) {
+          profilePictureUploaded = true;
+          
+          // Update user data in AuthProvider with new profile picture
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          if (authProvider.user != null) {
+            final updatedUser = Map<String, dynamic>.from(authProvider.user!);
+            final profilePictureUrl = uploadResponse['profile_picture'] as String?;
+            if (profilePictureUrl != null) {
+              String relativePath = profilePictureUrl;
+              if (profilePictureUrl.startsWith(ApiService.baseUrl)) {
+                relativePath = profilePictureUrl.replaceFirst(ApiService.baseUrl, '').replaceFirst(RegExp(r'^/'), '');
+              } else if (profilePictureUrl.startsWith('http://') || profilePictureUrl.startsWith('https://')) {
+                final uri = Uri.parse(profilePictureUrl);
+                relativePath = uri.path.replaceFirst(RegExp(r'^/'), '');
+              }
+              updatedUser['profile_picture'] = relativePath;
+              authProvider.updateUserData(updatedUser);
+            }
+          }
+          
+          // Clear pending profile picture
+          setState(() {
+            _pendingProfilePictureBytes = null;
+            _pendingProfilePictureFileName = null;
+          });
+        } else {
+          // If profile picture upload fails, show error and stop
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+            final errorMessage = uploadResponse['message'] ?? uploadResponse['error'] ?? 'Failed to upload profile picture';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+          return;
+        }
+      }
+      
+      // Only send non-empty values, send null for empty fields
+      final emailAddress = _emailController.text.trim().isEmpty 
+          ? null 
+          : _emailController.text.trim();
+      final contactNumber = _contactController.text.trim().isEmpty 
+          ? null 
+          : _contactController.text.trim();
+      
+      // Only update profile if there are changes to email/contact
+      // (Profile picture was already uploaded above)
+      if (emailAddress != null || contactNumber != null) {
+        final response = await ApiService.updateProfile(
+          emailAddress: emailAddress,
+          contactNumber: contactNumber,
+        );
 
-      if (response['success'] == true) {
-        if (mounted) {
+        if (response['success'] == true) {
+          // Update user data in provider
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          if (authProvider.user != null) {
+            final updatedUser = Map<String, dynamic>.from(authProvider.user!);
+            if (emailAddress != null) {
+              updatedUser['email_address'] = emailAddress;
+            }
+            if (contactNumber != null) {
+              updatedUser['contact_number'] = contactNumber;
+            }
+            authProvider.updateUserData(updatedUser);
+          }
+        } else {
+          // If profile update fails, show error but don't block success message
+          if (mounted) {
+            final errorMessage = response['message'] ?? response['error'] ?? 'Failed to update profile';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(errorMessage),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      }
+      
+      // Show success message if profile picture was uploaded or profile was updated
+      if (mounted) {
+        if (profilePictureUploaded) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile picture updated successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else if (emailAddress != null || contactNumber != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Profile updated successfully'),
               backgroundColor: Colors.green,
             ),
           );
-          setState(() {
-            _isEditing = false;
-          });
-          // Update user data in provider
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          if (authProvider.user != null) {
-            final updatedUser = Map<String, dynamic>.from(authProvider.user!);
-            updatedUser['email_address'] = _emailController.text;
-            updatedUser['contact_number'] = _contactController.text;
-            // Note: In a real app, you'd reload from API or update the provider
-          }
         }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response['message'] ?? 'Failed to update profile'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        
+        setState(() {
+          _isEditing = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -175,46 +262,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         reader.readAsArrayBuffer(file);
         final fileBytes = await completer.future;
 
-        // Upload profile picture
-        final response = await ApiService.uploadProfilePictureWeb(fileBytes, file.name);
-
         if (mounted) {
           Navigator.pop(context); // Close loading dialog
-        }
-
-        if (response['success'] == true) {
-          // Update user data in AuthProvider
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          if (authProvider.user != null) {
-            final updatedUser = Map<String, dynamic>.from(authProvider.user!);
-            // Extract path from full URL
-            final profilePictureUrl = response['profile_picture'] as String?;
-            if (profilePictureUrl != null) {
-              // Remove base URL to get relative path
-              final relativePath = profilePictureUrl.replaceFirst(ApiService.baseUrl, '').replaceFirst(RegExp(r'^/'), '');
-              updatedUser['profile_picture'] = relativePath;
-              authProvider.updateUserData(updatedUser);
-            }
-          }
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Profile picture uploaded successfully'),
-                backgroundColor: Colors.green,
-              ),
-            );
-            setState(() {}); // Refresh UI
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(response['message'] ?? 'Failed to upload profile picture'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
+          
+          // Store the file temporarily - don't upload yet
+          setState(() {
+            _pendingProfilePictureBytes = fileBytes;
+            _pendingProfilePictureFileName = file.name;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile picture selected. Click "Save Changes" to upload.'),
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 3),
+            ),
+          );
         }
       } catch (e) {
         if (mounted) {
@@ -283,62 +346,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 16),
                       Center(
-                        child: _isEditing
-                            ? GestureDetector(
-                                onTap: _uploadProfilePicture,
-                                child: Stack(
-                                  children: [
-                                    Container(
-                                      width: 150,
-                                      height: 150,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.grey[300]!, width: 4),
-                                        color: Colors.grey[200],
-                                      ),
-                                      child: user['profile_picture'] != null
-                                          ? ClipOval(
-                                              child: Image.network(
-                                                '${ApiService.baseUrl}/${user['profile_picture']}',
-                                                width: 150,
-                                                height: 150,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) {
-                                                  return const Icon(Icons.person, size: 60, color: Colors.grey);
-                                                },
-                                              ),
-                                            )
-                                          : const Icon(Icons.person, size: 60, color: Colors.grey),
-                                    ),
-                                  ],
+                        child: GestureDetector(
+                          onTap: _isEditing ? _uploadProfilePicture : null,
+                          child: Stack(
+                            children: [
+                              Container(
+                                width: 150,
+                                height: 150,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.grey[300]!, width: 4),
+                                  color: Colors.grey[200],
                                 ),
-                              )
-                            : Stack(
-                                children: [
-                                  Container(
-                                    width: 150,
-                                    height: 150,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.grey[300]!, width: 4),
-                                      color: Colors.grey[200],
-                                    ),
-                                    child: user['profile_picture'] != null
+                                child: _pendingProfilePictureBytes != null
+                                    ? ClipOval(
+                                        child: Image.memory(
+                                          _pendingProfilePictureBytes!,
+                                          width: 150,
+                                          height: 150,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      )
+                                    : user['profile_picture'] != null && user['profile_picture'].toString().isNotEmpty
                                         ? ClipOval(
                                             child: Image.network(
                                               '${ApiService.baseUrl}/${user['profile_picture']}',
                                               width: 150,
                                               height: 150,
                                               fit: BoxFit.cover,
+                                              headers: const {
+                                                'Accept': 'image/*',
+                                              },
                                               errorBuilder: (context, error, stackTrace) {
+                                                print('Profile picture load error: $error');
+                                                print('Profile picture URL: ${ApiService.baseUrl}/${user['profile_picture']}');
                                                 return const Icon(Icons.person, size: 60, color: Colors.grey);
                                               },
                                             ),
                                           )
                                         : const Icon(Icons.person, size: 60, color: Colors.grey),
-                                  ),
-                                ],
                               ),
+                              if (_isEditing)
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF2196F3),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -448,11 +515,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Icons.email,
                               TextInputType.emailAddress,
                               validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter an email address';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'Please enter a valid email address';
+                                // Optional field - only validate format if provided
+                                if (value != null && value.isNotEmpty) {
+                                  if (!value.contains('@')) {
+                                    return 'Please enter a valid email address';
+                                  }
                                 }
                                 return null;
                               },
@@ -474,11 +541,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Icons.phone,
                               TextInputType.phone,
                               validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please enter a contact number';
-                                }
-                                if (value.length < 10) {
-                                  return 'Please enter a valid contact number';
+                                // Optional field - only validate format if provided
+                                if (value != null && value.isNotEmpty) {
+                                  if (value.length < 10) {
+                                    return 'Please enter a valid contact number';
+                                  }
                                 }
                                 return null;
                               },
@@ -514,6 +581,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onPressed: () {
                                 setState(() {
                                   _isEditing = false;
+                                  _pendingProfilePictureBytes = null;
+                                  _pendingProfilePictureFileName = null;
                                   _loadProfileData();
                                 });
                               },
