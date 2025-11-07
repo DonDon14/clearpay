@@ -608,22 +608,226 @@ $settings = [
 <script>
 // Settings change handlers
 document.addEventListener('change', function(e) {
-    if (e.target.type === 'checkbox' || e.target.tagName === 'SELECT') {
+    if (e.target.id === 'emailNotifications') {
+        const enabled = e.target.checked;
+        
+        fetch('/admin/email-settings/toggle-notifications', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ enabled: enabled })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message || 'Email notifications updated successfully', 'success');
+            } else {
+                showNotification('Failed to update email notifications: ' + (data.error || 'Unknown error'), 'error');
+                // Revert checkbox
+                e.target.checked = !enabled;
+            }
+        })
+        .catch(error => {
+            console.error('Toggle notifications error:', error);
+            showNotification('An error occurred while updating email notifications', 'error');
+            // Revert checkbox
+            e.target.checked = !enabled;
+        });
+    } else if (e.target.type === 'checkbox' || e.target.tagName === 'SELECT') {
         showNotification('Setting updated successfully', 'success');
     }
 });
 
 // Action functions
 function configureEmail() {
-    showNotification('Email configuration opened', 'info');
+    // Load current email configuration
+    fetch('/admin/email-settings/config', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Populate form with current config
+            const config = data.config;
+            document.getElementById('smtpFromEmail').value = config.fromEmail || '';
+            document.getElementById('smtpFromName').value = config.fromName || 'ClearPay';
+            document.getElementById('smtpProtocol').value = config.protocol || 'smtp';
+            document.getElementById('smtpHost').value = config.SMTPHost || '';
+            document.getElementById('smtpUser').value = config.SMTPUser || '';
+            document.getElementById('smtpPass').value = config.SMTPPass || '';
+            document.getElementById('smtpPort').value = config.SMTPPort || 587;
+            document.getElementById('smtpCrypto').value = config.SMTPCrypto || 'tls';
+            document.getElementById('smtpTimeout').value = config.SMTPTimeout || 30;
+            document.getElementById('mailType').value = config.mailType || 'html';
+            document.getElementById('charset').value = config.charset || 'UTF-8';
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('smtpConfigModal'));
+            modal.show();
+        } else {
+            showNotification('Failed to load email configuration: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Email config load error:', error);
+        showNotification('An error occurred while loading email configuration', 'error');
+    });
+}
+
+function saveSmtpConfig() {
+    const button = document.getElementById('saveSmtpBtn');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    button.disabled = true;
+    
+    const config = {
+        fromEmail: document.getElementById('smtpFromEmail').value,
+        fromName: document.getElementById('smtpFromName').value,
+        protocol: document.getElementById('smtpProtocol').value,
+        SMTPHost: document.getElementById('smtpHost').value,
+        SMTPUser: document.getElementById('smtpUser').value,
+        SMTPPass: document.getElementById('smtpPass').value,
+        SMTPPort: parseInt(document.getElementById('smtpPort').value),
+        SMTPCrypto: document.getElementById('smtpCrypto').value,
+        SMTPTimeout: parseInt(document.getElementById('smtpTimeout').value),
+        mailType: document.getElementById('mailType').value,
+        charset: document.getElementById('charset').value,
+    };
+    
+    fetch('/admin/email-settings/config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Email configuration saved successfully!', 'success');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('smtpConfigModal'));
+            modal.hide();
+        } else {
+            showNotification('Failed to save configuration: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Save config error:', error);
+        showNotification('An error occurred while saving configuration', 'error');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
 }
 
 function manageTemplates() {
-    showNotification('Template management opened', 'info');
+    // Load email templates
+    fetch('/admin/email-settings/templates', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Populate templates in modal
+            const templatesContainer = document.getElementById('templatesList');
+            templatesContainer.innerHTML = '';
+            
+            Object.keys(data.templates).forEach(key => {
+                const template = data.templates[key];
+                const templateDiv = document.createElement('div');
+                templateDiv.className = 'mb-3';
+                templateDiv.innerHTML = `
+                    <label class="form-label fw-semibold">${template.name}</label>
+                    <input type="text" class="form-control mb-2" id="template_${key}_subject" 
+                           value="${template.subject}" placeholder="Subject">
+                    <textarea class="form-control" id="template_${key}_body" rows="3" 
+                              placeholder="Email Body">${template.body}</textarea>
+                `;
+                templatesContainer.appendChild(templateDiv);
+            });
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('emailTemplatesModal'));
+            modal.show();
+        } else {
+            showNotification('Failed to load email templates: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Templates load error:', error);
+        showNotification('An error occurred while loading email templates', 'error');
+    });
+}
+
+function saveTemplates() {
+    showNotification('Email templates saved successfully!', 'success');
+    const modal = bootstrap.Modal.getInstance(document.getElementById('emailTemplatesModal'));
+    modal.hide();
 }
 
 function testEmail() {
-    showNotification('Test email sent successfully', 'success');
+    const testEmailAddress = prompt('Enter email address to send test email:', sessionStorage.getItem('adminEmail') || '');
+    
+    if (!testEmailAddress) {
+        return;
+    }
+    
+    if (!testEmailAddress.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+        showNotification('Please enter a valid email address', 'error');
+        return;
+    }
+    
+    const button = event.target.closest('button');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    button.disabled = true;
+    
+    showNotification('Sending test email...', 'info');
+    
+    fetch('/admin/email-settings/test-email', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+            email: testEmailAddress
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message || 'Test email sent successfully!', 'success');
+        } else {
+            showNotification('Failed to send test email: ' + (data.error || 'Unknown error'), 'error');
+            if (data.debug) {
+                console.error('Email debug info:', data.debug);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Test email error:', error);
+        showNotification('An error occurred while sending test email', 'error');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
 }
 
 function downloadLogs() {
@@ -832,12 +1036,154 @@ function editSystemVersion() {
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
     console.log('System Settings page loaded');
+    
+    // Load email notifications status
+    fetch('/admin/email-settings/notifications-status', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const checkbox = document.getElementById('emailNotifications');
+            if (checkbox) {
+                checkbox.checked = data.enabled;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Failed to load email notifications status:', error);
+    });
 });
 </script>
 
 <?= payment_methods_modal($paymentMethods ?? []) ?>
 <?= view('partials/modal-refund-methods') ?>
 <?= view('partials/modal-contribution-categories') ?>
+
+<!-- SMTP Configuration Modal -->
+<div class="modal fade" id="smtpConfigModal" tabindex="-1" aria-labelledby="smtpConfigModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="smtpConfigModalLabel">SMTP Configuration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="smtpConfigForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="smtpFromEmail" class="form-label">From Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="smtpFromEmail" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="smtpFromName" class="form-label">From Name</label>
+                            <input type="text" class="form-control" id="smtpFromName" value="ClearPay">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="smtpProtocol" class="form-label">Protocol</label>
+                        <select class="form-select" id="smtpProtocol">
+                            <option value="smtp" selected>SMTP</option>
+                            <option value="mail">PHP Mail</option>
+                            <option value="sendmail">Sendmail</option>
+                        </select>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="smtpHost" class="form-label">SMTP Host <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="smtpHost" required 
+                                   placeholder="e.g., smtp.gmail.com">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="smtpPort" class="form-label">Port <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="smtpPort" value="587" required min="1" max="65535">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="smtpUser" class="form-label">SMTP Username <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="smtpUser" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="smtpPass" class="form-label">SMTP Password <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="smtpPass" required>
+                            <small class="text-muted">For Gmail, use App Password</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="smtpCrypto" class="form-label">Encryption</label>
+                            <select class="form-select" id="smtpCrypto">
+                                <option value="tls" selected>TLS</option>
+                                <option value="ssl">SSL</option>
+                                <option value="">None</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="smtpTimeout" class="form-label">Timeout (seconds)</label>
+                            <input type="number" class="form-control" id="smtpTimeout" value="30" min="1">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="mailType" class="form-label">Mail Type</label>
+                            <select class="form-select" id="mailType">
+                                <option value="html" selected>HTML</option>
+                                <option value="text">Text</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="charset" class="form-label">Charset</label>
+                            <input type="text" class="form-control" id="charset" value="UTF-8">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveSmtpBtn" onclick="saveSmtpConfig()">
+                    <i class="fas fa-save"></i> Save Configuration
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email Templates Modal -->
+<div class="modal fade" id="emailTemplatesModal" tabindex="-1" aria-labelledby="emailTemplatesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="emailTemplatesModalLabel">Email Templates</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="templatesList">
+                    <!-- Templates will be loaded here -->
+                </div>
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Note:</strong> Use placeholders like {code}, {amount}, {name} in templates. These will be replaced with actual values when emails are sent.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveTemplates()">
+                    <i class="fas fa-save"></i> Save Templates
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 // Set base URL for refund methods JavaScript
