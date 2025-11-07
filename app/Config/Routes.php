@@ -46,6 +46,10 @@ $routes->get('/admin/analytics/export/(:any)', 'Admin\Analytics::export/$1', ['f
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
 $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'auth']);
+// Backup routes
+$routes->post('/admin/backup/create', 'Admin\BackupController::createBackup', ['filter' => 'auth']);
+$routes->get('/admin/backup/download/(:any)', 'Admin\BackupController::downloadBackup/$1', ['filter' => 'auth']);
+$routes->get('/admin/backup/list', 'Admin\BackupController::listBackups', ['filter' => 'auth']);
 $routes->get('profile/get', 'Admin\SidebarController::getProfile');
 
 // Payment Methods Management Routes
