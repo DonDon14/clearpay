@@ -1016,6 +1016,32 @@ class SidebarController extends BaseController
         $paymentMethodModel = new \App\Models\PaymentMethodModel();
         $paymentMethods = $paymentMethodModel->orderBy('name', 'ASC')->findAll();
 
+        // Get system information
+        $systemController = new \App\Controllers\Admin\SystemController();
+        $systemInfoData = $systemController->getSystemInfo(false, true); // Don't require auth, return array
+        $systemInfo = [];
+        
+        if (isset($systemInfoData['success']) && $systemInfoData['success'] && isset($systemInfoData['system_info'])) {
+            $systemInfo = $systemInfoData['system_info'];
+        } else {
+            // Fallback to default values if system info not available
+            $systemConfig = new \Config\SystemConfig();
+            $uptimeFile = WRITEPATH . 'system_uptime.txt';
+            if (!file_exists($uptimeFile)) {
+                file_put_contents($uptimeFile, date('Y-m-d H:i:s'));
+            }
+            
+            $systemInfo = [
+                'version' => $systemConfig->version,
+                'php_version' => phpversion(),
+                'framework' => 'CodeIgniter ' . \CodeIgniter\CodeIgniter::CI_VERSION,
+                'database' => 'MySQL',
+                'last_backup' => 'No backups yet',
+                'uptime' => 'Unknown',
+                'status' => 'online'
+            ];
+        }
+
         // Example: pass session data to the view
         $data = [
             'title' => 'Settings',
@@ -1023,6 +1049,7 @@ class SidebarController extends BaseController
             'pageSubtitle' => 'Manage your account settings',
             'username' => session()->get('username'),
             'paymentMethods' => $paymentMethods,
+            'systemInfo' => $systemInfo,
         ];
 
         return view('admin/settings', $data);

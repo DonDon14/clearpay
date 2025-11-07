@@ -50,6 +50,11 @@ $routes->get('/settings', 'Admin\SidebarController::settings', ['filter' => 'aut
 $routes->post('/admin/backup/create', 'Admin\BackupController::createBackup', ['filter' => 'auth']);
 $routes->get('/admin/backup/download/(:any)', 'Admin\BackupController::downloadBackup/$1', ['filter' => 'auth']);
 $routes->get('/admin/backup/list', 'Admin\BackupController::listBackups', ['filter' => 'auth']);
+// System routes
+$routes->get('/admin/system/info', 'Admin\SystemController::getSystemInfo', ['filter' => 'auth']);
+$routes->get('/admin/system/download-logs', 'Admin\SystemController::downloadLogs', ['filter' => 'auth']);
+$routes->post('/admin/system/clear-cache', 'Admin\SystemController::clearCache', ['filter' => 'auth']);
+$routes->post('/admin/system/update-version', 'Admin\SystemController::updateVersion', ['filter' => 'auth']);
 $routes->get('profile/get', 'Admin\SidebarController::getProfile');
 
 // Payment Methods Management Routes
