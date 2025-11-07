@@ -472,47 +472,23 @@ class _NotionAppBarState extends State<NotionAppBar> {
               ),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => _showProfilePictureUpload(context, user),
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 32,
-                          backgroundColor: const Color(0xFFF1F1EF),
-                          backgroundImage: user != null && user['profile_picture'] != null
-                              ? NetworkImage('${ApiService.baseUrl}/${user['profile_picture']}')
-                              : null,
-                          child: user?['profile_picture'] == null
-                              ? Text(
-                                  ((user?['payer_name'] ?? user?['name'] ?? 'U') as String)[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Color(0xFF37352F),
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF6366F1),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                  // Profile picture - non-clickable, no camera icon
+                  CircleAvatar(
+                    radius: 32,
+                    backgroundColor: const Color(0xFFF1F1EF),
+                    backgroundImage: user != null && user['profile_picture'] != null
+                        ? NetworkImage('${ApiService.baseUrl}/${user['profile_picture']}')
+                        : null,
+                    child: user?['profile_picture'] == null
+                        ? Text(
+                            ((user?['payer_name'] ?? user?['name'] ?? 'U') as String)[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Color(0xFF37352F),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w500,
                             ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -743,139 +719,6 @@ class _NotionAppBarState extends State<NotionAppBar> {
     } catch (e) {
       return dateString;
     }
-  }
-
-  Future<void> _showProfilePictureUpload(BuildContext context, Map<String, dynamic>? user) async {
-    if (!kIsWeb) {
-      // For mobile, show a message that it's not yet implemented
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile picture upload is only available on web')),
-      );
-      return;
-    }
-
-    // Close dropdown first
-    setState(() {
-      _isProfileOpen = false;
-    });
-
-    // Create file input element
-    final input = html.FileUploadInputElement();
-    input.accept = 'image/*';
-    input.click();
-
-    input.onChange.listen((e) async {
-      final files = input.files;
-      if (files == null || files.isEmpty) return;
-
-      final file = files[0];
-      
-      // Validate file type
-      final allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-      if (!allowedTypes.contains(file.type)) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid file type. Only JPEG, PNG, and GIF are allowed.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Validate file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('File size too large. Maximum 2MB allowed.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Show loading dialog
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
-
-      try {
-        // Read file as bytes
-        final reader = html.FileReader();
-        final completer = Completer<Uint8List>();
-        
-        reader.onLoadEnd.listen((e) {
-          completer.complete(reader.result as Uint8List);
-        });
-        
-        reader.onError.listen((e) {
-          completer.completeError('Failed to read file');
-        });
-        
-        reader.readAsArrayBuffer(file);
-        final fileBytes = await completer.future;
-
-        // Upload profile picture
-        final response = await ApiService.uploadProfilePictureWeb(fileBytes, file.name);
-
-        if (context.mounted) {
-          Navigator.pop(context); // Close loading dialog
-        }
-
-        if (response['success'] == true) {
-          // Update user data in AuthProvider
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          if (authProvider.user != null) {
-            final updatedUser = Map<String, dynamic>.from(authProvider.user!);
-            // Extract path from full URL
-            final profilePictureUrl = response['profile_picture'] as String?;
-            if (profilePictureUrl != null) {
-              // Remove base URL to get relative path
-              final relativePath = profilePictureUrl.replaceFirst(ApiService.baseUrl, '').replaceFirst(RegExp(r'^/'), '');
-              updatedUser['profile_picture'] = relativePath;
-              authProvider.updateUserData(updatedUser);
-            }
-          }
-
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Profile picture uploaded successfully!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(response['message'] ?? 'Failed to upload profile picture'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } catch (e) {
-        if (context.mounted) {
-          Navigator.pop(context); // Close loading dialog
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    });
   }
 
   void _showNotificationOverlay() {

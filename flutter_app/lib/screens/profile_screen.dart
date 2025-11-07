@@ -277,39 +277,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 16),
                       Center(
-                        child: GestureDetector(
-                          onTap: _uploadProfilePicture,
-                          child: Stack(
-                            children: [
-                              Container(
-                                width: 150,
-                                height: 150,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.grey[300]!, width: 4),
-                                  color: Colors.grey[200],
+                        child: _isEditing
+                            ? GestureDetector(
+                                onTap: _uploadProfilePicture,
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: 150,
+                                      height: 150,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.grey[300]!, width: 4),
+                                        color: Colors.grey[200],
+                                      ),
+                                      child: user['profile_picture'] != null
+                                          ? ClipOval(
+                                              child: Image.network(
+                                                '${ApiService.baseUrl}/${user['profile_picture']}',
+                                                width: 150,
+                                                height: 150,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) {
+                                                  return const Icon(Icons.person, size: 60, color: Colors.grey);
+                                                },
+                                              ),
+                                            )
+                                          : const Icon(Icons.person, size: 60, color: Colors.grey),
+                                    ),
+                                  ],
                                 ),
-                                child: user['profile_picture'] != null
-                                    ? ClipOval(
-                                        child: Image.network(
-                                          '${ApiService.baseUrl}/${user['profile_picture']}',
-                                          width: 150,
-                                          height: 150,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return const Icon(Icons.person, size: 60, color: Colors.grey);
-                                          },
-                                        ),
-                                      )
-                                    : const Icon(Icons.person, size: 60, color: Colors.grey),
+                              )
+                            : Stack(
+                                children: [
+                                  Container(
+                                    width: 150,
+                                    height: 150,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.grey[300]!, width: 4),
+                                      color: Colors.grey[200],
+                                    ),
+                                    child: user['profile_picture'] != null
+                                        ? ClipOval(
+                                            child: Image.network(
+                                              '${ApiService.baseUrl}/${user['profile_picture']}',
+                                              width: 150,
+                                              height: 150,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return const Icon(Icons.person, size: 60, color: Colors.grey);
+                                              },
+                                            ),
+                                          )
+                                        : const Icon(Icons.person, size: 60, color: Colors.grey),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Click to upload a new profile picture',
+                        _isEditing
+                            ? 'Click to upload a new profile picture'
+                            : 'Click Edit to change profile picture',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey[600],
