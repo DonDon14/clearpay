@@ -170,6 +170,20 @@ window.APP_BASE_URL = '<?= base_url() ?>';
 </script>
 
 <script>
+// Calculate Amount Per Payer
+function calculateAmountPerPayer() {
+    const grandTotal = parseFloat(document.getElementById('contributionGrandTotal').value) || 0;
+    const numPayers = parseFloat(document.getElementById('contributionNumPayers').value) || 0;
+    const amountField = document.getElementById('contributionAmount');
+    
+    if (grandTotal > 0 && numPayers > 0) {
+        const amountPerPayer = grandTotal / numPayers;
+        amountField.value = amountPerPayer.toFixed(2);
+    } else {
+        amountField.value = '0.00';
+    }
+}
+
 // Edit Contribution Function
 function editContribution(contributionId) {
     // Fetch contribution data and populate modal
@@ -184,11 +198,22 @@ function editContribution(contributionId) {
                 document.getElementById('contributionTitle').value = contribution.title || '';
                 document.getElementById('contributionCode').value = contribution.contribution_code || '';
                 document.getElementById('contributionDescription').value = contribution.description || '';
-                document.getElementById('contributionAmount').value = contribution.amount || '0.00';
                 document.getElementById('contributionGrandTotal').value = contribution.grand_total || '';
                 document.getElementById('contributionCostPrice').value = contribution.cost_price || '0.00';
                 document.getElementById('contributionCategory').value = contribution.category || '';
                 document.getElementById('contributionStatus').value = contribution.status || 'active';
+                
+                // Calculate number of payers from existing data (grand_total / amount)
+                const grandTotal = parseFloat(contribution.grand_total) || 0;
+                const amount = parseFloat(contribution.amount) || 0;
+                let numPayers = '';
+                if (grandTotal > 0 && amount > 0) {
+                    numPayers = Math.round(grandTotal / amount);
+                }
+                document.getElementById('contributionNumPayers').value = numPayers;
+                
+                // Calculate and set amount per payer
+                calculateAmountPerPayer();
                 
                 // Update modal title to indicate edit mode
                 document.getElementById('contributionModalLabel').textContent = 'Edit Contribution';
@@ -271,6 +296,20 @@ function toggleContributionStatus(contributionId, currentStatus) {
 
 // Reset form when modal is closed
 document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners for auto-calculation
+    const grandTotalField = document.getElementById('contributionGrandTotal');
+    const numPayersField = document.getElementById('contributionNumPayers');
+    
+    if (grandTotalField) {
+        grandTotalField.addEventListener('input', calculateAmountPerPayer);
+        grandTotalField.addEventListener('change', calculateAmountPerPayer);
+    }
+    
+    if (numPayersField) {
+        numPayersField.addEventListener('input', calculateAmountPerPayer);
+        numPayersField.addEventListener('change', calculateAmountPerPayer);
+    }
+
     const contributionModal = document.getElementById('contributionModal');
     if (contributionModal) {
         contributionModal.addEventListener('hidden.bs.modal', function() {
@@ -288,6 +327,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Clear hidden ID field
             document.getElementById('contributionId').value = '';
+            
+            // Reset amount field
+            document.getElementById('contributionAmount').value = '0.00';
         });
     }
     // Form submission is handled by contribution.js

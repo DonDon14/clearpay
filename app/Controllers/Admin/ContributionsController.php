@@ -50,13 +50,23 @@ class ContributionsController extends BaseController
             
             $createdBy = $userId; // This can be NULL
 
+            // Get form data
+            $grandTotal = floatval($this->request->getPost('grand_total') ?: 0);
+            $numPayers = intval($this->request->getPost('number_of_payers') ?: 0);
+            
+            // Calculate amount per payer from grand total and number of payers
+            $amountPerPayer = 0;
+            if ($grandTotal > 0 && $numPayers > 0) {
+                $amountPerPayer = $grandTotal / $numPayers;
+            }
+            
             // Gather POST data
             $data = [
                 'title'             => $this->request->getPost('title'),
                 'contribution_code' => $this->request->getPost('contribution_code') ?: null,
                 'description'       => $this->request->getPost('description'),
-                'amount'            => $this->request->getPost('amount'),
-                'grand_total'       => $this->request->getPost('grand_total') ?: null,
+                'amount'            => round($amountPerPayer, 2), // Auto-calculated from grand_total / number_of_payers
+                'grand_total'       => $grandTotal,
                 'cost_price'        => $this->request->getPost('cost_price') ?: 0,
                 'category'          => $this->request->getPost('category'),
                 'status'            => $this->request->getPost('status'),
