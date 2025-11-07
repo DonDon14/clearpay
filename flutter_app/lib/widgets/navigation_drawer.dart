@@ -8,7 +8,9 @@ import '../screens/refund_requests_screen.dart';
 import '../screens/payment_history_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/login_screen.dart';
 import '../services/api_service.dart';
+import '../services/modal_service.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
   const AppNavigationDrawer({super.key});
@@ -246,13 +248,57 @@ class AppNavigationDrawer extends StatelessWidget {
               icon: Icons.logout,
               title: 'Log Out',
               onTap: () async {
+                // Get AuthProvider BEFORE closing drawer or showing dialog
+                // This ensures we have a valid context
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                
+                // Close drawer first
                 Navigator.pop(context);
-                await ApiService.logout();
-                if (context.mounted) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-                  );
+                
+                // Show confirmation dialog using global navigator context
+                final navigatorContext = ModalService.navigatorKey.currentContext;
+                if (navigatorContext == null) return;
+                
+                final shouldLogout = await showDialog<bool>(
+                  context: navigatorContext,
+                  builder: (BuildContext dialogContext) {
+                    return AlertDialog(
+                      title: const Text('Confirm Logout'),
+                      content: const Text('Are you sure you want to logout?'),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Logout'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+                
+                // Only logout if user confirmed
+                if (shouldLogout == true) {
+                  // Logout using AuthProvider (already obtained)
+                  await authProvider.logout();
+                  
+                  // Use global navigator key for navigation to ensure it works
+                  final navigator = ModalService.navigatorKey.currentState;
+                  if (navigator != null) {
+                    navigator.pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false, // Remove all previous routes
+                    );
+                  }
                 }
               },
             ),
