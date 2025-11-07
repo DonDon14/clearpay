@@ -14,6 +14,7 @@ import 'profile_screen.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/notion_card.dart';
 import '../widgets/notion_text.dart';
+import '../services/modal_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -120,102 +121,76 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Single
           ),
         ),
       ),
-      floatingActionButton: Stack(
-        alignment: Alignment.bottomCenter,
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Payment Request Button
+          // Payment Request and Refund Request Buttons - Side by Side
           if (_isFabOpen)
-            Positioned(
-              bottom: 80,
-              child: FadeTransition(
-                opacity: _fabAnimation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.3),
-                    end: Offset.zero,
-                  ).animate(_fabAnimation),
-                  child: FloatingActionButton.extended(
-                    heroTag: "payment_request",
-                    onPressed: () {
-                      _toggleFab();
-                      _onTabTapped(2); // Navigate to Requests tab
-                      // Switch to payment requests tab
-                      setState(() {
-                        _screens[2] = RequestsScreen(initialTab: 0);
-                      });
-                    },
-                    backgroundColor: const Color(0xFF4CAF50),
-                    icon: const Icon(Icons.payment, color: Colors.white),
-                    label: const Text(
-                      'Payment Request',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            FadeTransition(
+              opacity: _fabAnimation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.5),
+                  end: Offset.zero,
+                ).animate(_fabAnimation),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Payment Request Button
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10, right: 8),
+                      child: FloatingActionButton.extended(
+                        heroTag: "payment_request",
+                        onPressed: () {
+                          _toggleFab();
+                          // Show payment request modal from anywhere
+                          ModalService.showPaymentRequestModal();
+                        },
+                        backgroundColor: const Color(0xFF4CAF50),
+                        icon: const Icon(Icons.payment, color: Colors.white),
+                        label: const Text(
+                          'Payment Request',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            ),
-          // Refund Request Button
-          if (_isFabOpen)
-            Positioned(
-              bottom: 140,
-              child: FadeTransition(
-                opacity: _fabAnimation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.3),
-                    end: Offset.zero,
-                  ).animate(_fabAnimation),
-                  child: FloatingActionButton.extended(
-                    heroTag: "refund_request",
-                    onPressed: () {
-                      _toggleFab();
-                      _onTabTapped(2); // Navigate to Requests tab
-                      // Switch to refund requests tab
-                      setState(() {
-                        _screens[2] = RequestsScreen(initialTab: 1);
-                      });
-                    },
-                    backgroundColor: const Color(0xFFFF9800),
-                    icon: const Icon(Icons.undo, color: Colors.white),
-                    label: const Text(
-                      'Refund Request',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    // Refund Request Button
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10, left: 8),
+                      child: FloatingActionButton.extended(
+                        heroTag: "refund_request",
+                        onPressed: () {
+                          _toggleFab();
+                          // Show refund request modal from anywhere
+                          ModalService.showRefundRequestModal();
+                        },
+                        backgroundColor: const Color(0xFFFF9800),
+                        icon: const Icon(Icons.undo, color: Colors.white),
+                        label: const Text(
+                          'Refund Request',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
           // Main FAB - Purple circular button like in the design
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: const Color(0xFF6366F1), // Purple color matching design
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6366F1).withOpacity(0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _toggleFab,
-                borderRadius: BorderRadius.circular(28),
-                child: Center(
-                  child: AnimatedRotation(
-                    turns: _isFabOpen ? 0.125 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      _isFabOpen ? Icons.close : Icons.add,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                ),
+          FloatingActionButton(
+            heroTag: "main_fab",
+            onPressed: _toggleFab,
+            backgroundColor: const Color(0xFF6366F1), // Purple color matching design
+            elevation: 4,
+            child: AnimatedRotation(
+              turns: _isFabOpen ? 0.125 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                _isFabOpen ? Icons.close : Icons.add,
+                color: Colors.white,
+                size: 28,
               ),
             ),
           ),

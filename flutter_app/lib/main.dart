@@ -6,6 +6,7 @@ import 'screens/main_navigation_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'services/api_service.dart';
+import 'services/modal_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,7 @@ class ClearPayApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: ModalService.navigatorKey,
         title: 'ClearPay Payer',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(

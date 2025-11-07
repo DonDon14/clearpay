@@ -180,6 +180,15 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
         // API endpoints for mobile (no auth filter - will check in controller)
         $routes->options('api/payer/get-contribution-payments/(:num)', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/get-contribution-payments/(:num)', 'Payer\\DashboardController::getContributionPayments/$1');
+        $routes->options('api/payer/get-contribution-details', 'Payer\\DashboardController::handleOptions');
+        $routes->get('api/payer/get-contribution-details', 'Payer\\DashboardController::getContributionDetails');
+        // Refund API endpoints (no auth filter - will check in controller)
+        $routes->options('api/payer/refund-requests', 'Payer\\DashboardController::handleOptions');
+        $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
+        $routes->options('api/payer/refund-methods', 'Payer\\DashboardController::handleOptions');
+        $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+        $routes->options('api/payer/submit-refund-request', 'Payer\\DashboardController::handleOptions');
+        $routes->post('api/payer/submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
         
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
             $routes->get('dashboard', 'Payer\\DashboardController::index');
@@ -201,11 +210,6 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
             // Provide active refund methods for the payer modal dropdown
             $routes->get('refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
             $routes->post('submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
-            // API endpoints for mobile (no auth filter - will check in controller)
-            $routes->options('api/payer/refund-requests', 'Payer\\DashboardController::handleOptions');
-            $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
-            $routes->options('api/payer/refund-methods', 'Payer\\DashboardController::handleOptions');
-            $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
             $routes->options('api/payer/check-new-activities', 'Payer\\DashboardController::handleOptions');
             $routes->get('api/payer/check-new-activities', 'Payer\\DashboardController::checkNewActivities');
             // Provide active payment methods for the payer

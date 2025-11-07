@@ -404,8 +404,10 @@ class ApiService {
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'data': data};
+        final responseData = jsonDecode(response.body);
+        // Backend returns: {success: true, data: {...}}
+        // Return it as-is so the caller can access responseData['data']
+        return responseData;
       } else {
         return {'success': false, 'error': 'Server error: ${response.statusCode}'};
       }
@@ -448,8 +450,10 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/submit-refund-request');
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/submit-refund-request');
       final requestBody = {
+        'payer_id': userId,
         'payment_id': paymentId,
         'refund_amount': refundAmount,
         'refund_method': refundMethod,
