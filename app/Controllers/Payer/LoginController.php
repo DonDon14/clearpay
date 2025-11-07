@@ -135,6 +135,11 @@ class LoginController extends BaseController
      */
     public function handleOptions()
     {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
         return $this->response->setStatusCode(200);
     }
 
@@ -439,6 +444,243 @@ class LoginController extends BaseController
             'success' => true,
             'message' => 'Password reset successfully! You can now login with your new password.',
             'redirect' => base_url('payer/login')
+        ]);
+    }
+
+    /**
+     * Mobile API forgot password endpoint
+     */
+    public function mobileForgotPassword()
+    {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+
+        $data = $this->request->getPost();
+        $jsonData = $this->request->getJSON(true) ?? [];
+        $email = trim($data['email'] ?? $jsonData['email'] ?? '');
+
+        if (!$email) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Email is required.'
+            ]);
+        }
+
+        // Find payer by email_address (case-sensitive matching)
+        $payers = $this->payerModel->findAll();
+        $payer = null;
+        
+        foreach ($payers as $p) {
+            if (!empty($p['email_address']) && strtolower($p['email_address']) === strtolower($email)) {
+                $payer = $p;
+                break;
+            }
+        }
+
+        if (!$payer || empty($payer['email_address'])) {
+            // Don't reveal that payer doesn't exist for security
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'If an account with that email exists, you will receive a password reset verification code.'
+            ]);
+        }
+
+        // Generate reset token
+        $resetCode = rand(100000, 999999);
+        
+        // Set expiration to 15 minutes from now
+        $expiresAt = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+
+        // Update payer with reset token
+        $this->payerModel->update($payer['id'], [
+            'reset_token' => (string) $resetCode,
+            'reset_expires' => $expiresAt
+        ]);
+
+        // Send password reset email
+        $emailSent = $this->sendPasswordResetEmail($payer['email_address'], $payer['payer_name'], $resetCode);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'If an account with that email exists, you will receive a password reset verification code.',
+            'email_sent' => $emailSent,
+            'email' => $payer['email_address'],
+            'reset_code' => $resetCode // For testing purposes
+        ]);
+    }
+
+    /**
+     * Mobile API verify reset code endpoint
+     */
+    public function mobileVerifyResetCode()
+    {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+
+        $data = $this->request->getPost();
+        $jsonData = $this->request->getJSON(true) ?? [];
+        $email = trim($data['email'] ?? $jsonData['email'] ?? '');
+        $resetCode = trim($data['reset_code'] ?? $jsonData['reset_code'] ?? '');
+
+        if (!$email || !$resetCode) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Email and reset code are required.'
+            ]);
+        }
+        
+        // Convert to integer for comparison to avoid type issues
+        $resetCode = (int)$resetCode;
+
+        // Find payer by email_address
+        $payers = $this->payerModel->findAll();
+        $payer = null;
+        
+        foreach ($payers as $p) {
+            if (!empty($p['email_address']) && strtolower($p['email_address']) === strtolower($email)) {
+                $payer = $p;
+                break;
+            }
+        }
+
+        if (!$payer || empty($payer['email_address'])) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Invalid email address.'
+            ]);
+        }
+
+        // Check if reset token matches and hasn't expired
+        if (empty($payer['reset_token']) || (int)$payer['reset_token'] !== $resetCode) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Invalid reset code.'
+            ]);
+        }
+
+        if (empty($payer['reset_expires']) || strtotime($payer['reset_expires']) < time()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Reset code has expired. Please request a new one.'
+            ]);
+        }
+
+        // Store verification in session (for backward compatibility)
+        session()->set('reset_verified_payer_id', $payer['id']);
+        session()->set('reset_verified_email', $email);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Verification successful. You can now reset your password.',
+            'email' => $email // Return email for client to use
+        ]);
+    }
+
+    /**
+     * Mobile API reset password endpoint
+     * Works with email + reset code instead of session
+     */
+    public function mobileResetPassword()
+    {
+        // Set CORS headers
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+
+        $data = $this->request->getPost();
+        $jsonData = $this->request->getJSON(true) ?? [];
+        $email = trim($data['email'] ?? $jsonData['email'] ?? '');
+        $resetCode = trim($data['reset_code'] ?? $jsonData['reset_code'] ?? '');
+        $newPassword = $data['password'] ?? $jsonData['password'] ?? '';
+        $confirmPassword = $data['confirm_password'] ?? $jsonData['confirm_password'] ?? '';
+
+        // Try to get payer ID from session first (for backward compatibility)
+        $session = session();
+        $payerId = $session->get('reset_verified_payer_id');
+        $payer = null;
+
+        // If no session, try to find by email + reset code
+        if (!$payerId && $email && $resetCode) {
+            $payers = $this->payerModel->findAll();
+            foreach ($payers as $p) {
+                if (!empty($p['email_address']) && 
+                    strtolower($p['email_address']) === strtolower($email) &&
+                    !empty($p['reset_token']) &&
+                    (int)$p['reset_token'] === (int)$resetCode) {
+                    $payer = $p;
+                    $payerId = $p['id'];
+                    break;
+                }
+            }
+        } else if ($payerId) {
+            $payer = $this->payerModel->find($payerId);
+        }
+
+        if (!$payerId || !$payer) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Session expired or invalid. Please start the password reset process again.'
+            ]);
+        }
+
+        // Verify reset code if provided
+        if ($resetCode && (int)$payer['reset_token'] !== (int)$resetCode) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Invalid reset code.'
+            ]);
+        }
+
+        // Check if reset code has expired
+        if (empty($payer['reset_expires']) || strtotime($payer['reset_expires']) < time()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Reset code has expired. Please request a new one.'
+            ]);
+        }
+
+        if (!$newPassword || !$confirmPassword) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Password and confirmation are required.'
+            ]);
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Passwords do not match.'
+            ]);
+        }
+
+        if (strlen($newPassword) < 6) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Password must be at least 6 characters long.'
+            ]);
+        }
+
+        // Update password
+        $this->payerModel->update($payerId, [
+            'password' => password_hash($newPassword, PASSWORD_DEFAULT),
+            'reset_token' => null,
+            'reset_expires' => null
+        ]);
+
+        // Clear reset verification session
+        $session->remove('reset_verified_payer_id');
+        $session->remove('reset_verified_email');
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Password reset successfully! You can now login with your new password.'
         ]);
     }
 }
