@@ -534,6 +534,46 @@ class ApiService {
     }
   }
 
+  // Upload profile picture for web (using bytes)
+  static Future<Map<String, dynamic>> uploadProfilePictureWeb(Uint8List fileBytes, String fileName) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      final url = Uri.parse('$baseUrl/api/payer/upload-profile-picture');
+      final request = http.MultipartRequest('POST', url);
+      
+      // Add payer_id to form fields
+      request.fields['payer_id'] = userId.toString();
+      
+      // Add file
+      request.files.add(http.MultipartFile.fromBytes(
+        'profile_picture',
+        fileBytes,
+        filename: fileName,
+      ));
+
+      // Add headers
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      });
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   static Future<Map<String, dynamic>> getNotifications({int? lastShownId}) async {
     try {
       final userId = await getUserId();

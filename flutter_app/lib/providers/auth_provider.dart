@@ -59,5 +59,10 @@ class AuthProvider with ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
   }
+
+  void updateUserData(Map<String, dynamic> userData) {
+    _user = Map<String, dynamic>.from(userData);
+    notifyListeners();
+  }
 }
 

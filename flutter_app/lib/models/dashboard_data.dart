@@ -16,9 +16,20 @@ class DashboardData {
   });
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
+    // Safe double parsing
+    double _parseDouble(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) {
+        return double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+      }
+      return 0.0;
+    }
+    
     return DashboardData(
       payer: json['payer'] ?? {},
-      totalPaid: (json['total_paid'] ?? 0).toDouble(),
+      totalPaid: _parseDouble(json['total_paid']),
       recentPayments: json['recent_payments'] ?? [],
       announcements: json['announcements'] ?? [],
       pendingRequests: json['pending_requests'] ?? 0,
@@ -26,6 +37,7 @@ class DashboardData {
     );
   }
 }
+
 
 
 

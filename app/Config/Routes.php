@@ -206,7 +206,12 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
             $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
             $routes->options('api/payer/refund-methods', 'Payer\\DashboardController::handleOptions');
             $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+            $routes->options('api/payer/check-new-activities', 'Payer\\DashboardController::handleOptions');
+            $routes->get('api/payer/check-new-activities', 'Payer\\DashboardController::checkNewActivities');
             // Provide active payment methods for the payer
             $routes->get('payment-methods', 'Payer\\DashboardController::getActivePaymentMethods');
+            // Profile picture upload API endpoint
+            $routes->options('api/payer/upload-profile-picture', 'Payer\\DashboardController::handleOptions');
+            $routes->post('api/payer/upload-profile-picture', 'Payer\\DashboardController::uploadProfilePicture');
             $routes->get('logout', 'Payer\\LoginController::logout');
         });

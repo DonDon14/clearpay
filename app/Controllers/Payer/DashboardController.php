@@ -157,13 +157,34 @@ class DashboardController extends BaseController
 
     public function uploadProfilePicture()
     {
-        $payerId = session('payer_id');
+        // Check if this is an API request
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
         
-        if (!$payerId) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Payer not authenticated'
-            ]);
+        // Set CORS headers if it's an API endpoint
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Get payer ID from session (web) or POST data (API)
+        if ($isApiRequest) {
+            $payerId = $this->request->getPost('payer_id');
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+        } else {
+            $payerId = session('payer_id');
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer not authenticated'
+                ]);
+            }
         }
 
         $file = $this->request->getFile('profile_picture');
@@ -534,8 +555,35 @@ class DashboardController extends BaseController
 
     public function checkNewActivities()
     {
-        // Get the current payer ID from session
-        $payerId = session('payer_id');
+        // Check if this is an API request
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Get the current payer ID from session (web) or query parameter (API)
+        if ($isApiRequest) {
+            $payerId = $this->request->getGet('payer_id');
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+        } else {
+            $payerId = session('payer_id');
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Not authenticated'
+                ]);
+            }
+        }
         
         // Get the last activity ID that was shown to this payer
         $lastShownId = $this->request->getGet('last_shown_id') ?: 0;
@@ -1339,6 +1387,12 @@ class DashboardController extends BaseController
      */
     public function mobileDashboard()
     {
+        // Set CORS headers for API requests
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '7200');
+        
         // For mobile, get payer_id from query parameter or token
         $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
         
