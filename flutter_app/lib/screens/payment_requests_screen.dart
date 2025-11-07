@@ -87,7 +87,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => _PaymentRequestDialog(
+      builder: (context) => PaymentRequestDialog(
         contributions: _contributions,
         preSelectedContribution: preSelectedContribution,
         onSubmitted: () {
@@ -387,22 +387,25 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
   }
 }
 
-class _PaymentRequestDialog extends StatefulWidget {
+class PaymentRequestDialog extends StatefulWidget {
   final List<dynamic> contributions;
   final Map<String, dynamic>? preSelectedContribution;
   final VoidCallback onSubmitted;
+  final List<dynamic>? paymentMethods;
 
-  const _PaymentRequestDialog({
+  const PaymentRequestDialog({
+    super.key,
     required this.contributions,
     this.preSelectedContribution,
     required this.onSubmitted,
+    this.paymentMethods,
   });
 
   @override
-  State<_PaymentRequestDialog> createState() => _PaymentRequestDialogState();
+  State<PaymentRequestDialog> createState() => _PaymentRequestDialogState();
 }
 
-class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
+class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
   final _formKey = GlobalKey<FormState>();
   int? _selectedContributionId;
   Map<String, dynamic>? _selectedContribution;
@@ -431,7 +434,13 @@ class _PaymentRequestDialogState extends State<_PaymentRequestDialog> {
   @override
   void initState() {
     super.initState();
-    _loadPaymentMethods();
+    if (widget.paymentMethods != null && widget.paymentMethods!.isNotEmpty) {
+      setState(() {
+        _paymentMethods = List<Map<String, dynamic>>.from(widget.paymentMethods!);
+      });
+    } else {
+      _loadPaymentMethods();
+    }
     // Pre-select contribution if provided
     if (widget.preSelectedContribution != null) {
       final contribution = widget.preSelectedContribution!;
