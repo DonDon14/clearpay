@@ -734,6 +734,88 @@ class ApiService {
     }
   }
 
+  // Forgot Password API methods
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/payer/forgot-password');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> verifyResetCode(String email, String resetCode) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/payer/verify-reset-code');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'reset_code': resetCode,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String resetCode,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/payer/reset-password');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'reset_code': resetCode,
+          'password': password,
+          'confirm_password': confirmPassword,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   static Future<Map<String, dynamic>> getContributionPayments(int contributionId, {int? paymentSequence}) async {
     try {
       final userId = await getUserId();
