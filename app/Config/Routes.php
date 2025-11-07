@@ -27,6 +27,13 @@ $routes->get('/admin/dashboard/pending-payment-requests-count', 'Admin\Dashboard
 $routes->get('/admin/dashboard/pending-refund-requests-count', 'Admin\DashboardController::getPendingRefundRequestsCount', ['filter' => 'auth']);
 $routes->get('/search', 'Admin\DashboardController::search', ['filter' => 'auth']);
 
+// Help & Support Routes (must be before catch-all routes)
+$routes->get('/help', 'Admin\HelpController::index', ['filter' => 'auth']);
+$routes->get('/help/', 'Admin\HelpController::index', ['filter' => 'auth']);
+$routes->get('/help/index.html', 'Admin\HelpController::index', ['filter' => 'auth']);
+$routes->get('/help/user-manual', 'Admin\UserManualController::index', ['filter' => 'auth']);
+$routes->get('/help/api-documentation', 'Admin\ApiDocumentationController::index', ['filter' => 'auth']);
+
 // Sidebar Routes
 $routes->get('/contributions', 'Admin\SidebarController::contributions', ['filter' => 'auth']);
 $routes->get('/payers', 'Admin\SidebarController::payers', ['filter' => 'auth']);

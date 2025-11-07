@@ -111,7 +111,7 @@
               <span class="item-desc">Manage preferences</span>
             </div>
           </a>
-          <a href="<?= base_url('help/index.html') ?>" class="dropdown-item" target="_blank">
+          <a href="<?= base_url('help') ?>" class="dropdown-item">
             <div class="item-icon">
               <i class="fas fa-question-circle"></i>
             </div>
