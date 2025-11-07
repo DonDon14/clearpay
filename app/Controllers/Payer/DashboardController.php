@@ -698,7 +698,7 @@ class DashboardController extends BaseController
         log_message('info', "No activities found for payer {$payerId}");
         
         return $this->response->setJSON([
-            'success' => false,
+            'success' => true,
             'message' => 'No activities',
             'activities' => [],
             'newActivities' => [],
@@ -792,14 +792,45 @@ class DashboardController extends BaseController
 
     public function markActivityAsRead($activityId)
     {
+        // Check if this is an API request
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Handle OPTIONS preflight request
+        if ($this->request->getMethod() === 'OPTIONS') {
+            return $this->response->setStatusCode(200)->setBody('');
+        }
+        
         try {
-            $payerId = session('payer_id');
-            
-            if (!$payerId) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Payer not authenticated'
-                ]);
+            // Get payer ID from session (web) or POST data (API)
+            if ($isApiRequest) {
+                $payerId = $this->request->getPost('payer_id');
+                if (!$payerId) {
+                    // Try to get from JSON body
+                    $jsonData = json_decode($this->request->getBody(), true);
+                    $payerId = $jsonData['payer_id'] ?? null;
+                }
+                if (!$payerId) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Payer ID is required'
+                    ]);
+                }
+            } else {
+                $payerId = session('payer_id');
+                if (!$payerId) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Payer not authenticated'
+                    ]);
+                }
             }
             
             $result = $this->activityLogModel->markAsRead($activityId, $payerId);
@@ -825,9 +856,41 @@ class DashboardController extends BaseController
 
     public function getAllActivities()
     {
+        // Check if this is an API request
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Handle OPTIONS preflight request
+        if ($this->request->getMethod() === 'OPTIONS') {
+            return $this->response->setStatusCode(200)->setBody('');
+        }
+        
         try {
-            // Get the current payer ID from session
-            $payerId = session('payer_id');
+            // Get the current payer ID from session (web) or query parameter (API)
+            if ($isApiRequest) {
+                $payerId = $this->request->getGet('payer_id');
+                if (!$payerId) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Payer ID is required'
+                    ]);
+                }
+            } else {
+                $payerId = session('payer_id');
+                if (!$payerId) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Not authenticated'
+                    ]);
+                }
+            }
             
             // Get all activities for this specific payer
             $activities = $this->activityLogModel->getRecentForPayers(50, $payerId); // Get more for the full modal
@@ -850,7 +913,7 @@ class DashboardController extends BaseController
             
             return $this->response->setJSON([
                 'success' => true,
-                'activities' => $activities
+                'activities' => $activities ?? []
             ]);
         } catch (\Exception $e) {
             return $this->response->setJSON([
