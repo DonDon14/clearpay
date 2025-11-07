@@ -97,17 +97,73 @@
       });
     };
     
+    // Function to update refund requests notification badge
+    window.updateRefundRequestsBadge = function() {
+      fetch(`${window.APP_BASE_URL}/admin/dashboard/pending-refund-requests-count`, {
+        method: 'GET',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        const badge = document.getElementById('refundRequestsBadge');
+        if (badge) {
+          if (data.success) {
+            const count = data.count || 0;
+            if (count > 0) {
+              badge.textContent = count;
+              badge.style.setProperty('display', 'flex', 'important');
+              badge.style.setProperty('opacity', '1', 'important');
+              badge.style.setProperty('visibility', 'visible', 'important');
+              badge.style.background = '#ef4444';
+              badge.style.color = 'white';
+            } else {
+              badge.textContent = '';
+              badge.style.setProperty('display', 'none', 'important');
+              badge.style.setProperty('opacity', '0', 'important');
+              badge.style.setProperty('visibility', 'hidden', 'important');
+            }
+          } else {
+            // Hide badge if request failed
+            badge.textContent = '';
+            badge.style.setProperty('display', 'none', 'important');
+            badge.style.setProperty('opacity', '0', 'important');
+            badge.style.setProperty('visibility', 'hidden', 'important');
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching refund requests count:', error);
+        // Hide badge on error
+        const badge = document.getElementById('refundRequestsBadge');
+        if (badge) {
+          badge.textContent = '';
+          badge.style.setProperty('display', 'none', 'important');
+          badge.style.setProperty('opacity', '0', 'important');
+          badge.style.setProperty('visibility', 'hidden', 'important');
+        }
+      });
+    };
+    
     // Global function to refresh badge (can be called from other pages)
     window.refreshPaymentRequestsBadge = function() {
       updatePaymentRequestsBadge();
     };
     
+    // Global function to refresh refund badge (can be called from other pages)
+    window.refreshRefundRequestsBadge = function() {
+      updateRefundRequestsBadge();
+    };
+    
     // Update badge on page load and set up auto-refresh
     document.addEventListener('DOMContentLoaded', function() {
       updatePaymentRequestsBadge();
+      updateRefundRequestsBadge();
       
       // Auto-refresh badge every 30 seconds to keep it in sync
       setInterval(updatePaymentRequestsBadge, 30000);
+      setInterval(updateRefundRequestsBadge, 30000);
     });
     
     // Sidebar Toggle Script with State Persistence

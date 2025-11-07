@@ -417,6 +417,10 @@ $(document).ready(function() {
                 if (response.success) {
                     showNotification('Refund request approved and completed successfully', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('approveRejectModal')).hide();
+                    // Refresh badge immediately
+                    if (typeof window.refreshRefundRequestsBadge === 'function') {
+                        window.refreshRefundRequestsBadge();
+                    }
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     showNotification(response.message || 'Failed to approve request', 'error');
@@ -439,6 +443,10 @@ $(document).ready(function() {
                 if (response.success) {
                     showNotification('Refund request rejected', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('approveRejectModal')).hide();
+                    // Refresh badge immediately
+                    if (typeof window.refreshRefundRequestsBadge === 'function') {
+                        window.refreshRefundRequestsBadge();
+                    }
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     showNotification(response.message || 'Failed to reject request', 'error');
