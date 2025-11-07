@@ -130,14 +130,25 @@ class _NotionAppBarState extends State<NotionAppBar> {
               );
             },
           ),
-          title: Text(
-            widget.title,
-            style: const TextStyle(
-              color: Color(0xFF37352F),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.3,
-            ),
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.credit_card,
+                color: const Color(0xFF37352F),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'ClearPay',
+                style: const TextStyle(
+                  color: Color(0xFF37352F),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ],
           ),
           centerTitle: true,
           actions: [
