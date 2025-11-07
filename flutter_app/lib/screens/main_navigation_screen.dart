@@ -290,6 +290,36 @@ class DashboardContent extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     final dashboardProvider = Provider.of<DashboardProvider>(context);
+    
+    // Get payer name from dashboard data if available, otherwise from user
+    String payerName = 'User';
+    if (dashboardProvider.dashboardData?.payer != null) {
+      final payerData = dashboardProvider.dashboardData!.payer;
+      payerName = payerData['payer_name'] ?? 
+                  payerData['name'] ?? 
+                  user?['payer_name'] ?? 
+                  user?['name'] ?? 
+                  'User';
+      
+      // Update AuthProvider with complete user data from dashboard
+      if (user != null && payerData.isNotEmpty) {
+        final updatedUser = Map<String, dynamic>.from(user);
+        // Merge payer data from dashboard into user data
+        updatedUser.addAll({
+          'payer_name': payerData['payer_name'] ?? updatedUser['payer_name'],
+          'payer_id': payerData['payer_id'] ?? updatedUser['payer_id'],
+          'email_address': payerData['email_address'] ?? updatedUser['email_address'],
+          'contact_number': payerData['contact_number'] ?? updatedUser['contact_number'],
+          'profile_picture': payerData['profile_picture'] ?? updatedUser['profile_picture'],
+        });
+        authProvider.updateUserData(updatedUser);
+      } else if (payerData.isNotEmpty) {
+        // If user is null, create new user data from dashboard
+        authProvider.updateUserData(Map<String, dynamic>.from(payerData));
+      }
+    } else if (user != null) {
+      payerName = user['payer_name'] ?? user['name'] ?? 'User';
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFBFE),
@@ -316,7 +346,7 @@ class DashboardContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     NotionText(
-                      user?['payer_name'] ?? 'User',
+                      payerName,
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF37352F),

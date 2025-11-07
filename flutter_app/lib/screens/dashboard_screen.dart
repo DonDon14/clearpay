@@ -684,7 +684,17 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         itemBuilder: (context, index) {
           final payment = payments[index];
           final date = payment['payment_date'] ?? payment['created_at'] ?? '';
-          final amount = (payment['amount_paid'] ?? 0).toDouble();
+          // Safe double parsing
+          double _parseAmount(dynamic value) {
+            if (value == null) return 0.0;
+            if (value is double) return value;
+            if (value is int) return value.toDouble();
+            if (value is String) {
+              return double.tryParse(value.replaceAll(',', '')) ?? 0.0;
+            }
+            return 0.0;
+          }
+          final amount = _parseAmount(payment['amount_paid']);
           final reference = payment['reference_number'] ?? 'N/A';
           final status = payment['payment_status'] ?? 'pending';
 

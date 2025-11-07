@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:html' as html;
+import 'dart:typed_data';
+import 'dart:async';
 import '../providers/auth_provider.dart';
+import '../providers/dashboard_provider.dart';
 import '../services/api_service.dart';
 import '../screens/profile_screen.dart';
 import '../screens/contributions_screen.dart';
@@ -37,6 +42,9 @@ class _NotionAppBarState extends State<NotionAppBar> {
   bool _isLoadingNotifications = false;
   final GlobalKey _notificationKey = GlobalKey();
   final GlobalKey _profileKey = GlobalKey();
+  final GlobalKey _profileDropdownKey = GlobalKey();
+  OverlayEntry? _notificationOverlay;
+  OverlayEntry? _profileOverlay;
 
   @override
   void initState() {
@@ -44,6 +52,13 @@ class _NotionAppBarState extends State<NotionAppBar> {
     if (widget.showNotifications) {
       _loadNotifications();
     }
+  }
+
+  @override
+  void dispose() {
+    _notificationOverlay?.remove();
+    _profileOverlay?.remove();
+    super.dispose();
   }
 
   Future<void> _loadNotifications() async {
@@ -75,21 +90,36 @@ class _NotionAppBarState extends State<NotionAppBar> {
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<AuthProvider>(context).user;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
     
-    return GestureDetector(
-      onTap: () {
-        // Close dropdowns when tapping outside
-        if (_isNotificationOpen || _isProfileOpen) {
-          setState(() {
-            _isNotificationOpen = false;
-            _isProfileOpen = false;
+    // Try to get user data from dashboard provider if available
+    Map<String, dynamic>? effectiveUser = user;
+    try {
+      final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+      if (dashboardProvider.dashboardData?.payer != null) {
+        final payerData = dashboardProvider.dashboardData!.payer;
+        if (payerData.isNotEmpty) {
+          // Merge dashboard payer data with user data
+          effectiveUser = Map<String, dynamic>.from(user ?? {});
+          effectiveUser!.addAll({
+            'payer_name': payerData['payer_name'] ?? effectiveUser['payer_name'],
+            'payer_id': payerData['payer_id'] ?? effectiveUser['payer_id'],
+            'email_address': payerData['email_address'] ?? effectiveUser['email_address'],
+            'contact_number': payerData['contact_number'] ?? effectiveUser['contact_number'],
+            'profile_picture': payerData['profile_picture'] ?? effectiveUser['profile_picture'],
           });
         }
-      },
-      child: Stack(
-        children: [
-          AppBar(
+      }
+    } catch (e) {
+      // DashboardProvider might not be available, use user data
+      effectiveUser = user;
+    }
+    
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AppBar(
           elevation: 0,
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
@@ -107,6 +137,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
             if (widget.showNotifications)
               Stack(
                 key: _notificationKey,
+                clipBehavior: Clip.none,
                 children: [
                   IconButton(
                     icon: Icon(
@@ -121,6 +152,9 @@ class _NotionAppBarState extends State<NotionAppBar> {
                       });
                       if (_isNotificationOpen) {
                         _loadNotifications();
+                        _showNotificationOverlay();
+                      } else {
+                        _hideNotificationOverlay();
                       }
                     },
                   ),
@@ -160,12 +194,12 @@ class _NotionAppBarState extends State<NotionAppBar> {
                   icon: CircleAvatar(
                     radius: 16,
                     backgroundColor: const Color(0xFFF1F1EF),
-                    backgroundImage: user != null && user['profile_picture'] != null
-                        ? NetworkImage('${ApiService.baseUrl}/${user['profile_picture']}')
+                    backgroundImage: effectiveUser != null && effectiveUser['profile_picture'] != null
+                        ? NetworkImage('${ApiService.baseUrl}/${effectiveUser['profile_picture']}')
                         : null,
-                    child: user?['profile_picture'] == null
+                    child: effectiveUser?['profile_picture'] == null
                         ? Text(
-                            (user?['payer_name'] ?? 'U')[0].toUpperCase(),
+                            ((effectiveUser?['payer_name'] ?? effectiveUser?['name'] ?? 'U') as String)[0].toUpperCase(),
                             style: const TextStyle(
                               color: Color(0xFF37352F),
                               fontSize: 14,
@@ -175,39 +209,24 @@ class _NotionAppBarState extends State<NotionAppBar> {
                         : null,
                   ),
                   onPressed: () {
-                    setState(() {
-                      _isProfileOpen = !_isProfileOpen;
-                      _isNotificationOpen = false;
-                    });
+                    // Direct setState is safe here as onPressed is called outside build
+                    if (mounted) {
+                      setState(() {
+                        _isProfileOpen = !_isProfileOpen;
+                        _isNotificationOpen = false;
+                      });
+                      if (_isProfileOpen) {
+                        _showProfileOverlay(context, effectiveUser);
+                      } else {
+                        _hideProfileOverlay();
+                      }
+                    }
                   },
                 ),
               ),
           ],
         ),
-        
-        // Notification Dropdown
-        if (_isNotificationOpen && widget.showNotifications)
-          Positioned(
-            top: 56,
-            right: 8,
-            child: GestureDetector(
-              onTap: () {}, // Prevent closing when tapping inside
-              child: _buildNotificationDropdown(),
-            ),
-          ),
-        
-        // Profile Dropdown
-        if (_isProfileOpen && widget.showProfile)
-          Positioned(
-            top: 56,
-            right: 8,
-            child: GestureDetector(
-              onTap: () {}, // Prevent closing when tapping inside
-              child: _buildProfileDropdown(context, user),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -216,14 +235,16 @@ class _NotionAppBarState extends State<NotionAppBar> {
       elevation: 8,
       borderRadius: BorderRadius.circular(8),
       color: Colors.white,
-      child: Container(
-        width: 360,
-        constraints: const BoxConstraints(maxHeight: 400),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE9E9E7), width: 1),
-        ),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: 360,
+          constraints: const BoxConstraints(maxHeight: 400),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE9E9E7), width: 1),
+          ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -244,15 +265,23 @@ class _NotionAppBarState extends State<NotionAppBar> {
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      setState(() {
-                        _isNotificationOpen = false;
-                      });
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _isNotificationOpen = false;
+                        });
+                        _hideNotificationOverlay();
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.close, size: 18, color: Color(0xFF37352F)),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -302,7 +331,10 @@ class _NotionAppBarState extends State<NotionAppBar> {
                   width: double.infinity,
                   child: TextButton(
                     onPressed: () {
-                      // Navigate to all notifications
+                      setState(() {
+                        _isNotificationOpen = false;
+                      });
+                      _hideNotificationOverlay();
                       Navigator.pushNamed(context, '/notifications');
                     },
                     child: const Text(
@@ -318,6 +350,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -328,22 +361,25 @@ class _NotionAppBarState extends State<NotionAppBar> {
     final icon = notification['activity_icon'] ?? Icons.info_outline;
     final color = notification['activity_color'] ?? 'blue';
 
-    return InkWell(
-      onTap: () {
-        if (isUnread) {
-          _markAsRead(notification['id']);
-        }
-        setState(() {
-          _isNotificationOpen = false;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isUnread ? const Color(0xFFF7F6F3) : Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFE9E9E7), width: 1)),
-        ),
-        child: Row(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (isUnread) {
+            _markAsRead(notification['id']);
+          }
+          setState(() {
+            _isNotificationOpen = false;
+          });
+          _hideNotificationOverlay();
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isUnread ? const Color(0xFFF7F6F3) : Colors.white,
+            border: const Border(bottom: BorderSide(color: Color(0xFFE9E9E7), width: 1)),
+          ),
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
@@ -405,6 +441,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -413,13 +450,17 @@ class _NotionAppBarState extends State<NotionAppBar> {
       elevation: 8,
       borderRadius: BorderRadius.circular(8),
       color: Colors.white,
-      child: Container(
-        width: 280,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE9E9E7), width: 1),
-        ),
+      shadowColor: Colors.black.withOpacity(0.15),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          key: _profileDropdownKey,
+          width: 320,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE9E9E7), width: 1),
+          ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -431,22 +472,47 @@ class _NotionAppBarState extends State<NotionAppBar> {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: const Color(0xFFF1F1EF),
-                    backgroundImage: user != null && user['profile_picture'] != null
-                        ? NetworkImage('${ApiService.baseUrl}/${user['profile_picture']}')
-                        : null,
-                    child: user?['profile_picture'] == null
-                        ? Text(
-                            (user?['payer_name'] ?? 'U')[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Color(0xFF37352F),
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
+                  GestureDetector(
+                    onTap: () => _showProfilePictureUpload(context, user),
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundColor: const Color(0xFFF1F1EF),
+                          backgroundImage: user != null && user['profile_picture'] != null
+                              ? NetworkImage('${ApiService.baseUrl}/${user['profile_picture']}')
+                              : null,
+                          child: user?['profile_picture'] == null
+                              ? Text(
+                                  ((user?['payer_name'] ?? user?['name'] ?? 'U') as String)[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: Color(0xFF37352F),
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6366F1),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
                             ),
-                          )
-                        : null,
+                            child: const Icon(
+                              Icons.camera_alt,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -454,9 +520,9 @@ class _NotionAppBarState extends State<NotionAppBar> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user?['payer_name'] ?? 'User',
+                          user?['payer_name'] ?? user?['name'] ?? 'User',
                           style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF37352F),
                           ),
@@ -472,11 +538,32 @@ class _NotionAppBarState extends State<NotionAppBar> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'ID: ${user?['payer_id'] ?? 'N/A'}',
+                          'ID: ${user?['payer_id'] ?? user?['payer_student_id'] ?? user?['id'] ?? 'N/A'}',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[500],
                           ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Online',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -494,6 +581,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
                 setState(() {
                   _isProfileOpen = false;
                 });
+                _hideProfileOverlay();
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),
@@ -508,6 +596,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
                 setState(() {
                   _isProfileOpen = false;
                 });
+                _hideProfileOverlay();
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const ContributionsScreen()),
@@ -522,6 +611,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
                 setState(() {
                   _isProfileOpen = false;
                 });
+                _hideProfileOverlay();
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
@@ -536,7 +626,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
                 setState(() {
                   _isProfileOpen = false;
                 });
-                // TODO: Navigate to help screen
+                _hideProfileOverlay();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Help & Support coming soon')),
                 );
@@ -546,37 +636,39 @@ class _NotionAppBarState extends State<NotionAppBar> {
             const Divider(height: 1, color: Color(0xFFE9E9E7)),
             
             // Sign Out
-            InkWell(
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+              leading: Icon(Icons.logout, size: 20, color: Colors.red[600]),
+              title: const Text(
+                'Sign Out',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF37352F),
+                ),
+              ),
+              subtitle: Text(
+                'Logout from account',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
               onTap: () async {
                 setState(() {
                   _isProfileOpen = false;
                 });
+                _hideProfileOverlay();
                 final authProvider = Provider.of<AuthProvider>(context, listen: false);
                 await authProvider.logout();
                 if (context.mounted) {
                   Navigator.of(context).pushReplacementNamed('/login');
                 }
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 20, color: Colors.red[600]),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Sign Out',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF37352F),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -587,41 +679,27 @@ class _NotionAppBarState extends State<NotionAppBar> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: const Color(0xFF37352F)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF37352F),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
-          ],
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Icon(icon, size: 20, color: const Color(0xFF37352F)),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Color(0xFF37352F),
         ),
       ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[600],
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right, size: 18, color: Colors.grey[400]),
+      onTap: onTap,
     );
   }
 
@@ -665,5 +743,234 @@ class _NotionAppBarState extends State<NotionAppBar> {
     } catch (e) {
       return dateString;
     }
+  }
+
+  Future<void> _showProfilePictureUpload(BuildContext context, Map<String, dynamic>? user) async {
+    if (!kIsWeb) {
+      // For mobile, show a message that it's not yet implemented
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile picture upload is only available on web')),
+      );
+      return;
+    }
+
+    // Close dropdown first
+    setState(() {
+      _isProfileOpen = false;
+    });
+
+    // Create file input element
+    final input = html.FileUploadInputElement();
+    input.accept = 'image/*';
+    input.click();
+
+    input.onChange.listen((e) async {
+      final files = input.files;
+      if (files == null || files.isEmpty) return;
+
+      final file = files[0];
+      
+      // Validate file type
+      final allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!allowedTypes.contains(file.type)) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid file type. Only JPEG, PNG, and GIF are allowed.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('File size too large. Maximum 2MB allowed.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Show loading dialog
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      try {
+        // Read file as bytes
+        final reader = html.FileReader();
+        final completer = Completer<Uint8List>();
+        
+        reader.onLoadEnd.listen((e) {
+          completer.complete(reader.result as Uint8List);
+        });
+        
+        reader.onError.listen((e) {
+          completer.completeError('Failed to read file');
+        });
+        
+        reader.readAsArrayBuffer(file);
+        final fileBytes = await completer.future;
+
+        // Upload profile picture
+        final response = await ApiService.uploadProfilePictureWeb(fileBytes, file.name);
+
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+        }
+
+        if (response['success'] == true) {
+          // Update user data in AuthProvider
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          if (authProvider.user != null) {
+            final updatedUser = Map<String, dynamic>.from(authProvider.user!);
+            // Extract path from full URL
+            final profilePictureUrl = response['profile_picture'] as String?;
+            if (profilePictureUrl != null) {
+              // Remove base URL to get relative path
+              final relativePath = profilePictureUrl.replaceFirst(ApiService.baseUrl, '').replaceFirst(RegExp(r'^/'), '');
+              updatedUser['profile_picture'] = relativePath;
+              authProvider.updateUserData(updatedUser);
+            }
+          }
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile picture uploaded successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(response['message'] ?? 'Failed to upload profile picture'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (context.mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  void _showNotificationOverlay() {
+    _hideNotificationOverlay();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final overlay = Overlay.of(context);
+      final renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox == null) return;
+      
+      final offset = renderBox.localToGlobal(Offset.zero);
+      final screenSize = MediaQuery.of(context).size;
+      
+      _notificationOverlay = OverlayEntry(
+        builder: (overlayContext) => Stack(
+          children: [
+            // Invisible backdrop to capture outside clicks
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isNotificationOpen = false;
+                  });
+                  _hideNotificationOverlay();
+                },
+                behavior: HitTestBehavior.translucent,
+              ),
+            ),
+            // Dropdown positioned correctly
+            Positioned(
+              top: offset.dy + 56,
+              right: 8,
+              child: GestureDetector(
+                onTap: () {}, // Prevent closing when tapping inside
+                behavior: HitTestBehavior.opaque,
+                child: _buildNotificationDropdown(),
+              ),
+            ),
+          ],
+        ),
+      );
+      overlay.insert(_notificationOverlay!);
+    });
+  }
+
+  void _hideNotificationOverlay() {
+    _notificationOverlay?.remove();
+    _notificationOverlay = null;
+  }
+
+  void _showProfileOverlay(BuildContext context, Map<String, dynamic>? user) {
+    _hideProfileOverlay();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final overlay = Overlay.of(context);
+      final renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox == null) return;
+      
+      final offset = renderBox.localToGlobal(Offset.zero);
+      final screenSize = MediaQuery.of(context).size;
+      
+      _profileOverlay = OverlayEntry(
+        builder: (overlayContext) => Stack(
+          children: [
+            // Invisible backdrop to capture outside clicks
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isProfileOpen = false;
+                  });
+                  _hideProfileOverlay();
+                },
+                behavior: HitTestBehavior.translucent,
+              ),
+            ),
+            // Dropdown positioned correctly
+            Positioned(
+              top: offset.dy + 56,
+              right: 8,
+              child: GestureDetector(
+                onTap: () {}, // Prevent closing when tapping inside
+                behavior: HitTestBehavior.opaque,
+                child: _buildProfileDropdown(overlayContext, user),
+              ),
+            ),
+          ],
+        ),
+      );
+      overlay.insert(_profileOverlay!);
+    });
+  }
+
+  void _hideProfileOverlay() {
+    _profileOverlay?.remove();
+    _profileOverlay = null;
   }
 }

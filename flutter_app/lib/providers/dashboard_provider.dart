@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../models/dashboard_data.dart';
+import 'auth_provider.dart';
 
 class DashboardProvider with ChangeNotifier {
   bool _isLoading = false;
@@ -25,6 +27,13 @@ class DashboardProvider with ChangeNotifier {
       if (response['success'] == true && response['data'] != null) {
         _dashboardData = DashboardData.fromJson(response['data']);
         _errorMessage = null;
+        
+        // Update AuthProvider with complete user data from dashboard
+        if (_dashboardData?.payer != null) {
+          final authProvider = AuthProvider();
+          // We can't directly access AuthProvider here, so we'll update it in the widget
+          // that uses this provider
+        }
       } else {
         _errorMessage = response['error'] ?? 'Failed to load dashboard';
       }

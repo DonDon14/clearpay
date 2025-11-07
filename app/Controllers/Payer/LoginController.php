@@ -210,8 +210,10 @@ class LoginController extends BaseController
                 'payer_id' => $payer['payer_id'],
                 'payer_name' => $payer['payer_name'],
                 'email' => $payer['email_address'] ?? '',
+                'email_address' => $payer['email_address'] ?? '', // For compatibility
+                'contact_number' => $payer['contact_number'] ?? '',
+                'phone_number' => $payer['contact_number'] ?? '', // For compatibility
                 'profile_picture' => $payer['profile_picture'] ?? null,
-                'phone_number' => $payer['phone_number'] ?? '',
             ],
             // For mobile, you might want to use JWT tokens instead
             // For now, return a simple token (you should implement proper JWT)
