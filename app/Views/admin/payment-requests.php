@@ -329,6 +329,14 @@
             </div>
             <div class="modal-body" id="actionModalBody">
                 <!-- Content will be loaded here -->
+                <div id="adminNotesSection" style="display: none;" class="mt-3">
+                    <div class="mb-3">
+                        <label for="modal_admin_notes" class="form-label">Reason for Rejection <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="modal_admin_notes" name="admin_notes" rows="3" 
+                                  placeholder="Please provide a reason for rejecting this payment request..."></textarea>
+                        <small class="text-muted">This message will be sent to the payer</small>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -416,8 +424,8 @@ $(document).ready(function() {
 
     // Handle reject from details modal
     $('#rejectFromDetailsBtn').click(function() {
-        showActionModal('Reject Payment Request', 'Are you sure you want to reject this payment request?');
         currentAction = 'reject';
+        showActionModal('Reject Payment Request', 'Are you sure you want to reject this payment request? Please provide a reason below.');
     });
 
     // Handle process from details modal
@@ -543,7 +551,36 @@ $(document).ready(function() {
 
     function showActionModal(title, message) {
         $('#actionModalLabel').text(title);
-        $('#actionModalBody').html(`<p>${message}</p>`);
+        
+        // Show admin notes section only for reject action
+        if (currentAction === 'reject') {
+            // Set message
+            $('#actionModalBody').html(`<p>${message}</p>`);
+            // Append admin notes section if it doesn't exist or was removed
+            if ($('#adminNotesSection').length === 0 || $('#adminNotesSection').parent('#actionModalBody').length === 0) {
+                $('#actionModalBody').append(`
+                    <div id="adminNotesSection" class="mt-3">
+                        <div class="mb-3">
+                            <label for="modal_admin_notes" class="form-label">Reason for Rejection <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="modal_admin_notes" name="admin_notes" rows="3" 
+                                      placeholder="Please provide a reason for rejecting this payment request..."></textarea>
+                            <small class="text-muted">This message will be sent to the payer</small>
+                        </div>
+                    </div>
+                `);
+            }
+            $('#adminNotesSection').show();
+            $('#modal_admin_notes').val('').attr('required', true);
+            // Focus on the textarea after modal is shown
+            setTimeout(() => {
+                $('#modal_admin_notes').focus();
+            }, 300);
+        } else {
+            $('#actionModalBody').html(`<p>${message}</p>`);
+            $('#adminNotesSection').hide();
+            $('#modal_admin_notes').val('').removeAttr('required');
+        }
+        
         $('#actionModal').modal('show');
     }
 
@@ -566,6 +603,16 @@ $(document).ready(function() {
                 break;
         }
 
+        // Get admin notes from modal (required for reject action)
+        const adminNotes = $('#modal_admin_notes').val() || '';
+        
+        // Validate admin notes for reject action
+        if (action === 'reject' && !adminNotes.trim()) {
+            alert('Please provide a reason for rejecting this payment request.');
+            $('#modal_admin_notes').focus();
+            return;
+        }
+
         fetch(url, {
             method: 'POST',
             headers: {
@@ -575,7 +622,7 @@ $(document).ready(function() {
             },
             body: new URLSearchParams({
                 request_id: requestId,
-                admin_notes: ''
+                admin_notes: adminNotes
             })
         })
         .then(response => response.json())
@@ -584,6 +631,9 @@ $(document).ready(function() {
                 alert(successMessage);
                 $('#actionModal').modal('hide');
                 $('#requestDetailsModal').modal('hide');
+                // Reset admin notes section
+                $('#adminNotesSection').hide();
+                $('#modal_admin_notes').val('').removeAttr('required');
                 location.reload(); // Reload page to show updated data
             } else {
                 alert('Error: ' + data.message);
