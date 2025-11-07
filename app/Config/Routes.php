@@ -205,6 +205,12 @@ $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVer
         // Check new activities API endpoint (no auth filter - will check in controller)
         $routes->options('api/payer/check-new-activities', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/check-new-activities', 'Payer\\DashboardController::checkNewActivities');
+        // Get all activities API endpoint (no auth filter - will check in controller)
+        $routes->options('api/payer/get-all-activities', 'Payer\\DashboardController::handleOptions');
+        $routes->get('api/payer/get-all-activities', 'Payer\\DashboardController::getAllActivities');
+        // Mark activity as read API endpoint (no auth filter - will check in controller)
+        $routes->options('api/payer/mark-activity-read/(:num)', 'Payer\\DashboardController::handleOptions');
+        $routes->post('api/payer/mark-activity-read/(:num)', 'Payer\\DashboardController::markActivityAsRead/$1');
         
         $routes->group('payer', ['filter' => 'payerAuth'], function($routes) {
             $routes->get('dashboard', 'Payer\\DashboardController::index');

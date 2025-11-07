@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' as html;
-import 'dart:typed_data';
 import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../services/api_service.dart';
+import 'notifications_modal.dart';
+import 'announcement_modal.dart';
+import '../screens/announcements_screen.dart';
+import '../screens/contributions_screen.dart';
+import '../screens/payment_history_screen.dart';
+import '../screens/profile_screen.dart';
+import '../screens/refund_requests_screen.dart';
 
 class NotionAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
@@ -29,347 +35,604 @@ class NotionAppBar extends StatefulWidget implements PreferredSizeWidget {
 }
 
 class _NotionAppBarState extends State<NotionAppBar> {
-  bool _isNotificationOpen = false;
-  List<dynamic> _notifications = [];
-  int _unreadCount = 0;
-  bool _isLoadingNotifications = false;
-  final GlobalKey _notificationKey = GlobalKey();
-  OverlayEntry? _notificationOverlay;
-
+  // Use ValueNotifiers for reactive updates (no setState during build)
+  final ValueNotifier<List<Map<String, dynamic>>> _activitiesNotifier = 
+      ValueNotifier<List<Map<String, dynamic>>>([]);
+  final ValueNotifier<Set<String>> _unreadIdsNotifier = 
+      ValueNotifier<Set<String>>(<String>{});
+  final ValueNotifier<Set<String>> _unseenIdsNotifier = 
+      ValueNotifier<Set<String>>(<String>{});
+  final ValueNotifier<bool> _isLoadingNotifier = ValueNotifier<bool>(false);
+  
+  bool _isDropdownOpen = false;
+  OverlayEntry? _overlayEntry;
+  Timer? _refreshTimer;
+  Set<int> _shownAnnouncementIds = <int>{}; // Track shown announcements to avoid duplicates
+  
   @override
   void initState() {
     super.initState();
     if (widget.showNotifications) {
-      _loadNotifications();
+      // Load previously shown announcement IDs
+      _loadShownAnnouncementIds();
+      
+      // Load activities after first frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadActivities();
+      });
+      
+      // Periodically refresh notifications to detect new ones (every 30 seconds)
+      // This ensures new notifications appear even when app is open
+      _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+        if (mounted && !_isLoadingNotifier.value) {
+          _loadActivities();
+        }
+      });
     }
   }
 
   @override
   void dispose() {
-    _notificationOverlay?.remove();
+    _overlayEntry?.remove();
+    _refreshTimer?.cancel();
+    _activitiesNotifier.dispose();
+    _unreadIdsNotifier.dispose();
+    _unseenIdsNotifier.dispose();
+    _isLoadingNotifier.dispose();
     super.dispose();
   }
 
-  Future<void> _loadNotifications() async {
-    setState(() {
-      _isLoadingNotifications = true;
-    });
-
+  // Load activities from API
+  Future<void> _loadActivities() async {
+    if (_isLoadingNotifier.value || !mounted) return;
+    
+    _isLoadingNotifier.value = true;
+    
     try {
       final response = await ApiService.getNotifications();
+      
+      if (!mounted) return;
+      
       if (response['success'] == true) {
-        setState(() {
-          _notifications = response['activities'] ?? [];
-          _unreadCount = _notifications.where((n) => n['is_unread'] == true || n['read_at'] == null).length;
-        });
+        final activities = List<Map<String, dynamic>>.from(
+          response['activities'] ?? []
+        );
+        
+        final unreadIds = <String>{};
+        final unseenIds = <String>{};
+        
+        // Process activities
+        final processed = activities.map((a) {
+          final activity = Map<String, dynamic>.from(a);
+          final id = activity['id'].toString();
+          
+          // Check if unread (is_read_by_payer == 0)
+          // Handle both string and int types from backend
+          final isReadValue = activity['is_read_by_payer'];
+          final isRead = isReadValue is int 
+              ? isReadValue 
+              : (isReadValue is String 
+                  ? int.tryParse(isReadValue) ?? 0 
+                  : (isReadValue == true || isReadValue == '1' || isReadValue == 1 ? 1 : 0));
+          
+          // Add to unread set if not read (isRead == 0)
+          if (isRead == 0) {
+            unreadIds.add(id);
+            unseenIds.add(id);
+          }
+          
+          return activity;
+        }).toList();
+        
+        // Debug logging
+        print('Loaded ${processed.length} activities');
+        print('Unread count: ${unreadIds.length}');
+        print('Unread IDs: $unreadIds');
+        
+        // Check for new announcement activities and show modal automatically
+        if (mounted) {
+          _activitiesNotifier.value = processed;
+          _unreadIdsNotifier.value = unreadIds;
+          _unseenIdsNotifier.value = unseenIds;
+          _isLoadingNotifier.value = false;
+          
+          // Check for new announcements to show modal
+          _checkForNewAnnouncements(processed);
+        }
+      } else {
+        if (mounted) {
+          _isLoadingNotifier.value = false;
+        }
       }
     } catch (e) {
-      // Handle error silently
-    } finally {
-      setState(() {
-        _isLoadingNotifications = false;
-      });
+      if (mounted) {
+        _isLoadingNotifier.value = false;
+      }
     }
   }
 
-  Future<void> _markAsRead(int activityId) async {
-    await ApiService.markNotificationRead(activityId);
-    _loadNotifications();
+  // Mark activity as read (removes red dot and updates badge)
+  Future<void> _markAsRead(String activityId) async {
+    final id = int.tryParse(activityId);
+    if (id == null) return;
+    
+    // Update UI immediately using ValueNotifier (no setState)
+    final currentUnread = Set<String>.from(_unreadIdsNotifier.value);
+    if (currentUnread.contains(activityId)) {
+      currentUnread.remove(activityId);
+      _unreadIdsNotifier.value = currentUnread;
+      // Badge shows unread count, so it updates automatically via ValueListenableBuilder
+    }
+    
+    // Update server (don't wait)
+    Future.microtask(() async {
+      try {
+        await ApiService.markNotificationRead(id);
+      } catch (e) {
+        // Silently handle errors
+      }
+    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final user = authProvider.user;
-    
-    // Try to get user data from dashboard provider if available
-    Map<String, dynamic>? effectiveUser = user;
+  // Mark all as seen (clears badge when bell clicked)
+  void _markAllAsSeen() {
+    _unseenIdsNotifier.value = <String>{};
+  }
+
+  // Load previously shown announcement IDs from shared preferences
+  Future<void> _loadShownAnnouncementIds() async {
     try {
-      final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
-      if (dashboardProvider.dashboardData?.payer != null) {
-        final payerData = dashboardProvider.dashboardData!.payer;
-        if (payerData.isNotEmpty) {
-          // Merge dashboard payer data with user data
-          effectiveUser = Map<String, dynamic>.from(user ?? {});
-          effectiveUser!.addAll({
-            'payer_name': payerData['payer_name'] ?? effectiveUser['payer_name'],
-            'payer_id': payerData['payer_id'] ?? effectiveUser['payer_id'],
-            'email_address': payerData['email_address'] ?? effectiveUser['email_address'],
-            'contact_number': payerData['contact_number'] ?? effectiveUser['contact_number'],
-            'profile_picture': payerData['profile_picture'] ?? effectiveUser['profile_picture'],
+      final prefs = await SharedPreferences.getInstance();
+      final shownIdsString = prefs.getString('shownAnnouncementIds') ?? '';
+      if (shownIdsString.isNotEmpty) {
+        final shownIdsList = shownIdsString.split(',').map((id) => int.tryParse(id)).whereType<int>().toList();
+        _shownAnnouncementIds = Set<int>.from(shownIdsList);
+      }
+    } catch (e) {
+      print('Error loading shown announcement IDs: $e');
+    }
+  }
+
+  // Check for new announcement activities and show modal automatically
+  Future<void> _checkForNewAnnouncements(List<Map<String, dynamic>> activities) async {
+    if (!mounted) return;
+    
+    try {
+      // Get last shown announcement ID from shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      final lastShownId = prefs.getInt('lastShownAnnouncementId') ?? 0;
+      
+      // Load previously shown announcement IDs from shared preferences
+      final shownIdsString = prefs.getString('shownAnnouncementIds') ?? '';
+      if (shownIdsString.isNotEmpty) {
+        final shownIdsList = shownIdsString.split(',').map((id) => int.tryParse(id)).whereType<int>().toList();
+        _shownAnnouncementIds = Set<int>.from(shownIdsList);
+      }
+      
+      // Filter for new announcement activities
+      final announcementActivities = activities.where((activity) {
+        final activityType = (activity['activity_type'] ?? '').toString().toLowerCase();
+        final action = (activity['action'] ?? '').toString().toLowerCase();
+        final activityId = activity['id'] is int 
+            ? activity['id'] 
+            : int.tryParse(activity['id'].toString()) ?? 0;
+        
+        return activityType == 'announcement' &&
+               (action == 'created' || action == 'published') &&
+               activityId > lastShownId &&
+               !_shownAnnouncementIds.contains(activityId);
+      }).toList();
+      
+      if (announcementActivities.isNotEmpty) {
+        // Get the latest announcement
+        announcementActivities.sort((a, b) {
+          final aId = a['id'] is int ? a['id'] : int.tryParse(a['id'].toString()) ?? 0;
+          final bId = b['id'] is int ? b['id'] : int.tryParse(b['id'].toString()) ?? 0;
+          return bId.compareTo(aId);
+        });
+        
+        final latestAnnouncement = announcementActivities.first;
+        final activityId = latestAnnouncement['id'] is int 
+            ? latestAnnouncement['id'] 
+            : int.tryParse(latestAnnouncement['id'].toString()) ?? 0;
+        
+        // Parse announcement data from new_values
+        Map<String, dynamic>? announcementData;
+        if (latestAnnouncement['new_values'] != null) {
+          try {
+            final newValues = latestAnnouncement['new_values'];
+            if (newValues is String) {
+              announcementData = Map<String, dynamic>.from(
+                jsonDecode(newValues) as Map
+              );
+            } else if (newValues is Map) {
+              announcementData = Map<String, dynamic>.from(newValues);
+            }
+            
+            // Merge with activity metadata
+            if (announcementData != null) {
+              announcementData['created_at'] = latestAnnouncement['created_at'];
+              announcementData['created_at_date'] = latestAnnouncement['created_at_date'];
+              announcementData['created_at_time'] = latestAnnouncement['created_at_time'];
+            }
+          } catch (e) {
+            print('Error parsing announcement data: $e');
+            // Fallback: use activity data
+            announcementData = latestAnnouncement;
+          }
+        } else {
+          // Fallback: use activity data directly
+          announcementData = latestAnnouncement;
+        }
+        
+        if (announcementData != null && mounted) {
+          // Mark as shown
+          _shownAnnouncementIds.add(activityId);
+          await prefs.setInt('lastShownAnnouncementId', activityId);
+          await prefs.setString('shownAnnouncementIds', _shownAnnouncementIds.join(','));
+          
+          // Show modal after a short delay
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AnnouncementModal(
+                  announcementData: announcementData!,
+                ),
+              );
+            }
           });
         }
       }
     } catch (e) {
-      // DashboardProvider might not be available, use user data
-      effectiveUser = user;
+      print('Error checking for new announcements: $e');
+    }
+  }
+
+  // Handle notification click
+  void _handleNotificationClick(Map<String, dynamic> activity, BuildContext navContext, NavigatorState navigator) {
+    final activityId = activity['id'].toString();
+    
+    // Check both activity_type and entity_type (some notifications have empty activity_type)
+    final activityType = (activity['activity_type'] ?? '').toString().toLowerCase();
+    final entityType = (activity['entity_type'] ?? '').toString().toLowerCase();
+    
+    // Use entity_type if activity_type is empty
+    final typeToUse = activityType.isNotEmpty ? activityType : entityType;
+    
+    // Debug logging
+    print('Notification clicked - Activity ID: $activityId');
+    print('Activity type: $activityType, Entity type: $entityType, Using: $typeToUse');
+    print('Activity data: $activity');
+    
+    // Mark as read
+    _markAsRead(activityId);
+    
+    // Close dropdown first
+    _closeDropdown();
+    
+    // Navigate immediately using the stored navigator
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (!mounted) {
+        print('Widget not mounted, skipping navigation');
+        return;
+      }
+      
+      try {
+        print('Navigating to: $typeToUse');
+        
+        // Also check title as fallback
+        final title = (activity['title'] ?? '').toString().toLowerCase();
+        
+        switch (typeToUse) {
+          case 'announcement':
+            print('Navigating to AnnouncementsScreen');
+            navigator.push(
+              MaterialPageRoute(builder: (_) => const AnnouncementsScreen()),
+            );
+            break;
+          case 'contribution':
+            print('Navigating to ContributionsScreen');
+            navigator.push(
+              MaterialPageRoute(builder: (_) => const ContributionsScreen()),
+            );
+            break;
+          case 'payment':
+          case 'payment_request':
+          case 'payment-request':
+          case 'paymentrequest':
+            // Payment requests should navigate to payment history for payers
+            print('Navigating to PaymentHistoryScreen');
+            navigator.push(
+              MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
+            );
+            break;
+          case 'payer':
+            print('Navigating to ProfileScreen');
+            navigator.push(
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+            break;
+          case 'refund':
+            print('Navigating to RefundRequestsScreen');
+            navigator.push(
+              MaterialPageRoute(
+                builder: (_) => RefundRequestsScreen(showAppBar: true),
+              ),
+            );
+            break;
+          default:
+            print('Unknown activity type: $typeToUse');
+            // Fallback: check title for keywords
+            if (title.contains('refund')) {
+              print('Title contains "refund", navigating to RefundRequestsScreen');
+              navigator.push(
+                MaterialPageRoute(
+                  builder: (_) => RefundRequestsScreen(showAppBar: true),
+                ),
+              );
+            } else if (title.contains('payment') || title.contains('request')) {
+              print('Title contains "payment" or "request", navigating to PaymentHistoryScreen');
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
+              );
+            } else if (title.contains('announcement')) {
+              print('Title contains "announcement", navigating to AnnouncementsScreen');
+              navigator.push(
+                MaterialPageRoute(builder: (_) => const AnnouncementsScreen()),
+              );
+            }
+            break;
+        }
+      } catch (e, stackTrace) {
+        // Log error for debugging
+        print('Navigation error: $e');
+        print('Stack trace: $stackTrace');
+      }
+    });
+  }
+
+  // Toggle dropdown
+  void _toggleDropdown() {
+    if (_isDropdownOpen) {
+      _closeDropdown();
+    } else {
+      _openDropdown();
+    }
+  }
+
+  // Open dropdown
+  void _openDropdown() {
+    if (_isDropdownOpen || !mounted) return;
+    
+    // Mark all as seen (Facebook-like behavior)
+    _markAllAsSeen();
+    
+    // Store navigation context for use in overlay (use the widget's context, not overlay context)
+    // Get the navigator state directly to ensure it's valid
+    final navigatorState = Navigator.of(context);
+    final navigationContext = context;
+    
+    // Show overlay immediately with current data
+    final overlay = Overlay.of(context);
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    
+    final offset = renderBox.localToGlobal(Offset.zero);
+    
+    // Reload activities in background (don't wait)
+    if (!_isLoadingNotifier.value) {
+      _loadActivities();
     }
     
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        AppBar(
-          elevation: 0,
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          leading: Builder(
-            builder: (BuildContext context) {
-              return IconButton(
-                icon: const Icon(Icons.menu, color: Color(0xFF37352F)),
-                onPressed: () {
-                  try {
-                    Scaffold.of(context).openDrawer();
-                  } catch (e) {
-                    // If drawer is not available, try to find it in the widget tree
-                    final scaffoldState = Scaffold.maybeOf(context);
-                    if (scaffoldState != null) {
-                      scaffoldState.openDrawer();
-                    }
-                  }
-                },
-              );
-            },
+    _overlayEntry = OverlayEntry(
+      builder: (overlayContext) => Stack(
+        children: [
+          // Backdrop
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _closeDropdown,
+              behavior: HitTestBehavior.translucent,
+            ),
           ),
-          title: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.credit_card,
-                color: const Color(0xFF37352F),
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'ClearPay',
-                style: const TextStyle(
-                  color: Color(0xFF37352F),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.3,
+          // Dropdown - use ValueListenableBuilder to avoid setState
+          Positioned(
+            top: offset.dy + 56,
+            right: 8,
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+              child: Container(
+                width: 360,
+                constraints: const BoxConstraints(maxHeight: 400),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE9E9E7), width: 1),
                 ),
-              ),
-            ],
-          ),
-          centerTitle: true,
-          actions: [
-            // Notifications
-            if (widget.showNotifications)
-              Stack(
-                key: _notificationKey,
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.notifications_outlined,
-                      color: const Color(0xFF37352F),
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isNotificationOpen = !_isNotificationOpen;
-                      });
-                      if (_isNotificationOpen) {
-                        _loadNotifications();
-                        _showNotificationOverlay();
-                      } else {
-                        _hideNotificationOverlay();
-                      }
-                    },
-                  ),
-                  if (_unreadCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEF4444),
-                          shape: BoxShape.circle,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Color(0xFFE9E9E7), width: 1),
                         ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          _unreadCount > 9 ? '9+' : '$_unreadCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
+                      ),
+                      child: Row(
+                        children: [
+                          const Text(
+                            'Notifications',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF37352F),
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: _closeDropdown,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
                       ),
                     ),
-                ],
-              ),
-            
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNotificationDropdown() {
-    return Material(
-      elevation: 8,
-      borderRadius: BorderRadius.circular(8),
-      color: Colors.white,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          width: 360,
-          constraints: const BoxConstraints(maxHeight: 400),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE9E9E7), width: 1),
-          ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFFE9E9E7), width: 1)),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'Notifications',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF37352F),
-                    ),
-                  ),
-                  const Spacer(),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _isNotificationOpen = false;
-                        });
-                        _hideNotificationOverlay();
-                      },
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.close, size: 18, color: Color(0xFF37352F)),
+                    // List - use ValueListenableBuilder (no setState)
+                    Flexible(
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _isLoadingNotifier,
+                        builder: (context, isLoading, _) {
+                          return ValueListenableBuilder<List<Map<String, dynamic>>>(
+                            valueListenable: _activitiesNotifier,
+                            builder: (context, activities, _) {
+                              if (isLoading && activities.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(40),
+                                  child: Center(child: CircularProgressIndicator()),
+                                );
+                              }
+                              
+                              if (activities.isEmpty) {
+                                return Padding(
+                                  padding: const EdgeInsets.all(40),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.notifications_none,
+                                          size: 48, color: Colors.grey[400]),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'No notifications',
+                                        style: TextStyle(
+                                            color: Colors.grey[600], fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                              
+                              return ValueListenableBuilder<Set<String>>(
+                                valueListenable: _unreadIdsNotifier,
+                                builder: (context, unreadIds, _) {
+                                  // Always show "View All" if there are activities
+                                  final itemCount = activities.length > 5 
+                                      ? 6  // Show 5 items + "View All"
+                                      : activities.length + 1; // Show all items + "View All"
+                                  
+                                  return ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: itemCount,
+                                    itemBuilder: (context, index) {
+                                      // Show "View All" button at the end
+                                      if (index == 5 || (activities.length <= 5 && index == activities.length)) {
+                                        return Container(
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: const BoxDecoration(
+                                            border: Border(
+                                              top: BorderSide(
+                                                  color: Color(0xFFE9E9E7), width: 1),
+                                            ),
+                                          ),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            child: TextButton(
+                                              onPressed: () {
+                                                _closeDropdown();
+                                                Future.delayed(const Duration(milliseconds: 100), () {
+                                                  if (mounted) {
+                                                    showDialog(
+                                                      context: navigationContext,
+                                                      builder: (_) =>
+                                                          const NotificationsModal(),
+                                                    );
+                                                  }
+                                                });
+                                              },
+                                              child: const Text(
+                                                'View All',
+                                                style: TextStyle(
+                                                  color: Color(0xFF37352F),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      
+                                      final activity = activities[index];
+                                      final activityId = activity['id'].toString();
+                                      final isUnread = unreadIds.contains(activityId);
+                                      
+                                      return _buildNotificationItem(activity, isUnread, navigationContext, navigatorState);
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            
-            // Notifications List
-            Flexible(
-              child: _isLoadingNotifications
-                  ? const Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : _notifications.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.all(40),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.notifications_none, size: 48, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No notifications',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: _notifications.length > 5 ? 5 : _notifications.length,
-                          itemBuilder: (context, index) {
-                            final notification = _notifications[index];
-                            final isUnread = notification['is_unread'] == true || notification['read_at'] == null;
-                            return _buildNotificationItem(notification, isUnread);
-                          },
-                        ),
-            ),
-            
-            // Footer
-            if (_notifications.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: Color(0xFFE9E9E7), width: 1)),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _isNotificationOpen = false;
-                      });
-                      _hideNotificationOverlay();
-                      Navigator.pushNamed(context, '/notifications');
-                    },
-                    child: const Text(
-                      'View All',
-                      style: TextStyle(
-                        color: Color(0xFF37352F),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+          ),
+        ],
       ),
     );
+    
+    overlay.insert(_overlayEntry!);
+    _isDropdownOpen = true;
   }
 
-  Widget _buildNotificationItem(Map<String, dynamic> notification, bool isUnread) {
-    final title = notification['title'] ?? 'Notification';
-    final description = notification['description'] ?? '';
-    final date = notification['created_at'] ?? notification['created_at_date'] ?? '';
-    final icon = notification['activity_icon'] ?? Icons.info_outline;
-    final color = notification['activity_color'] ?? 'blue';
+  // Close dropdown
+  void _closeDropdown() {
+    if (!_isDropdownOpen) return;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    _isDropdownOpen = false;
+  }
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          if (isUnread) {
-            _markAsRead(notification['id']);
-          }
-          setState(() {
-            _isNotificationOpen = false;
-          });
-          _hideNotificationOverlay();
-        },
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isUnread ? const Color(0xFFF7F6F3) : Colors.white,
-            border: const Border(bottom: BorderSide(color: Color(0xFFE9E9E7), width: 1)),
+  // Build notification item
+  Widget _buildNotificationItem(Map<String, dynamic> activity, bool isUnread, BuildContext navContext, NavigatorState navigator) {
+    final title = activity['title'] ?? 'Notification';
+    final description = activity['description'] ?? '';
+    final date = activity['created_at_date'] ?? activity['created_at_formatted'] ?? '';
+    final iconString = activity['activity_icon'] ?? 'fas fa-info-circle';
+    final colorString = activity['activity_color'] ?? 'blue';
+    
+    final icon = _getIcon(iconString);
+    final color = _getColor(colorString);
+    
+    return InkWell(
+      onTap: () => _handleNotificationClick(activity, navContext, navigator),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isUnread ? const Color(0xFFF7F6F3) : Colors.white,
+          border: const Border(
+            bottom: BorderSide(color: Color(0xFFE9E9E7), width: 1),
           ),
-          child: Row(
+        ),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: _getColorFromString(color).withOpacity(0.1),
+                color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(icon, size: 18, color: _getColorFromString(color)),
+              child: Icon(icon, size: 18, color: color),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -378,10 +641,10 @@ class _NotionAppBarState extends State<NotionAppBar> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
-                      color: const Color(0xFF37352F),
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF37352F),
                     ),
                   ),
                   if (description.isNotEmpty) ...[
@@ -389,7 +652,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
                     Text(
                       description,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Colors.grey[600],
                       ),
                       maxLines: 2,
@@ -399,9 +662,9 @@ class _NotionAppBarState extends State<NotionAppBar> {
                   if (date.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      _formatDate(date),
+                      date,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: Colors.grey[500],
                       ),
                     ),
@@ -413,6 +676,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
               Container(
                 width: 8,
                 height: 8,
+                margin: const EdgeInsets.only(left: 8, top: 4),
                 decoration: const BoxDecoration(
                   color: Color(0xFFEF4444),
                   shape: BoxShape.circle,
@@ -421,98 +685,161 @@ class _NotionAppBarState extends State<NotionAppBar> {
           ],
         ),
       ),
-      ),
     );
   }
 
-  Color _getColorFromString(String color) {
-    switch (color.toLowerCase()) {
+  // Helper: Get icon from string
+  IconData _getIcon(String iconString) {
+    if (iconString.contains('bullhorn')) return Icons.campaign;
+    if (iconString.contains('money')) return Icons.payment;
+    if (iconString.contains('user')) return Icons.person;
+    if (iconString.contains('check')) return Icons.check_circle;
+    if (iconString.contains('times')) return Icons.cancel;
+    if (iconString.contains('edit')) return Icons.edit;
+    if (iconString.contains('trash')) return Icons.delete;
+    if (iconString.contains('plus')) return Icons.add_circle;
+    return Icons.info;
+  }
+
+  // Helper: Get color from string
+  Color _getColor(String colorString) {
+    switch (colorString.toLowerCase()) {
+      case 'primary':
       case 'blue':
         return const Color(0xFF2196F3);
+      case 'success':
       case 'green':
         return const Color(0xFF4CAF50);
+      case 'warning':
       case 'orange':
         return const Color(0xFFFF9800);
+      case 'danger':
       case 'red':
         return const Color(0xFFEF4444);
+      case 'info':
+        return const Color(0xFF2196F3);
       default:
         return const Color(0xFF2196F3);
     }
   }
 
-  String _formatDate(String dateString) {
-    if (dateString.isEmpty) return '';
+  @override
+  Widget build(BuildContext context) {
+    // Use listen: false to avoid triggering rebuilds during build
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.user;
+    
+    Map<String, dynamic>? effectiveUser = user;
     try {
-      final date = DateTime.parse(dateString);
-      final now = DateTime.now();
-      final difference = now.difference(date);
-      
-      if (difference.inDays == 0) {
-        if (difference.inHours == 0) {
-          if (difference.inMinutes == 0) {
-            return 'Just now';
-          }
-          return '${difference.inMinutes}m ago';
+      final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
+      if (dashboardProvider.dashboardData?.payer != null) {
+        final payerData = dashboardProvider.dashboardData!.payer;
+        if (payerData.isNotEmpty) {
+          effectiveUser = Map<String, dynamic>.from(user ?? {});
+          effectiveUser!.addAll({
+            'payer_name': payerData['payer_name'] ?? effectiveUser['payer_name'],
+            'payer_id': payerData['payer_id'] ?? effectiveUser['payer_id'],
+            'email_address': payerData['email_address'] ?? effectiveUser['email_address'],
+            'contact_number': payerData['contact_number'] ?? effectiveUser['contact_number'],
+            'profile_picture': payerData['profile_picture'] ?? effectiveUser['profile_picture'],
+          });
         }
-        return '${difference.inHours}h ago';
-      } else if (difference.inDays == 1) {
-        return 'Yesterday';
-      } else if (difference.inDays < 7) {
-        return '${difference.inDays}d ago';
-      } else {
-        return DateFormat('MMM dd, yyyy').format(date);
       }
     } catch (e) {
-      return dateString;
+      effectiveUser = user;
     }
-  }
-
-  void _showNotificationOverlay() {
-    _hideNotificationOverlay();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final overlay = Overlay.of(context);
-      final renderBox = context.findRenderObject() as RenderBox?;
-      if (renderBox == null) return;
-      
-      final offset = renderBox.localToGlobal(Offset.zero);
-      final screenSize = MediaQuery.of(context).size;
-      
-      _notificationOverlay = OverlayEntry(
-        builder: (overlayContext) => Stack(
-          children: [
-            // Invisible backdrop to capture outside clicks
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isNotificationOpen = false;
-                  });
-                  _hideNotificationOverlay();
+    
+    return AppBar(
+      elevation: 0,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      leading: Builder(
+        builder: (BuildContext context) {
+          return IconButton(
+            icon: const Icon(Icons.menu, color: Color(0xFF37352F)),
+            onPressed: () {
+              try {
+                Scaffold.of(context).openDrawer();
+              } catch (e) {
+                final scaffoldState = Scaffold.maybeOf(context);
+                if (scaffoldState != null) {
+                  scaffoldState.openDrawer();
+                }
+              }
+            },
+          );
+        },
+      ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.credit_card, color: Color(0xFF37352F), size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'ClearPay',
+            style: TextStyle(
+              color: Color(0xFF37352F),
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ],
+      ),
+      centerTitle: true,
+      actions: [
+        if (widget.showNotifications)
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined,
+                    color: Color(0xFF37352F), size: 22),
+                onPressed: _toggleDropdown,
+              ),
+              // Use ValueListenableBuilder for badge - shows unread count (like web portal)
+              ValueListenableBuilder<Set<String>>(
+                valueListenable: _unreadIdsNotifier,
+                builder: (context, unreadIds, _) {
+                  // Debug logging
+                  print('Badge builder - Unread count: ${unreadIds.length}, IDs: $unreadIds');
+                  
+                  if (unreadIds.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  
+                  final count = unreadIds.length;
+                  print('Showing badge with count: $count');
+                  
+                  return Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        count > 9 ? '9+' : '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
                 },
-                behavior: HitTestBehavior.translucent,
               ),
-            ),
-            // Dropdown positioned correctly
-            Positioned(
-              top: offset.dy + 56,
-              right: 8,
-              child: GestureDetector(
-                onTap: () {}, // Prevent closing when tapping inside
-                behavior: HitTestBehavior.opaque,
-                child: _buildNotificationDropdown(),
-              ),
-            ),
-          ],
-        ),
-      );
-      overlay.insert(_notificationOverlay!);
-    });
+            ],
+          ),
+      ],
+    );
   }
-
-  void _hideNotificationOverlay() {
-    _notificationOverlay?.remove();
-    _notificationOverlay = null;
-  }
-
 }
