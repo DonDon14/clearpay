@@ -74,7 +74,12 @@ class _SignupScreenState extends State<SignupScreen> {
         if (response['requires_verification'] == true) {
           // Show email verification dialog
           final email = response['email'] ?? _emailController.text.trim();
-          final verificationCode = response['verification_code']; // For testing
+          final emailSent = response['email_sent'] ?? true; // Default to true (assume email was sent)
+          // Only show test code if email failed to send
+          // If email was sent successfully, user should check their email for the code
+          final verificationCode = !emailSent 
+              ? response['verification_code'] 
+              : null;
           
           await showDialog(
             context: context,
@@ -82,6 +87,7 @@ class _SignupScreenState extends State<SignupScreen> {
             builder: (context) => EmailVerificationDialog(
               email: email,
               verificationCode: verificationCode,
+              emailSent: emailSent,
             ),
           );
         } else {
