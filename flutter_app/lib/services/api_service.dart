@@ -484,8 +484,8 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> updateProfile({
-    required String emailAddress,
-    required String contactNumber,
+    String? emailAddress,
+    String? contactNumber,
   }) async {
     try {
       final userId = await getUserId();
@@ -494,10 +494,17 @@ class ApiService {
       }
 
       final url = Uri.parse('$baseUrl/payer/update-profile');
-      final requestBody = {
-        'email_address': emailAddress,
-        'contact_number': contactNumber,
+      final requestBody = <String, dynamic>{
+        'payer_id': userId.toString(), // Add payer_id for API requests
       };
+      
+      // Only include fields that are provided
+      if (emailAddress != null) {
+        requestBody['email_address'] = emailAddress;
+      }
+      if (contactNumber != null) {
+        requestBody['contact_number'] = contactNumber;
+      }
 
       final response = await http.post(
         url,
@@ -572,13 +579,17 @@ class ApiService {
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
+      final responseBody = jsonDecode(response.body);
+      
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return responseBody;
       } else {
-        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+        // Return error message from backend if available
+        final errorMessage = responseBody['message'] ?? responseBody['error'] ?? 'Server error: ${response.statusCode}';
+        return {'success': false, 'message': errorMessage, 'error': errorMessage};
       }
     } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+      return {'success': false, 'message': 'Network error: ${e.toString()}', 'error': 'Network error: ${e.toString()}'};
     }
   }
 
