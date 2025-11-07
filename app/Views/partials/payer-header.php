@@ -134,7 +134,7 @@
               <span class="item-desc">View all transactions</span>
             </div>
           </a>
-          <a href="<?= base_url('help') ?>" class="dropdown-item">
+          <a href="<?= base_url('payer/help') ?>" class="dropdown-item">
             <div class="item-icon">
               <i class="fas fa-question-circle"></i>
             </div>
