@@ -645,6 +645,90 @@ class ApiService {
     }
   }
 
+  // Signup API methods
+  static Future<Map<String, dynamic>> signup({
+    required String payerId,
+    required String password,
+    required String confirmPassword,
+    required String payerName,
+    String? emailAddress,
+    String? contactNumber,
+    String? courseDepartment,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/payer/signup');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'payer_id': payerId,
+          'password': password,
+          'confirm_password': confirmPassword,
+          'payer_name': payerName,
+          'email_address': emailAddress ?? '',
+          'contact_number': contactNumber ?? '',
+          'course_department': courseDepartment ?? '',
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> verifyEmail(String verificationCode) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/payer/verify-email');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'verification_code': verificationCode,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> resendVerificationCode() async {
+    try {
+      final url = Uri.parse('$baseUrl/api/payer/resend-verification');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   static Future<Map<String, dynamic>> getContributionPayments(int contributionId, {int? paymentSequence}) async {
     try {
       final userId = await getUserId();

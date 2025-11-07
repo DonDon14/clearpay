@@ -157,6 +157,13 @@ $routes->get('payer/signup', 'Payer\SignupController::index');
 $routes->post('payer/signupPost', 'Payer\SignupController::signupPost');
 $routes->post('payer/verifyEmail', 'Payer\SignupController::verifyEmail');
 $routes->post('payer/resendVerificationCode', 'Payer\SignupController::resendVerificationCode');
+// Mobile API endpoints for signup
+$routes->options('api/payer/signup', 'Payer\SignupController::handleOptions');
+$routes->post('api/payer/signup', 'Payer\SignupController::mobileSignup');
+$routes->options('api/payer/verify-email', 'Payer\SignupController::handleOptions');
+$routes->post('api/payer/verify-email', 'Payer\SignupController::mobileVerifyEmail');
+$routes->options('api/payer/resend-verification', 'Payer\SignupController::handleOptions');
+$routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileResendVerificationCode');
 
         // Mobile API routes (no auth filter - will check in controller)
         // OPTIONS routes for CORS preflight
