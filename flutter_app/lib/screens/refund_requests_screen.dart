@@ -436,7 +436,10 @@ class _RefundRequestDialogState extends State<RefundRequestDialog> {
         final refundStatus = payment['refund_status'] ?? 'no_refund';
         
         setState(() {
-          _refundAmount = _parseDouble(payment['available_refund']);
+          _originalAmount = originalAmount;
+          _availableRefund = availableRefund;
+          _refundAmount = availableRefund;
+          _refundStatus = refundStatus.toString();
         });
         // Update the text field controller
         _refundAmountController.text = availableRefund > 0
