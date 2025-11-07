@@ -1167,14 +1167,23 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
                             : '',
                         onChanged: (value) {
                           final amount = double.tryParse(value.replaceAll(',', '').replaceAll('₱', ''));
-                          if (amount != null) {
+                          if (amount != null && amount > 0) {
                             setState(() {
                               _requestedAmount = amount;
                             });
-                            // Reload instructions if payment method is selected
-                            if (_selectedPaymentMethod != null) {
+                            // Load instructions if payment method is selected
+                            if (_selectedPaymentMethod != null && _selectedPaymentMethod!.isNotEmpty) {
                               _loadPaymentMethodInstructions(_selectedPaymentMethod!, amount);
                             }
+                          } else {
+                            setState(() {
+                              _requestedAmount = 0.0;
+                              _paymentInstructions = null;
+                              _paymentMethodName = null;
+                              _qrCodePath = null;
+                              _accountNumber = null;
+                              _accountName = null;
+                            });
                           }
                         },
                         validator: (value) {
@@ -1232,9 +1241,16 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
                                   _paymentInstructions = null;
                                   _paymentMethodName = null;
                                   _qrCodePath = null;
+                                  _accountNumber = null;
+                                  _accountName = null;
                                 });
-                                if (value != null && _requestedAmount > 0) {
-                                  _loadPaymentMethodInstructions(value, _requestedAmount);
+                                // Load instructions when payment method is selected and amount is available
+                                if (value != null) {
+                                  // If amount is already set, load instructions immediately
+                                  if (_requestedAmount > 0) {
+                                    _loadPaymentMethodInstructions(value, _requestedAmount);
+                                  }
+                                  // Otherwise, instructions will load when amount is entered
                                 }
                               },
                         validator: (value) {

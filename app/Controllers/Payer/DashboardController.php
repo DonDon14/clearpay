@@ -995,7 +995,20 @@ class DashboardController extends BaseController
 
     public function getContributionDetails()
     {
-        if (!$this->request->isAJAX()) {
+        // Check if this is an API request
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+
+        // For web requests, check if it's AJAX
+        if (!$isApiRequest && !$this->request->isAJAX()) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
@@ -1021,10 +1034,24 @@ class DashboardController extends BaseController
                 ]);
             }
 
+            // Get payer_id from query parameter for API requests, or from session for web requests
+            if ($isApiRequest) {
+                $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
+            } else {
+                $payerId = session('payer_id');
+            }
+
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+
             // Get payer's current payments for this contribution
-            $payerId = session('payer_id');
             $totalPaid = $this->paymentModel->where('payer_id', $payerId)
                 ->where('contribution_id', $contributionId)
+                ->where('deleted_at', null)
                 ->selectSum('amount_paid')
                 ->first();
 
@@ -1040,6 +1067,7 @@ class DashboardController extends BaseController
                     'amount' => $contribution['amount'],
                     'total_paid' => $totalPaidAmount,
                     'remaining_amount' => $remainingAmount,
+                    'remaining_balance' => $remainingAmount, // Add for consistency
                     'is_fully_paid' => $remainingAmount <= 0
                 ]
             ]);
@@ -1057,8 +1085,10 @@ class DashboardController extends BaseController
      */
     public function refundRequests()
     {
-        // Set CORS headers for API requests
+        // Check if this is an API request
         $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
         if ($isApiEndpoint) {
             $this->response->setHeader('Access-Control-Allow-Origin', '*');
             $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -1088,10 +1118,12 @@ class DashboardController extends BaseController
         $refundMethods = $refundMethodModel->getActiveMethods();
         
         // Get payments that can be refunded (completed payments with available refund amount)
+        // Only get payments that have been verified/processed (not pending payment requests)
         $payments = $this->paymentModel->select('
             payments.id,
             payments.amount_paid,
             payments.payment_method,
+            payments.payment_status,
             payments.receipt_number,
             payments.payment_date,
             payments.contribution_id,
@@ -1100,6 +1132,7 @@ class DashboardController extends BaseController
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
         ->where('payments.payer_id', $payerId)
         ->where('payments.deleted_at', null)
+        ->where('payments.amount_paid >', 0) // Only payments with amount > 0
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
         
@@ -1107,12 +1140,16 @@ class DashboardController extends BaseController
         $refundablePayments = [];
         foreach ($payments as $payment) {
             $availableAmount = $this->getAvailableRefundAmount($payment['id']);
+            // Only include payments with available refund amount > 0
             if ($availableAmount > 0) {
                 $payment['available_refund'] = $availableAmount;
                 $payment['refund_status'] = $this->paymentModel->getPaymentRefundStatus($payment['id']);
                 $refundablePayments[] = $payment;
             }
         }
+        
+        // Log for debugging
+        log_message('info', 'Refund requests - Payer ID: ' . $payerId . ', Total payments: ' . count($payments) . ', Refundable: ' . count($refundablePayments));
         
         // Return JSON for API requests, view for web requests
         if ($isApiEndpoint) {
@@ -1143,20 +1180,54 @@ class DashboardController extends BaseController
      */
     public function submitRefundRequest()
     {
-        if (!$this->request->isAJAX()) {
+        // Check if this is an API request
+        $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiEndpoint) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+
+        // For web requests, check if it's AJAX
+        if (!$isApiEndpoint && !$this->request->isAJAX()) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
         }
 
-        $payerId = session('payer_id');
-        
-        if (!$payerId) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Please log in to submit refund requests'
-            ]);
+        // Get payer_id from query parameter for API requests, or from session for web requests
+        if ($isApiEndpoint) {
+            $payerId = $this->request->getPost('payer_id') ?? $this->request->getGet('payer_id');
+            
+            // If not in POST/GET, try to get from JSON body
+            if (!$payerId) {
+                $jsonBody = $this->request->getJSON(true);
+                if ($jsonBody && isset($jsonBody['payer_id'])) {
+                    $payerId = $jsonBody['payer_id'];
+                }
+            }
+            
+            // Validate payer_id for API requests
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+        } else {
+            $payerId = session('payer_id');
+            
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Please log in to submit refund requests'
+                ]);
+            }
         }
 
         $validation = \Config\Services::validation();
@@ -1174,19 +1245,47 @@ class DashboardController extends BaseController
             'refund_reason' => 'permit_empty|string|max_length[500]'
         ]);
 
-        if (!$validation->withRequest($this->request)->run()) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validation->getErrors()
-            ]);
+        // For API requests with JSON body, validate against JSON data
+        if ($isApiEndpoint) {
+            $jsonBody = $this->request->getJSON(true);
+            if (!$jsonBody) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid JSON data'
+                ]);
+            }
+            if (!$validation->run($jsonBody)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validation->getErrors()
+                ]);
+            }
+        } else {
+            // For web requests, validate against request
+            if (!$validation->withRequest($this->request)->run()) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validation->getErrors()
+                ]);
+            }
         }
 
         try {
-            $paymentId = $this->request->getPost('payment_id');
-            $refundAmount = (float)$this->request->getPost('refund_amount');
-            $refundMethod = $this->request->getPost('refund_method');
-            $refundReason = $this->request->getPost('refund_reason');
+            // Get data from POST or JSON body (for API requests)
+            $jsonBody = $this->request->getJSON(true);
+            if ($isApiEndpoint && $jsonBody) {
+                $paymentId = $jsonBody['payment_id'] ?? null;
+                $refundAmount = isset($jsonBody['refund_amount']) ? (float)$jsonBody['refund_amount'] : null;
+                $refundMethod = $jsonBody['refund_method'] ?? null;
+                $refundReason = $jsonBody['refund_reason'] ?? '';
+            } else {
+                $paymentId = $this->request->getPost('payment_id');
+                $refundAmount = (float)$this->request->getPost('refund_amount');
+                $refundMethod = $this->request->getPost('refund_method');
+                $refundReason = $this->request->getPost('refund_reason');
+            }
             
             // Validate refund method
             if (!in_array($refundMethod, $validRefundMethodCodes)) {
@@ -1329,17 +1428,20 @@ class DashboardController extends BaseController
      */
     public function getActiveRefundMethods()
     {
-        // Set CORS headers for API requests
+        // Check if this is an API request
         $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
         if ($isApiEndpoint) {
             $this->response->setHeader('Access-Control-Allow-Origin', '*');
             $this->response->setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
             $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
             $this->response->setHeader('Access-Control-Max-Age', '7200');
         }
         
-        // Allow both AJAX and API requests
-        if (!$this->request->isAJAX() && !$isApiEndpoint) {
+        // For web requests, check if it's AJAX
+        if (!$isApiEndpoint && !$this->request->isAJAX()) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'

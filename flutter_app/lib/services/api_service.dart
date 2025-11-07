@@ -454,8 +454,10 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/submit-refund-request');
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/submit-refund-request');
       final requestBody = {
+        'payer_id': userId,
         'payment_id': paymentId,
         'refund_amount': refundAmount,
         'refund_method': refundMethod,
