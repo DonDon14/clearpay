@@ -2,14 +2,14 @@
 
 <?= $this->section('content') ?>
 <?php
-// Dummy data for UI development - replace with actual controller data later
-$systemInfo = [
+// Get system info from controller (passed from SidebarController)
+$systemInfo = $systemInfo ?? [
     'version' => 'ClearPay v1.0.0',
     'php_version' => phpversion(),
-    'framework' => 'CodeIgniter 4.x',
+    'framework' => 'CodeIgniter ' . \CodeIgniter\CodeIgniter::CI_VERSION,
     'database' => 'MySQL',
-    'last_backup' => date('M j, Y g:i A', strtotime('-2 hours')),
-    'uptime' => '24 days, 6 hours',
+    'last_backup' => 'No backups yet',
+    'uptime' => 'Unknown',
     'status' => 'online'
 ];
 
@@ -511,9 +511,14 @@ $settings = [
                     <div class="p-3 bg-light rounded mb-3">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <div class="d-flex justify-content-between">
+                                <div class="d-flex justify-content-between align-items-center">
                                     <span class="text-muted">System Version:</span>
-                                    <strong>' . $systemInfo['version'] . '</strong>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <strong id="systemVersionDisplay">' . $systemInfo['version'] . '</strong>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSystemVersion()" title="Edit System Version">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -600,53 +605,6 @@ $settings = [
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <?= view('partials/container-card', [
-        'title' => 'Quick System Actions',
-        'subtitle' => 'Common system administration tasks',
-        'content' => '
-            <div class="row">
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'fa-database',
-                        'title' => 'Backup Database',
-                        'subtitle' => 'Create a backup of the database',
-                        'bgColor' => 'success',
-                        'action' => 'onclick="createBackup()"'
-                    ]) . '
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'fa-broom',
-                        'title' => 'Clear Cache',
-                        'subtitle' => 'Clear system cache and temp files',
-                        'bgColor' => 'warning',
-                        'action' => 'onclick="clearCache()"'
-                    ]) . '
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'fa-download',
-                        'title' => 'Download Logs',
-                        'subtitle' => 'Download system logs',
-                        'bgColor' => 'info',
-                        'action' => 'onclick="downloadLogs()"'
-                    ]) . '
-                </div>
-                <div class="col-md-3 col-sm-6 mb-3">
-                    ' . view('partials/quick-action', [
-                        'icon' => 'fa-paper-plane',
-                        'title' => 'Test Email',
-                        'subtitle' => 'Send a test email',
-                        'bgColor' => 'primary',
-                        'action' => 'onclick="testEmail()"'
-                    ]) . '
-                </div>
-            </div>
-        '
-    ]) ?>
-</div>
-
 <script>
 // Settings change handlers
 document.addEventListener('change', function(e) {
@@ -669,7 +627,61 @@ function testEmail() {
 }
 
 function downloadLogs() {
-    showNotification('System logs download started', 'info');
+    const button = event.target.closest('button');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
+    button.disabled = true;
+    
+    // Show loading notification
+    showNotification('Preparing system logs for download...', 'info');
+    
+    // Make API call to download logs
+    fetch('/admin/system/download-logs', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.ok) {
+            // Get filename from Content-Disposition header or use default
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'clearpay_logs.zip';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+            
+            // Convert response to blob and download
+            return response.blob().then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification('System logs downloaded successfully!', 'success');
+            });
+        } else {
+            return response.json().then(data => {
+                showNotification('Failed to download logs: ' + (data.error || 'Unknown error'), 'error');
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Logs download error:', error);
+        showNotification('An error occurred while downloading logs', 'error');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
 }
 
 function createBackup() {
@@ -722,11 +734,38 @@ function clearCache() {
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Clearing...';
     button.disabled = true;
     
-    setTimeout(() => {
-        showNotification('System cache cleared successfully', 'success');
+    // Show loading notification
+    showNotification('Clearing system cache...', 'info');
+    
+    // Make API call to clear cache
+    fetch('/admin/system/clear-cache', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let message = 'System cache cleared successfully!';
+            if (data.cleared_count !== undefined) {
+                message += ` (${data.cleared_count} files/directories removed)`;
+            }
+            showNotification(message, 'success');
+        } else {
+            showNotification('Failed to clear cache: ' + (data.error || 'Unknown error'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Cache clear error:', error);
+        showNotification('An error occurred while clearing cache', 'error');
+    })
+    .finally(() => {
         button.innerHTML = originalText;
         button.disabled = false;
-    }, 1500);
+    });
 }
 
 // Notification function
@@ -751,6 +790,43 @@ function showNotification(message, type = 'info') {
             toast.remove();
         }
     }, 5000);
+}
+
+// Edit System Version
+function editSystemVersion() {
+    const currentVersion = document.getElementById('systemVersionDisplay').textContent.trim();
+    const newVersion = prompt('Enter new system version:', currentVersion);
+    
+    if (newVersion && newVersion !== currentVersion) {
+        // Show loading
+        showNotification('Updating system version...', 'info');
+        
+        // Make API call to update version
+        fetch('/admin/system/update-version', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                version: newVersion
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('systemVersionDisplay').textContent = newVersion;
+                showNotification('System version updated successfully!', 'success');
+            } else {
+                showNotification('Failed to update version: ' + (data.error || 'Unknown error'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Version update error:', error);
+            showNotification('An error occurred while updating version', 'error');
+        });
+    }
 }
 
 // Initialize page
