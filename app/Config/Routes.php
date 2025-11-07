@@ -55,6 +55,14 @@ $routes->get('/admin/system/info', 'Admin\SystemController::getSystemInfo', ['fi
 $routes->get('/admin/system/download-logs', 'Admin\SystemController::downloadLogs', ['filter' => 'auth']);
 $routes->post('/admin/system/clear-cache', 'Admin\SystemController::clearCache', ['filter' => 'auth']);
 $routes->post('/admin/system/update-version', 'Admin\SystemController::updateVersion', ['filter' => 'auth']);
+// Email settings routes
+$routes->get('/admin/email-settings/config', 'Admin\EmailSettingsController::getConfig', ['filter' => 'auth']);
+$routes->post('/admin/email-settings/config', 'Admin\EmailSettingsController::updateConfig', ['filter' => 'auth']);
+$routes->post('/admin/email-settings/test-email', 'Admin\EmailSettingsController::testEmail', ['filter' => 'auth']);
+$routes->get('/admin/email-settings/templates', 'Admin\EmailSettingsController::getTemplates', ['filter' => 'auth']);
+$routes->post('/admin/email-settings/templates', 'Admin\EmailSettingsController::updateTemplate', ['filter' => 'auth']);
+$routes->post('/admin/email-settings/toggle-notifications', 'Admin\EmailSettingsController::toggleNotifications', ['filter' => 'auth']);
+$routes->get('/admin/email-settings/notifications-status', 'Admin\EmailSettingsController::getNotificationsStatus', ['filter' => 'auth']);
 $routes->get('profile/get', 'Admin\SidebarController::getProfile');
 
 // Payment Methods Management Routes
