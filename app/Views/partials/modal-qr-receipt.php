@@ -77,6 +77,7 @@ body:has(#qrReceiptModal.show) #allPaymentsModal {
             <div class="modal-body" id="receiptContent">
                 <!-- Receipt Header -->
                 <div class="text-center mb-4">
+                    <img src="<?= base_url('uploads/logo.png') ?>" alt="ClearPay Logo" style="width: 64px; height: 64px; object-fit: contain; margin-bottom: 0.5rem;" onerror="this.style.display='none';">
                     <h4 class="text-primary mb-1">ClearPay</h4>
                     <p class="text-muted mb-0">Payment Receipt</p>
                     <hr class="my-3">
@@ -421,56 +422,78 @@ function downloadQRReceipt() {
     }
     
     try {
+        // Get logo URL
+        const logoUrl = '<?= base_url('uploads/logo.png') ?>';
+        
         // Create a canvas with proper dimensions for the formatted receipt
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Set canvas size - wider to accommodate text
+        // Set canvas size - wider to accommodate text and logo
         const qrSize = 200;
         const padding = 40;
-        const textHeight = 60;
+        const logoSize = 50;
+        const textHeight = 20;
+        const spacing = 12;
+        
         canvas.width = qrSize + (padding * 2);
-        canvas.height = qrSize + (textHeight * 3) + (padding * 2);
+        canvas.height = logoSize + spacing + textHeight + spacing + qrSize + spacing + textHeight + (padding * 2);
         
         // Set background to white
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw the QR code image
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
+        // Load logo and QR code images
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'anonymous';
         
-        img.onload = function() {
+        const qrImg = new Image();
+        qrImg.crossOrigin = 'anonymous';
+        
+        let logoLoaded = false;
+        let qrLoaded = false;
+        
+        function drawCanvas() {
+            if (!qrLoaded) return; // Wait for QR code at minimum
+            
             // Clear canvas and set white background
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Draw QR code in the center
-            const qrX = padding;
-            const qrY = textHeight + padding;
-            ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+            // Add blue border
+            ctx.strokeStyle = '#0d6efd';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
             
-            // Set text properties
-            ctx.fillStyle = '#000000';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            let currentY = padding;
             
-            // Draw "ClearPay" title at the top
-            ctx.font = 'bold 24px Arial, sans-serif';
+            // Draw logo at the top (centered)
+            if (logoLoaded) {
+                const logoX = (canvas.width - logoSize) / 2;
+                ctx.drawImage(logoImg, logoX, currentY, logoSize, logoSize);
+                currentY += logoSize + spacing;
+            }
+            
+            // Draw "ClearPay" title below logo
+            ctx.font = 'bold 18px Arial, sans-serif';
             ctx.fillStyle = '#0d6efd';
-            ctx.fillText('ClearPay', canvas.width / 2, 30);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('ClearPay', canvas.width / 2, currentY);
+            currentY += textHeight + spacing;
             
-            // Draw payer name below QR code
-            ctx.font = 'bold 16px Arial, sans-serif';
-            ctx.fillStyle = '#000000';
-            const payerName = currentReceiptData.payer_name || 'N/A';
-            ctx.fillText(payerName, canvas.width / 2, qrY + qrSize + 30);
+            // Draw QR code (centered)
+            const qrX = (canvas.width - qrSize) / 2;
+            ctx.drawImage(qrImg, qrX, currentY, qrSize, qrSize);
+            currentY += qrSize + spacing;
             
-            // Draw reference number at the bottom
-            ctx.font = '14px Arial, sans-serif';
-            ctx.fillStyle = '#666666';
+            // Add reference number at the bottom (centered)
+            ctx.fillStyle = '#212529';
+            ctx.font = '12px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
             const referenceNumber = currentReceiptData.reference_number || currentReceiptData.receipt_number || 'N/A';
-            ctx.fillText(`Ref: ${referenceNumber}`, canvas.width / 2, qrY + qrSize + 60);
+            ctx.fillText(referenceNumber, canvas.width / 2, currentY);
             
             // Convert canvas to blob and download
             canvas.toBlob(function(blob) {
@@ -483,13 +506,31 @@ function downloadQRReceipt() {
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
             }, 'image/png');
+        }
+        
+        logoImg.onload = function() {
+            logoLoaded = true;
+            drawCanvas();
         };
         
-        img.onerror = function() {
+        logoImg.onerror = function() {
+            // Logo failed to load, continue without it
+            logoLoaded = false;
+            drawCanvas();
+        };
+        
+        qrImg.onload = function() {
+            qrLoaded = true;
+            drawCanvas();
+        };
+        
+        qrImg.onerror = function() {
             alert('Unable to download QR code. Please try again.');
         };
         
-        img.src = qrImage.src;
+        // Start loading both images
+        logoImg.src = logoUrl;
+        qrImg.src = qrImage.src;
         
     } catch (error) {
         console.error('Download error:', error);
@@ -568,6 +609,8 @@ function buildReceiptHTML(paymentData) {
     const qrText = `${paymentData.receipt_number || paymentData.id}|${paymentData.payer_name}|${paymentData.amount_paid}|${paymentData.payment_date}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=H&data=${encodeURIComponent(qrText)}`;
     
+    const logoUrl = '<?= base_url('uploads/logo.png') ?>';
+    
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -580,6 +623,7 @@ function buildReceiptHTML(paymentData) {
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: white; color: #333; line-height: 1.6; padding: 40px; }
         .receipt-wrapper { max-width: 700px; margin: 0 auto; background: white; border: 2px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
         .receipt-header { background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: white; text-align: center; padding: 30px 20px; }
+        .receipt-header img { width: 64px; height: 64px; object-fit: contain; margin-bottom: 10px; }
         .receipt-header h1 { font-size: 32px; font-weight: 700; margin-bottom: 5px; letter-spacing: 1px; }
         .receipt-header p { font-size: 16px; opacity: 0.95; font-weight: 300; }
         .receipt-body { padding: 30px; }
@@ -610,6 +654,7 @@ function buildReceiptHTML(paymentData) {
 <body>
     <div class="receipt-wrapper">
         <div class="receipt-header">
+            <img src="${logoUrl}" alt="ClearPay Logo" onerror="this.style.display='none';">
             <h1>ClearPay</h1>
             <p>Payment Receipt</p>
         </div>
