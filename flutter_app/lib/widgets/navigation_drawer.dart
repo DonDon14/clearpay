@@ -8,9 +8,7 @@ import '../screens/refund_requests_screen.dart';
 import '../screens/payment_history_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/profile_screen.dart';
-import '../screens/login_screen.dart';
 import '../services/api_service.dart';
-import '../services/modal_service.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
   const AppNavigationDrawer({super.key});
@@ -25,51 +23,84 @@ class AppNavigationDrawer extends StatelessWidget {
     final userEmail = user?['email_address'] ?? user?['email'] ?? '';
     final profilePicture = user?['profile_picture'];
     
+    // Web portal color scheme
+    const primaryBlue = Color(0xFF3B82F6);
+    const darkGray = Color(0xFF1F2937);
+    const mediumGray = Color(0xFF6B7280);
+    const activeBackground = Color(0xFFEFF6FF);
+    const lightGray = Color(0xFFF3F4F6);
+    
     return Drawer(
-      backgroundColor: const Color(0xFF1A2F4A), // Dark blue background matching reference
+      width: 260, // Matching web portal sidebar width
+      backgroundColor: Colors.white,
       child: Column(
         children: [
-          // ClearPay Logo and Text at the top
+          // Sidebar Header with Logo (matching web portal)
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            height: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+              ),
+            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(
-                  Icons.credit_card,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'ClearPay',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+                // Logo - ClearPay (matching web portal)
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.credit_card,
+                        color: primaryBlue,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'ClearPay',
+                        style: TextStyle(
+                          color: darkGray,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.025,
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                // Close button (mobile)
+                IconButton(
+                  icon: const Icon(Icons.close, color: mediumGray, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
           ),
-          // Divider after logo
-          Divider(
-            color: Colors.white.withOpacity(0.2),
-            height: 1,
-            thickness: 1,
-            indent: 20,
-            endIndent: 20,
-          ),
-          // Header Section with Profile
+          
+          // Profile Section (styled to match web portal design)
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+              ),
+            ),
             child: Row(
               children: [
                 // Profile Picture
                 CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  radius: 24,
+                  backgroundColor: lightGray,
                   backgroundImage: profilePicture != null && profilePicture.toString().isNotEmpty
                       ? NetworkImage(
                           profilePicture.toString().startsWith('http')
@@ -80,15 +111,15 @@ class AppNavigationDrawer extends StatelessWidget {
                   child: profilePicture == null || profilePicture.toString().isEmpty
                       ? Text(
                           userName[0].toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
+                          style: TextStyle(
+                            color: primaryBlue,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         )
                       : null,
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 // User Info
                 Expanded(
                   child: Column(
@@ -97,30 +128,25 @@ class AppNavigationDrawer extends StatelessWidget {
                       Text(
                         userName,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                          color: darkGray,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         userEmail,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 14,
+                          color: mediumGray,
+                          fontSize: 13,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                ),
-                // Close button
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: Colors.white, size: 20),
-                  onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
@@ -129,7 +155,7 @@ class AppNavigationDrawer extends StatelessWidget {
           // Navigation Items - Matching web portal order
           Expanded(
             child: ListView(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
               children: [
                 _buildDrawerItem(
                   context,
@@ -146,7 +172,7 @@ class AppNavigationDrawer extends StatelessWidget {
                 ),
                 _buildDrawerItem(
                   context,
-                  icon: Icons.person,
+                  icon: Icons.account_circle,
                   title: 'My Data',
                   isActive: _isScreenActive(context, ProfileScreen),
                   onTap: () {
@@ -183,11 +209,14 @@ class AppNavigationDrawer extends StatelessWidget {
                     );
                   },
                 ),
-                // Divider
-                const Divider(
-                  color: Colors.white24,
-                  height: 32,
-                  thickness: 1,
+                // Divider (matching web portal)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(
+                    color: Color(0xFFE5E7EB),
+                    height: 1,
+                    thickness: 1,
+                  ),
                 ),
                 _buildDrawerItem(
                   context,
@@ -232,74 +261,28 @@ class AppNavigationDrawer extends StatelessWidget {
             ),
           ),
           
-          // Log Out Button
+          // Footer with Help & Support (matching web portal)
           Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
               border: Border(
-                top: BorderSide(
-                  color: Colors.white.withOpacity(0.2),
-                  width: 1,
-                ),
+                top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
             ),
             child: _buildDrawerItem(
               context,
-              icon: Icons.logout,
-              title: 'Log Out',
-              onTap: () async {
-                // Get AuthProvider BEFORE closing drawer or showing dialog
-                // This ensures we have a valid context
-                final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                
-                // Close drawer first
+              icon: Icons.help_outline,
+              title: 'Help & Support',
+              isActive: false,
+              onTap: () {
                 Navigator.pop(context);
-                
-                // Show confirmation dialog using global navigator context
-                final navigatorContext = ModalService.navigatorKey.currentContext;
-                if (navigatorContext == null) return;
-                
-                final shouldLogout = await showDialog<bool>(
-                  context: navigatorContext,
-                  builder: (BuildContext dialogContext) {
-                    return AlertDialog(
-                      title: const Text('Confirm Logout'),
-                      content: const Text('Are you sure you want to logout?'),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Logout'),
-                        ),
-                      ],
-                    );
-                  },
+                // Show help dialog or navigate to help screen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Help & Support - Coming soon'),
+                    duration: Duration(seconds: 2),
+                  ),
                 );
-                
-                // Only logout if user confirmed
-                if (shouldLogout == true) {
-                  // Logout using AuthProvider (already obtained)
-                  await authProvider.logout();
-                  
-                  // Use global navigator key for navigation to ensure it works
-                  final navigator = ModalService.navigatorKey.currentState;
-                  if (navigator != null) {
-                    navigator.pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (route) => false, // Remove all previous routes
-                    );
-                  }
-                }
               },
             ),
           ),
@@ -365,30 +348,89 @@ class AppNavigationDrawer extends StatelessWidget {
     required VoidCallback onTap,
     bool isActive = false,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: isActive ? Colors.white.withOpacity(0.15) : Colors.transparent,
+    return _DrawerItem(
+      icon: icon,
+      title: title,
+      onTap: onTap,
+      isActive: isActive,
+    );
+  }
+}
+
+// Separate widget to handle hover state
+class _DrawerItem extends StatefulWidget {
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+  final bool isActive;
+
+  const _DrawerItem({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    required this.isActive,
+  });
+
+  @override
+  State<_DrawerItem> createState() => _DrawerItemState();
+}
+
+class _DrawerItemState extends State<_DrawerItem> {
+  bool _isHovered = false;
+
+  // Web portal color scheme
+  static const primaryBlue = Color(0xFF3B82F6);
+  static const mediumGray = Color(0xFF6B7280);
+  static const activeBackground = Color(0xFFEFF6FF);
+  static const hoverBackground = Color(0xFFF9FAFB);
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: isActive ? Colors.white : Colors.white.withOpacity(0.8),
-          size: 24,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.white.withOpacity(0.8),
-            fontSize: 16,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: widget.isActive
+                ? activeBackground
+                : _isHovered
+                    ? hoverBackground
+                    : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: widget.isActive
+                ? const Border(
+                    left: BorderSide(
+                      color: primaryBlue,
+                      width: 3,
+                    ),
+                  )
+                : null,
           ),
-        ),
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                color: widget.isActive ? primaryBlue : mediumGray,
+                size: 16,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: widget.isActive ? primaryBlue : mediumGray,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
