@@ -14,6 +14,14 @@ import '../services/api_service.dart';
 class AppNavigationDrawer extends StatelessWidget {
   const AppNavigationDrawer({super.key});
 
+  // Get logo URL from server
+  String _getLogoUrl() {
+    // Construct logo URL using the same baseUrl as API service
+    // Logo is in public/uploads/logo.png
+    final baseUrl = ApiService.baseUrl.replaceAll(RegExp(r'/$'), '');
+    return '$baseUrl/uploads/logo.png';
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -38,8 +46,8 @@ class AppNavigationDrawer extends StatelessWidget {
         children: [
           // Sidebar Header with Logo (matching web portal)
           Container(
-            height: 70,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            height: 90,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: const BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
@@ -59,17 +67,42 @@ class AppNavigationDrawer extends StatelessWidget {
                   },
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.credit_card,
-                        color: primaryBlue,
-                        size: 24,
+                      // Logo Image
+                      Image.network(
+                        _getLogoUrl(),
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          // Fallback to icon if image fails to load
+                          return Icon(
+                            Icons.credit_card,
+                            color: primaryBlue,
+                            size: 48,
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return SizedBox(
+                            width: 80,
+                            height: 80,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 6),
                       const Text(
                         'ClearPay',
                         style: TextStyle(
                           color: darkGray,
-                          fontSize: 20,
+                          fontSize: 24,
                           fontWeight: FontWeight.w600,
                           letterSpacing: -0.025,
                         ),
