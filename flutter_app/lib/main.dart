@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_navigation_screen.dart';
+import 'screens/splash_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'services/api_service.dart';
@@ -62,7 +63,7 @@ class ClearPayApp extends StatelessWidget {
             space: 1,
           ),
         ),
-        home: const AuthWrapper(),
+        home: const SplashScreen(child: AuthWrapper()),
       ),
     );
   }
@@ -86,19 +87,25 @@ class _AuthWrapperState extends State<AuthWrapper> {
   }
 
   Future<void> _checkAuthStatus() async {
+    // Add a small delay to ensure splash screen is visible
+    await Future.delayed(const Duration(milliseconds: 500));
+    
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     final userId = prefs.getInt('user_id');
     
-    setState(() {
-      _isAuthenticated = token != null && userId != null;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isAuthenticated = token != null && userId != null;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
+      // Show splash screen while loading
       return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
