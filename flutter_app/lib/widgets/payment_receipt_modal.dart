@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
+import '../utils/logo_helper.dart';
 
 /// A reusable payment receipt modal widget that can be called from any screen
 class PaymentReceiptModal {
@@ -132,10 +134,31 @@ class _PaymentReceiptDialog extends StatelessWidget {
                       Center(
                         child: Column(
                           children: [
-                            const Icon(
-                              Icons.credit_card,
-                              size: 48,
-                              color: Color(0xFF0d6efd),
+                            // Logo Image
+                            Image.network(
+                              LogoHelper.getLogoUrl(),
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                // Fallback to icon if image fails to load
+                                return const Icon(
+                                  Icons.credit_card,
+                                  size: 48,
+                                  color: Color(0xFF0d6efd),
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return const SizedBox(
+                                  width: 48,
+                                  height: 48,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0d6efd)),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 8),
                             const Text(
@@ -662,23 +685,69 @@ class _PaymentReceiptDialog extends StatelessWidget {
       qrImage.src = qrImageUrl;
       await qrImage.onLoad.first;
 
+      // Load logo image
+      final logoUrl = LogoHelper.getLogoUrl();
+      final logoImage = html.ImageElement();
+      logoImage.src = logoUrl;
+      logoImage.crossOrigin = 'anonymous'; // Required for canvas drawing
+      
+      // Wait for logo to load, but don't fail if it doesn't
+      bool logoLoaded = false;
+      try {
+        await logoImage.onLoad.first.timeout(const Duration(seconds: 3));
+        logoLoaded = true;
+      } catch (e) {
+        // Logo failed to load, continue without it
+        logoLoaded = false;
+      }
+
       final qrSize = qrImage.naturalWidth > 0 ? qrImage.naturalWidth : 150;
-      final headerHeight = 40; // Space for ClearPay title
-      final footerHeight = 30; // Space for reference number
-      final padding = 20; // Padding around the entire image
+      final logoSize = logoLoaded && logoImage.naturalWidth > 0 ? logoImage.naturalWidth : 0;
+      final logoDrawSize = logoLoaded && logoSize > 0 ? (logoSize > 50 ? 50 : logoSize) : 0;
+      final padding = 24; // Padding around the entire image
+      final spacing = 12; // Spacing between elements
 
       // Calculate text width to ensure proper fit
       final tempCanvas = html.CanvasElement();
       final tempCtx = tempCanvas.context2D;
+      tempCtx.font = 'bold 14px Arial';
+      final clearPayTextWidth = tempCtx.measureText('ClearPay').width ?? 0;
       tempCtx.font = '12px Arial';
       final textWidth = tempCtx.measureText(referenceNumber).width ?? 0;
-      final minWidth = (textWidth + (padding * 2)).round();
-      final canvasWidth = (qrSize > minWidth ? qrSize : minWidth) + (padding * 2);
+      
+      // Determine canvas width based on the widest element
+      final maxContentWidth = [
+        qrSize,
+        logoDrawSize,
+        clearPayTextWidth.round(),
+        (textWidth + (padding * 2)).round()
+      ].reduce((a, b) => a > b ? a : b);
+      final canvasWidth = maxContentWidth + (padding * 2);
+
+      // Calculate heights for each section
+      final logoHeight = logoLoaded && logoDrawSize > 0 ? logoDrawSize : 0;
+      final logoSpacing = logoHeight > 0 ? spacing : 0;
+      final titleHeight = 20; // Height for "ClearPay" text
+      final titleSpacing = spacing;
+      final qrSpacing = spacing;
+      final refNumberHeight = 16; // Height for reference number text
+      final refNumberSpacing = spacing;
+
+      // Calculate total height
+      final totalHeight = padding + // Top padding
+          logoHeight + // Logo
+          logoSpacing + // Space after logo
+          titleHeight + // "ClearPay" text
+          titleSpacing + // Space after title
+          qrSize + // QR code
+          qrSpacing + // Space after QR code
+          refNumberHeight + // Reference number
+          padding; // Bottom padding
 
       // Create canvas with calculated dimensions
       final canvas = html.CanvasElement(
         width: canvasWidth,
-        height: qrSize + headerHeight + footerHeight + (padding * 2),
+        height: totalHeight,
       );
       final canvasCtx = canvas.context2D;
 
@@ -691,26 +760,35 @@ class _PaymentReceiptDialog extends StatelessWidget {
       canvasCtx.lineWidth = 2;
       canvasCtx.strokeRect(1, 1, canvas.width! - 2, canvas.height! - 2);
 
-      // Add ClearPay title at the top
+      // Draw elements with compact spacing
+      double currentY = padding.toDouble();
+
+      // Draw logo at the top (centered)
+      if (logoLoaded && logoDrawSize > 0) {
+        final logoX = (canvas.width! - logoDrawSize) / 2;
+        canvasCtx.drawImageScaled(logoImage, logoX, currentY, logoDrawSize, logoDrawSize);
+        currentY += logoDrawSize + logoSpacing;
+      }
+
+      // Add ClearPay title below logo
       canvasCtx.fillStyle = '#0d6efd';
       canvasCtx.font = 'bold 18px Arial';
       canvasCtx.textAlign = 'center';
-      canvasCtx.fillText('ClearPay', canvas.width! / 2, padding + 25);
+      canvasCtx.textBaseline = 'top';
+      canvasCtx.fillText('ClearPay', canvas.width! / 2, currentY);
+      currentY += titleHeight + titleSpacing;
 
-      // Draw QR code in the middle (centered)
+      // Draw QR code (centered)
       final qrX = (canvas.width! - qrSize) / 2;
-      final qrY = padding + headerHeight;
-      canvasCtx.drawImageScaled(qrImage, qrX, qrY, qrSize, qrSize);
+      canvasCtx.drawImageScaled(qrImage, qrX, currentY, qrSize, qrSize);
+      currentY += qrSize + qrSpacing;
 
       // Add reference number at the bottom (centered)
       canvasCtx.fillStyle = '#212529';
       canvasCtx.font = '12px Arial';
       canvasCtx.textAlign = 'center';
-      canvasCtx.fillText(
-        referenceNumber,
-        canvas.width! / 2,
-        padding + headerHeight + qrSize + 20,
-      );
+      canvasCtx.textBaseline = 'top';
+      canvasCtx.fillText(referenceNumber, canvas.width! / 2, currentY);
 
       // Convert canvas to blob and download
       final blob = await canvas.toBlob();
@@ -780,6 +858,9 @@ class _PaymentReceiptDialog extends StatelessWidget {
       final qrBase64 = base64Encode(qrImageBytes);
       final qrDataUrl = 'data:image/png;base64,$qrBase64';
 
+      // Get logo URL for HTML receipt
+      final logoUrl = LogoHelper.getLogoUrl();
+
       // Create HTML content for receipt
       final statusText = status.toLowerCase() == 'fully paid'
           ? 'COMPLETED'
@@ -812,10 +893,17 @@ class _PaymentReceiptDialog extends StatelessWidget {
       border-bottom: 2px solid #0d6efd;
       padding-bottom: 20px;
     }
+    .header img {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 10px;
+      object-fit: contain;
+    }
     .header h1 {
       color: #0d6efd;
       margin: 0;
       font-size: 24px;
+      font-weight: bold;
     }
     .header p {
       color: #6c757d;
@@ -930,6 +1018,7 @@ class _PaymentReceiptDialog extends StatelessWidget {
 </head>
 <body>
   <div class="header">
+    <img src="$logoUrl" alt="ClearPay Logo" onerror="this.style.display='none';">
     <h1>ClearPay</h1>
     <p>Payment Receipt</p>
   </div>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/logo_helper.dart';
 
 class SplashScreen extends StatefulWidget {
   final Widget child;
@@ -93,18 +94,55 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // ClearPay Logo/Text
-                    Text(
+                    // ClearPay Logo
+                    Image.network(
+                      LogoHelper.getLogoUrl(),
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback to text if image fails to load
+                        return Text(
+                          'ClearPay',
+                          style: TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.w700,
+                            color: primaryBlue,
+                            letterSpacing: 1.2,
+                          ),
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              primaryBlue.withOpacity(0.6),
+                            ),
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    // ClearPay Text
+                    const Text(
                       'ClearPay',
                       style: TextStyle(
-                        fontSize: 48,
+                        fontSize: 32,
                         fontWeight: FontWeight.w700,
                         color: primaryBlue,
                         letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // Optional: Add a subtle loading indicator
+                    const SizedBox(height: 24),
+                    // Loading indicator
                     SizedBox(
                       width: 40,
                       height: 40,

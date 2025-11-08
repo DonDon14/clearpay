@@ -9,18 +9,12 @@ import '../screens/payment_history_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/help_screen.dart';
+import '../screens/login_screen.dart';
+import '../utils/logo_helper.dart';
 import '../services/api_service.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
   const AppNavigationDrawer({super.key});
-
-  // Get logo URL from server
-  String _getLogoUrl() {
-    // Construct logo URL using the same baseUrl as API service
-    // Logo is in public/uploads/logo.png
-    final baseUrl = ApiService.baseUrl.replaceAll(RegExp(r'/$'), '');
-    return '$baseUrl/uploads/logo.png';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +63,7 @@ class AppNavigationDrawer extends StatelessWidget {
                     children: [
                       // Logo Image
                       Image.network(
-                        _getLogoUrl(),
+                        LogoHelper.getLogoUrl(),
                         width: 80,
                         height: 80,
                         fit: BoxFit.contain,
@@ -303,22 +297,118 @@ class AppNavigationDrawer extends StatelessWidget {
                 top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
               ),
             ),
-            child: _buildDrawerItem(
-              context,
-              icon: Icons.help_outline,
-              title: 'Help & Support',
-              isActive: _isScreenActive(context, HelpScreen),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
+            child: Column(
+              children: [
+                _buildDrawerItem(
                   context,
-                  MaterialPageRoute(builder: (_) => const HelpScreen()),
-                );
-              },
+                  icon: Icons.help_outline,
+                  title: 'Help & Support',
+                  isActive: _isScreenActive(context, HelpScreen),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HelpScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                // Divider before logout
+                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                const SizedBox(height: 8),
+                // Logout button
+                _buildLogoutItem(context),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLogoutItem(BuildContext context) {
+    const errorRed = Color(0xFFDC2626);
+    const hoverBackground = Color(0xFFF9FAFB);
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool _isHovered = false;
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: InkWell(
+            onTap: () async {
+              // Show confirmation dialog
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: TextButton.styleFrom(
+                        foregroundColor: errorRed,
+                      ),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (shouldLogout == true && context.mounted) {
+                // Close drawer first
+                Navigator.pop(context);
+                
+                // Logout from AuthProvider
+                final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                await authProvider.logout();
+                
+                // Navigate to login screen
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              }
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: _isHovered ? hoverBackground : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.logout,
+                    color: errorRed,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Logout',
+                      style: TextStyle(
+                        color: errorRed,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

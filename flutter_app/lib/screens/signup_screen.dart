@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/logo_helper.dart';
 import 'login_screen.dart';
 import 'email_verification_dialog.dart';
 
@@ -149,12 +150,47 @@ class _SignupScreenState extends State<SignupScreen> {
                 
                 const SizedBox(height: 20),
                 
-                // Branding - ClearPay (center-aligned, matching login screen)
+                // Branding - ClearPay Logo (center-aligned, matching login screen)
+                Center(
+                  child: Image.network(
+                    LogoHelper.getLogoUrl(),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to text if image fails to load
+                      return const Text(
+                        'ClearPay',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: primaryBlue,
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Branding - ClearPay Text (center-aligned)
                 const Text(
                   'ClearPay',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: primaryBlue,
                   ),

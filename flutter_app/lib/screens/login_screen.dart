@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/logo_helper.dart';
 import 'main_navigation_screen.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
@@ -77,12 +78,47 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 40),
                 
-                // Branding - ClearPay (center-aligned)
+                // Branding - ClearPay Logo (center-aligned)
+                Center(
+                  child: Image.network(
+                    LogoHelper.getLogoUrl(),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to text if image fails to load
+                      return const Text(
+                        'ClearPay',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: primaryBlue,
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Branding - ClearPay Text (center-aligned)
                 const Text(
                   'ClearPay',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: primaryBlue,
                   ),
