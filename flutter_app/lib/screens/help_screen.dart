@@ -115,10 +115,55 @@ class _HelpScreenState extends State<HelpScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Help & Support'),
         backgroundColor: Colors.white,
         foregroundColor: _darkGray,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: _darkGray),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: _primaryBlue,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  margin: const EdgeInsets.only(right: 12),
+                ),
+                const Text(
+                  'Help & Support',
+                  style: TextStyle(
+                    color: _darkGray,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Padding(
+              padding: EdgeInsets.only(left: 16),
+              child: Text(
+                'Get assistance and find answers to common questions',
+                style: TextStyle(
+                  color: _mediumGray,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+        titleSpacing: 0,
+        toolbarHeight: 80,
       ),
       body: SingleChildScrollView(
         controller: _scrollController,

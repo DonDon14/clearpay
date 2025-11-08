@@ -68,6 +68,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
       drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'Payment History',
+        subtitle: 'View all your payment transactions',
         onRefresh: _loadPaymentHistory,
       ),
       body: _isLoading

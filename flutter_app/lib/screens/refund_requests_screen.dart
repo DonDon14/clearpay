@@ -117,6 +117,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
         drawer: const AppNavigationDrawer(),
         appBar: NotionAppBar(
           title: 'Refund Requests',
+          subtitle: 'Request refunds for your payments',
           onRefresh: _loadData,
         ),
         body: body,

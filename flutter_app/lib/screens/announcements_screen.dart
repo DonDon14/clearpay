@@ -57,6 +57,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'Announcements',
+        subtitle: 'Stay updated with the latest news',
         onRefresh: _loadAnnouncements,
       ),
       body: _isLoading

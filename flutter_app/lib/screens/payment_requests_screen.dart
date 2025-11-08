@@ -117,6 +117,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
       drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'Payment Requests',
+        subtitle: 'Submit online payment requests',
         onRefresh: _loadData,
       ),
         body: body,
