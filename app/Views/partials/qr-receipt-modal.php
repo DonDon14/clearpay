@@ -23,7 +23,8 @@
                 <!-- Receipt Header -->
                 <div class="receipt-header bg-light p-2 text-center border-bottom">
                     <div class="receipt-logo mb-1">
-                        <i class="fas fa-credit-card fa-2x text-primary"></i>
+                        <img src="<?= base_url('uploads/logo.png') ?>" alt="ClearPay Logo" style="width: 64px; height: 64px; object-fit: contain; margin-bottom: 0.5rem;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <i class="fas fa-credit-card fa-2x text-primary" style="display: none;"></i>
                     </div>
                     <h6 class="text-primary mb-0">ClearPay</h6>
                     <small class="text-muted">Payment Receipt</small>
@@ -376,6 +377,7 @@ window.showQRReceipt = function(payment) {
 
 function printReceipt() {
     const modalContent = document.querySelector('#qrReceiptModal .modal-content');
+    const logoUrl = '<?= base_url('uploads/logo.png') ?>';
     const printWindow = window.open('', '_blank');
     
     printWindow.document.write(`
@@ -413,6 +415,13 @@ function printReceipt() {
                     text-align: center;
                     border-bottom: 2px solid #0d6efd;
                     margin-bottom: 8px;
+                }
+                
+                .receipt-header img {
+                    width: 64px;
+                    height: 64px;
+                    object-fit: contain;
+                    margin-bottom: 5px;
                 }
                 
                 .receipt-header h6 {
@@ -527,7 +536,14 @@ function printReceipt() {
             </style>
         </head>
         <body>
-            ${modalContent.innerHTML}
+            <div class="receipt-content">
+                <div class="receipt-header">
+                    <img src="${logoUrl}" alt="ClearPay Logo" onerror="this.style.display='none';">
+                    <h6>ClearPay</h6>
+                    <small>Payment Receipt</small>
+                </div>
+                ${modalContent.querySelector('.modal-body') ? modalContent.querySelector('.modal-body').innerHTML : modalContent.innerHTML}
+            </div>
         </body>
         </html>
     `);

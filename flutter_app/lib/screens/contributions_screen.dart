@@ -522,6 +522,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
       drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'Contributions',
+        subtitle: 'View contributions and payment status',
         onRefresh: _loadContributions,
       ),
       body: Column(

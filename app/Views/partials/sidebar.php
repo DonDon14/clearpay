@@ -1,7 +1,8 @@
     <div class="sidebar-inner">
         <div class="sidebar-header">
-            <a href="<?= base_url('dashboard') ?>" class="logo" id="sidebarLogo" data-hover-text="Open sidebar" style="text-decoration: none;">
-                <i class="fas fa-credit-card"></i>
+            <a href="<?= base_url('dashboard') ?>" class="logo" id="sidebarLogo" data-hover-text="Open sidebar" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+                <img src="<?= base_url('uploads/logo.png') ?>" alt="ClearPay Logo" style="width: 32px; height: 32px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-block';">
+                <i class="fas fa-credit-card" style="display: none;"></i>
                 <span class="logo-text">ClearPay</span>
             </a>
             <!-- Toggle button for normal state -->

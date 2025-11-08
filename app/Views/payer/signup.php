@@ -100,9 +100,10 @@
 
       <div class="login-content">
         <!-- Branding -->
-        <div class="branding">
-          <h1>ClearPay</h1>
-        </div>
+        <?php 
+        $logoOptions = ['size' => 'medium'];
+        include(APPPATH . 'Views/partials/logo.php');
+        ?>
 
         <!-- Headline -->
         <h2 class="headline">Create Account</h2>

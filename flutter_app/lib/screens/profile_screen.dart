@@ -307,7 +307,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) {
       return Scaffold(
         drawer: const AppNavigationDrawer(),
-        appBar: NotionAppBar(title: 'Profile'),
+        appBar: NotionAppBar(
+          title: 'My Data',
+          subtitle: 'View your personal information',
+        ),
         body: const Center(child: Text('Not logged in')),
       );
     }
@@ -316,6 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'My Data',
+        subtitle: 'View your personal information',
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

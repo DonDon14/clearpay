@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/logo_helper.dart';
 import 'login_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -181,73 +182,107 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Web portal color scheme
+    const primaryBlue = Color(0xFF3B82F6);
+    const darkGray = Color(0xFF1F2937);
+    const mediumGray = Color(0xFF6B7280);
+    const lightGray = Color(0xFF9CA3AF);
+    
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 20),
-                
                 // Back button
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     icon: const Icon(Icons.arrow_back),
+                    color: darkGray,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
                 
                 const SizedBox(height: 20),
                 
-                // Logo/Icon
-                Icon(
-                  Icons.lock_reset,
-                  size: 80,
-                  color: Theme.of(context).primaryColor,
+                // Branding - ClearPay Logo (center-aligned, matching login screen)
+                Center(
+                  child: Image.network(
+                    LogoHelper.getLogoUrl(),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to text if image fails to load
+                      return const Text(
+                        'ClearPay',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: primaryBlue,
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                        ),
+                      );
+                    },
+                  ),
                 ),
                 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 
-                // App Title
-                Text(
+                // Branding - ClearPay Text (center-aligned)
+                const Text(
                   'ClearPay',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: primaryBlue,
                   ),
                 ),
                 
-                const SizedBox(height: 8),
+                const SizedBox(height: 24),
                 
-                // Subtitle
+                // Headline - Reset Your Password (center-aligned)
+                const Text(
+                  'Reset Your Password',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    color: darkGray,
+                    height: 1.3,
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Sub-headline (center-aligned)
                 Text(
-                  _currentStep == 1 
-                      ? 'Reset Your Password'
+                  _currentStep == 1
+                      ? 'Don\'t worry! Enter your email to receive a verification code.'
                       : _currentStep == 2
-                          ? 'Verify Reset Code'
-                          : 'Set New Password',
+                          ? 'Enter the verification code sent to your email'
+                          : 'Enter your new password',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                
-                const SizedBox(height: 8),
-                
-                // Step indicator
-                Text(
-                  'Step $_currentStep of 3',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[500],
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: mediumGray,
                   ),
                 ),
                 
@@ -255,23 +290,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 
                 // Step 1: Email Input
                 if (_currentStep == 1) ...[
+                  // Error message (matching web portal alert box)
                   if (_emailError != null)
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.red[50],
+                        color: const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red[200]!),
+                        border: Border.all(color: const Color(0xFFFECACA)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red[700]),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Color(0xFFDC2626),
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _emailError!,
-                              style: TextStyle(color: Colors.red[700]),
+                              style: const TextStyle(
+                                color: Color(0xFFDC2626),
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ],
@@ -280,15 +323,39 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   
                   TextFormField(
                     controller: _emailController,
+                    enabled: _userEmail == null,
                     decoration: InputDecoration(
                       labelText: 'Email Address',
                       hintText: 'Enter your email address',
-                      prefixIcon: const Icon(Icons.email),
+                      prefixIcon: const Icon(Icons.email, color: lightGray),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryBlue, width: 1),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1),
                       ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      labelStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF374151),
+                      ),
                     ),
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.done,
@@ -307,15 +374,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   
                   const SizedBox(height: 24),
                   
+                  // Send Verification Code Button (matching web portal with icon)
                   ElevatedButton(
                     onPressed: _isLoadingEmail ? null : _handleSendCode,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
+                      backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      elevation: 0,
+                      disabledBackgroundColor: primaryBlue.withOpacity(0.6),
                     ),
                     child: _isLoadingEmail
                         ? const SizedBox(
@@ -326,55 +396,50 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text(
-                            'Send Verification Code',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.send, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Send Verification Code',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                   ),
                 ],
                 
                 // Step 2: Reset Code
                 if (_currentStep == 2) ...[
-                  Text(
-                    'We sent a verification code to',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _userEmail ?? '',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
+                  // Error message (matching web portal alert box)
                   if (_codeError != null)
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.red[50],
+                        color: const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red[200]!),
+                        border: Border.all(color: const Color(0xFFFECACA)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red[700]),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Color(0xFFDC2626),
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _codeError!,
-                              style: TextStyle(color: Colors.red[700]),
+                              style: const TextStyle(
+                                color: Color(0xFFDC2626),
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ],
@@ -384,30 +449,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   // Test code display (only shown if email failed to send)
                   if (_testResetCode != null)
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.orange[50],
+                        color: const Color(0xFFFFFBEB),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange[200]!),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
                       ),
                       child: Column(
                         children: [
-                          Text(
+                          const Text(
                             'Test Reset Code (Email sending failed):',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange[700],
+                              color: Color(0xFF92400E),
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '$_testResetCode',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange[700],
+                              color: Color(0xFF92400E),
                               letterSpacing: 2,
                             ),
                           ),
@@ -420,12 +485,35 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     decoration: InputDecoration(
                       labelText: 'Verification Code',
                       hintText: 'Enter 6-digit code',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon: const Icon(Icons.key, color: lightGray),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryBlue, width: 1),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1),
                       ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      labelStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF374151),
+                      ),
                     ),
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.done,
@@ -444,15 +532,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   
                   const SizedBox(height: 24),
                   
+                  // Verify Code Button (matching web portal with icon)
                   ElevatedButton(
                     onPressed: _isLoadingCode ? null : _handleVerifyCode,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
+                      backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      elevation: 0,
+                      disabledBackgroundColor: primaryBlue.withOpacity(0.6),
                     ),
                     child: _isLoadingCode
                         ? const SizedBox(
@@ -463,48 +554,69 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text(
-                            'Verify Code',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.check_circle, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Verify Code',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                   ),
                   
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   
-                  TextButton(
+                  // Back to Email Entry Button (matching web portal)
+                  TextButton.icon(
                     onPressed: () {
                       setState(() {
                         _currentStep = 1;
                         _resetCodeController.clear();
                         _codeError = null;
+                        _emailController.text = _userEmail ?? '';
                       });
                     },
-                    child: const Text('Back to Email Entry'),
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Back to Email Entry'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryBlue,
+                    ),
                   ),
                 ],
                 
                 // Step 3: New Password
                 if (_currentStep == 3) ...[
+                  // Error message (matching web portal alert box)
                   if (_resetError != null)
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: 24),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.red[50],
+                        color: const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red[200]!),
+                        border: Border.all(color: const Color(0xFFFECACA)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red[700]),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Color(0xFFDC2626),
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _resetError!,
-                              style: TextStyle(color: Colors.red[700]),
+                              style: const TextStyle(
+                                color: Color(0xFFDC2626),
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ],
@@ -517,10 +629,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     decoration: InputDecoration(
                       labelText: 'New Password',
                       hintText: 'Enter new password',
-                      prefixIcon: const Icon(Icons.lock),
+                      prefixIcon: const Icon(Icons.lock, color: lightGray),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          color: lightGray,
                         ),
                         onPressed: () {
                           setState(() {
@@ -528,11 +641,36 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           });
                         },
                       ),
+                      helperText: 'Minimum 6 characters',
+                      helperStyle: TextStyle(color: mediumGray, fontSize: 12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryBlue, width: 1),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1),
                       ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      labelStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF374151),
+                      ),
                     ),
                     textInputAction: TextInputAction.next,
                     validator: (value) {
@@ -546,7 +684,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   
                   TextFormField(
                     controller: _confirmPasswordController,
@@ -554,10 +692,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     decoration: InputDecoration(
                       labelText: 'Confirm New Password',
                       hintText: 'Confirm new password',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                      prefixIcon: const Icon(Icons.lock, color: lightGray),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                          color: lightGray,
                         ),
                         onPressed: () {
                           setState(() {
@@ -566,10 +705,33 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         },
                       ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: primaryBlue, width: 1),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.red, width: 1),
                       ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      labelStyle: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF374151),
+                      ),
                     ),
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _handleResetPassword(),
@@ -586,15 +748,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   
                   const SizedBox(height: 24),
                   
+                  // Reset Password Button (matching web portal with icon)
                   ElevatedButton(
                     onPressed: _isLoadingReset ? null : _handleResetPassword,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
+                      backgroundColor: primaryBlue,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      elevation: 0,
+                      disabledBackgroundColor: primaryBlue.withOpacity(0.6),
                     ),
                     child: _isLoadingReset
                         ? const SizedBox(
@@ -605,49 +770,65 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Text(
-                            'Reset Password',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.key, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Reset Password',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        _currentStep = 2;
-                        _passwordController.clear();
-                        _confirmPasswordController.clear();
-                        _resetError = null;
-                      });
-                    },
-                    child: const Text('Back to Code Verification'),
                   ),
                 ],
                 
                 const SizedBox(height: 24),
                 
-                // Back to Login Link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Remember your password? ',
-                      style: TextStyle(color: Colors.grey[600]),
+                // Back to Login Link (matching web portal with divider)
+                Container(
+                  padding: const EdgeInsets.only(top: 24),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        );
-                      },
-                      child: const Text('Back to Login'),
-                    ),
-                  ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Remember your password? ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: mediumGray,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Back to Login',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: primaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

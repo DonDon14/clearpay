@@ -233,38 +233,14 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
       backgroundColor: const Color(0xFFFFFBFE),
       drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
-        title: 'ClearPay',
+        title: 'Dashboard',
+        subtitle: 'Welcome back, $payerName',
         onRefresh: () => dashboardProvider.loadDashboard(),
       ),
       body: RefreshIndicator(
         onRefresh: () => dashboardProvider.loadDashboard(),
         child: CustomScrollView(
           slivers: [
-            // Welcome Section - Notion Style
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    NotionText(
-                      'Welcome back,',
-                      fontSize: 15,
-                      color: const Color(0xFF787774),
-                    ),
-                    const SizedBox(height: 4),
-                    NotionText(
-                      payerName,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF37352F),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
             // Content
             SliverToBoxAdapter(
               child: dashboardProvider.isLoading

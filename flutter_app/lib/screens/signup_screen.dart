@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/logo_helper.dart';
 import 'login_screen.dart';
 import 'email_verification_dialog.dart';
 
@@ -121,98 +122,176 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Web portal color scheme
+    const primaryBlue = Color(0xFF3B82F6);
+    const darkGray = Color(0xFF1F2937);
+    const mediumGray = Color(0xFF6B7280);
+    const lightGray = Color(0xFF9CA3AF);
+    
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 20),
-                
                 // Back button
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     icon: const Icon(Icons.arrow_back),
+                    color: darkGray,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
                 
                 const SizedBox(height: 20),
                 
-                // Logo/Icon
-                Icon(
-                  Icons.account_balance_wallet,
-                  size: 80,
-                  color: Theme.of(context).primaryColor,
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // App Title
-                Text(
-                  'ClearPay',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
+                // Branding - ClearPay Logo (center-aligned, matching login screen)
+                Center(
+                  child: Image.network(
+                    LogoHelper.getLogoUrl(),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback to text if image fails to load
+                      return const Text(
+                        'ClearPay',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: primaryBlue,
+                        ),
+                      );
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 
-                // Subtitle
-                Text(
+                // Branding - ClearPay Text (center-aligned)
+                const Text(
+                  'ClearPay',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: primaryBlue,
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Headline - Create Account (center-aligned)
+                const Text(
                   'Create Account',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    color: darkGray,
+                    height: 1.3,
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Sub-headline (center-aligned)
+                const Text(
+                  'Sign up to access your payment information',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: mediumGray,
                   ),
                 ),
                 
                 const SizedBox(height: 32),
                 
-                // Error message
+                // Error message (matching web portal alert box)
                 if (_errorMessage != null)
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 16),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.red[50],
+                      color: const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red[200]!),
+                      border: Border.all(color: const Color(0xFFFECACA)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.error_outline, color: Colors.red[700]),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Color(0xFFDC2626),
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: TextStyle(color: Colors.red[700]),
+                            style: const TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                 
-                // Student ID / Username Field
+                // Student ID / Username Field (matching web portal)
                 TextFormField(
                   controller: _payerIdController,
                   decoration: InputDecoration(
                     labelText: 'Student ID / Username *',
                     hintText: 'Enter your Student ID',
-                    prefixIcon: const Icon(Icons.person),
+                    prefixIcon: const Icon(Icons.credit_card, color: lightGray),
+                    helperText: 'This will be your username for login',
+                    helperStyle: TextStyle(color: mediumGray, fontSize: 12),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: primaryBlue, width: 1),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red, width: 1),
                     ),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.next,
@@ -227,19 +306,20 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Password Field
+                // Password Field (matching web portal)
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password *',
                     hintText: 'Enter your password',
-                    prefixIcon: const Icon(Icons.lock),
+                    prefixIcon: const Icon(Icons.lock, color: lightGray),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        color: lightGray,
                       ),
                       onPressed: () {
                         setState(() {
@@ -247,11 +327,36 @@ class _SignupScreenState extends State<SignupScreen> {
                         });
                       },
                     ),
+                    helperText: 'Minimum 6 characters',
+                    helperStyle: TextStyle(color: mediumGray, fontSize: 12),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: primaryBlue, width: 1),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red, width: 1),
                     ),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   textInputAction: TextInputAction.next,
                   validator: (value) {
@@ -265,19 +370,20 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Confirm Password Field
+                // Confirm Password Field (matching web portal)
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password *',
                     hintText: 'Confirm your password',
-                    prefixIcon: const Icon(Icons.lock_outline),
+                    prefixIcon: const Icon(Icons.lock, color: lightGray),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                        color: lightGray,
                       ),
                       onPressed: () {
                         setState(() {
@@ -286,10 +392,33 @@ class _SignupScreenState extends State<SignupScreen> {
                       },
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: primaryBlue, width: 1),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red, width: 1),
                     ),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   textInputAction: TextInputAction.next,
                   validator: (value) {
@@ -303,20 +432,43 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Full Name Field
+                // Full Name Field (matching web portal)
                 TextFormField(
                   controller: _payerNameController,
                   decoration: InputDecoration(
                     labelText: 'Full Name *',
                     hintText: 'Enter your full name',
-                    prefixIcon: const Icon(Icons.person_outline),
+                    prefixIcon: const Icon(Icons.person, color: lightGray),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: primaryBlue, width: 1),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red, width: 1),
                     ),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   keyboardType: TextInputType.name,
                   textInputAction: TextInputAction.next,
@@ -331,20 +483,45 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Email Field (Optional)
+                // Email Field (Optional) - matching web portal
                 TextFormField(
                   controller: _emailController,
                   decoration: InputDecoration(
-                    labelText: 'Email Address (Optional)',
-                    hintText: 'Enter your email address',
-                    prefixIcon: const Icon(Icons.email),
+                    labelText: 'Email Address',
+                    hintText: 'Enter your email address (optional)',
+                    prefixIcon: const Icon(Icons.email, color: lightGray),
+                    helperText: 'Recommended: Having an email helps you receive important updates and notifications',
+                    helperStyle: TextStyle(color: Colors.orange[700], fontSize: 12),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: primaryBlue, width: 1),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red, width: 1),
                     ),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
@@ -359,20 +536,46 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Contact Number Field (Optional)
+                // Contact Number Field (Optional) - matching web portal
                 TextFormField(
                   controller: _contactNumberController,
                   decoration: InputDecoration(
-                    labelText: 'Contact Number (Optional)',
-                    hintText: 'Enter 11-digit phone number',
-                    prefixIcon: const Icon(Icons.phone),
+                    labelText: 'Contact Number',
+                    hintText: '09123456789',
+                    prefixIcon: const Icon(Icons.phone, color: lightGray),
+                    helperText: 'Must be exactly 11 digits (numbers only)',
+                    helperStyle: TextStyle(color: mediumGray, fontSize: 12),
+                    counterText: '',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: primaryBlue, width: 1),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red, width: 1),
                     ),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
@@ -388,20 +591,45 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 
-                // Course/Department Field (Optional)
+                // Course/Department Field (Optional) - matching web portal
                 TextFormField(
                   controller: _courseDepartmentController,
                   decoration: InputDecoration(
-                    labelText: 'Course/Department (Optional)',
-                    hintText: 'Enter your course or department',
-                    prefixIcon: const Icon(Icons.school),
+                    labelText: 'Course/Department',
+                    hintText: 'e.g., BS Computer Science, IT Department',
+                    prefixIcon: const Icon(Icons.school, color: lightGray),
+                    helperText: 'Your course or department name',
+                    helperStyle: TextStyle(color: mediumGray, fontSize: 12),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: primaryBlue, width: 1),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.red, width: 1),
                     ),
                     filled: true,
-                    fillColor: Colors.grey[50],
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    labelStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF374151),
+                    ),
                   ),
                   keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.done,
@@ -410,17 +638,18 @@ class _SignupScreenState extends State<SignupScreen> {
                 
                 const SizedBox(height: 24),
                 
-                // Signup Button
+                // Create Account Button (matching web portal with icon)
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleSignup,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
+                    backgroundColor: primaryBlue,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    elevation: 2,
+                    elevation: 0,
+                    disabledBackgroundColor: primaryBlue.withOpacity(0.6),
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -431,34 +660,64 @@ class _SignupScreenState extends State<SignupScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          'Sign Up',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.person_add, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Create Account',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                 ),
                 
                 const SizedBox(height: 24),
                 
-                // Login Link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Already have an account? ',
-                      style: TextStyle(color: Colors.grey[600]),
+                // Login Link (matching web portal with divider)
+                Container(
+                  padding: const EdgeInsets.only(top: 24),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        );
-                      },
-                      child: const Text('Login'),
-                    ),
-                  ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account? ',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: mediumGray,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          );
+                        },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Login Here',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: primaryBlue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

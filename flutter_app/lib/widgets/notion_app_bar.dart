@@ -17,18 +17,22 @@ import '../screens/refund_requests_screen.dart';
 
 class NotionAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
+  final String? subtitle;
   final bool showNotifications;
   final VoidCallback? onRefresh;
   
   const NotionAppBar({
     super.key,
     required this.title,
+    this.subtitle,
     this.showNotifications = true,
     this.onRefresh,
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(56.0);
+  Size get preferredSize => subtitle != null 
+      ? const Size.fromHeight(80.0) 
+      : const Size.fromHeight(70.0);
 
   @override
   State<NotionAppBar> createState() => _NotionAppBarState();
@@ -770,23 +774,72 @@ class _NotionAppBarState extends State<NotionAppBar> {
           );
         },
       ),
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.credit_card, color: Color(0xFF37352F), size: 20),
-          const SizedBox(width: 8),
-          const Text(
-            'ClearPay',
-            style: TextStyle(
-              color: Color(0xFF37352F),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.3,
+      title: widget.subtitle != null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      margin: const EdgeInsets.only(right: 12),
+                    ),
+                    Text(
+                      widget.title,
+                      style: const TextStyle(
+                        color: Color(0xFF1F2937),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+                if (widget.subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: Text(
+                      widget.subtitle!,
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            )
+          : Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  margin: const EdgeInsets.only(right: 12),
+                ),
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    color: Color(0xFF1F2937),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-      centerTitle: true,
+      titleSpacing: 0,
       actions: [
         if (widget.showNotifications)
           Stack(
