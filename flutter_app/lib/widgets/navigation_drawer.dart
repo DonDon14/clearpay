@@ -8,6 +8,7 @@ import '../screens/refund_requests_screen.dart';
 import '../screens/payment_history_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/help_screen.dart';
 import '../services/api_service.dart';
 
 class AppNavigationDrawer extends StatelessWidget {
@@ -273,15 +274,12 @@ class AppNavigationDrawer extends StatelessWidget {
               context,
               icon: Icons.help_outline,
               title: 'Help & Support',
-              isActive: false,
+              isActive: _isScreenActive(context, HelpScreen),
               onTap: () {
                 Navigator.pop(context);
-                // Show help dialog or navigate to help screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Help & Support - Coming soon'),
-                    duration: Duration(seconds: 2),
-                  ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HelpScreen()),
                 );
               },
             ),
@@ -320,6 +318,7 @@ class AppNavigationDrawer extends StatelessWidget {
         PaymentHistoryScreen: '/payment-history',
         PaymentRequestsScreen: '/payment-requests',
         RefundRequestsScreen: '/refund-requests',
+        HelpScreen: '/help',
       };
       return routeMap[screenType] == routeName;
     }
