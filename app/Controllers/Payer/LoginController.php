@@ -18,7 +18,7 @@ class LoginController extends BaseController
     {
         // If already logged in, redirect to dashboard
         if (session('payer_id')) {
-            return redirect()->to('payer/dashboard');
+            return redirect()->to(base_url('payer/dashboard'));
         }
 
         return view('payer/login');
@@ -112,7 +112,7 @@ class LoginController extends BaseController
         // Force sidebar expanded on first load
         session()->set('forceSidebarExpanded', true);
 
-        return redirect()->to('payer/dashboard');
+        return redirect()->to(base_url('payer/dashboard'));
     }
 
     public function logout()
@@ -230,7 +230,7 @@ class LoginController extends BaseController
     {
         // If already logged in, redirect to dashboard
         if (session('payer_id')) {
-            return redirect()->to('payer/dashboard');
+            return redirect()->to(base_url('payer/dashboard'));
         }
 
         return view('payer/forgot_password');

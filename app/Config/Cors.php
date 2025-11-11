@@ -38,10 +38,14 @@ class Cors extends BaseConfig
             // Production domains
             'https://clearpay.infinityfreeapp.com',
             'https://clearpay.fwh.is',
-            // Base localhost origins (no port or default port 80) - for development
+            // Local development - localhost
             'http://localhost',
             'http://127.0.0.1',
-            'http://10.0.2.2', // Android emulator
+            // Local network - server PC IP
+            'http://192.168.18.2',
+            'http://192.168.18.2/ClearPay/public',
+            // Android emulator
+            'http://10.0.2.2',
             // Flutter Web development ports
             'http://localhost:50800',
             'http://localhost:54705',
@@ -68,6 +72,7 @@ class Cors extends BaseConfig
             'http://localhost(:\d+)?',                // Matches localhost with or without port
             'http://127\.0\.0\.1(:\d+)?',             // Matches 127.0.0.1 with or without port
             'http://10\.0\.2\.2(:\d+)?',             // Matches Android emulator with or without port
+            'http://192\.168\.\d+\.\d+',              // Matches any local network IP (192.168.x.x)
         ],
 
         /**
