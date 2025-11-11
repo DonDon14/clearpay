@@ -11,13 +11,33 @@ class ApiService {
   // ============================================
   // SERVER CONFIGURATION
   // ============================================
-  // Your server PC's IP address
+  // Your server PC's IP address (for local network access)
   static const String serverIp = '192.168.18.2';
   
   // Your ClearPay project path in XAMPP
   static const String projectPath = '/ClearPay/public';
   
-  static String get baseUrl {
+  // Expose these for use in UI
+  static String get serverIpAddress => serverIp;
+  static String get projectPathValue => projectPath;
+  
+  // ngrok URL is now stored dynamically in SharedPreferences
+  // This allows it to be updated when ngrok restarts without rebuilding the app
+  static String? _cachedNgrokUrl;
+  
+  // Get base URL dynamically (checks SharedPreferences for ngrok URL)
+  static Future<String> getBaseUrl() async {
+    // Check if ngrok URL is stored in preferences
+    final prefs = await SharedPreferences.getInstance();
+    final storedNgrokUrl = prefs.getString('ngrok_url');
+    
+    // If stored URL exists and is not empty, use it
+    if (storedNgrokUrl != null && storedNgrokUrl.isNotEmpty) {
+      _cachedNgrokUrl = storedNgrokUrl;
+      return storedNgrokUrl;
+    }
+    
+    // Otherwise, use local network IP based on platform
     if (kIsWeb) {
       // For Flutter Web - connect to your server PC
       return 'http://$serverIp$projectPath';
@@ -33,11 +53,94 @@ class ApiService {
     }
   }
   
+  // Synchronous getter for backward compatibility (uses cached value or default)
+  // This is used throughout the codebase, so it must be synchronous
+  // The cache is loaded in init() and updated immediately when setNgrokUrl() is called
+  static String get baseUrl {
+    // If we have a cached ngrok URL, use it (highest priority)
+    if (_cachedNgrokUrl != null && _cachedNgrokUrl!.isNotEmpty) {
+      return _cachedNgrokUrl!;
+    }
+    
+    // Otherwise, use local network IP based on platform
+    if (kIsWeb) {
+      return 'http://$serverIp$projectPath';
+    } else {
+      return 'http://10.0.2.2$projectPath'; // Android Emulator (default)
+      // return 'http://$serverIp$projectPath'; // Physical Device
+      // return 'http://localhost$projectPath'; // iOS Simulator
+    }
+  }
+  
   static String? authToken;
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     authToken = prefs.getString('auth_token');
+    // Load cached ngrok URL on init
+    _cachedNgrokUrl = prefs.getString('ngrok_url');
+  }
+  
+  // Set ngrok URL dynamically (can be updated without rebuilding app)
+  static Future<void> setNgrokUrl(String? url) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (url != null && url.isNotEmpty) {
+      await prefs.setString('ngrok_url', url);
+      _cachedNgrokUrl = url; // Update cache immediately for instant effect
+      print('ngrok URL updated to: $url'); // Debug log
+    } else {
+      await prefs.remove('ngrok_url');
+      _cachedNgrokUrl = null; // Clear cache immediately
+      print('ngrok URL cleared, using local network IP'); // Debug log
+    }
+  }
+  
+  // Refresh cached URL from storage (useful if storage was modified externally)
+  static Future<void> refreshCachedUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    _cachedNgrokUrl = prefs.getString('ngrok_url');
+  }
+  
+  // Get current ngrok URL from storage
+  static Future<String?> getNgrokUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('ngrok_url');
+  }
+  
+  // Fetch current ngrok URL from ngrok's local API (http://127.0.0.1:4040/api/tunnels)
+  // This only works if ngrok is running on the same machine
+  static Future<String?> fetchNgrokUrlFromApi() async {
+    try {
+      // Try to fetch from ngrok's local API
+      final response = await http.get(
+        Uri.parse('http://127.0.0.1:4040/api/tunnels'),
+        headers: {'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 2));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['tunnels'] != null && data['tunnels'].isNotEmpty) {
+          // Get the first HTTPS tunnel (preferred) or HTTP tunnel
+          final tunnels = data['tunnels'] as List;
+          final httpsTunnel = tunnels.firstWhere(
+            (t) => t['proto'] == 'https',
+            orElse: () => tunnels.first,
+          );
+          
+          if (httpsTunnel != null && httpsTunnel['public_url'] != null) {
+            final publicUrl = httpsTunnel['public_url'] as String;
+            // Append project path
+            final fullUrl = '$publicUrl$projectPath';
+            await setNgrokUrl(fullUrl);
+            return fullUrl;
+          }
+        }
+      }
+    } catch (e) {
+      // ngrok API not available (ngrok not running or not accessible)
+      // This is expected if ngrok is not running
+    }
+    return null;
   }
 
   static Future<void> setAuthToken(String? token) async {
@@ -116,7 +219,12 @@ class ApiService {
     } on http.ClientException catch (e) {
       return {
         'success': false,
-        'error': 'Connection failed. Please ensure your backend server is running and the URL is correct.',
+        'error': 'Connection failed. Please ensure your backend server is running and the URL is correct. Error: ${e.message}',
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'error': 'Connection timeout. Please check your server and network connection.',
       };
     } catch (e) {
       return {
@@ -137,6 +245,20 @@ class ApiService {
     return prefs.getInt('user_id');
   }
 
+  // Helper method to get headers with authentication
+  static Map<String, String> _getHeaders({bool includeAuth = true}) {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    
+    if (includeAuth && authToken != null) {
+      headers['Authorization'] = 'Bearer $authToken';
+    }
+    
+    return headers;
+  }
+
   // Dashboard API methods
   static Future<Map<String, dynamic>> getDashboard() async {
     try {
@@ -148,10 +270,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/dashboard?payer_id=$userId');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -174,10 +293,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/contributions?payer_id=$userId');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -200,10 +316,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/payment-history?payer_id=$userId');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -221,10 +334,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/announcements');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(includeAuth: false), // Announcements don't require auth
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -247,10 +357,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/payment-requests?payer_id=$userId');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -273,11 +380,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/payment-methods');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer ${authToken ?? ''}',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -335,6 +438,9 @@ class ApiService {
       // Add headers (same as web app)
       request.headers['X-Requested-With'] = 'XMLHttpRequest';
       request.headers['Accept'] = 'application/json';
+      if (authToken != null) {
+        request.headers['Authorization'] = 'Bearer $authToken';
+      }
       
       // Add form fields (same as web app)
       request.fields['payer_id'] = userId.toString(); // Add payer_id for API endpoint
@@ -406,10 +512,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/refund-requests?payer_id=$userId');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -435,10 +538,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/refund-methods');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(includeAuth: false), // Payment/refund methods are public
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -475,10 +575,7 @@ class ApiService {
 
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
         body: jsonEncode(requestBody),
       ).timeout(const Duration(seconds: 30));
 
@@ -517,10 +614,7 @@ class ApiService {
 
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
         body: jsonEncode(requestBody),
       ).timeout(const Duration(seconds: 30));
 
@@ -584,6 +678,9 @@ class ApiService {
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       });
+      if (authToken != null) {
+        request.headers['Authorization'] = 'Bearer $authToken';
+      }
 
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
@@ -612,10 +709,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/check-new-activities?payer_id=$userId${lastShownId != null ? '&last_shown_id=$lastShownId' : ''}');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -638,10 +732,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/get-all-activities?payer_id=$userId');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -839,10 +930,7 @@ class ApiService {
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -865,10 +953,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/get-contribution-details?contribution_id=$contributionId&payer_id=$userId');
       final response = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -891,10 +976,7 @@ class ApiService {
       final url = Uri.parse('$baseUrl/api/payer/mark-activity-read/$activityId');
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _getHeaders(),
         body: jsonEncode({
           'payer_id': userId.toString(),
         }),
@@ -919,14 +1001,7 @@ class ApiService {
     try {
       final url = Uri.parse('$baseUrl/$endpoint');
       
-      final headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      };
-
-      if (authToken != null) {
-        headers['Authorization'] = 'Bearer $authToken';
-      }
+      final headers = _getHeaders();
 
       http.Response response;
       
