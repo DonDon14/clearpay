@@ -88,18 +88,18 @@ This guide will help you set up your extra PC as a server for ClearPay, avoiding
    ```
 
 2. **For Android Emulator Testing**
-   - If testing on Android emulator, use: `http://10.0.2.2/ClearPay/public`
+   - If testing on Android emulator, use: `http://192.168.18.2/ClearPay/public`
    - This is a special IP that maps to your host PC's localhost
 
 3. **For Physical Device Testing**
-   - Use your server PC's actual IP: `http://192.168.1.100/ClearPay/public`
+   - Use your server PC's actual IP: `http://192.168.18.2/ClearPay/public`
    - Make sure your phone is on the same WiFi network
 
 ## Step 5: Test the Setup
 
 1. **Test from Browser (on any PC)**
    - Open browser on your main PC
-   - Go to: `http://192.168.1.100/ClearPay/public/`
+   - Go to: `http://192.168.18.2/ClearPay/public/`  
    - You should see your ClearPay login page
 
 2. **Test from Flutter App**

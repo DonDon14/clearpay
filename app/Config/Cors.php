@@ -41,9 +41,9 @@ class Cors extends BaseConfig
             // Local development - localhost
             'http://localhost',
             'http://127.0.0.1',
-            // Local network - common IP ranges (add your server IP here)
-            'http://192.168.1.100', // Example: Change to your server PC IP
-            'http://192.168.0.100', // Example: Alternative IP range
+            // Local network - server PC IP
+            'http://192.168.18.2', // Your server PC IP
+            'http://192.168.18.2/ClearPay/public', // Full path
             'http://10.0.2.2', // Android emulator
             // Flutter Web development ports
             'http://localhost:50800',

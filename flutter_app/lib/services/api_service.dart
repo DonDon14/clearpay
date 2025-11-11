@@ -11,13 +11,10 @@ class ApiService {
   // ============================================
   // SERVER CONFIGURATION
   // ============================================
-  // Change this to your server PC's IP address
-  // Find it by running 'ipconfig' on the server PC
-  // Example: '192.168.1.100' or '192.168.0.50'
-  static const String serverIp = '192.168.1.100'; // ⬅️ CHANGE THIS TO YOUR SERVER PC IP
+  // Your server PC's IP address
+  static const String serverIp = '192.168.18.2';
   
   // Your ClearPay project path in XAMPP
-  // Usually: '/ClearPay/public' or just '/public' if in root
   static const String projectPath = '/ClearPay/public';
   
   static String get baseUrl {

@@ -16,7 +16,7 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
-    public string $baseURL = 'https://clearpay.infinityfreeapp.com/';
+    public string $baseURL = 'http://192.168.18.2/ClearPay/public/';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
