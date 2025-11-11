@@ -42,15 +42,14 @@ class Cors extends BaseConfig
             'http://localhost',
             'http://127.0.0.1',
             // Local network - server PC IP
-            'http://192.168.18.2', // Your server PC IP
-            'http://192.168.18.2/ClearPay/public', // Full path
-            'http://10.0.2.2', // Android emulator
+            'http://192.168.18.2',
+            'http://192.168.18.2/ClearPay/public',
+            // Android emulator
+            'http://10.0.2.2',
             // Flutter Web development ports
             'http://localhost:50800',
             'http://localhost:54705',
             'http://localhost:52630',
-            // Allow all local network IPs (for development)
-            '*', // Allows any origin - use with caution in production
         ],
 
         /**
@@ -73,6 +72,7 @@ class Cors extends BaseConfig
             'http://localhost(:\d+)?',                // Matches localhost with or without port
             'http://127\.0\.0\.1(:\d+)?',             // Matches 127.0.0.1 with or without port
             'http://10\.0\.2\.2(:\d+)?',             // Matches Android emulator with or without port
+            'http://192\.168\.\d+\.\d+',              // Matches any local network IP (192.168.x.x)
         ],
 
         /**
