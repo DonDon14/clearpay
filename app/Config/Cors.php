@@ -38,14 +38,19 @@ class Cors extends BaseConfig
             // Production domains
             'https://clearpay.infinityfreeapp.com',
             'https://clearpay.fwh.is',
-            // Base localhost origins (no port or default port 80) - for development
+            // Local development - localhost
             'http://localhost',
             'http://127.0.0.1',
+            // Local network - common IP ranges (add your server IP here)
+            'http://192.168.1.100', // Example: Change to your server PC IP
+            'http://192.168.0.100', // Example: Alternative IP range
             'http://10.0.2.2', // Android emulator
             // Flutter Web development ports
             'http://localhost:50800',
             'http://localhost:54705',
             'http://localhost:52630',
+            // Allow all local network IPs (for development)
+            '*', // Allows any origin - use with caution in production
         ],
 
         /**

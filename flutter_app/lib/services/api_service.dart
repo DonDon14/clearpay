@@ -8,19 +8,31 @@ import 'dart:html' as html show File, FileReader;
 
 class ApiService {
   // Automatically detect platform and set base URL
+  // ============================================
+  // SERVER CONFIGURATION
+  // ============================================
+  // Change this to your server PC's IP address
+  // Find it by running 'ipconfig' on the server PC
+  // Example: '192.168.1.100' or '192.168.0.50'
+  static const String serverIp = '192.168.1.100'; // ⬅️ CHANGE THIS TO YOUR SERVER PC IP
+  
+  // Your ClearPay project path in XAMPP
+  // Usually: '/ClearPay/public' or just '/public' if in root
+  static const String projectPath = '/ClearPay/public';
+  
   static String get baseUrl {
     if (kIsWeb) {
-      // For Flutter Web - use localhost
-      // Based on your ClearPay setup, the app runs at http://localhost/
-      // NOT http://localhost/ClearPay/public/
-      return 'http://localhost';
+      // For Flutter Web - connect to your server PC
+      return 'http://$serverIp$projectPath';
     } else {
-      // For mobile platforms - check platform at runtime
-      // We'll use a simple approach: default to Android emulator URL
-      // Users can manually change this based on their device
-      return 'http://10.0.2.2'; // Android Emulator
-      // For iOS Simulator, change to: 'http://localhost'
-      // For Physical Device, change to: 'http://YOUR_COMPUTER_IP'
+      // For Android Emulator - use special IP that maps to host
+      // For Physical Device - use your server PC's actual IP
+      // For iOS Simulator - use 'http://localhost$projectPath'
+      
+      // Uncomment the one you need:
+      return 'http://10.0.2.2$projectPath'; // Android Emulator
+      // return 'http://$serverIp$projectPath'; // Physical Device (Android/iOS)
+      // return 'http://localhost$projectPath'; // iOS Simulator
     }
   }
   
