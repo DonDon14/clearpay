@@ -75,7 +75,6 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
-            'cors', // Enable CORS for all requests (needed for mobile/web API)
             'rememberme' => [
                 'except' => ['/loginPost', '/logout', '/registerPost', '/verifyEmail', '/resendVerificationCode', '/forgotPasswordPost', '/verifyResetCode', '/resetPassword', '/api/*'] // Exclude login/logout endpoints to prevent auto-login during authentication
             ],
@@ -84,7 +83,6 @@ class Filters extends BaseFilters
             // 'invalidchars',
         ],
         'after' => [
-            'cors', // Enable CORS for all responses (needed for mobile/web API)
             // 'honeypot',
             // 'secureheaders',
         ],
@@ -114,5 +112,11 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        // Apply CORS only to mobile API routes, not to all requests
+        'cors' => [
+            'before' => ['mobile/*'],
+            'after' => ['mobile/*'],
+        ],
+    ];
 }

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test ClearPay Login Endpoint</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result {
+            background: #fff;
+            padding: 15px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>ClearPay Login Endpoint Tester</h1>
+    <p>This page tests the login endpoint from a browser (like the Flutter app would).</p>
+    
+    <div class="test-section">
+        <h2>Test 1: JSON Request (Like Flutter App)</h2>
+        <button onclick="testJSON()">Test JSON Login</button>
+        <div id="result1" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Form Data Request</h2>
+        <button onclick="testFormData()">Test Form Data Login</button>
+        <div id="result2" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: With format=json Parameter</h2>
+        <button onclick="testWithFormat()">Test with format=json</button>
+        <div id="result3" class="result"></div>
+    </div>
+
+    <script>
+        const endpoint = 'https://clearpay.infinityfreeapp.com/payer/loginPost';
+        const testData = {
+            payer_id: '12345',
+            password: 'Thirdy'
+        };
+
+        function displayResult(elementId, success, data) {
+            const element = document.getElementById(elementId);
+            element.className = success ? 'success' : 'error';
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function testJSON() {
+            const resultEl = document.getElementById('result1');
+            resultEl.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                    displayResult('result1', true, {
+                        status: response.status,
+                        success: true,
+                        data: data
+                    });
+                } catch (e) {
+                    displayResult('result1', false, {
+                        status: response.status,
+                        error: 'Not JSON',
+                        response: text.substring(0, 500)
+                    });
+                }
+            } catch (error) {
+                displayResult('result1', false, {
+                    error: error.message
+                });
+            }
+        }
+
+        async function testFormData() {
+            const resultEl = document.getElementById('result2');
+            resultEl.textContent = 'Testing...';
+            
+            try {
+                const formData = new URLSearchParams();
+                formData.append('payer_id', testData.payer_id);
+                formData.append('password', testData.password);
+                formData.append('format', 'json');
+                
+                const response = await fetch(endpoint + '?format=json', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+                
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                    displayResult('result2', true, {
+                        status: response.status,
+                        success: true,
+                        data: data
+                    });
+                } catch (e) {
+                    displayResult('result2', false, {
+                        status: response.status,
+                        error: 'Not JSON',
+                        response: text.substring(0, 500)
+                    });
+                }
+            } catch (error) {
+                displayResult('result2', false, {
+                    error: error.message
+                });
+            }
+        }
+
+        async function testWithFormat() {
+            const resultEl = document.getElementById('result3');
+            resultEl.textContent = 'Testing...';
+            
+            try {
+                const formData = new URLSearchParams();
+                formData.append('payer_id', testData.payer_id);
+                formData.append('password', testData.password);
+                
+                const response = await fetch(endpoint + '?format=json', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    body: formData
+                });
+                
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                    displayResult('result3', true, {
+                        status: response.status,
+                        success: true,
+                        data: data
+                    });
+                } catch (e) {
+                    displayResult('result3', false, {
+                        status: response.status,
+                        error: 'Not JSON',
+                        response: text.substring(0, 500)
+                    });
+                }
+            } catch (error) {
+                displayResult('result3', false, {
+                    error: error.message
+                });
+            }
+        }
+    </script>
+</body>
+</html>
+

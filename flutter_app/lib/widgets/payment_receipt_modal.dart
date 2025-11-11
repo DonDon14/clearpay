@@ -1,6 +1,9 @@
 import 'dart:convert';
-import 'dart:html' as html;
 import 'dart:typed_data';
+// Conditional import for web-only features
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
+// Import window separately for web (it's top-level in dart:html)
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' show window;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
@@ -753,12 +756,12 @@ class _PaymentReceiptDialog extends StatelessWidget {
 
       // Fill white background
       canvasCtx.fillStyle = '#ffffff';
-      canvasCtx.fillRect(0, 0, canvas.width!, canvas.height!);
+      canvasCtx.fillRect(0, 0, canvas.width!.toDouble(), canvas.height!.toDouble());
 
       // Add blue border
       canvasCtx.strokeStyle = '#0d6efd';
       canvasCtx.lineWidth = 2;
-      canvasCtx.strokeRect(1, 1, canvas.width! - 2, canvas.height! - 2);
+      canvasCtx.strokeRect(1.0, 1.0, (canvas.width! - 2).toDouble(), (canvas.height! - 2).toDouble());
 
       // Draw elements with compact spacing
       double currentY = padding.toDouble();
@@ -766,7 +769,7 @@ class _PaymentReceiptDialog extends StatelessWidget {
       // Draw logo at the top (centered)
       if (logoLoaded && logoDrawSize > 0) {
         final logoX = (canvas.width! - logoDrawSize) / 2;
-        canvasCtx.drawImageScaled(logoImage, logoX, currentY, logoDrawSize, logoDrawSize);
+        canvasCtx.drawImageScaled(logoImage, logoX.toDouble(), currentY, logoDrawSize.toDouble(), logoDrawSize.toDouble());
         currentY += logoDrawSize + logoSpacing;
       }
 
@@ -780,7 +783,7 @@ class _PaymentReceiptDialog extends StatelessWidget {
 
       // Draw QR code (centered)
       final qrX = (canvas.width! - qrSize) / 2;
-      canvasCtx.drawImageScaled(qrImage, qrX, currentY, qrSize, qrSize);
+      canvasCtx.drawImageScaled(qrImage, qrX.toDouble(), currentY, qrSize.toDouble(), qrSize.toDouble());
       currentY += qrSize + qrSpacing;
 
       // Add reference number at the bottom (centered)
@@ -1115,16 +1118,36 @@ class _PaymentReceiptDialog extends StatelessWidget {
       );
       
       // Create blob URL and open in new window for printing (which can save as PDF)
-      final blob = html.Blob([htmlWithScript], 'text/html');
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      
-      // Open in new window
-      html.window.open(url, '_blank');
-      
-      // Clean up blob URL after a delay
-      Future.delayed(const Duration(seconds: 2), () {
-        html.Url.revokeObjectUrl(url);
-      });
+      if (kIsWeb) {
+        final blob = html.Blob([htmlWithScript], 'text/html');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        
+        // Open in new window
+        // In dart:html, window is a top-level getter, but when imported as 'html',
+        // we need to access it differently. For web, we'll use a dynamic approach.
+        try {
+          // Use dynamic to access window (works for both real dart:html and our workaround)
+          // In real dart:html, window is top-level, not html.window
+          // So we'll import it separately for web builds
+          if (kIsWeb) {
+            // Import window separately for web
+            // ignore: undefined_prefixed_name
+            window.open(url, '_blank');
+          }
+        } catch (e) {
+          print('Failed to open print window: $e');
+        }
+        
+        // Clean up blob URL after a delay
+        Future.delayed(const Duration(seconds: 2), () {
+          html.Url.revokeObjectUrl(url);
+        });
+      } else {
+        // On mobile, show a message that printing is only available on web
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Print receipt is only available on web')),
+        );
+      }
 
       // Show toast notification
       if (context.mounted) {

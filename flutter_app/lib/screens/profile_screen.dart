@@ -4,7 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:html' as html show File, FileReader, FileUploadInputElement;
+// Conditional import for web-only features
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show File, FileReader, FileUploadInputElement;
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notion_app_bar.dart';

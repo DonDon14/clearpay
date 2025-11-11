@@ -26,8 +26,51 @@ class LoginController extends BaseController
 
     public function loginPost()
     {
+        // Get data from either POST (form) or JSON body
         $payerId = $this->request->getPost('payer_id');
         $password = $this->request->getPost('password');
+        
+        // If not found in POST, try JSON body (for mobile requests)
+        if (empty($payerId) || empty($password)) {
+            $jsonData = $this->request->getJSON(true);
+            if ($jsonData) {
+                $payerId = $jsonData['payer_id'] ?? $payerId;
+                $password = $jsonData['password'] ?? $password;
+            }
+        }
+
+        // Check if this is a mobile/API request (requests JSON response)
+        // Also check if format=json is in query string (alternative method)
+        $isMobileRequest = $this->request->getHeaderLine('Accept') === 'application/json' 
+            || $this->request->getHeaderLine('Content-Type') === 'application/json'
+            || $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest'
+            || $this->request->getGet('format') === 'json'
+            || $this->request->getPost('format') === 'json';
+        
+        // If mobile request, set CORS headers and return JSON
+        if ($isMobileRequest) {
+            // Set CORS headers using PHP header() directly to ensure they're sent early
+            if (!headers_sent()) {
+                header('Access-Control-Allow-Origin: *');
+                header('Access-Control-Allow-Methods: POST, OPTIONS, GET');
+                header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With, Origin');
+                header('Access-Control-Max-Age: 7200');
+                header('Content-Type: application/json; charset=utf-8');
+            }
+            
+            // Also set via CodeIgniter response
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+            $this->response->setHeader('Content-Type', 'application/json; charset=utf-8');
+            
+            // Handle OPTIONS preflight
+            if ($this->request->getMethod() === 'OPTIONS') {
+                http_response_code(200);
+                exit('');
+            }
+        }
 
         $validation = \Config\Services::validation();
         $validation->setRules([
@@ -36,6 +79,12 @@ class LoginController extends BaseController
         ]);
 
         if (!$validation->withRequest($this->request)->run()) {
+            if ($isMobileRequest) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Please enter your Username and Password'
+                ]);
+            }
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Please enter your Username and Password');
@@ -54,6 +103,12 @@ class LoginController extends BaseController
         }
 
         if (!$payer) {
+            if ($isMobileRequest) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Invalid Username or Password'
+                ]);
+            }
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Invalid Username or Password');
@@ -61,6 +116,12 @@ class LoginController extends BaseController
         
         // Check if password exists (required for all payers)
         if (empty($payer['password'])) {
+            if ($isMobileRequest) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Password not set. Please contact administrator.'
+                ]);
+            }
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Password not set. Please contact administrator.');
@@ -68,6 +129,12 @@ class LoginController extends BaseController
         
         // Verify password
         if (!password_verify($password, $payer['password'])) {
+            if ($isMobileRequest) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Invalid Username or Password'
+                ]);
+            }
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Invalid Username or Password');
@@ -91,6 +158,14 @@ class LoginController extends BaseController
                 $signupController->sendVerificationEmail($payer['email_address'], $payer['payer_name'], $verificationCode);
             }
             
+            if ($isMobileRequest) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Please verify your email address before logging in. Please check your email for the verification code or sign up again to receive a new code.',
+                    'requires_verification' => true
+                ]);
+            }
+            
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Please verify your email address before logging in. Please check your email for the verification code or sign up again to receive a new code.');
@@ -111,6 +186,25 @@ class LoginController extends BaseController
 
         // Force sidebar expanded on first load
         session()->set('forceSidebarExpanded', true);
+
+        // Return JSON for mobile requests, redirect for web requests
+        if ($isMobileRequest) {
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Login successful',
+                'data' => [
+                    'id' => (int)$payer['id'],
+                    'payer_id' => $payer['payer_id'],
+                    'payer_name' => $payer['payer_name'],
+                    'email' => $payer['email_address'] ?? '',
+                    'email_address' => $payer['email_address'] ?? '',
+                    'contact_number' => $payer['contact_number'] ?? '',
+                    'phone_number' => $payer['contact_number'] ?? '',
+                    'profile_picture' => $payer['profile_picture'] ?? null,
+                ],
+                'token' => base64_encode($payer['id'] . ':' . time())
+            ]);
+        }
 
         return redirect()->to('payer/dashboard');
     }
@@ -135,12 +229,12 @@ class LoginController extends BaseController
      */
     public function handleOptions()
     {
-        // Set CORS headers
+        // Set CORS headers for mobile API requests
         $this->response->setHeader('Access-Control-Allow-Origin', '*');
-        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
         $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
         $this->response->setHeader('Access-Control-Max-Age', '7200');
-        return $this->response->setStatusCode(200);
+        return $this->response->setStatusCode(200)->setBody('');
     }
 
     /**
@@ -238,13 +332,59 @@ class LoginController extends BaseController
 
     public function forgotPasswordPost()
     {
+        // Check if this is a mobile/API request (requests JSON response)
+        $isMobileRequest = $this->request->getHeaderLine('Accept') === 'application/json' 
+            || $this->request->getHeaderLine('Content-Type') === 'application/json'
+            || $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest'
+            || $this->request->getGet('format') === 'json'
+            || $this->request->getPost('format') === 'json';
+        
+        // If mobile request, set CORS headers and return JSON
+        if ($isMobileRequest) {
+            // Set CORS headers using PHP header() directly to ensure they're sent early
+            if (!headers_sent()) {
+                header('Access-Control-Allow-Origin: *');
+                header('Access-Control-Allow-Methods: POST, OPTIONS, GET');
+                header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With, Origin');
+                header('Access-Control-Max-Age: 7200');
+                header('Content-Type: application/json; charset=utf-8');
+            }
+            
+            // Also set via CodeIgniter response
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+            $this->response->setHeader('Content-Type', 'application/json; charset=utf-8');
+            
+            // Handle OPTIONS preflight
+            if ($this->request->getMethod() === 'OPTIONS') {
+                http_response_code(200);
+                exit('');
+            }
+        }
+
+        // Get data from either POST (form) or JSON body
         $email = $this->request->getPost('email');
+        
+        // If not found in POST, try JSON body (for mobile requests)
+        if (empty($email)) {
+            $jsonData = $this->request->getJSON(true);
+            if ($jsonData) {
+                $email = $jsonData['email'] ?? $email;
+            }
+        }
 
         if (!$email) {
-            return $this->response->setJSON([
-                'success' => false,
-                'error' => 'Email is required.'
-            ]);
+            if ($isMobileRequest) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Email is required.'
+                ]);
+            }
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Email is required.');
         }
 
         // Find payer by email_address (case-sensitive matching)
@@ -331,14 +471,57 @@ class LoginController extends BaseController
 
     public function verifyResetCode()
     {
+        // Check if this is a mobile/API request (requests JSON response)
+        $isMobileRequest = $this->request->getHeaderLine('Accept') === 'application/json' 
+            || $this->request->getHeaderLine('Content-Type') === 'application/json'
+            || $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest'
+            || $this->request->getGet('format') === 'json'
+            || $this->request->getPost('format') === 'json';
+        
+        // If mobile request, set CORS headers
+        if ($isMobileRequest) {
+            if (!headers_sent()) {
+                header('Access-Control-Allow-Origin: *');
+                header('Access-Control-Allow-Methods: POST, OPTIONS, GET');
+                header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With, Origin');
+                header('Access-Control-Max-Age: 7200');
+                header('Content-Type: application/json; charset=utf-8');
+            }
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+            $this->response->setHeader('Content-Type', 'application/json; charset=utf-8');
+            
+            if ($this->request->getMethod() === 'OPTIONS') {
+                http_response_code(200);
+                exit('');
+            }
+        }
+
+        // Get data from either POST (form) or JSON body
         $email = trim($this->request->getPost('email'));
         $resetCode = trim($this->request->getPost('reset_code'));
+        
+        // If not found in POST, try JSON body (for mobile requests)
+        if (empty($email) || empty($resetCode)) {
+            $jsonData = $this->request->getJSON(true);
+            if ($jsonData) {
+                $email = $email ?: trim($jsonData['email'] ?? '');
+                $resetCode = $resetCode ?: trim($jsonData['reset_code'] ?? '');
+            }
+        }
 
         if (!$email || !$resetCode) {
-            return $this->response->setJSON([
-                'success' => false,
-                'error' => 'Email and reset code are required.'
-            ]);
+            if ($isMobileRequest) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Email and reset code are required.'
+                ]);
+            }
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Email and reset code are required.');
         }
         
         // Convert to integer for comparison to avoid type issues
@@ -395,11 +578,67 @@ class LoginController extends BaseController
 
     public function resetPassword()
     {
+        // Check if this is a mobile/API request (requests JSON response)
+        $isMobileRequest = $this->request->getHeaderLine('Accept') === 'application/json' 
+            || $this->request->getHeaderLine('Content-Type') === 'application/json'
+            || $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest'
+            || $this->request->getGet('format') === 'json'
+            || $this->request->getPost('format') === 'json';
+        
+        // If mobile request, set CORS headers
+        if ($isMobileRequest) {
+            if (!headers_sent()) {
+                header('Access-Control-Allow-Origin: *');
+                header('Access-Control-Allow-Methods: POST, OPTIONS, GET');
+                header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization, X-Requested-With, Origin');
+                header('Access-Control-Max-Age: 7200');
+                header('Content-Type: application/json; charset=utf-8');
+            }
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+            $this->response->setHeader('Content-Type', 'application/json; charset=utf-8');
+            
+            if ($this->request->getMethod() === 'OPTIONS') {
+                http_response_code(200);
+                exit('');
+            }
+        }
+
         $session = session();
 
+        // Get payer ID from session or email+code (for mobile)
         $payerId = $session->get('reset_verified_payer_id');
+        $email = $this->request->getPost('email');
+        $resetCode = $this->request->getPost('reset_code');
+        
+        // If no session and mobile request, try to verify by email+code
+        if (!$payerId && $isMobileRequest && $email && $resetCode) {
+            $payers = $this->payerModel->findAll();
+            foreach ($payers as $p) {
+                if (!empty($p['email_address']) && 
+                    strtolower($p['email_address']) === strtolower($email) &&
+                    !empty($p['reset_token']) &&
+                    (int)$p['reset_token'] === (int)$resetCode) {
+                    $payerId = $p['id'];
+                    break;
+                }
+            }
+        }
+
+        // Get password from POST or JSON
         $newPassword = $this->request->getPost('password');
         $confirmPassword = $this->request->getPost('confirm_password');
+        
+        // If not found in POST, try JSON body (for mobile requests)
+        if (empty($newPassword) || empty($confirmPassword)) {
+            $jsonData = $this->request->getJSON(true);
+            if ($jsonData) {
+                $newPassword = $newPassword ?: $jsonData['password'] ?? '';
+                $confirmPassword = $confirmPassword ?: $jsonData['confirm_password'] ?? '';
+            }
+        }
 
         if (!$payerId) {
             return $this->response->setJSON([
