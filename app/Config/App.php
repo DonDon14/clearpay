@@ -16,7 +16,29 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
-    public string $baseURL = 'http://192.168.18.2/ClearPay/public/';
+    public string $baseURL = 'http://localhost/';
+
+    /**
+     * Constructor - Auto-detect baseURL from request
+     * This allows the app to work with localhost, local IP, and public IP
+     */
+    public function __construct()
+    {
+        parent::__construct();
+        
+        // Auto-detect baseURL from the current request
+        // This ensures it works correctly whether accessed via:
+        // - http://localhost/ (local)
+        // - http://192.168.18.60/ (local network)
+        // - http://206.62.40.138/ (internet)
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $host = $_SERVER['HTTP_HOST'];
+            // Remove port if present
+            $host = preg_replace('/:\d+$/', '', $host);
+            $this->baseURL = $protocol . '://' . $host . '/';
+        }
+    }
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.
