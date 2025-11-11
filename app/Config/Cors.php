@@ -35,7 +35,10 @@ class Cors extends BaseConfig
          *   - ['https://www.example.com']
          */
         'allowedOrigins' => [
-            // Base localhost origins (no port or default port 80)
+            // Production domains
+            'https://clearpay.infinityfreeapp.com',
+            'https://clearpay.fwh.is',
+            // Base localhost origins (no port or default port 80) - for development
             'http://localhost',
             'http://127.0.0.1',
             'http://10.0.2.2', // Android emulator
@@ -60,9 +63,11 @@ class Cors extends BaseConfig
          *   - ['https://\w+\.example\.com']
          */
         'allowedOriginsPatterns' => [
-            'http://localhost(:\d+)?',      // Matches localhost with or without port
-            'http://127\.0\.0\.1(:\d+)?',   // Matches 127.0.0.1 with or without port
-            'http://10\.0\.2\.2(:\d+)?',    // Matches Android emulator with or without port
+            'https://clearpay\.infinityfreeapp\.com',  // InfinityFree app domain
+            'https://clearpay\.fwh\.is',               // Production domain
+            'http://localhost(:\d+)?',                // Matches localhost with or without port
+            'http://127\.0\.0\.1(:\d+)?',             // Matches 127.0.0.1 with or without port
+            'http://10\.0\.2\.2(:\d+)?',             // Matches Android emulator with or without port
         ],
 
         /**

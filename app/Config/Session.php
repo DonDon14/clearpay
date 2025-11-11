@@ -57,7 +57,12 @@ class Session extends BaseConfig
      *
      * IMPORTANT: You are REQUIRED to set a valid save path!
      */
-    public string $savePath = WRITEPATH . 'session';
+    // InfinityFree: Use /php_sessions (allowed by open_basedir) or absolute path to htdocs
+    // Option 1: Use InfinityFree's php_sessions directory (recommended)
+    public string $savePath = '/php_sessions';
+    
+    // Option 2: Use absolute path to writable/session (if Option 1 doesn't work)
+    // public string $savePath = '/home/vol17_2/infinityfree.com/if0_40363851/clearpay.infinityfreeapp.com/htdocs/writable/session';
 
     /**
      * --------------------------------------------------------------------------
