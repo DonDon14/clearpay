@@ -104,8 +104,19 @@ class CreateActivityLogsTable extends Migration
         
         // Add CHECK constraints for PostgreSQL
         if ($isPostgres) {
-            $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_activity_type_check CHECK (activity_type IN ('announcement', 'contribution', 'payment', 'payer', 'user'))");
-            $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_action_check CHECK (action IN ('created', 'updated', 'deleted', 'published', 'unpublished'))");
+            // Drop existing constraints if they exist (for updates)
+            try {
+                $db->query("ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_activity_type_check");
+                $db->query("ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_action_check");
+                $db->query("ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_user_type_check");
+                $db->query("ALTER TABLE activity_logs DROP CONSTRAINT IF EXISTS activity_logs_target_audience_check");
+            } catch (\Exception $e) {
+                // Ignore errors if constraints don't exist
+            }
+            
+            // Add updated constraints
+            $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_activity_type_check CHECK (activity_type IN ('announcement', 'contribution', 'payment', 'payment_request', 'payer', 'user', 'refund'))");
+            $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_action_check CHECK (action IN ('created', 'updated', 'deleted', 'published', 'unpublished', 'approved', 'rejected', 'processed', 'submitted'))");
             $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_user_type_check CHECK (user_type IN ('admin', 'payer'))");
             $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_target_audience_check CHECK (target_audience IN ('admins', 'payers', 'both', 'all'))");
         }

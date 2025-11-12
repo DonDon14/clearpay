@@ -834,7 +834,7 @@ class DashboardController extends BaseController
             'amount_paid' => $request['requested_amount'],
             'payment_method' => $request['payment_method'],
             'payment_status' => $paymentStatus,
-            'is_partial_payment' => $isPartial ? 1 : 0,
+            'is_partial_payment' => $isPartial ? true : false,
             'remaining_balance' => $remainingBalance,
             'payment_sequence' => $paymentSequence,
             'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($request['id']), 0, 12)),

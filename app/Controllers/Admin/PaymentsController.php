@@ -396,7 +396,7 @@ class PaymentsController extends BaseController
                 'amount_paid' => $this->request->getPost('amount_paid'),
                 'payment_method' => $submittedPaymentMethod, // Use normalized name from database
                 'payment_status' => $paymentStatus,
-                'is_partial_payment' => $isPartial ? 1 : 0,
+                'is_partial_payment' => $isPartial ? true : false,
                 'remaining_balance' => $remainingBalance,
                 'parent_payment_id' => $this->request->getPost('parent_payment_id') ?: null,
                 'payment_sequence' => $paymentSequence,
@@ -1124,7 +1124,7 @@ class PaymentsController extends BaseController
                 'amount_paid' => $newPaymentAmount,
                 'payment_method' => $json['payment_method'] ?? 'cash',
                 'payment_status' => $newRemaining <= 0.01 ? 'fully paid' : 'partial',
-                'is_partial_payment' => $newRemaining > 0 ? 1 : 0,
+                'is_partial_payment' => $newRemaining > 0 ? true : false,
                 'remaining_balance' => $newRemaining,
                 'parent_payment_id' => $json['original_payment_id'],
                 'payment_sequence' => 1,
@@ -1248,12 +1248,12 @@ class PaymentsController extends BaseController
             if ($calculatedRemainingBalance > 0.01) {
                 // Still partial payment
                 $updateData['payment_status'] = 'partial';
-                $updateData['is_partial_payment'] = 1;
+                $updateData['is_partial_payment'] = true;
                 $updateData['remaining_balance'] = $calculatedRemainingBalance;
             } else {
                 // Fully paid
                 $updateData['payment_status'] = 'fully paid';
-                $updateData['is_partial_payment'] = 0;
+                $updateData['is_partial_payment'] = false;
                 $updateData['remaining_balance'] = 0;
             }
 
@@ -2286,7 +2286,7 @@ class PaymentsController extends BaseController
             ->set([
                 'payment_status' => 'fully paid',
                 'remaining_balance' => 0,
-                'is_partial_payment' => 0
+                'is_partial_payment' => false
             ])
             ->update();
     }
