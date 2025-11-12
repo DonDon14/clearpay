@@ -54,7 +54,7 @@ class Filters extends BaseFilters
      */
     public array $required = [
         'before' => [
-            'forcehttps', // Force Global Secure Requests
+            // 'forcehttps', // Disabled for Render (Render handles HTTPS at proxy level)
             'pagecache',  // Web Page Caching
         ],
         'after' => [

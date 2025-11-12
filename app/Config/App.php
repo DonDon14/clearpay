@@ -184,8 +184,11 @@ class App extends BaseConfig
      * made via a secure connection (HTTPS). If the incoming request is not
      * secure, the user will be redirected to a secure version of the page
      * and the HTTP Strict Transport Security (HSTS) header will be set.
+     * 
+     * NOTE: Disabled for Render.com as Render handles HTTPS at proxy level.
+     * The X-Forwarded-Proto header indicates HTTPS even if internal connection is HTTP.
      */
-    public bool $forceGlobalSecureRequests = true;
+    public bool $forceGlobalSecureRequests = false;
 
     /**
      * --------------------------------------------------------------------------
@@ -206,9 +209,14 @@ class App extends BaseConfig
      *         '192.168.5.0/24' => 'X-Real-IP',
      *     ]
      *
+     * For Render.com: Trust all proxy headers (Render handles HTTPS at proxy level)
+     * This allows CodeIgniter to properly detect HTTPS from X-Forwarded-Proto header
+     *
      * @var array<string, string>
      */
-    public array $proxyIPs = [];
+    public array $proxyIPs = [
+        '*' => 'X-Forwarded-For', // Trust Render's proxy headers
+    ];
 
     /**
      * --------------------------------------------------------------------------

@@ -26,10 +26,11 @@ Options -Indexes
     RewriteRule ^ %1 [L,R=301]
 
 
-    # Force HTTPS redirect (enabled for production)
-    # Uncomment these lines after SSL certificate is installed on Hostinger
-    RewriteCond %{HTTPS} off
-    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    # Force HTTPS redirect - DISABLED for Render (Render handles HTTPS at proxy level)
+    # Render.com handles HTTPS automatically, so we don't need this redirect
+    # Uncomment if deploying to other hosts that need it:
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
    
     # Rewrite "www.example.com -> example.com" (if needed)
     # Uncomment if you want to redirect www to non-www
