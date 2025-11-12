@@ -8,6 +8,23 @@ use CodeIgniter\Session\Handlers\FileHandler;
 
 class Session extends BaseConfig
 {
+    public function __construct()
+    {
+        parent::__construct();
+        
+        // Auto-detect session save path based on environment
+        // For Docker/Render: use writable directory
+        // For InfinityFree: use /php_sessions
+        if (is_dir('/var/www/html/writable/session')) {
+            $this->savePath = '/var/www/html/writable/session';
+        } elseif (is_dir('/php_sessions')) {
+            // InfinityFree environment
+            $this->savePath = '/php_sessions';
+        } elseif (defined('WRITEPATH')) {
+            // Use CodeIgniter's writable path
+            $this->savePath = WRITEPATH . 'session';
+        }
+    }
     /**
      * --------------------------------------------------------------------------
      * Session Driver
@@ -57,12 +74,13 @@ class Session extends BaseConfig
      *
      * IMPORTANT: You are REQUIRED to set a valid save path!
      */
-    // InfinityFree: Use /php_sessions (allowed by open_basedir) or absolute path to htdocs
-    // Option 1: Use InfinityFree's php_sessions directory (recommended)
-    public string $savePath = '/php_sessions';
+    // Render.com/Docker: Use absolute path to writable/session directory
+    // InfinityFree: Use /php_sessions (allowed by open_basedir)
+    // Auto-detect: Use writable/session for Docker, /php_sessions for InfinityFree
+    public string $savePath = '/var/www/html/writable/session';
     
-    // Option 2: Use absolute path to writable/session (if Option 1 doesn't work)
-    // public string $savePath = '/home/vol17_2/infinityfree.com/if0_40363851/clearpay.infinityfreeapp.com/htdocs/writable/session';
+    // Fallback for InfinityFree (uncomment if deploying to InfinityFree)
+    // public string $savePath = '/php_sessions';
 
     /**
      * --------------------------------------------------------------------------
