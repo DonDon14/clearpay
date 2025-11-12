@@ -25,6 +25,27 @@ if (version_compare(PHP_VERSION, $minPhpVersion, '<')) {
 
 /*
  *---------------------------------------------------------------
+ * HEALTH CHECK ENDPOINT (Bypass CodeIgniter for reliability)
+ *---------------------------------------------------------------
+ * Handle /health requests before CodeIgniter initializes
+ * This ensures health checks work even if the framework has issues
+ */
+if (isset($_SERVER['REQUEST_URI'])) {
+    $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if ($requestUri === '/health' || $requestUri === '/health.php') {
+        header('Content-Type: application/json');
+        http_response_code(200);
+        echo json_encode([
+            'status' => 'ok',
+            'service' => 'clearpay',
+            'timestamp' => date('Y-m-d H:i:s')
+        ]);
+        exit(0);
+    }
+}
+
+/*
+ *---------------------------------------------------------------
  * SET THE CURRENT DIRECTORY
  *---------------------------------------------------------------
  */
