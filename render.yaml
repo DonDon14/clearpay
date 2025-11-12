@@ -2,11 +2,11 @@ services:
   # Web Service - Main Application
   - type: web
     name: clearpay-web
-    env: php
+    env: docker
     plan: starter  # Options: starter, standard, pro
     region: oregon  # Options: oregon, frankfurt, singapore, mumbai, tokyo
-    buildCommand: composer install --no-dev --optimize-autoloader && php spark key:generate --force
-    startCommand: php -S 0.0.0.0:$PORT -t public public/index.php
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /
     envVars:
       - key: CI_ENVIRONMENT
