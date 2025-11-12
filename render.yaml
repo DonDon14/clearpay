@@ -7,7 +7,7 @@ services:
     region: oregon  # Options: oregon, frankfurt, singapore, mumbai, tokyo
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /health
+    healthCheckPath: /health.php
     envVars:
       - key: CI_ENVIRONMENT
         value: production
