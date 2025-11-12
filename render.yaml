@@ -25,7 +25,7 @@ services:
     autoDeploy: true
 
 databases:
-  # MySQL Database
+  # PostgreSQL Database (Render free tier only supports PostgreSQL)
   - name: clearpay-db
     databaseName: clearpaydb
     user: clearpay_user

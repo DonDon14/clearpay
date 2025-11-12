@@ -214,16 +214,48 @@ class Database extends Config
             $this->default['DBDriver'] = getenv('DB_DRIVER');
         }
 
-        // Parse DATABASE_URL if provided (mainly for PostgreSQL)
-        if (getenv('DATABASE_URL') && empty($this->default['hostname'])) {
+        // Parse DATABASE_URL if provided (mainly for PostgreSQL on Render)
+        if (getenv('DATABASE_URL')) {
             $url = parse_url(getenv('DATABASE_URL'));
             if ($url) {
+                // Detect if it's PostgreSQL (postgres:// or postgresql://)
+                $isPostgres = isset($url['scheme']) && 
+                    (strpos($url['scheme'], 'postgres') !== false);
+                
                 $this->default['hostname'] = $url['host'] ?? 'localhost';
-                $this->default['port'] = $url['port'] ?? 3306;
+                $this->default['port'] = $url['port'] ?? ($isPostgres ? 5432 : 3306);
                 $this->default['username'] = $url['user'] ?? 'root';
                 $this->default['password'] = $url['pass'] ?? '';
                 $this->default['database'] = ltrim($url['path'] ?? '', '/');
+                
+                // Auto-detect PostgreSQL driver if not explicitly set
+                if ($isPostgres && !getenv('DB_DRIVER')) {
+                    $this->default['DBDriver'] = 'Postgre';
+                    $this->default['schema'] = 'public';
+                    $this->default['charset'] = 'utf8';
+                    // Remove MySQL-specific settings
+                    unset($this->default['DBCollat']);
+                    unset($this->default['numberNative']);
+                    unset($this->default['foundRows']);
+                }
             }
+        }
+        
+        // Set PostgreSQL defaults if DB_DRIVER is Postgre
+        if (getenv('DB_DRIVER') === 'Postgre' || $this->default['DBDriver'] === 'Postgre') {
+            if (!isset($this->default['schema'])) {
+                $this->default['schema'] = 'public';
+            }
+            if (!isset($this->default['port']) || $this->default['port'] == 3306) {
+                $this->default['port'] = 5432;
+            }
+            if (!isset($this->default['charset'])) {
+                $this->default['charset'] = 'utf8';
+            }
+            // Remove MySQL-specific settings
+            unset($this->default['DBCollat']);
+            unset($this->default['numberNative']);
+            unset($this->default['foundRows']);
         }
 
         // Ensure that we always set the database group to 'tests' if
