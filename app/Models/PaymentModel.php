@@ -181,6 +181,19 @@ class PaymentModel extends Model
     {
         $db = \Config\Database::connect();
         
+        // Detect database type for GROUP_CONCAT vs STRING_AGG
+        $dbDriver = $db->getPlatform();
+        $isPostgres = (strpos(strtolower($dbDriver), 'postgre') !== false);
+        
+        // Use database-appropriate aggregation function
+        if ($isPostgres) {
+            // PostgreSQL uses STRING_AGG
+            $concatFunction = "STRING_AGG(DISTINCT p.id::text, ',')";
+        } else {
+            // MySQL uses GROUP_CONCAT
+            $concatFunction = "GROUP_CONCAT(DISTINCT p.id)";
+        }
+        
         // First, get payment groups
         $query = $db->query("
             SELECT 
@@ -205,7 +218,7 @@ class PaymentModel extends Model
                     ELSE 'unpaid'
                 END as computed_status,
                 COALESCE(contributions.amount, 0) - SUM(p.amount_paid) as remaining_balance,
-                GROUP_CONCAT(DISTINCT p.id) as payment_ids
+                {$concatFunction} as payment_ids
             FROM payments p
             LEFT JOIN payers ON payers.id = p.payer_id
             LEFT JOIN contributions ON contributions.id = p.contribution_id
