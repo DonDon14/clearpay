@@ -242,6 +242,9 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
         $routes->options('api/payer/upload-profile-picture', 'Payer\\DashboardController::handleOptions');
         $routes->post('api/payer/upload-profile-picture', 'Payer\\DashboardController::uploadProfilePicture');
         // Update profile API endpoint (no auth filter - will check in controller)
+        $routes->options('api/payer/update-profile', 'Payer\\DashboardController::handleOptions');
+        $routes->post('api/payer/update-profile', 'Payer\\DashboardController::updateProfile');
+        // Also keep web route for backward compatibility
         $routes->options('payer/update-profile', 'Payer\\DashboardController::handleOptions');
         $routes->post('payer/update-profile', 'Payer\\DashboardController::updateProfile');
         // Check new activities API endpoint (no auth filter - will check in controller)

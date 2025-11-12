@@ -6,7 +6,8 @@ use CodeIgniter\Config\BaseConfig;
 
 class Email extends BaseConfig
 {
-    public string $fromEmail  = 'project.clearpay@gmail.com';
+    // Use environment variables with fallback to defaults
+    public string $fromEmail  = '';
     public string $fromName   = 'ClearPay';
     public string $recipients = '';
 
@@ -33,7 +34,7 @@ class Email extends BaseConfig
     /**
      * SMTP Username
      */
-    public string $SMTPUser = 'project.clearpay@gmail.com';
+    public string $SMTPUser = '';
 
     /**
      * SMTP Password
@@ -41,7 +42,7 @@ class Email extends BaseConfig
      * Steps: Google Account > Security > 2-Step Verification > App Passwords
      * NOTE: This is a Gmail App Password, NOT your regular Gmail password
      */
-    public string $SMTPPass = 'jdab pewu hoqn whho';
+    public string $SMTPPass = '';
 
     /**
      * SMTP Port
@@ -121,4 +122,23 @@ class Email extends BaseConfig
      * Enable notify message from server
      */
     public bool $DSN = false;
+
+    /**
+     * Constructor - Load from environment variables
+     */
+    public function __construct()
+    {
+        parent::__construct();
+        
+        // Load from environment variables with fallback to defaults
+        $this->fromEmail = $_ENV['email.fromEmail'] ?? getenv('email.fromEmail') ?: 'project.clearpay@gmail.com';
+        $this->fromName = $_ENV['email.fromName'] ?? getenv('email.fromName') ?: 'ClearPay';
+        $this->protocol = $_ENV['email.protocol'] ?? getenv('email.protocol') ?: 'smtp';
+        $this->SMTPHost = $_ENV['email.SMTPHost'] ?? getenv('email.SMTPHost') ?: 'smtp.gmail.com';
+        $this->SMTPUser = $_ENV['email.SMTPUser'] ?? getenv('email.SMTPUser') ?: 'project.clearpay@gmail.com';
+        $this->SMTPPass = $_ENV['email.SMTPPass'] ?? getenv('email.SMTPPass') ?: 'jdab pewu hoqn whho';
+        $this->SMTPPort = (int)($_ENV['email.SMTPPort'] ?? getenv('email.SMTPPort') ?: 587);
+        $this->SMTPCrypto = $_ENV['email.SMTPCrypto'] ?? getenv('email.SMTPCrypto') ?: 'tls';
+        $this->mailType = $_ENV['email.mailType'] ?? getenv('email.mailType') ?: 'html';
+    }
 }

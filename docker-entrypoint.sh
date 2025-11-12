@@ -42,6 +42,13 @@ chown -R www-data:www-data writable
 chmod -R 775 writable
 echo "✅ Writable directories configured"
 
+# Ensure upload directories exist and have correct permissions
+echo "📁 Setting up upload directories..."
+mkdir -p public/uploads/profile public/uploads/payment_proofs public/uploads/payment_methods/qr_codes
+chown -R www-data:www-data public/uploads
+chmod -R 775 public/uploads
+echo "✅ Upload directories configured"
+
 # Wait a bit for database to be ready (simple delay)
 echo "⏳ Waiting for database to be ready..."
 sleep 5

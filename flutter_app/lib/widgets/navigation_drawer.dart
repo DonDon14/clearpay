@@ -9,7 +9,6 @@ import '../screens/payment_history_screen.dart';
 import '../screens/announcements_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/help_screen.dart';
-import '../screens/server_settings_screen.dart';
 import '../screens/login_screen.dart';
 import '../utils/logo_helper.dart';
 import '../services/api_service.dart';
@@ -300,19 +299,6 @@ class AppNavigationDrawer extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.settings,
-                  title: 'Server Settings',
-                  isActive: _isScreenActive(context, ServerSettingsScreen),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ServerSettingsScreen()),
-                    );
-                  },
-                ),
                 _buildDrawerItem(
                   context,
                   icon: Icons.help_outline,

@@ -36,9 +36,14 @@ COPY . /var/www/html
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Set permissions for writable directories
-RUN chown -R www-data:www-data /var/www/html/writable
-RUN chmod -R 775 /var/www/html/writable
+# Create upload directories and set permissions
+RUN mkdir -p /var/www/html/public/uploads/profile \
+    && mkdir -p /var/www/html/public/uploads/payment_proofs \
+    && mkdir -p /var/www/html/public/uploads/payment_methods/qr_codes \
+    && chown -R www-data:www-data /var/www/html/writable \
+    && chown -R www-data:www-data /var/www/html/public/uploads \
+    && chmod -R 775 /var/www/html/writable \
+    && chmod -R 775 /var/www/html/public/uploads
 
 # Configure Apache to use public directory as document root
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public

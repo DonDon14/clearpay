@@ -285,52 +285,69 @@ class DashboardController extends BaseController
         // Create upload directory if it doesn't exist
         $uploadPath = FCPATH . 'uploads/profile/';
         if (!is_dir($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
+            if (!mkdir($uploadPath, 0755, true)) {
+                log_message('error', 'Failed to create profile upload directory: ' . $uploadPath);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: Could not create upload directory. Please contact administrator.'
+                ]);
+            }
+        }
+        
+        // Check if directory is writable
+        if (!is_writable($uploadPath)) {
+            log_message('error', 'Profile upload directory is not writable: ' . $uploadPath);
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+            ]);
         }
 
         // Generate unique filename
         $newName = 'payer_' . $payerId . '_' . time() . '.' . $file->getExtension();
         
-                if ($file->move($uploadPath, $newName)) {
-                    // Get current payer data to delete old profile picture
-                    $payer = $this->payerModel->find($payerId);
-                    $oldProfilePicture = $payer['profile_picture'] ?? null;
-                    
-                    // Get old payer data for activity logging
-                    $oldPayerData = $this->payerModel->find($payerId);
-                    
-                    // Update database with new profile picture path
-                    $profilePicturePath = 'uploads/profile/' . $newName;
-                    $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
-                    
-                    // Update session with new profile picture path
-                    session()->set('payer_profile_picture', $profilePicturePath);
-                    
-                    // Delete old profile picture if it exists
-                    if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
-                        unlink(FCPATH . $oldProfilePicture);
-                    }
-
-                    // Log payer profile picture update activity for admin notification
-                    try {
-                        $activityLogger = new \App\Services\ActivityLogger();
-                        $updatedPayerData = array_merge($oldPayerData, ['profile_picture' => $profilePicturePath, 'id' => $payerId]);
-                        $activityLogger->logPayer('updated', $updatedPayerData, $oldPayerData);
-                    } catch (\Exception $e) {
-                        log_message('error', 'Failed to log payer profile picture update activity: ' . $e->getMessage());
-                    }
-
-                    return $this->response->setJSON([
-                        'success' => true,
-                        'message' => 'Profile picture uploaded successfully',
-                        'profile_picture' => base_url($profilePicturePath)
-                    ]);
-        } else {
+        if (!$file->move($uploadPath, $newName)) {
+            $error = $file->getErrorString();
+            log_message('error', 'Profile picture upload failed: ' . $error . ' - Path: ' . $uploadPath . ' - File: ' . $newName);
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Failed to upload profile picture'
+                'message' => 'Error: Could not move file "' . $file->getName() . '" to "/var/www/html/public/uploads/profile/". Reason: ' . $error
             ]);
         }
+        
+        // File moved successfully - Get current payer data to delete old profile picture
+        $payer = $this->payerModel->find($payerId);
+        $oldProfilePicture = $payer['profile_picture'] ?? null;
+        
+        // Get old payer data for activity logging
+        $oldPayerData = $this->payerModel->find($payerId);
+        
+        // Update database with new profile picture path
+        $profilePicturePath = 'uploads/profile/' . $newName;
+        $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
+        
+        // Update session with new profile picture path
+        session()->set('payer_profile_picture', $profilePicturePath);
+        
+        // Delete old profile picture if it exists
+        if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
+            unlink(FCPATH . $oldProfilePicture);
+        }
+
+        // Log payer profile picture update activity for admin notification
+        try {
+            $activityLogger = new \App\Services\ActivityLogger();
+            $updatedPayerData = array_merge($oldPayerData, ['profile_picture' => $profilePicturePath, 'id' => $payerId]);
+            $activityLogger->logPayer('updated', $updatedPayerData, $oldPayerData);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to log payer profile picture update activity: ' . $e->getMessage());
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Profile picture uploaded successfully',
+            'profile_picture' => base_url($profilePicturePath)
+        ]);
     }
 
     public function announcements()
@@ -1070,15 +1087,43 @@ class DashboardController extends BaseController
                 
                 // Create directory if it doesn't exist
                 if (!is_dir($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
+                    if (!mkdir($uploadPath, 0755, true)) {
+                        log_message('error', 'Failed to create upload directory: ' . $uploadPath);
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Could not create upload directory. Please contact administrator.'
+                        ]);
+                    }
+                }
+                
+                // Check if directory is writable
+                if (!is_writable($uploadPath)) {
+                    log_message('error', 'Upload directory is not writable: ' . $uploadPath);
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+                    ]);
                 }
                 
                 $newName = 'proof_' . $payerId . '_' . time() . '.' . $file->getExtension();
-                $file->move($uploadPath, $newName);
+                
+                if (!$file->move($uploadPath, $newName)) {
+                    $error = $file->getErrorString();
+                    log_message('error', 'File upload failed: ' . $error . ' - Path: ' . $uploadPath . ' - File: ' . $newName);
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Error: Could not move file "' . $file->getName() . '" to upload directory. Reason: ' . $error
+                    ]);
+                }
+                
                 $proofOfPaymentPath = 'uploads/payment_proofs/' . $newName;
                 log_message('info', 'File uploaded successfully: ' . $proofOfPaymentPath);
             } else {
-                log_message('info', 'No file uploaded or file upload failed');
+                if ($file) {
+                    log_message('info', 'File upload validation failed - Valid: ' . ($file->isValid() ? 'Yes' : 'No') . ', HasMoved: ' . ($file->hasMoved() ? 'Yes' : 'No'));
+                } else {
+                    log_message('info', 'No file uploaded');
+                }
             }
 
             // Create payment request

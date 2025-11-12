@@ -29,36 +29,15 @@ class ApiService {
   static String get serverIpAddress => serverIp;
   static String get projectPathValue => projectPath;
   
-  // ngrok URL is now stored dynamically in SharedPreferences
-  // This allows it to be updated when ngrok restarts without rebuilding the app
-  static String? _cachedNgrokUrl;
-  
-  // Get base URL dynamically (checks SharedPreferences for ngrok URL)
+  // Get base URL - always use Render deployment URL
   static Future<String> getBaseUrl() async {
-    // Check if ngrok URL is stored in preferences
-    final prefs = await SharedPreferences.getInstance();
-    final storedNgrokUrl = prefs.getString('ngrok_url');
-    
-    // If stored URL exists and is not empty, use it
-    if (storedNgrokUrl != null && storedNgrokUrl.isNotEmpty) {
-      _cachedNgrokUrl = storedNgrokUrl;
-      return storedNgrokUrl;
-    }
-    
-    // Use production URL by default (for both web and mobile)
+    // Always use production URL (Render deployment)
     return productionUrl;
   }
   
-  // Synchronous getter for backward compatibility (uses cached value or default)
-  // This is used throughout the codebase, so it must be synchronous
-  // The cache is loaded in init() and updated immediately when setNgrokUrl() is called
+  // Synchronous getter for backward compatibility
   static String get baseUrl {
-    // If we have a cached ngrok URL, use it (highest priority)
-    if (_cachedNgrokUrl != null && _cachedNgrokUrl!.isNotEmpty) {
-      return _cachedNgrokUrl!;
-    }
-    
-    // Use production URL by default (for both web and mobile)
+    // Always use production URL (Render deployment)
     return productionUrl;
   }
   
@@ -67,70 +46,6 @@ class ApiService {
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     authToken = prefs.getString('auth_token');
-    // Load cached ngrok URL on init
-    _cachedNgrokUrl = prefs.getString('ngrok_url');
-  }
-  
-  // Set ngrok URL dynamically (can be updated without rebuilding app)
-  static Future<void> setNgrokUrl(String? url) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (url != null && url.isNotEmpty) {
-      await prefs.setString('ngrok_url', url);
-      _cachedNgrokUrl = url; // Update cache immediately for instant effect
-      print('ngrok URL updated to: $url'); // Debug log
-    } else {
-      await prefs.remove('ngrok_url');
-      _cachedNgrokUrl = null; // Clear cache immediately
-      print('ngrok URL cleared, using local network IP'); // Debug log
-    }
-  }
-  
-  // Refresh cached URL from storage (useful if storage was modified externally)
-  static Future<void> refreshCachedUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    _cachedNgrokUrl = prefs.getString('ngrok_url');
-  }
-  
-  // Get current ngrok URL from storage
-  static Future<String?> getNgrokUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('ngrok_url');
-  }
-  
-  // Fetch current ngrok URL from ngrok's local API (http://127.0.0.1:4040/api/tunnels)
-  // This only works if ngrok is running on the same machine
-  static Future<String?> fetchNgrokUrlFromApi() async {
-    try {
-      // Try to fetch from ngrok's local API
-      final response = await http.get(
-        Uri.parse('http://127.0.0.1:4040/api/tunnels'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 2));
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['tunnels'] != null && data['tunnels'].isNotEmpty) {
-          // Get the first HTTPS tunnel (preferred) or HTTP tunnel
-          final tunnels = data['tunnels'] as List;
-          final httpsTunnel = tunnels.firstWhere(
-            (t) => t['proto'] == 'https',
-            orElse: () => tunnels.first,
-          );
-          
-          if (httpsTunnel != null && httpsTunnel['public_url'] != null) {
-            final publicUrl = httpsTunnel['public_url'] as String;
-            // Append project path
-            final fullUrl = '$publicUrl$projectPath';
-            await setNgrokUrl(fullUrl);
-            return fullUrl;
-          }
-        }
-      }
-    } catch (e) {
-      // ngrok API not available (ngrok not running or not accessible)
-      // This is expected if ngrok is not running
-    }
-    return null;
   }
 
   static Future<void> setAuthToken(String? token) async {
@@ -602,7 +517,7 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/update-profile');
+      final url = Uri.parse('$baseUrl/api/payer/update-profile');
       final requestBody = <String, dynamic>{
         'payer_id': userId.toString(), // Add payer_id for API requests
       };
