@@ -284,6 +284,22 @@ class DashboardController extends BaseController
 
         // Create upload directory if it doesn't exist
         $uploadPath = FCPATH . 'uploads/profile/';
+        
+        // Log the actual path being used
+        log_message('info', 'Profile upload - FCPATH: ' . FCPATH . ', Upload path: ' . $uploadPath);
+        
+        // Ensure parent directory exists
+        $parentDir = dirname($uploadPath);
+        if (!is_dir($parentDir)) {
+            if (!mkdir($parentDir, 0755, true)) {
+                log_message('error', 'Failed to create parent directory: ' . $parentDir);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: Could not create parent upload directory. Please contact administrator.'
+                ]);
+            }
+        }
+        
         if (!is_dir($uploadPath)) {
             if (!mkdir($uploadPath, 0755, true)) {
                 log_message('error', 'Failed to create profile upload directory: ' . $uploadPath);
@@ -292,26 +308,64 @@ class DashboardController extends BaseController
                     'message' => 'Error: Could not create upload directory. Please contact administrator.'
                 ]);
             }
+            // Set permissions after creation
+            chmod($uploadPath, 0755);
         }
         
         // Check if directory is writable
         if (!is_writable($uploadPath)) {
-            log_message('error', 'Profile upload directory is not writable: ' . $uploadPath);
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Error: Upload directory is not writable. Please contact administrator.'
-            ]);
+            // Try to fix permissions
+            @chmod($uploadPath, 0755);
+            @chown($uploadPath, 'www-data');
+            
+            if (!is_writable($uploadPath)) {
+                log_message('error', 'Profile upload directory is not writable: ' . $uploadPath . ', Permissions: ' . substr(sprintf('%o', fileperms($uploadPath)), -4));
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+                ]);
+            }
         }
 
         // Generate unique filename
         $newName = 'payer_' . $payerId . '_' . time() . '.' . $file->getExtension();
         
+        // Log detailed information before move
+        log_message('info', 'Attempting to move file - Path: ' . $uploadPath . ', File: ' . $newName . ', Directory exists: ' . (is_dir($uploadPath) ? 'Yes' : 'No') . ', Writable: ' . (is_writable($uploadPath) ? 'Yes' : 'No'));
+        
         if (!$file->move($uploadPath, $newName)) {
+            // Get error from file object
             $error = $file->getErrorString();
-            log_message('error', 'Profile picture upload failed: ' . $error . ' - Path: ' . $uploadPath . ' - File: ' . $newName);
+            if (empty($error)) {
+                $error = $file->getError() . ' (Error code: ' . $file->getError() . ')';
+            }
+            
+            // Get system-level error if available
+            $lastError = error_get_last();
+            $systemError = $lastError ? $lastError['message'] : 'Unknown system error';
+            
+            // Check if directory exists and is writable
+            $dirExists = is_dir($uploadPath);
+            $dirWritable = is_writable($uploadPath);
+            $fullPath = $uploadPath . $newName;
+            $parentWritable = is_writable(dirname($uploadPath));
+            
+            log_message('error', 'Profile picture upload failed - Error: ' . $error . ', System Error: ' . $systemError . ', Path: ' . $uploadPath . ', File: ' . $newName . ', Dir exists: ' . ($dirExists ? 'Yes' : 'No') . ', Dir writable: ' . ($dirWritable ? 'Yes' : 'No') . ', Parent writable: ' . ($parentWritable ? 'Yes' : 'No'));
+            
+            $errorMessage = 'Error: Could not move file "' . $file->getName() . '" to upload directory.';
+            if (!$dirExists) {
+                $errorMessage .= ' Directory does not exist.';
+            } elseif (!$dirWritable) {
+                $errorMessage .= ' Directory is not writable.';
+            } elseif (!empty($error) && $error !== '0') {
+                $errorMessage .= ' Reason: ' . $error;
+            } else {
+                $errorMessage .= ' Reason: ' . $systemError;
+            }
+            
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Error: Could not move file "' . $file->getName() . '" to "/var/www/html/public/uploads/profile/". Reason: ' . $error
+                'message' => $errorMessage
             ]);
         }
         
@@ -1085,6 +1139,21 @@ class DashboardController extends BaseController
             if ($file && $file->isValid() && !$file->hasMoved()) {
                 $uploadPath = FCPATH . 'uploads/payment_proofs/';
                 
+                // Log the actual path being used
+                log_message('info', 'Payment proof upload - FCPATH: ' . FCPATH . ', Upload path: ' . $uploadPath);
+                
+                // Ensure parent directory exists
+                $parentDir = dirname($uploadPath);
+                if (!is_dir($parentDir)) {
+                    if (!mkdir($parentDir, 0755, true)) {
+                        log_message('error', 'Failed to create parent directory: ' . $parentDir);
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Could not create parent upload directory. Please contact administrator.'
+                        ]);
+                    }
+                }
+                
                 // Create directory if it doesn't exist
                 if (!is_dir($uploadPath)) {
                     if (!mkdir($uploadPath, 0755, true)) {
@@ -1094,25 +1163,62 @@ class DashboardController extends BaseController
                             'message' => 'Error: Could not create upload directory. Please contact administrator.'
                         ]);
                     }
+                    // Set permissions after creation
+                    chmod($uploadPath, 0755);
                 }
                 
                 // Check if directory is writable
                 if (!is_writable($uploadPath)) {
-                    log_message('error', 'Upload directory is not writable: ' . $uploadPath);
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'message' => 'Error: Upload directory is not writable. Please contact administrator.'
-                    ]);
+                    // Try to fix permissions
+                    @chmod($uploadPath, 0755);
+                    @chown($uploadPath, 'www-data');
+                    
+                    if (!is_writable($uploadPath)) {
+                        log_message('error', 'Upload directory is not writable: ' . $uploadPath . ', Permissions: ' . substr(sprintf('%o', fileperms($uploadPath)), -4));
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+                        ]);
+                    }
                 }
                 
                 $newName = 'proof_' . $payerId . '_' . time() . '.' . $file->getExtension();
                 
+                // Log detailed information before move
+                log_message('info', 'Attempting to move payment proof - Path: ' . $uploadPath . ', File: ' . $newName . ', Directory exists: ' . (is_dir($uploadPath) ? 'Yes' : 'No') . ', Writable: ' . (is_writable($uploadPath) ? 'Yes' : 'No'));
+                
                 if (!$file->move($uploadPath, $newName)) {
+                    // Get error from file object
                     $error = $file->getErrorString();
-                    log_message('error', 'File upload failed: ' . $error . ' - Path: ' . $uploadPath . ' - File: ' . $newName);
+                    if (empty($error)) {
+                        $error = $file->getError() . ' (Error code: ' . $file->getError() . ')';
+                    }
+                    
+                    // Get system-level error if available
+                    $lastError = error_get_last();
+                    $systemError = $lastError ? $lastError['message'] : 'Unknown system error';
+                    
+                    // Check if directory exists and is writable
+                    $dirExists = is_dir($uploadPath);
+                    $dirWritable = is_writable($uploadPath);
+                    $parentWritable = is_writable(dirname($uploadPath));
+                    
+                    log_message('error', 'Payment proof upload failed - Error: ' . $error . ', System Error: ' . $systemError . ', Path: ' . $uploadPath . ', File: ' . $newName . ', Dir exists: ' . ($dirExists ? 'Yes' : 'No') . ', Dir writable: ' . ($dirWritable ? 'Yes' : 'No') . ', Parent writable: ' . ($parentWritable ? 'Yes' : 'No'));
+                    
+                    $errorMessage = 'Error: Could not move file "' . $file->getName() . '" to upload directory.';
+                    if (!$dirExists) {
+                        $errorMessage .= ' Directory does not exist.';
+                    } elseif (!$dirWritable) {
+                        $errorMessage .= ' Directory is not writable.';
+                    } elseif (!empty($error) && $error !== '0') {
+                        $errorMessage .= ' Reason: ' . $error;
+                    } else {
+                        $errorMessage .= ' Reason: ' . $systemError;
+                    }
+                    
                     return $this->response->setJSON([
                         'success' => false,
-                        'message' => 'Error: Could not move file "' . $file->getName() . '" to upload directory. Reason: ' . $error
+                        'message' => $errorMessage
                     ]);
                 }
                 

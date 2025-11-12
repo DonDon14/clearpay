@@ -37,13 +37,15 @@ COPY . /var/www/html
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
 # Create upload directories and set permissions
+# Note: These will be recreated at runtime by docker-entrypoint.sh, but creating them here ensures they exist
 RUN mkdir -p /var/www/html/public/uploads/profile \
     && mkdir -p /var/www/html/public/uploads/payment_proofs \
     && mkdir -p /var/www/html/public/uploads/payment_methods/qr_codes \
     && chown -R www-data:www-data /var/www/html/writable \
     && chown -R www-data:www-data /var/www/html/public/uploads \
     && chmod -R 775 /var/www/html/writable \
-    && chmod -R 775 /var/www/html/public/uploads
+    && chmod -R 775 /var/www/html/public/uploads \
+    && echo "✅ Upload directories created in Dockerfile"
 
 # Configure Apache to use public directory as document root
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
