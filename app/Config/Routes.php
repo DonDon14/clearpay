@@ -6,6 +6,9 @@ use CodeIgniter\Router\RouteCollection;
  * @var RouteCollection $routes
  */
 
+// Health check route (must be before default route for Render health checks)
+$routes->get('/health', 'HealthController::index');
+
 // Default route - redirect to admin login
 
 // Admin Routes

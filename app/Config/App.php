@@ -35,9 +35,17 @@ class App extends BaseConfig
         // - http://localhost/ (local)
         // - http://192.168.18.60/ (local network)
         // - http://206.62.40.138/ (internet)
-        // - Render.com URLs
+        // - Render.com URLs (handles proxy headers correctly)
         elseif (!empty($_SERVER['HTTP_HOST'])) {
-            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            // Check X-Forwarded-Proto first (for Render.com and other proxies)
+            if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+                $protocol = $_SERVER['HTTP_X_FORWARDED_PROTO'];
+            } elseif (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+                $protocol = 'https';
+            } else {
+                $protocol = 'http';
+            }
+            
             $host = $_SERVER['HTTP_HOST'];
             // Remove port if present
             $host = preg_replace('/:\d+$/', '', $host);
