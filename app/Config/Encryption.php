@@ -20,8 +20,30 @@ class Encryption extends BaseConfig
      * If you use the Encryption class you must set an encryption key (seed).
      * You need to ensure it is long enough for the cipher and mode you plan to use.
      * See the user guide for more info.
+     * 
+     * Supports environment variable ENCRYPTION_KEY for Render.com deployment
      */
     public string $key = '';
+
+    /**
+     * Constructor - Read encryption key from environment variable if not set in .env
+     */
+    public function __construct()
+    {
+        parent::__construct();
+        
+        // If key is still empty after loading from .env, try environment variable
+        // This supports Render.com deployment where key is generated at runtime
+        if (empty($this->key) && getenv('ENCRYPTION_KEY')) {
+            $this->key = getenv('ENCRYPTION_KEY');
+        }
+        
+        // If still empty, generate a temporary key (shouldn't happen if docker-entrypoint.sh runs)
+        if (empty($this->key)) {
+            // Generate a temporary key as last resort
+            $this->key = 'base64:' . base64_encode(random_bytes(32));
+        }
+    }
 
     /**
      * --------------------------------------------------------------------------
