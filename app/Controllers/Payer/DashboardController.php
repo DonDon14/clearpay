@@ -475,9 +475,9 @@ class DashboardController extends BaseController
                 MAX(payment_date) as last_payment_date,
                 MIN(payment_date) as first_payment_date,
                 CASE 
-                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN "fully paid"
-                    WHEN SUM(amount_paid) > 0 THEN "partial"
-                    ELSE "unpaid"
+                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN \'fully paid\'
+                    WHEN SUM(amount_paid) > 0 THEN \'partial\'
+                    ELSE \'unpaid\'
                 END as computed_status,
                 ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
             ')
@@ -1738,9 +1738,9 @@ class DashboardController extends BaseController
                 MAX(payment_date) as last_payment_date,
                 MIN(payment_date) as first_payment_date,
                 CASE 
-                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN "fully paid"
-                    WHEN SUM(amount_paid) > 0 THEN "partial"
-                    ELSE "unpaid"
+                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN \'fully paid\'
+                    WHEN SUM(amount_paid) > 0 THEN \'partial\'
+                    ELSE \'unpaid\'
                 END as computed_status,
                 ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
             ')
