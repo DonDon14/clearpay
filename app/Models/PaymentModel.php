@@ -223,7 +223,10 @@ class PaymentModel extends Model
             LEFT JOIN payers ON payers.id = p.payer_id
             LEFT JOIN contributions ON contributions.id = p.contribution_id
             WHERE p.deleted_at IS NULL
-            GROUP BY p.payer_id, p.contribution_id, COALESCE(p.payment_sequence, 1)
+            GROUP BY p.payer_id, p.contribution_id, COALESCE(p.payment_sequence, 1),
+                     payers.payer_name, payers.payer_id, payers.contact_number, 
+                     payers.email_address, payers.profile_picture,
+                     contributions.title, contributions.description, contributions.amount
             ORDER BY last_payment_date DESC, payers.payer_name ASC
         ");
         

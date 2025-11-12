@@ -85,7 +85,7 @@ class Analytics extends BaseController
                                 ->distinct()
                                 ->countAllResults();
 
-        // Detect database type for date functions
+        // Detect database type for date functions and GROUP BY compatibility
         $dbDriver = $db->getPlatform();
         $isPostgres = (strpos(strtolower($dbDriver), 'postgre') !== false);
         
@@ -205,12 +205,17 @@ class Analytics extends BaseController
                             ->amount_paid ?? 0;
 
         // Top payers (by total amount paid)
+        // For PostgreSQL, all non-aggregated columns must be in GROUP BY
+        $groupByColumns = $isPostgres 
+            ? 'p.payer_id, py.payer_name, py.payer_id'
+            : 'p.payer_id';
+            
         $topPayers = $db->table('payments p')
                        ->join('payers py', 'p.payer_id = py.id', 'left')
                        ->select('py.payer_name, py.payer_id as payer_id_number, COUNT(p.id) as total_transactions, SUM(p.amount_paid) as total_paid')
                        ->whereIn('p.payment_status', ['fully paid', 'partial'])
                        ->where('p.deleted_at IS NULL')
-                       ->groupBy('p.payer_id')
+                       ->groupBy($groupByColumns)
                        ->orderBy('total_paid', 'DESC')
                        ->limit(10)
                        ->get()
