@@ -64,6 +64,11 @@ class DashboardController extends BaseController
             ->limit(3)
             ->findAll();
         
+        // Add base_url to profile picture if present
+        if (!empty($payer['profile_picture'])) {
+            $payer['profile_picture'] = base_url($payer['profile_picture']);
+        }
+
         $data = [
             'title' => 'Dashboard',
             'pageTitle' => 'Dashboard',
@@ -81,6 +86,11 @@ class DashboardController extends BaseController
     {
         $payerId = session('payer_id');
         $payer = $this->payerModel->find($payerId);
+        
+        // Add base_url to profile picture if present
+        if (!empty($payer['profile_picture'])) {
+            $payer['profile_picture'] = base_url($payer['profile_picture']);
+        }
         
         $data = [
             'title' => 'My Data',
@@ -1005,6 +1015,13 @@ class DashboardController extends BaseController
         
         // Get payer's payment requests
         $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
+        
+        // Add base_url to proof of payment paths
+        foreach ($paymentRequests as &$request) {
+            if (!empty($request['proof_of_payment_path'])) {
+                $request['proof_of_payment_path'] = base_url($request['proof_of_payment_path']);
+            }
+        }
         
         $data = [
             'title' => 'Payment Requests',

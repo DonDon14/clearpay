@@ -1018,15 +1018,26 @@ class RefundsController extends BaseController
                 return false;
             }
 
-            // Initialize email service
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Initialize email service with fresh config
             $emailService = \Config\Services::email();
             
-            // Use configured email settings
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Manually configure SMTP settings to ensure they're current
+            $emailService->initialize([
+                'protocol' => $emailConfig['protocol'],
+                'SMTPHost' => $emailConfig['SMTPHost'],
+                'SMTPUser' => $emailConfig['SMTPUser'],
+                'SMTPPass' => $emailConfig['SMTPPass'],
+                'SMTPPort' => $emailConfig['SMTPPort'],
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'],
+                'SMTPTimeout' => $emailConfig['SMTPTimeout'] ?? 30,
+                'mailType' => $emailConfig['mailType'],
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+            ]);
             
-            $emailService->setFrom($fromEmail, $fromName);
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($refundDetails['email_address']);
             $emailService->setSubject('Refund Approved - ClearPay');
             
@@ -1059,12 +1070,10 @@ class RefundsController extends BaseController
             $emailService->setMessage($message);
             
             // Log email attempt
-            log_message('info', "Attempting to send refund approval email to: {$refundDetails['email_address']}");
+            log_message('info', "Attempting to send refund approval email to: {$refundDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
             
             // Send email
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Refund approval email sent successfully to: {$refundDetails['email_address']}");
@@ -1084,6 +1093,60 @@ class RefundsController extends BaseController
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
+    }
+    
+    /**
+     * Get email configuration from database or fallback to config/environment
+     */
+    private function getEmailConfig()
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            // Try to load from database first
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+                
+                if ($settings) {
+                    return [
+                        'fromEmail' => $settings['from_email'] ?? '',
+                        'fromName' => $settings['from_name'] ?? 'ClearPay',
+                        'protocol' => $settings['protocol'] ?? 'smtp',
+                        'SMTPHost' => $settings['smtp_host'] ?? '',
+                        'SMTPUser' => $settings['smtp_user'] ?? '',
+                        'SMTPPass' => $settings['smtp_pass'] ?? '',
+                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
+                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
+                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
+                        'mailType' => $settings['mail_type'] ?? 'html',
+                        'charset' => $settings['charset'] ?? 'UTF-8',
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+        }
+        
+        // Fallback to config
+        $config = config('Email');
+        return [
+            'fromEmail' => $config->fromEmail,
+            'fromName' => $config->fromName,
+            'protocol' => $config->protocol,
+            'SMTPHost' => $config->SMTPHost,
+            'SMTPUser' => $config->SMTPUser,
+            'SMTPPass' => $config->SMTPPass,
+            'SMTPPort' => $config->SMTPPort,
+            'SMTPCrypto' => $config->SMTPCrypto,
+            'SMTPTimeout' => $config->SMTPTimeout,
+            'mailType' => $config->mailType,
+            'charset' => $config->charset,
+        ];
     }
 
     /**
