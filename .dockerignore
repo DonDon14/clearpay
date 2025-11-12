@@ -10,6 +10,8 @@ writable/debugbar/*
 .env
 .env.*
 *.md
+!Dockerfile
+!docker-entrypoint.sh
 tests/
 flutter_app/
 build/

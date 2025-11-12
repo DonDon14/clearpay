@@ -1,5 +1,9 @@
 #!/bin/bash
-set -e
+# Don't exit on error - we want to continue even if migrations fail
+set +e
+
+# Change to application directory
+cd /var/www/html
 
 echo "🚀 Starting ClearPay application..."
 
