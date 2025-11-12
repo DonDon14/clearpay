@@ -8,6 +8,14 @@ class PaymentMethodSeeder extends Seeder
 {
     public function run()
     {
+        // Check if payment methods already exist
+        $existingCount = $this->db->table('payment_methods')->countAllResults();
+        
+        if ($existingCount > 0) {
+            echo "Payment methods already exist ({$existingCount} found). Skipping payment method creation.\n";
+            return;
+        }
+
         $data = [
             [
                 'name' => 'GCash',
@@ -52,5 +60,6 @@ class PaymentMethodSeeder extends Seeder
         ];
 
         $this->db->table('payment_methods')->insertBatch($data);
+        echo "Payment methods seeded successfully.\n";
     }
 }

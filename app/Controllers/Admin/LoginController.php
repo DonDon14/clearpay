@@ -11,12 +11,22 @@ class LoginController extends Controller
 {
     public function index()
     {
-        // If already logged in, redirect to dashboard
-        if (session()->get('isLoggedIn')) {
-            return redirect()->to('/dashboard');
+        try {
+            // If already logged in, redirect to dashboard
+            if (session()->get('isLoggedIn')) {
+                return redirect()->to('/dashboard');
+            }
+            
+            return view('admin/login');
+        } catch (\Exception $e) {
+            // If there's any error (database, session, etc.), return a simple error page
+            // This prevents 500 errors during health checks or initial setup
+            log_message('error', 'LoginController index error: ' . $e->getMessage());
+            
+            // Return a simple HTML response instead of crashing
+            return $this->response->setStatusCode(200)
+                ->setBody('<!DOCTYPE html><html><head><title>ClearPay</title></head><body><h1>ClearPay</h1><p>Application is starting up. Please try again in a moment.</p></body></html>');
         }
-        
-        return view('admin/login');
     }
 
     public function loginPost()

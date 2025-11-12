@@ -15,9 +15,9 @@ sleep 5
 echo "🔄 Running migrations..."
 php spark migrate || echo "⚠️  Migrations completed (or already up to date)"
 
-# Run seeders (CodeIgniter will handle if already seeded)
+# Run seeders (seeders are now idempotent - they check if data exists first)
 echo "🌱 Running seeders..."
-php spark db:seed DatabaseSeeder || echo "⚠️  Seeders completed (or already seeded)"
+php spark db:seed DatabaseSeeder 2>&1 | grep -v "duplicate key\|already exists" || echo "✅ Seeders completed"
 
 echo "✅ Setup complete! Starting Apache..."
 

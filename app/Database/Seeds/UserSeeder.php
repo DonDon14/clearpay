@@ -8,6 +8,18 @@ class UserSeeder extends Seeder
 {
     public function run()
     {
+        // Check if admin user already exists
+        $existingUser = $this->db->table('users')
+            ->where('username', 'admin')
+            ->orWhere('email', 'admin@example.com')
+            ->get()
+            ->getRow();
+
+        if ($existingUser) {
+            echo "Admin user already exists. Skipping user creation.\n";
+            return;
+        }
+
         $data = [
             'name'     => 'Admin User',
             'username' => 'admin',
