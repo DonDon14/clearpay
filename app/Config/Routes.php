@@ -10,7 +10,10 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/health', 'HealthController::index');
 
 // Image serving route (must be before other routes to catch image requests)
+// This route handles image requests that might not be served as static files
 $routes->get('uploads/(profile|payment_proofs)/(:any)', 'ImageController::serve/$1/$2');
+$routes->get('uploads/payment_proofs/(:any)', 'ImageController::serve/payment_proofs/$1');
+$routes->get('uploads/profile/(:any)', 'ImageController::serve/profile/$1');
 
 // Default route - redirect to admin login
 

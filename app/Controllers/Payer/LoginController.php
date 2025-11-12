@@ -295,22 +295,30 @@ class LoginController extends BaseController
             // Get email settings from database or config
             $emailConfig = $this->getEmailConfig();
             
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for password reset email');
+                return false;
+            }
+            
             // Initialize email service with fresh config
             $emailService = \Config\Services::email();
             
             // Manually configure SMTP settings to ensure they're current
-            $emailService->initialize([
-                'protocol' => $emailConfig['protocol'],
-                'SMTPHost' => $emailConfig['SMTPHost'],
-                'SMTPUser' => $emailConfig['SMTPUser'],
-                'SMTPPass' => $emailConfig['SMTPPass'],
-                'SMTPPort' => $emailConfig['SMTPPort'],
-                'SMTPCrypto' => $emailConfig['SMTPCrypto'],
-                'SMTPTimeout' => $emailConfig['SMTPTimeout'] ?? 30,
-                'mailType' => $emailConfig['mailType'],
-                'mailtype' => $emailConfig['mailType'], // CodeIgniter uses lowercase
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html',
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
-            ]);
+            ];
+            
+            $emailService->initialize($smtpConfig);
             
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($email);

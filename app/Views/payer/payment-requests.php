@@ -87,7 +87,7 @@
                                             <td>
                                                 <div class="btn-group btn-group-sm" role="group">
                                                     <?php if ($request['proof_of_payment_path']): ?>
-                                                        <button type="button" class="btn btn-outline-info" onclick="viewProofOfPayment('<?= base_url($request['proof_of_payment_path']) ?>', '<?= $request['reference_number'] ?>')" title="View Proof of Payment">
+                                                        <button type="button" class="btn btn-outline-info" onclick="viewProofOfPayment('<?= $request['proof_of_payment_path'] ?>', '<?= $request['reference_number'] ?>')" title="View Proof of Payment">
                                                             <i class="fas fa-image"></i>
                                                         </button>
                                                     <?php endif; ?>

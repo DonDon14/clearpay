@@ -233,22 +233,44 @@ class EmailSettingsController extends BaseController
             // Get email config from database (just saved) or config
             $emailConfig = $this->getEmailConfig();
             
+            // Validate SMTP credentials are not empty
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass'])) {
+                log_message('error', 'SMTP credentials are empty - User: ' . (empty($emailConfig['SMTPUser']) ? 'EMPTY' : 'SET') . ', Pass: ' . (empty($emailConfig['SMTPPass']) ? 'EMPTY' : 'SET (length: ' . strlen($emailConfig['SMTPPass']) . ')'));
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'SMTP username and password are required. Please configure your email settings.',
+                    'hint' => 'Make sure both SMTP Username and SMTP Password are filled in the email configuration.'
+                ])->setStatusCode(400);
+            }
+            
             // Initialize email service with fresh config
             $emailService = \Config\Services::email();
             
             // Manually configure SMTP settings to ensure they're current
-            $emailService->initialize([
-                'protocol' => $emailConfig['protocol'],
-                'SMTPHost' => $emailConfig['SMTPHost'],
-                'SMTPUser' => $emailConfig['SMTPUser'],
-                'SMTPPass' => $emailConfig['SMTPPass'],
-                'SMTPPort' => $emailConfig['SMTPPort'],
-                'SMTPCrypto' => $emailConfig['SMTPCrypto'],
-                'SMTPTimeout' => $emailConfig['SMTPTimeout'] ?? 30,
-                'mailType' => $emailConfig['mailType'],
-                'mailtype' => $emailConfig['mailType'], // CodeIgniter uses lowercase
+            // Ensure all values are properly set and not empty
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
-            ]);
+            ];
+            
+            // Validate required fields
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration incomplete - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'SMTP configuration is incomplete. Please check Host, Username, and Password.',
+                ])->setStatusCode(400);
+            }
+            
+            $emailService->initialize($smtpConfig);
 
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($testEmail);
