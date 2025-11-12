@@ -51,9 +51,17 @@ Render is a cloud platform that automatically builds and deploys your applicatio
 - **Custom Domains:** Easy domain configuration
 - **Environment Variables:** Secure configuration management
 
+### Important: PHP Requires Docker
+
+**Render.com does NOT have native PHP support.** We use Docker to containerize the PHP application. This means:
+- ✅ Dockerfile is required
+- ✅ Docker builds the application
+- ✅ Apache serves the application
+- ✅ All PHP extensions are installed in Docker image
+
 ### Render Service Types
 
-- **Web Service:** Your PHP application
+- **Web Service:** Your PHP application (via Docker)
 - **Database:** MySQL or PostgreSQL
 - **Background Worker:** For scheduled tasks (optional)
 
@@ -84,9 +92,11 @@ Render is a cloud platform that automatically builds and deploys your applicatio
 ### Step 2: Review Configuration Files
 
 The following files have been created for Render:
-- `render.yaml` - Render service configuration
-- `render-build.sh` - Build script
-- `render-start.sh` - Start script
+- `render.yaml` - Render service configuration (uses Docker)
+- `Dockerfile` - Docker image configuration
+- `.dockerignore` - Files excluded from Docker build
+- `render-build.sh` - Build script (optional, not used with Docker)
+- `render-start.sh` - Start script (optional, not used with Docker)
 
 ---
 
@@ -161,16 +171,13 @@ If not using `render.yaml`:
    - **Root Directory:** Leave empty (or `./` if needed)
    - **Environment:** `PHP`
 
-   **Build & Deploy:**
-   - **Build Command:**
-     ```bash
-     composer install --no-dev --optimize-autoloader && php spark key:generate --force
-     ```
-   - **Start Command:**
-     ```bash
-     php -S 0.0.0.0:$PORT -t public public/index.php
-     ```
+   **Docker Configuration:**
+   - **Environment:** `docker`
+   - **Dockerfile Path:** `./Dockerfile`
+   - **Docker Context:** `.` (root directory)
    - **Health Check Path:** `/`
+   
+   **Note:** Build and start commands are handled by Dockerfile
 
 3. **Advanced Settings:**
    - **Plan:** `Starter` (free) or higher

@@ -7,9 +7,11 @@ This directory contains all files and guides needed to deploy ClearPay to Render
 ## 📁 Files Created
 
 ### Configuration Files
-- **`render.yaml`** - Render Blueprint configuration (automated deployment)
-- **`render-build.sh`** - Build script (optional, can use inline commands)
-- **`render-start.sh`** - Start script (optional, can use inline commands)
+- **`render.yaml`** - Render Blueprint configuration (uses Docker)
+- **`Dockerfile`** - Docker image configuration (required for PHP on Render)
+- **`.dockerignore`** - Files excluded from Docker build
+- **`render-build.sh`** - Build script (optional, not used with Docker)
+- **`render-start.sh`** - Start script (optional, not used with Docker)
 
 ### Documentation
 - **`RENDER_DEPLOYMENT_GUIDE.md`** - Complete step-by-step deployment guide
@@ -20,12 +22,16 @@ This directory contains all files and guides needed to deploy ClearPay to Render
 
 ## 🚀 Quick Start
 
+### Important: PHP Requires Docker
+
+Render.com does NOT have native PHP support. We use Docker to deploy the application.
+
 ### Option 1: Using Blueprint (Easiest)
 
 1. **Push code to Git:**
    ```bash
-   git add .
-   git commit -m "Add Render deployment configuration"
+   git add Dockerfile .dockerignore render.yaml
+   git commit -m "Add Render Docker deployment configuration"
    git push origin main
    ```
 
@@ -34,15 +40,20 @@ This directory contains all files and guides needed to deploy ClearPay to Render
    - Connect your repository
    - Render will detect `render.yaml`
    - Click **Apply**
+   - Wait for Docker build (5-10 minutes first time)
 
 3. **Configure Environment Variables:**
    - Go to web service → **Environment** tab
    - Add required variables (see guide)
    - Link database
 
-4. **Run Migrations:**
+4. **Generate Encryption Key:**
    - Go to web service → **Shell** tab
-   - Run: `php spark migrate && php spark db:seed DatabaseSeeder`
+   - Run: `php spark key:generate`
+   - Copy the key and add to environment variables
+
+5. **Run Migrations:**
+   - In Shell tab, run: `php spark migrate && php spark db:seed DatabaseSeeder`
 
 ### Option 2: Manual Setup
 
@@ -62,6 +73,19 @@ Follow the detailed guide: [RENDER_DEPLOYMENT_GUIDE.md](RENDER_DEPLOYMENT_GUIDE.
 2. **`app/Config/App.php`**
    - ✅ Added support for `APP_BASE_URL` environment variable
    - ✅ Auto-detects Render URLs
+
+### Docker Configuration
+
+1. **`Dockerfile`**
+   - ✅ PHP 8.2 with Apache
+   - ✅ Required PHP extensions installed
+   - ✅ Composer installed
+   - ✅ Document root set to `public/`
+   - ✅ Permissions configured
+
+2. **`.dockerignore`**
+   - ✅ Excludes unnecessary files from build
+   - ✅ Reduces Docker image size
 
 ### Deployment Files
 
@@ -118,15 +142,11 @@ EMAIL_SMTP_CRYPTO = tls
 
 ## 🔧 Build & Start Commands
 
-### Build Command
-```bash
-composer install --no-dev --optimize-autoloader && php spark key:generate --force
-```
-
-### Start Command
-```bash
-php -S 0.0.0.0:$PORT -t public public/index.php
-```
+### Docker Configuration
+- **Dockerfile:** Builds PHP 8.2 with Apache
+- **Document Root:** `public/` directory
+- **Build:** Handled automatically by Dockerfile
+- **Start:** Apache serves the application
 
 ---
 
@@ -135,6 +155,7 @@ php -S 0.0.0.0:$PORT -t public public/index.php
 - **Full Guide:** [RENDER_DEPLOYMENT_GUIDE.md](RENDER_DEPLOYMENT_GUIDE.md)
 - **Quick Start:** [RENDER_QUICK_START.md](RENDER_QUICK_START.md)
 - **Checklist:** [RENDER_DEPLOYMENT_CHECKLIST.md](RENDER_DEPLOYMENT_CHECKLIST.md)
+- **Docker Setup:** [RENDER_DOCKER_SETUP.md](RENDER_DOCKER_SETUP.md)
 
 ---
 

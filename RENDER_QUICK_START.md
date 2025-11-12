@@ -27,15 +27,9 @@ Quick reference for deploying ClearPay to Render.com. For detailed instructions,
 
 **Create Web Service:**
 - **Name:** `clearpay-web`
-- **Environment:** `PHP`
-- **Build Command:**
-  ```bash
-  composer install --no-dev --optimize-autoloader && php spark key:generate --force
-  ```
-- **Start Command:**
-  ```bash
-  php -S 0.0.0.0:$PORT -t public public/index.php
-  ```
+- **Environment:** `docker`
+- **Dockerfile Path:** `./Dockerfile`
+- **Docker Context:** `.`
 
 **Create Database:**
 - **Type:** MySQL
@@ -96,7 +90,9 @@ php spark db:seed DatabaseSeeder
 
 ### Generate Encryption Key
 ```bash
+# After deployment, access Shell tab and run:
 php spark key:generate
+# Then add the key to environment variables
 ```
 
 ### Check Database
