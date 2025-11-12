@@ -3,7 +3,7 @@ services:
   - type: web
     name: clearpay-web
     env: docker
-    plan: starter  # Options: starter, standard, pro
+    plan: free  # Options: free, starter, standard, pro
     region: oregon  # Options: oregon, frankfurt, singapore, mumbai, tokyo
     dockerfilePath: ./Dockerfile
     dockerContext: .
@@ -29,6 +29,6 @@ databases:
   - name: clearpay-db
     databaseName: clearpaydb
     user: clearpay_user
-    plan: starter  # Options: starter, standard, pro
+    plan: free  # Options: free, starter, standard, pro
     region: oregon  # Should match web service region
 
