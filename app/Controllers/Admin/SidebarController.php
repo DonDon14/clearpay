@@ -467,8 +467,10 @@ class SidebarController extends BaseController
             
             // Add base_url to profile picture if present
             if (!empty($payer['profile_picture'])) {
-                // Extract filename from path and use ImageController route
+                // Extract filename from path, handling various formats
                 $path = $payer['profile_picture'];
+                $path = preg_replace('#^uploads/profile/#', '', $path);
+                $path = preg_replace('#^profile/#', '', $path);
                 $filename = basename($path);
                 $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
             }
@@ -976,11 +978,21 @@ class SidebarController extends BaseController
             log_message('error', 'Failed to log admin user update activity: ' . $e->getMessage());
         }
 
+        // Normalize profile picture URL
+        $profileUrl = null;
+        if (!empty($updatedUser['profile_picture'])) {
+            $path = $updatedUser['profile_picture'];
+            $path = preg_replace('#^uploads/profile/#', '', $path);
+            $path = preg_replace('#^profile/#', '', $path);
+            $filename = basename($path);
+            $profileUrl = base_url('uploads/profile/' . $filename);
+        }
+        
         return $this->response->setJSON([
             'success' => true,
             'message' => 'Profile updated successfully',
             'user' => $updatedUser,
-            'profile_picture_url' => $updatedUser['profile_picture'] ? base_url($updatedUser['profile_picture']) : null
+            'profile_picture_url' => $profileUrl
         ]);
     }
 
@@ -998,8 +1010,16 @@ class SidebarController extends BaseController
                 'message' => 'User not found.'
             ]);
         }
-        // Create absolute URL for profile pic if set
-        $user['profile_picture'] = $user['profile_picture'] ? base_url('uploads/profile/' . basename($user['profile_picture'])) : '';
+        // Create absolute URL for profile pic if set - normalize path
+        if (!empty($user['profile_picture'])) {
+            $path = $user['profile_picture'];
+            $path = preg_replace('#^uploads/profile/#', '', $path);
+            $path = preg_replace('#^profile/#', '', $path);
+            $filename = basename($path);
+            $user['profile_picture'] = base_url('uploads/profile/' . $filename);
+        } else {
+            $user['profile_picture'] = '';
+        }
         return $this->response->setJSON([
             'success' => true,
             'user' => [

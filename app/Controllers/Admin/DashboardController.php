@@ -262,6 +262,28 @@ class DashboardController extends BaseController
         $approvedRequests = $paymentRequestModel->getRequestsWithDetails('approved');
         $rejectedRequests = $paymentRequestModel->getRequestsWithDetails('rejected');
         
+        // Fix image paths for all requests
+        $fixImagePath = function(&$request) {
+            if (!empty($request['proof_of_payment_path'])) {
+                $path = $request['proof_of_payment_path'];
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
+                $filename = basename($path);
+                $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+            }
+            if (!empty($request['profile_picture'])) {
+                $path = $request['profile_picture'];
+                $path = preg_replace('#^uploads/profile/#', '', $path);
+                $path = preg_replace('#^profile/#', '', $path);
+                $filename = basename($path);
+                $request['profile_picture'] = base_url('uploads/profile/' . $filename);
+            }
+        };
+        
+        foreach ($pendingRequests as &$req) $fixImagePath($req);
+        foreach ($approvedRequests as &$req) $fixImagePath($req);
+        foreach ($rejectedRequests as &$req) $fixImagePath($req);
+        
         // Get stats
         $stats = [
             'pending' => count($pendingRequests),
@@ -695,14 +717,18 @@ class DashboardController extends BaseController
 
             // Add base_url to proof of payment path and profile picture
             if (!empty($request['proof_of_payment_path'])) {
-                // Extract filename from path
+                // Extract filename from path, handling various formats
                 $path = $request['proof_of_payment_path'];
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
                 $filename = basename($path);
                 $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
             }
             if (!empty($request['profile_picture'])) {
-                // Extract filename from path
+                // Extract filename from path, handling various formats
                 $path = $request['profile_picture'];
+                $path = preg_replace('#^uploads/profile/#', '', $path);
+                $path = preg_replace('#^profile/#', '', $path);
                 $filename = basename($path);
                 $request['profile_picture'] = base_url('uploads/profile/' . $filename);
             }
@@ -1007,6 +1033,7 @@ class DashboardController extends BaseController
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'],
                 'SMTPTimeout' => $emailConfig['SMTPTimeout'] ?? 30,
                 'mailType' => $emailConfig['mailType'],
+                'mailtype' => $emailConfig['mailType'], // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
             ]);
             

@@ -193,6 +193,7 @@ class LoginController extends Controller
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'],
                 'SMTPTimeout' => $emailConfig['SMTPTimeout'] ?? 30,
                 'mailType' => $emailConfig['mailType'],
+                'mailtype' => $emailConfig['mailType'], // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
             ]);
             

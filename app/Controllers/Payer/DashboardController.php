@@ -66,8 +66,10 @@ class DashboardController extends BaseController
         
         // Add base_url to profile picture if present - use ImageController route
         if (!empty($payer['profile_picture'])) {
-            // Extract filename from path
+            // Extract filename from path, handling various formats
             $path = $payer['profile_picture'];
+            $path = preg_replace('#^uploads/profile/#', '', $path);
+            $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
             
             // Use ImageController route for serving images
@@ -94,8 +96,10 @@ class DashboardController extends BaseController
         
         // Add base_url to profile picture if present - use ImageController route
         if (!empty($payer['profile_picture'])) {
-            // Extract filename from path
+            // Extract filename from path, handling various formats
             $path = $payer['profile_picture'];
+            $path = preg_replace('#^uploads/profile/#', '', $path);
+            $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
             
             // Use ImageController route for serving images
@@ -1031,6 +1035,9 @@ class DashboardController extends BaseController
             if (!empty($request['proof_of_payment_path'])) {
                 // Extract filename from path (handles both full paths and just filenames)
                 $path = $request['proof_of_payment_path'];
+                // Remove any existing uploads/ prefix to avoid duplication
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
                 $filename = basename($path);
                 
                 // Use ImageController route for serving images

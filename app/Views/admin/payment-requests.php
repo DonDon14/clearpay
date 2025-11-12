@@ -90,9 +90,21 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
-                                                        <img src="<?= base_url($request['profile_picture']) ?>" 
+                                                        <?php 
+                                                        $profilePath = $request['profile_picture'];
+                                                        $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
+                                                        $profilePath = preg_replace('#^profile/#', '', $profilePath);
+                                                        $profileFilename = basename($profilePath);
+                                                        $profileUrl = base_url('uploads/profile/' . $profileFilename);
+                                                        ?>
+                                                        <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
-                                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                                             style="width: 32px; height: 32px; object-fit: cover;"
+                                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                                             style="width: 32px; height: 32px; display: none;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
                                                     <?php else: ?>
                                                         <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
                                                              style="width: 32px; height: 32px;">
@@ -165,9 +177,21 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
-                                                        <img src="<?= base_url($request['profile_picture']) ?>" 
+                                                        <?php 
+                                                        $profilePath = $request['profile_picture'];
+                                                        $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
+                                                        $profilePath = preg_replace('#^profile/#', '', $profilePath);
+                                                        $profileFilename = basename($profilePath);
+                                                        $profileUrl = base_url('uploads/profile/' . $profileFilename);
+                                                        ?>
+                                                        <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
-                                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                                             style="width: 32px; height: 32px; object-fit: cover;"
+                                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                                             style="width: 32px; height: 32px; display: none;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
                                                     <?php else: ?>
                                                         <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
                                                              style="width: 32px; height: 32px;">
@@ -243,9 +267,21 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
-                                                        <img src="<?= base_url($request['profile_picture']) ?>" 
+                                                        <?php 
+                                                        $profilePath = $request['profile_picture'];
+                                                        $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
+                                                        $profilePath = preg_replace('#^profile/#', '', $profilePath);
+                                                        $profileFilename = basename($profilePath);
+                                                        $profileUrl = base_url('uploads/profile/' . $profileFilename);
+                                                        ?>
+                                                        <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
-                                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                                             style="width: 32px; height: 32px; object-fit: cover;"
+                                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                                             style="width: 32px; height: 32px; display: none;">
+                                                            <i class="fas fa-user"></i>
+                                                        </div>
                                                     <?php else: ?>
                                                         <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
                                                              style="width: 32px; height: 32px;">

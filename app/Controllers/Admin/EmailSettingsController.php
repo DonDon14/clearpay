@@ -246,6 +246,7 @@ class EmailSettingsController extends BaseController
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'],
                 'SMTPTimeout' => $emailConfig['SMTPTimeout'] ?? 30,
                 'mailType' => $emailConfig['mailType'],
+                'mailtype' => $emailConfig['mailType'], // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
             ]);
 
@@ -269,21 +270,35 @@ class EmailSettingsController extends BaseController
                 </html>
             ');
 
-            log_message('info', 'Attempting to send test email to: ' . $testEmail . ' using SMTP: ' . $emailConfig['SMTPHost'] . ':' . $emailConfig['SMTPPort']);
+            // Log SMTP config (without password for security)
+            log_message('info', 'Attempting to send test email to: ' . $testEmail);
+            log_message('info', 'SMTP Config - Host: ' . $emailConfig['SMTPHost'] . ', Port: ' . $emailConfig['SMTPPort'] . ', User: ' . $emailConfig['SMTPUser'] . ', Crypto: ' . $emailConfig['SMTPCrypto']);
+            log_message('info', 'SMTP Password length: ' . strlen($emailConfig['SMTPPass']) . ' characters (contains spaces: ' . (strpos($emailConfig['SMTPPass'], ' ') !== false ? 'Yes' : 'No') . ')');
 
-            if ($emailService->send()) {
+            $result = $emailService->send();
+            
+            if ($result) {
                 log_message('info', 'Test email sent successfully to: ' . $testEmail);
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Test email sent successfully to ' . $testEmail . '!'
                 ]);
             } else {
-                $error = $emailService->printDebugger(['headers']);
-                log_message('error', 'Test email failed: ' . $error);
+                $error = $emailService->printDebugger(['headers', 'subject', 'body']);
+                log_message('error', 'Test email failed. Debug info: ' . $error);
+                log_message('error', 'SMTP Error details - Check if password contains spaces or special characters');
+                
+                // Try to get more specific error
+                $lastError = error_get_last();
+                if ($lastError) {
+                    log_message('error', 'PHP Error: ' . $lastError['message']);
+                }
+                
                 return $this->response->setJSON([
                     'success' => false,
-                    'error' => 'Failed to send test email. Check your SMTP configuration.',
-                    'debug' => $error
+                    'error' => 'Failed to send test email. Check your SMTP configuration and password.',
+                    'debug' => $error,
+                    'hint' => 'If your password contains spaces, ensure it is saved correctly in the database.'
                 ])->setStatusCode(500);
             }
         } catch (\Exception $e) {
@@ -324,6 +339,7 @@ class EmailSettingsController extends BaseController
                         'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
                         'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
                         'mailType' => $settings['mail_type'] ?? 'html',
+                        'mailtype' => $settings['mail_type'] ?? 'html', // CodeIgniter uses lowercase
                         'charset' => $settings['charset'] ?? 'UTF-8',
                     ];
                 }
@@ -345,6 +361,7 @@ class EmailSettingsController extends BaseController
             'SMTPCrypto' => $config->SMTPCrypto,
             'SMTPTimeout' => $config->SMTPTimeout,
             'mailType' => $config->mailType,
+            'mailtype' => $config->mailType, // CodeIgniter uses lowercase
             'charset' => $config->charset,
         ];
     }
