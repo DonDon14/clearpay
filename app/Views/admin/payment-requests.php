@@ -515,9 +515,9 @@ $(document).ready(function() {
                         <div class="col-12">
                             <h6 class="text-primary">Proof of Payment</h6>
                             <div class="text-center">
-                                <img src="${request.proof_of_payment_path}" alt="Proof of Payment" class="img-fluid mb-3" style="max-height: 300px;">
+                                <img src="${request.proof_of_payment_path.startsWith('http') ? request.proof_of_payment_path : '<?= base_url() ?>' + request.proof_of_payment_path}" alt="Proof of Payment" class="img-fluid mb-3" style="max-height: 300px;" onerror="this.src='<?= base_url('assets/img/placeholder-image.png') ?>'; this.onerror=null;">
                                 <div>
-                                    <a href="${request.proof_of_payment_path}" download="proof_of_payment_${request.reference_number}.jpg" class="btn btn-outline-primary btn-sm">
+                                    <a href="${request.proof_of_payment_path.startsWith('http') ? request.proof_of_payment_path : '<?= base_url() ?>' + request.proof_of_payment_path}" download="proof_of_payment_${request.reference_number}.jpg" class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-download me-1"></i>Download Proof
                                     </a>
                                 </div>

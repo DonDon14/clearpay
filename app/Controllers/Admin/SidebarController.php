@@ -354,9 +354,9 @@ class SidebarController extends BaseController
             
             // Mark email verified when created by admin (if email provided)
             if (!empty($data['email_address'])) {
-                $data['email_verified'] = 1;
+                $data['email_verified'] = true;
             } else {
-                $data['email_verified'] = 1; // No email verification needed if no email
+                $data['email_verified'] = true; // No email verification needed if no email
             }
             $data['verification_token'] = null;
             

@@ -87,7 +87,7 @@
                                             <td>
                                                 <div class="btn-group btn-group-sm" role="group">
                                                     <?php if ($request['proof_of_payment_path']): ?>
-                                                        <button type="button" class="btn btn-outline-info" onclick="viewProofOfPayment('<?= $request['proof_of_payment_path'] ?>', '<?= $request['reference_number'] ?>')" title="View Proof of Payment">
+                                                        <button type="button" class="btn btn-outline-info" onclick="viewProofOfPayment('<?= base_url($request['proof_of_payment_path']) ?>', '<?= $request['reference_number'] ?>')" title="View Proof of Payment">
                                                             <i class="fas fa-image"></i>
                                                         </button>
                                                     <?php endif; ?>
@@ -166,7 +166,13 @@ function refreshPaymentRequests() {
 
 function viewProofOfPayment(imagePath, referenceNumber) {
     const modal = new bootstrap.Modal(document.getElementById('proofOfPaymentModal'));
-    document.getElementById('proofImage').src = imagePath;
+    // Ensure image path is absolute (already includes base_url from PHP)
+    const imgElement = document.getElementById('proofImage');
+    imgElement.src = imagePath;
+    imgElement.onerror = function() {
+        this.src = '<?= base_url('assets/img/placeholder-image.png') ?>';
+        this.onerror = null;
+    };
     document.getElementById('downloadProofBtn').href = imagePath;
     document.getElementById('downloadProofBtn').download = `proof_of_payment_${referenceNumber}.jpg`;
     modal.show();

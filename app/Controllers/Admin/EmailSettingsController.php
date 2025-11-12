@@ -90,7 +90,20 @@ class EmailSettingsController extends BaseController
                 ])->setStatusCode(400);
             }
 
-            // Update config file
+            // Check if we're on Render (environment variables are used)
+            $isRender = !empty($_ENV['DATABASE_URL']) || !empty(getenv('DATABASE_URL'));
+            
+            if ($isRender) {
+                // On Render, email settings are loaded from environment variables
+                // We cannot update them via the web interface - they must be set in Render dashboard
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Email settings are configured via environment variables on Render. Please update them in the Render dashboard under Environment Variables. The settings shown here are read-only.',
+                    'renderMode' => true
+                ])->setStatusCode(400);
+            }
+            
+            // For local development, update config file
             $configFile = APPPATH . 'Config' . DIRECTORY_SEPARATOR . 'Email.php';
             
             if (!file_exists($configFile)) {

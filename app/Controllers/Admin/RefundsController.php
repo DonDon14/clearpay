@@ -975,18 +975,25 @@ class RefundsController extends BaseController
             ]);
         }
 
+        // Cast refund_id to integer for proper comparison
+        $refundId = (int)$refundId;
+
         $refundModel = new RefundModel();
-        $refund = $refundModel->getRefundsWithDetails(null, null, null);
         
-        $refundDetails = null;
-        foreach ($refund as $r) {
-            if ($r['id'] == $refundId) {
-                $refundDetails = $r;
+        // More efficient: query directly by ID instead of loading all refunds
+        $refundDetails = $refundModel->getRefundsWithDetails(null, null, null);
+        
+        // Find the specific refund
+        $foundRefund = null;
+        foreach ($refundDetails as $r) {
+            // Ensure both are compared as integers
+            if ((int)$r['id'] === $refundId) {
+                $foundRefund = $r;
                 break;
             }
         }
 
-        if (!$refundDetails) {
+        if (!$foundRefund) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Refund not found'
@@ -995,7 +1002,7 @@ class RefundsController extends BaseController
 
         return $this->response->setJSON([
             'success' => true,
-            'refund' => $refundDetails
+            'refund' => $foundRefund
         ]);
     }
 

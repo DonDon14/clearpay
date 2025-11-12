@@ -263,7 +263,7 @@ class PaymentsController extends BaseController
                         'contact_number' => $this->request->getPost('contact_number'),
                         'email_address' => $this->request->getPost('email_address') ?: null,
                         'password' => password_hash($payerId, PASSWORD_DEFAULT), // Set password to payer_id for admin-created accounts
-                        'email_verified' => 1,
+                        'email_verified' => true,
                         'verification_token' => null,
                     ];
                     $payerDbId = $payerModel->insert($payerData);
