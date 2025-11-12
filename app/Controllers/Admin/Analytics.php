@@ -85,24 +85,34 @@ class Analytics extends BaseController
                                 ->distinct()
                                 ->countAllResults();
 
+        // Detect database type for date functions
+        $dbDriver = $db->getPlatform();
+        $isPostgres = (strpos(strtolower($dbDriver), 'postgre') !== false);
+        
         // This month's revenue
+        $thisMonthStart = date('Y-m-01 00:00:00');
+        $thisMonthEnd = date('Y-m-t 23:59:59');
+        
         $thisMonthRevenue = $db->table('payments')
                               ->selectSum('amount_paid')
                               ->whereIn('payment_status', ['fully paid', 'partial'])
                               ->where('deleted_at IS NULL')
-                              ->where('MONTH(created_at)', date('m'))
-                              ->where('YEAR(created_at)', date('Y'))
+                              ->where('created_at >=', $thisMonthStart)
+                              ->where('created_at <=', $thisMonthEnd)
                               ->get()
                               ->getRow()
                               ->amount_paid ?? 0;
 
         // Last month's revenue for comparison
+        $lastMonthStart = date('Y-m-01 00:00:00', strtotime('-1 month'));
+        $lastMonthEnd = date('Y-m-t 23:59:59', strtotime('-1 month'));
+        
         $lastMonthRevenue = $db->table('payments')
                               ->selectSum('amount_paid')
                               ->whereIn('payment_status', ['fully paid', 'partial'])
                               ->where('deleted_at IS NULL')
-                              ->where('MONTH(created_at)', date('m', strtotime('-1 month')))
-                              ->where('YEAR(created_at)', date('Y', strtotime('-1 month')))
+                              ->where('created_at >=', $lastMonthStart)
+                              ->where('created_at <=', $lastMonthEnd)
                               ->get()
                               ->getRow()
                               ->amount_paid ?? 0;
