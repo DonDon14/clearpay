@@ -1042,6 +1042,8 @@ class RefundsController extends BaseController
                 'mailType' => $emailConfig['mailType'] ?? 'html',
                 'mailtype' => $emailConfig['mailType'] ?? 'html',
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
             ];
             
             $emailService->initialize($smtpConfig);

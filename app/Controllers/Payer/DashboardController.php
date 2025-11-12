@@ -1927,6 +1927,18 @@ class DashboardController extends BaseController
             ->where('status', 'pending')
             ->countAllResults();
         
+        // Add base_url to profile picture if present - use ImageController route
+        if (!empty($payer['profile_picture'])) {
+            // Extract filename from path, handling various formats
+            $path = $payer['profile_picture'];
+            $path = preg_replace('#^uploads/profile/#', '', $path);
+            $path = preg_replace('#^profile/#', '', $path);
+            $filename = basename($path);
+            
+            // Use ImageController route for serving images
+            $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+        }
+        
         return $this->response->setJSON([
             'success' => true,
             'data' => [
@@ -2126,6 +2138,21 @@ class DashboardController extends BaseController
         
         // Get payer's payment requests
         $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
+        
+        // Add base_url to proof of payment paths - use ImageController route
+        foreach ($paymentRequests as &$request) {
+            if (!empty($request['proof_of_payment_path'])) {
+                // Extract filename from path (handles both full paths and just filenames)
+                $path = $request['proof_of_payment_path'];
+                // Remove any existing uploads/ prefix to avoid duplication
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
+                $filename = basename($path);
+                
+                // Use ImageController route for serving images
+                $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+            }
+        }
         
         return $this->response->setJSON([
             'success' => true,

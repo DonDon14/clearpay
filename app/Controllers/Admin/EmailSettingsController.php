@@ -259,6 +259,8 @@ class EmailSettingsController extends BaseController
                 'mailType' => $emailConfig['mailType'] ?? 'html',
                 'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
             ];
             
             // Validate required fields

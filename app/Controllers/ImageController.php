@@ -21,10 +21,14 @@ class ImageController extends Controller
         }
         
         // Sanitize filename to prevent directory traversal
+        // Handle both full paths and just filenames
         $filename = basename($filename);
         
         // Construct file path
         $filePath = FCPATH . 'uploads/' . $type . '/' . $filename;
+        
+        // Log for debugging (remove in production if needed)
+        log_message('debug', 'ImageController::serve - Type: ' . $type . ', Filename: ' . $filename . ', Path: ' . $filePath . ', Exists: ' . (file_exists($filePath) ? 'Yes' : 'No'));
         
         // Check if file exists
         if (!file_exists($filePath) || !is_file($filePath)) {
