@@ -693,6 +693,14 @@ class DashboardController extends BaseController
                 ]);
             }
 
+            // Add base_url to proof of payment path and profile picture
+            if (!empty($request['proof_of_payment_path'])) {
+                $request['proof_of_payment_path'] = base_url($request['proof_of_payment_path']);
+            }
+            if (!empty($request['profile_picture'])) {
+                $request['profile_picture'] = base_url($request['profile_picture']);
+            }
+
             return $this->response->setJSON([
                 'success' => true,
                 'request' => $request

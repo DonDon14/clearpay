@@ -1709,6 +1709,65 @@ class DashboardController extends BaseController
     /**
      * Return active refund methods (code + name) for payer modal dropdown
      */
+    /**
+     * Get refund details for payer (payer-specific endpoint)
+     */
+    public function getRefundDetails()
+    {
+        // Get payer_id from session
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Please log in to view refund details'
+            ])->setStatusCode(401);
+        }
+
+        $refundId = $this->request->getGet('refund_id');
+        if (!$refundId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Refund ID is required'
+            ]);
+        }
+
+        // Cast refund_id to integer for proper comparison
+        $refundId = (int)$refundId;
+
+        $refundModel = new RefundModel();
+        
+        // Get refund with details, but only if it belongs to this payer
+        $refundDetails = $refundModel->getRefundsWithDetails(null, null, null);
+        
+        // Find the specific refund that belongs to this payer
+        $foundRefund = null;
+        foreach ($refundDetails as $r) {
+            // Ensure both are compared as integers and check payer_id
+            if ((int)$r['id'] === $refundId && (int)$r['payer_id'] === (int)$payerId) {
+                $foundRefund = $r;
+                break;
+            }
+        }
+
+        if (!$foundRefund) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Refund not found or you do not have permission to view this refund'
+            ]);
+        }
+
+        // Add base_url to profile picture if present
+        if (!empty($foundRefund['profile_picture'])) {
+            $foundRefund['profile_picture'] = base_url($foundRefund['profile_picture']);
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'refund' => $foundRefund
+        ]);
+    }
+
     public function getActiveRefundMethods()
     {
         // Check if this is an API request

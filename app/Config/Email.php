@@ -124,19 +124,46 @@ class Email extends BaseConfig
     public bool $DSN = false;
 
     /**
-     * Constructor - Load from environment variables
+     * Constructor - Load from database first, then environment variables, then defaults
      */
     public function __construct()
     {
         parent::__construct();
         
-        // Load from environment variables with fallback to defaults
+        // Try to load from database first
+        try {
+            $db = \Config\Database::connect();
+            $settings = $db->table('email_settings')
+                ->where('is_active', true)
+                ->orderBy('id', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+            
+            if ($settings) {
+                $this->fromEmail = $settings['from_email'] ?? '';
+                $this->fromName = $settings['from_name'] ?? 'ClearPay';
+                $this->protocol = $settings['protocol'] ?? 'smtp';
+                $this->SMTPHost = $settings['smtp_host'] ?? '';
+                $this->SMTPUser = $settings['smtp_user'] ?? '';
+                $this->SMTPPass = $settings['smtp_pass'] ?? '';
+                $this->SMTPPort = (int)($settings['smtp_port'] ?? 587);
+                $this->SMTPCrypto = $settings['smtp_crypto'] ?? 'tls';
+                $this->mailType = $settings['mail_type'] ?? 'html';
+                return; // Exit early if database settings found
+            }
+        } catch (\Exception $e) {
+            // If database table doesn't exist yet, fall through to environment variables
+            log_message('debug', 'Email settings table not found, using environment variables: ' . $e->getMessage());
+        }
+        
+        // Fallback to environment variables
         $this->fromEmail = $_ENV['email.fromEmail'] ?? getenv('email.fromEmail') ?: 'project.clearpay@gmail.com';
         $this->fromName = $_ENV['email.fromName'] ?? getenv('email.fromName') ?: 'ClearPay';
         $this->protocol = $_ENV['email.protocol'] ?? getenv('email.protocol') ?: 'smtp';
         $this->SMTPHost = $_ENV['email.SMTPHost'] ?? getenv('email.SMTPHost') ?: 'smtp.gmail.com';
         $this->SMTPUser = $_ENV['email.SMTPUser'] ?? getenv('email.SMTPUser') ?: 'project.clearpay@gmail.com';
-        $this->SMTPPass = $_ENV['email.SMTPPass'] ?? getenv('email.SMTPPass') ?: 'jdab pewu hoqn whho';
+        $this->SMTPPass = $_ENV['email.SMTPPass'] ?? getenv('email.SMTPPass') ?: '';
         $this->SMTPPort = (int)($_ENV['email.SMTPPort'] ?? getenv('email.SMTPPort') ?: 587);
         $this->SMTPCrypto = $_ENV['email.SMTPCrypto'] ?? getenv('email.SMTPCrypto') ?: 'tls';
         $this->mailType = $_ENV['email.mailType'] ?? getenv('email.mailType') ?: 'html';

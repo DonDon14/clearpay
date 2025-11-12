@@ -465,6 +465,11 @@ class SidebarController extends BaseController
                 $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
             }
             
+            // Add base_url to profile picture if present
+            if (!empty($payer['profile_picture'])) {
+                $payer['profile_picture'] = base_url($payer['profile_picture']);
+            }
+
             return $this->response->setJSON([
                 'success' => true,
                 'payer' => $payer,

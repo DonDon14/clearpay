@@ -230,8 +230,8 @@ function submitRefundRequest() {
 }
 
 function viewRefundDetails(refundId) {
-    // Fetch refund details via AJAX
-    fetch('<?= base_url('admin/refunds/get-details') ?>?refund_id=' + refundId, {
+    // Fetch refund details via AJAX (payer-specific endpoint)
+    fetch('<?= base_url('payer/refund-details') ?>?refund_id=' + refundId, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }

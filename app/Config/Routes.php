@@ -276,6 +276,7 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
             $routes->get('refund-requests', 'Payer\\DashboardController::refundRequests');
             // Provide active refund methods for the payer modal dropdown
             $routes->get('refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+            $routes->get('refund-details', 'Payer\\DashboardController::getRefundDetails');
             $routes->post('submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
             // Provide active payment methods for the payer
             $routes->get('payment-methods', 'Payer\\DashboardController::getActivePaymentMethods');

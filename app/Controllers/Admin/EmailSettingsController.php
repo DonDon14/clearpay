@@ -20,22 +20,55 @@ class EmailSettingsController extends BaseController
         }
 
         try {
-            $emailConfig = config('Email');
+            $db = \Config\Database::connect();
             
+            // Try to load from database first
+            $settings = null;
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+            }
+            
+            // Fallback to config if database settings not found
+            if (!$settings) {
+                $emailConfig = config('Email');
+                return $this->response->setJSON([
+                    'success' => true,
+                    'config' => [
+                        'fromEmail' => $emailConfig->fromEmail,
+                        'fromName' => $emailConfig->fromName,
+                        'protocol' => $emailConfig->protocol,
+                        'SMTPHost' => $emailConfig->SMTPHost,
+                        'SMTPUser' => $emailConfig->SMTPUser,
+                        'SMTPPass' => $emailConfig->SMTPPass,
+                        'SMTPPort' => $emailConfig->SMTPPort,
+                        'SMTPCrypto' => $emailConfig->SMTPCrypto,
+                        'SMTPTimeout' => $emailConfig->SMTPTimeout,
+                        'mailType' => $emailConfig->mailType,
+                        'charset' => $emailConfig->charset,
+                    ]
+                ]);
+            }
+            
+            // Return database settings
             return $this->response->setJSON([
                 'success' => true,
                 'config' => [
-                    'fromEmail' => $emailConfig->fromEmail,
-                    'fromName' => $emailConfig->fromName,
-                    'protocol' => $emailConfig->protocol,
-                    'SMTPHost' => $emailConfig->SMTPHost,
-                    'SMTPUser' => $emailConfig->SMTPUser,
-                    'SMTPPass' => $emailConfig->SMTPPass, // Note: In production, consider masking this
-                    'SMTPPort' => $emailConfig->SMTPPort,
-                    'SMTPCrypto' => $emailConfig->SMTPCrypto,
-                    'SMTPTimeout' => $emailConfig->SMTPTimeout,
-                    'mailType' => $emailConfig->mailType,
-                    'charset' => $emailConfig->charset,
+                    'fromEmail' => $settings['from_email'] ?? '',
+                    'fromName' => $settings['from_name'] ?? 'ClearPay',
+                    'protocol' => $settings['protocol'] ?? 'smtp',
+                    'SMTPHost' => $settings['smtp_host'] ?? '',
+                    'SMTPUser' => $settings['smtp_user'] ?? '',
+                    'SMTPPass' => $settings['smtp_pass'] ?? '',
+                    'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
+                    'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
+                    'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
+                    'mailType' => $settings['mail_type'] ?? 'html',
+                    'charset' => $settings['charset'] ?? 'UTF-8',
                 ]
             ]);
         } catch (\Exception $e) {
@@ -90,65 +123,51 @@ class EmailSettingsController extends BaseController
                 ])->setStatusCode(400);
             }
 
-            // Check if we're on Render (environment variables are used)
-            $isRender = !empty($_ENV['DATABASE_URL']) || !empty(getenv('DATABASE_URL'));
+            // Save to database (email_settings table)
+            $db = \Config\Database::connect();
             
-            if ($isRender) {
-                // On Render, email settings are loaded from environment variables
-                // We cannot update them via the web interface - they must be set in Render dashboard
+            // Check if table exists
+            if (!$db->tableExists('email_settings')) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'error' => 'Email settings are configured via environment variables on Render. Please update them in the Render dashboard under Environment Variables. The settings shown here are read-only.',
-                    'renderMode' => true
-                ])->setStatusCode(400);
-            }
-            
-            // For local development, update config file
-            $configFile = APPPATH . 'Config' . DIRECTORY_SEPARATOR . 'Email.php';
-            
-            if (!file_exists($configFile)) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'error' => 'Email configuration file not found.'
+                    'error' => 'Email settings table not found. Please run migrations first.'
                 ])->setStatusCode(500);
             }
-
-            $configContent = file_get_contents($configFile);
             
-            // Update each field
-            $updates = [
-                'fromEmail' => $data['fromEmail'] ?? '',
-                'fromName' => $data['fromName'] ?? 'ClearPay',
+            // Prepare data for database
+            $settingsData = [
+                'from_email' => $data['fromEmail'] ?? '',
+                'from_name' => $data['fromName'] ?? 'ClearPay',
                 'protocol' => $data['protocol'] ?? 'smtp',
-                'SMTPHost' => $data['SMTPHost'] ?? '',
-                'SMTPUser' => $data['SMTPUser'] ?? '',
-                'SMTPPass' => $data['SMTPPass'] ?? '',
-                'SMTPPort' => (int)($data['SMTPPort'] ?? 587),
-                'SMTPCrypto' => $data['SMTPCrypto'] ?? 'tls',
-                'SMTPTimeout' => (int)($data['SMTPTimeout'] ?? 30),
-                'mailType' => $data['mailType'] ?? 'html',
+                'smtp_host' => $data['SMTPHost'] ?? '',
+                'smtp_user' => $data['SMTPUser'] ?? '',
+                'smtp_pass' => $data['SMTPPass'] ?? '', // Store as-is (should be encrypted in production)
+                'smtp_port' => (int)($data['SMTPPort'] ?? 587),
+                'smtp_crypto' => $data['SMTPCrypto'] ?? 'tls',
+                'smtp_timeout' => (int)($data['SMTPTimeout'] ?? 30),
+                'mail_type' => $data['mailType'] ?? 'html',
                 'charset' => $data['charset'] ?? 'UTF-8',
+                'is_active' => true,
+                'updated_at' => date('Y-m-d H:i:s'),
             ];
-
-            foreach ($updates as $key => $value) {
-                if (is_string($value)) {
-                    $value = addslashes($value);
-                    $pattern = '/public (string|int) \$' . $key . ' = [\'"]([^\'"]*)[\'"];/';
-                    $replacement = "public " . (is_int($updates[$key]) ? 'int' : 'string') . " \${$key} = '{$value}';";
-                } else {
-                    $pattern = '/public int \$' . $key . ' = (\d+);/';
-                    $replacement = "public int \${$key} = {$value};";
-                }
-                
-                $configContent = preg_replace($pattern, $replacement, $configContent);
-            }
-
-            // Write back to file
-            if (file_put_contents($configFile, $configContent) === false) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'error' => 'Failed to write to configuration file. Please check file permissions.'
-                ])->setStatusCode(500);
+            
+            // Check if settings already exist
+            $existing = $db->table('email_settings')
+                ->where('is_active', true)
+                ->orderBy('id', 'DESC')
+                ->limit(1)
+                ->get()
+                ->getRowArray();
+            
+            if ($existing) {
+                // Update existing settings
+                $db->table('email_settings')
+                    ->where('id', $existing['id'])
+                    ->update($settingsData);
+            } else {
+                // Insert new settings
+                $settingsData['created_at'] = date('Y-m-d H:i:s');
+                $db->table('email_settings')->insert($settingsData);
             }
 
             log_message('info', 'Email configuration updated by admin: ' . session()->get('username'));
