@@ -63,12 +63,15 @@ ENCRYPTION_KEY = base64:your-key-here
 
 ### 6. Run Migrations
 
-- Go to web service → **Shell** tab
-- Run:
-  ```bash
-  php spark migrate
-  php spark db:seed DatabaseSeeder
-  ```
+**Where:** Render Dashboard → Your Web Service → **Shell** tab
+
+**Commands:**
+```bash
+php spark migrate
+php spark db:seed DatabaseSeeder
+```
+
+**See detailed guide:** [RENDER_RUN_MIGRATIONS.md](RENDER_RUN_MIGRATIONS.md)
 
 ### 7. Test
 

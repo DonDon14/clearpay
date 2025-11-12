@@ -8,6 +8,13 @@ class CreateRefundMethodsTable extends Migration
 {
     public function up()
     {
+        $db = \Config\Database::connect();
+        $isPostgres = strpos(strtolower($db->getPlatform()), 'postgre') !== false;
+        
+        $statusField = $isPostgres 
+            ? ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'active', 'comment' => 'Status of the refund method']
+            : ['type' => 'ENUM', 'constraint' => ['active', 'inactive'], 'default' => 'active', 'comment' => 'Status of the refund method'];
+        
         $this->forge->addField([
             'id' => [
                 'type' => 'INT',
@@ -32,12 +39,7 @@ class CreateRefundMethodsTable extends Migration
                 'null' => true,
                 'comment' => 'Description of the refund method',
             ],
-            'status' => [
-                'type' => 'ENUM',
-                'constraint' => ['active', 'inactive'],
-                'default' => 'active',
-                'comment' => 'Status of the refund method',
-            ],
+            'status' => $statusField,
             'sort_order' => [
                 'type' => 'INT',
                 'constraint' => 11,
@@ -58,6 +60,11 @@ class CreateRefundMethodsTable extends Migration
         $this->forge->addUniqueKey('code');
         $this->forge->addKey('status');
         $this->forge->createTable('refund_methods', true);
+        
+        // Add CHECK constraint for PostgreSQL
+        if ($isPostgres) {
+            $db->query("ALTER TABLE refund_methods ADD CONSTRAINT refund_methods_status_check CHECK (status IN ('active', 'inactive'))");
+        }
 
         // Insert default refund methods
         $defaultMethods = [

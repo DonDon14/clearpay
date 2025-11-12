@@ -310,22 +310,26 @@ Create a script to parse `DATABASE_URL` and set individual variables.
 
 ## 🔄 Run Database Migrations
 
+> **📖 Detailed Guide:** See [RENDER_RUN_MIGRATIONS.md](RENDER_RUN_MIGRATIONS.md) for step-by-step instructions with screenshots.
+
 ### Step 1: Access Render Shell
 
 1. **In Web Service:**
-   - Go to your web service
-   - Click **Shell** tab
-   - This opens a terminal
+   - Go to your web service in Render Dashboard
+   - Click **Shell** tab (located at the top, next to Logs, Metrics, Environment)
+   - This opens a terminal interface
 
 2. **Run Migrations:**
    ```bash
    php spark migrate
    ```
+   This creates all database tables.
 
 3. **Run Seeders:**
    ```bash
    php spark db:seed DatabaseSeeder
    ```
+   This populates initial data (admin user, payment methods, etc.).
 
 ### Step 2: Verify Database
 

@@ -156,6 +156,8 @@ EMAIL_SMTP_CRYPTO = tls
 - **Quick Start:** [RENDER_QUICK_START.md](RENDER_QUICK_START.md)
 - **Checklist:** [RENDER_DEPLOYMENT_CHECKLIST.md](RENDER_DEPLOYMENT_CHECKLIST.md)
 - **Docker Setup:** [RENDER_DOCKER_SETUP.md](RENDER_DOCKER_SETUP.md)
+- **Run Migrations:** [RENDER_RUN_MIGRATIONS.md](RENDER_RUN_MIGRATIONS.md) ← **How to run migrations & seeders**
+- **PostgreSQL Notes:** [RENDER_POSTGRESQL_NOTES.md](RENDER_POSTGRESQL_NOTES.md)
 
 ---
 

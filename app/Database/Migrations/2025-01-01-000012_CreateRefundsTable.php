@@ -8,6 +8,16 @@ class CreateRefundsTable extends Migration
 {
     public function up()
     {
+        $db = \Config\Database::connect();
+        $isPostgres = strpos(strtolower($db->getPlatform()), 'postgre') !== false;
+        
+        $statusField = $isPostgres 
+            ? ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'pending']
+            : ['type' => 'ENUM', 'constraint' => ['pending', 'processing', 'completed', 'rejected', 'cancelled'], 'default' => 'pending'];
+        $requestTypeField = $isPostgres 
+            ? ['type' => 'VARCHAR', 'constraint' => 30, 'default' => 'admin_initiated', 'comment' => 'Who initiated the refund - admin or payer request']
+            : ['type' => 'ENUM', 'constraint' => ['admin_initiated', 'payer_requested'], 'default' => 'admin_initiated', 'comment' => 'Who initiated the refund - admin or payer request'];
+        
         $this->forge->addField([
             'id' => [
                 'type' => 'INT',
@@ -56,17 +66,8 @@ class CreateRefundsTable extends Migration
                 'null' => true,
                 'comment' => 'Reference number for refund transaction',
             ],
-            'status' => [
-                'type' => 'ENUM',
-                'constraint' => ['pending', 'processing', 'completed', 'rejected', 'cancelled'],
-                'default' => 'pending',
-            ],
-            'request_type' => [
-                'type' => 'ENUM',
-                'constraint' => ['admin_initiated', 'payer_requested'],
-                'default' => 'admin_initiated',
-                'comment' => 'Who initiated the refund - admin or payer request',
-            ],
+            'status' => $statusField,
+            'request_type' => $requestTypeField,
             'requested_by_payer' => [
                 'type' => 'TINYINT',
                 'constraint' => 1,
@@ -121,6 +122,12 @@ class CreateRefundsTable extends Migration
         $this->forge->addForeignKey('processed_by', 'users', 'id', 'SET NULL', 'CASCADE');
 
         $this->forge->createTable('refunds');
+        
+        // Add CHECK constraints for PostgreSQL
+        if ($isPostgres) {
+            $db->query("ALTER TABLE refunds ADD CONSTRAINT refunds_status_check CHECK (status IN ('pending', 'processing', 'completed', 'rejected', 'cancelled'))");
+            $db->query("ALTER TABLE refunds ADD CONSTRAINT refunds_request_type_check CHECK (request_type IN ('admin_initiated', 'payer_requested'))");
+        }
     }
 
     public function down()

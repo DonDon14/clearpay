@@ -8,6 +8,13 @@ class CreatePaymentMethodsTable extends Migration
 {
     public function up()
     {
+        $db = \Config\Database::connect();
+        $isPostgres = strpos(strtolower($db->getPlatform()), 'postgre') !== false;
+        
+        $statusField = $isPostgres 
+            ? ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'active']
+            : ['type' => 'ENUM', 'constraint' => ['active', 'inactive'], 'default' => 'active'];
+        
         $this->forge->addField([
             'id' => [
                 'type' => 'INT',
@@ -65,11 +72,7 @@ class CreatePaymentMethodsTable extends Migration
                 'default' => 'CP',
                 'comment' => 'Prefix for payment reference numbers'
             ],
-            'status' => [
-                'type' => 'ENUM',
-                'constraint' => ['active', 'inactive'],
-                'default' => 'active',
-            ],
+            'status' => $statusField,
             'created_at' => [
                 'type' => 'DATETIME',
                 'null' => true,
@@ -84,6 +87,11 @@ class CreatePaymentMethodsTable extends Migration
         $this->forge->addKey('status');
         
         $this->forge->createTable('payment_methods');
+        
+        // Add CHECK constraint for PostgreSQL
+        if ($isPostgres) {
+            $db->query("ALTER TABLE payment_methods ADD CONSTRAINT payment_methods_status_check CHECK (status IN ('active', 'inactive'))");
+        }
     }
 
     public function down()

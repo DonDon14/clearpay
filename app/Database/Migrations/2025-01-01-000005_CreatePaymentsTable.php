@@ -8,13 +8,20 @@ class CreatePaymentsTable extends Migration
 {
     public function up()
     {
+        $db = \Config\Database::connect();
+        $isPostgres = strpos(strtolower($db->getPlatform()), 'postgre') !== false;
+        
+        $paymentStatusField = $isPostgres 
+            ? ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'pending']
+            : ['type' => 'ENUM', 'constraint' => ['fully paid', 'partial', 'pending'], 'default' => 'pending'];
+        
         $this->forge->addField([
             'id'                => ['type' => 'INT', 'unsigned' => true, 'auto_increment' => true],
             'payer_id'          => ['type' => 'INT', 'unsigned' => true],
             'contribution_id'   => ['type' => 'INT', 'unsigned' => true],
             'amount_paid'       => ['type' => 'DECIMAL', 'constraint' => '12,2', 'default' => 0.00],
             'payment_method'    => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true, 'default' => null],
-            'payment_status'    => ['type' => 'ENUM', 'constraint' => ['fully paid', 'partial', 'pending'], 'default' => 'pending'],
+            'payment_status'    => $paymentStatusField,
             'is_partial_payment'=> ['type' => 'BOOLEAN', 'default' => false],
             'remaining_balance' => ['type' => 'DECIMAL', 'constraint' => '12,2', 'default' => 0.00],
             'parent_payment_id' => ['type' => 'INT', 'null' => true],
@@ -33,6 +40,11 @@ class CreatePaymentsTable extends Migration
         $this->forge->addForeignKey('contribution_id', 'contributions', 'id', 'CASCADE', 'CASCADE');
         $this->forge->addForeignKey('recorded_by', 'users', 'id', 'SET NULL', 'CASCADE');
         $this->forge->createTable('payments', true);
+        
+        // Add CHECK constraint for PostgreSQL
+        if ($isPostgres) {
+            $db->query("ALTER TABLE payments ADD CONSTRAINT payments_payment_status_check CHECK (payment_status IN ('fully paid', 'partial', 'pending'))");
+        }
     }
 
     public function down()

@@ -8,6 +8,13 @@ class CreateContributionCategoriesTable extends Migration
 {
     public function up()
     {
+        $db = \Config\Database::connect();
+        $isPostgres = strpos(strtolower($db->getPlatform()), 'postgre') !== false;
+        
+        $statusField = $isPostgres 
+            ? ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'active', 'comment' => 'Status of the category']
+            : ['type' => 'ENUM', 'constraint' => ['active', 'inactive'], 'default' => 'active', 'comment' => 'Status of the category'];
+        
         $this->forge->addField([
             'id' => [
                 'type' => 'INT',
@@ -32,12 +39,7 @@ class CreateContributionCategoriesTable extends Migration
                 'null' => true,
                 'comment' => 'Description of the category',
             ],
-            'status' => [
-                'type' => 'ENUM',
-                'constraint' => ['active', 'inactive'],
-                'default' => 'active',
-                'comment' => 'Status of the category',
-            ],
+            'status' => $statusField,
             'sort_order' => [
                 'type' => 'INT',
                 'constraint' => 11,
@@ -58,6 +60,11 @@ class CreateContributionCategoriesTable extends Migration
         $this->forge->addUniqueKey('code');
         $this->forge->addKey('status');
         $this->forge->createTable('contribution_categories', true);
+        
+        // Add CHECK constraint for PostgreSQL
+        if ($isPostgres) {
+            $db->query("ALTER TABLE contribution_categories ADD CONSTRAINT contribution_categories_status_check CHECK (status IN ('active', 'inactive'))");
+        }
 
         // Insert default categories
         $defaultCategories = [

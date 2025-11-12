@@ -8,6 +8,13 @@ class CreatePaymentRequestsTable extends Migration
 {
     public function up()
     {
+        $db = \Config\Database::connect();
+        $isPostgres = strpos(strtolower($db->getPlatform()), 'postgre') !== false;
+        
+        $statusField = $isPostgres 
+            ? ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'pending']
+            : ['type' => 'ENUM', 'constraint' => ['pending', 'approved', 'rejected', 'processed'], 'default' => 'pending'];
+        
         $this->forge->addField([
             'id' => [
                 'type' => 'INT',
@@ -55,11 +62,7 @@ class CreatePaymentRequestsTable extends Migration
                 'constraint' => 255,
                 'null' => true,
             ],
-            'status' => [
-                'type' => 'ENUM',
-                'constraint' => ['pending', 'approved', 'rejected', 'processed'],
-                'default' => 'pending',
-            ],
+            'status' => $statusField,
             'notes' => [
                 'type' => 'TEXT',
                 'null' => true,
@@ -104,6 +107,11 @@ class CreatePaymentRequestsTable extends Migration
         $this->forge->addForeignKey('processed_by', 'users', 'id', 'SET NULL', 'CASCADE');
 
         $this->forge->createTable('payment_requests');
+        
+        // Add CHECK constraint for PostgreSQL
+        if ($isPostgres) {
+            $db->query("ALTER TABLE payment_requests ADD CONSTRAINT payment_requests_status_check CHECK (status IN ('pending', 'approved', 'rejected', 'processed'))");
+        }
     }
 
     public function down()
