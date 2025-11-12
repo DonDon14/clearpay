@@ -1,5 +1,6 @@
 services:
   # Web Service - Development/Staging Application
+  # Blueprint sync trigger
   - type: web
     name: clearpay-web-dev
     env: docker
