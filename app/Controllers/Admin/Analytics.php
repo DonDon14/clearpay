@@ -232,35 +232,49 @@ class Analytics extends BaseController
     {
         $db = \Config\Database::connect();
         
+        // Detect database type for date functions (reuse from above)
+        if (!isset($isPostgres)) {
+            $dbDriver = $db->getPlatform();
+            $isPostgres = (strpos(strtolower($dbDriver), 'postgre') !== false);
+        }
+        
         // Daily revenue for last 30 days
+        $dateFunction = $isPostgres ? "DATE(created_at)" : "DATE(created_at)";
         $dailyRevenue = $db->table('payments')
-                          ->select('DATE(created_at) as date, SUM(amount_paid) as total')
+                          ->select("{$dateFunction} as date, SUM(amount_paid) as total")
                           ->whereIn('payment_status', ['fully paid', 'partial'])
                           ->where('deleted_at IS NULL')
                           ->where('created_at >=', date('Y-m-d H:i:s', strtotime('-30 days')))
-                          ->groupBy('DATE(created_at)')
+                          ->groupBy($dateFunction)
                           ->orderBy('date', 'ASC')
                           ->get()
                           ->getResultArray();
 
         // Monthly revenue for last 12 months
+        $yearMonthSelect = $isPostgres 
+            ? "EXTRACT(YEAR FROM created_at) as year, EXTRACT(MONTH FROM created_at) as month"
+            : "YEAR(created_at) as year, MONTH(created_at) as month";
+        $yearMonthGroupBy = $isPostgres
+            ? "EXTRACT(YEAR FROM created_at), EXTRACT(MONTH FROM created_at)"
+            : "YEAR(created_at), MONTH(created_at)";
+            
         $monthlyRevenue = $db->table('payments')
-                            ->select('YEAR(created_at) as year, MONTH(created_at) as month, SUM(amount_paid) as total')
+                            ->select("{$yearMonthSelect}, SUM(amount_paid) as total")
                             ->whereIn('payment_status', ['fully paid', 'partial'])
                             ->where('deleted_at IS NULL')
                             ->where('created_at >=', date('Y-m-d H:i:s', strtotime('-12 months')))
-                            ->groupBy('YEAR(created_at), MONTH(created_at)')
+                            ->groupBy($yearMonthGroupBy)
                             ->orderBy('year, month', 'ASC')
                             ->get()
                             ->getResultArray();
 
         // Transaction count trends
         $dailyTransactions = $db->table('payments')
-                               ->select('DATE(created_at) as date, COUNT(*) as count')
+                               ->select("{$dateFunction} as date, COUNT(*) as count")
                                ->whereIn('payment_status', ['fully paid', 'partial'])
                                ->where('deleted_at IS NULL')
                                ->where('created_at >=', date('Y-m-d H:i:s', strtotime('-30 days')))
-                               ->groupBy('DATE(created_at)')
+                               ->groupBy($dateFunction)
                                ->orderBy('date', 'ASC')
                                ->get()
                                ->getResultArray();
