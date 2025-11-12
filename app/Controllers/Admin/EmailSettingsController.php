@@ -98,12 +98,30 @@ class EmailSettingsController extends BaseController
             // Validate required fields
             $required = ['fromEmail', 'SMTPHost', 'SMTPUser', 'SMTPPort'];
             foreach ($required as $field) {
-                if (empty($data[$field])) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'error' => ucfirst($field) . ' is required.'
-                    ])->setStatusCode(400);
+                // Special handling for SMTPPass - check if it's set, not empty (passwords can be any string including spaces)
+                if ($field === 'SMTPPass') {
+                    if (!isset($data['SMTPPass']) || $data['SMTPPass'] === '') {
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'error' => 'SMTP Password is required.'
+                        ])->setStatusCode(400);
+                    }
+                } else {
+                    if (empty($data[$field])) {
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'error' => ucfirst($field) . ' is required.'
+                        ])->setStatusCode(400);
+                    }
                 }
+            }
+            
+            // Also validate SMTPPass separately
+            if (!isset($data['SMTPPass']) || $data['SMTPPass'] === '') {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'SMTP Password is required.'
+                ])->setStatusCode(400);
             }
 
             // Validate email
@@ -135,18 +153,22 @@ class EmailSettingsController extends BaseController
             }
             
             // Prepare data for database
+            // IMPORTANT: Do NOT trim SMTPPass - passwords may contain spaces
+            // Get password directly without any modification to preserve spaces
+            $smtpPass = isset($data['SMTPPass']) ? (string)$data['SMTPPass'] : '';
+            
             $settingsData = [
-                'from_email' => $data['fromEmail'] ?? '',
-                'from_name' => $data['fromName'] ?? 'ClearPay',
-                'protocol' => $data['protocol'] ?? 'smtp',
-                'smtp_host' => $data['SMTPHost'] ?? '',
-                'smtp_user' => $data['SMTPUser'] ?? '',
-                'smtp_pass' => $data['SMTPPass'] ?? '', // Store as-is (should be encrypted in production)
+                'from_email' => trim($data['fromEmail'] ?? ''),
+                'from_name' => trim($data['fromName'] ?? 'ClearPay'),
+                'protocol' => trim($data['protocol'] ?? 'smtp'),
+                'smtp_host' => trim($data['SMTPHost'] ?? ''),
+                'smtp_user' => trim($data['SMTPUser'] ?? ''),
+                'smtp_pass' => $smtpPass, // Store as-is to preserve spaces and special characters
                 'smtp_port' => (int)($data['SMTPPort'] ?? 587),
-                'smtp_crypto' => $data['SMTPCrypto'] ?? 'tls',
+                'smtp_crypto' => trim($data['SMTPCrypto'] ?? 'tls'),
                 'smtp_timeout' => (int)($data['SMTPTimeout'] ?? 30),
-                'mail_type' => $data['mailType'] ?? 'html',
-                'charset' => $data['charset'] ?? 'UTF-8',
+                'mail_type' => trim($data['mailType'] ?? 'html'),
+                'charset' => trim($data['charset'] ?? 'UTF-8'),
                 'is_active' => true,
                 'updated_at' => date('Y-m-d H:i:s'),
             ];

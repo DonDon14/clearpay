@@ -9,6 +9,9 @@ use CodeIgniter\Router\RouteCollection;
 // Health check route (must be before default route for Render health checks)
 $routes->get('/health', 'HealthController::index');
 
+// Image serving route (must be before other routes to catch image requests)
+$routes->get('uploads/(profile|payment_proofs)/(:any)', 'ImageController::serve/$1/$2');
+
 // Default route - redirect to admin login
 
 // Admin Routes

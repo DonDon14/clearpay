@@ -64,9 +64,14 @@ class DashboardController extends BaseController
             ->limit(3)
             ->findAll();
         
-        // Add base_url to profile picture if present
+        // Add base_url to profile picture if present - use ImageController route
         if (!empty($payer['profile_picture'])) {
-            $payer['profile_picture'] = base_url($payer['profile_picture']);
+            // Extract filename from path
+            $path = $payer['profile_picture'];
+            $filename = basename($path);
+            
+            // Use ImageController route for serving images
+            $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
         }
 
         $data = [
@@ -87,9 +92,14 @@ class DashboardController extends BaseController
         $payerId = session('payer_id');
         $payer = $this->payerModel->find($payerId);
         
-        // Add base_url to profile picture if present
+        // Add base_url to profile picture if present - use ImageController route
         if (!empty($payer['profile_picture'])) {
-            $payer['profile_picture'] = base_url($payer['profile_picture']);
+            // Extract filename from path
+            $path = $payer['profile_picture'];
+            $filename = basename($path);
+            
+            // Use ImageController route for serving images
+            $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
         }
         
         $data = [
@@ -1016,10 +1026,15 @@ class DashboardController extends BaseController
         // Get payer's payment requests
         $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
         
-        // Add base_url to proof of payment paths
+        // Add base_url to proof of payment paths - use ImageController route
         foreach ($paymentRequests as &$request) {
             if (!empty($request['proof_of_payment_path'])) {
-                $request['proof_of_payment_path'] = base_url($request['proof_of_payment_path']);
+                // Extract filename from path (handles both full paths and just filenames)
+                $path = $request['proof_of_payment_path'];
+                $filename = basename($path);
+                
+                // Use ImageController route for serving images
+                $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
             }
         }
         

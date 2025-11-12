@@ -467,7 +467,10 @@ class SidebarController extends BaseController
             
             // Add base_url to profile picture if present
             if (!empty($payer['profile_picture'])) {
-                $payer['profile_picture'] = base_url($payer['profile_picture']);
+                // Extract filename from path and use ImageController route
+                $path = $payer['profile_picture'];
+                $filename = basename($path);
+                $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
             }
 
             return $this->response->setJSON([
@@ -996,7 +999,7 @@ class SidebarController extends BaseController
             ]);
         }
         // Create absolute URL for profile pic if set
-        $user['profile_picture'] = $user['profile_picture'] ? base_url($user['profile_picture']) : '';
+        $user['profile_picture'] = $user['profile_picture'] ? base_url('uploads/profile/' . basename($user['profile_picture'])) : '';
         return $this->response->setJSON([
             'success' => true,
             'user' => [
