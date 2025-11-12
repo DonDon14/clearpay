@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,10 +13,16 @@ class ApiService {
   // ============================================
   // SERVER CONFIGURATION
   // ============================================
-  // Your server PC's IP address (for local network access)
+  // Render deployment URL (Development)
+  static const String productionUrl = 'https://clearpay-web-dev.onrender.com';
+  
+  // Render deployment URL (Production - if you want to use production instead)
+  // static const String productionUrl = 'https://clearpay-web.onrender.com';
+  
+  // Your server PC's IP address (for local network access - development only)
   static const String serverIp = '192.168.18.2';
   
-  // Your ClearPay project path in XAMPP
+  // Your ClearPay project path in XAMPP (development only)
   static const String projectPath = '/ClearPay/public';
   
   // Expose these for use in UI
@@ -38,20 +45,8 @@ class ApiService {
       return storedNgrokUrl;
     }
     
-    // Otherwise, use local network IP based on platform
-    if (kIsWeb) {
-      // For Flutter Web - connect to your server PC
-      return 'http://$serverIp$projectPath';
-    } else {
-      // For Android Emulator - use special IP that maps to host
-      // For Physical Device - use your server PC's actual IP
-      // For iOS Simulator - use 'http://localhost$projectPath'
-      
-      // Uncomment the one you need:
-      return 'http://10.0.2.2$projectPath'; // Android Emulator
-      // return 'http://$serverIp$projectPath'; // Physical Device (Android/iOS)
-      // return 'http://localhost$projectPath'; // iOS Simulator
-    }
+    // Use production URL by default (for both web and mobile)
+    return productionUrl;
   }
   
   // Synchronous getter for backward compatibility (uses cached value or default)
@@ -63,14 +58,8 @@ class ApiService {
       return _cachedNgrokUrl!;
     }
     
-    // Otherwise, use local network IP based on platform
-    if (kIsWeb) {
-      return 'http://$serverIp$projectPath';
-    } else {
-      return 'http://10.0.2.2$projectPath'; // Android Emulator (default)
-      // return 'http://$serverIp$projectPath'; // Physical Device
-      // return 'http://localhost$projectPath'; // iOS Simulator
-    }
+    // Use production URL by default (for both web and mobile)
+    return productionUrl;
   }
   
   static String? authToken;
@@ -453,39 +442,52 @@ class ApiService {
         request.fields['payment_sequence'] = paymentSequence;
       }
       
-      // Add file if provided (web only for now)
-      if (proofOfPaymentFile != null && kIsWeb) {
-        final htmlFile = proofOfPaymentFile as html.File;
-        final fileName = htmlFile.name;
-        
-        // Read file as bytes using FileReader
-        final completer = Completer<Uint8List>();
-        final reader = html.FileReader();
-        reader.onLoadEnd.listen((e) {
-          if (reader.result != null) {
-            try {
-              // FileReader.result is an ArrayBuffer when readAsArrayBuffer is used
-              final arrayBuffer = reader.result as dynamic;
-              completer.complete(Uint8List.view(arrayBuffer));
-            } catch (e) {
-              completer.completeError('Failed to convert file: $e');
+      // Add file if provided (web and mobile)
+      if (proofOfPaymentFile != null) {
+        if (kIsWeb) {
+          // Web: html.File
+          final htmlFile = proofOfPaymentFile as html.File;
+          final fileName = htmlFile.name;
+          
+          // Read file as bytes using FileReader
+          final completer = Completer<Uint8List>();
+          final reader = html.FileReader();
+          reader.onLoadEnd.listen((e) {
+            if (reader.result != null) {
+              try {
+                // FileReader.result is an ArrayBuffer when readAsArrayBuffer is used
+                final arrayBuffer = reader.result as dynamic;
+                completer.complete(Uint8List.view(arrayBuffer));
+              } catch (e) {
+                completer.completeError('Failed to convert file: $e');
+              }
+            } else {
+              completer.completeError('Failed to read file');
             }
-          } else {
+          });
+          reader.onError.listen((e) {
             completer.completeError('Failed to read file');
-          }
-        });
-        reader.onError.listen((e) {
-          completer.completeError('Failed to read file');
-        });
-        reader.readAsArrayBuffer(htmlFile);
-        
-        final fileBytes = await completer.future;
-        final multipartFile = http.MultipartFile.fromBytes(
-          'proof_of_payment',
-          fileBytes,
-          filename: fileName,
-        );
-        request.files.add(multipartFile);
+          });
+          reader.readAsArrayBuffer(htmlFile);
+          
+          final fileBytes = await completer.future;
+          final multipartFile = http.MultipartFile.fromBytes(
+            'proof_of_payment',
+            fileBytes,
+            filename: fileName,
+          );
+          request.files.add(multipartFile);
+        } else {
+          // Mobile: File
+          final file = proofOfPaymentFile as File;
+          final fileName = file.path.split('/').last;
+          final multipartFile = await http.MultipartFile.fromPath(
+            'proof_of_payment',
+            file.path,
+            filename: fileName,
+          );
+          request.files.add(multipartFile);
+        }
       }
       
       // Send request
