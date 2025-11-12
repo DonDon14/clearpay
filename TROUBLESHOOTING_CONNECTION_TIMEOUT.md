@@ -264,3 +264,4 @@ If none of these solutions work:
 **Remember:** `ERR_CONNECTION_TIMED_OUT` means the browser can't reach the server at all. This is **not a CodeIgniter issue** - it's a server/domain connectivity problem that needs to be fixed at the InfinityFree/DNS level first.
 
 
+

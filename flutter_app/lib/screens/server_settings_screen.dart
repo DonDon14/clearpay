@@ -124,7 +124,6 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
       backgroundColor: const Color(0xFFFFFBFE),
       appBar: NotionAppBar(
         title: 'Server Settings',
-        showBackButton: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -135,9 +134,13 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  NotionText.heading('Server Configuration'),
+                  NotionText(
+                    'Server Configuration',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                   const SizedBox(height: 8),
-                  NotionText.body(
+                  NotionText(
                     'Configure how the app connects to your ClearPay server. '
                     'You can use a local network IP or an ngrok URL for external access.',
                   ),
@@ -149,9 +152,13 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  NotionText.heading('ngrok URL (Optional)'),
+                  NotionText(
+                    'ngrok URL (Optional)',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                   const SizedBox(height: 8),
-                  NotionText.body(
+                  NotionText(
                     'If you\'re using ngrok for external access, enter your ngrok URL here. '
                     'Leave empty to use local network IP.',
                   ),
@@ -224,9 +231,9 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
                           const Icon(Icons.info_outline, color: Color(0xFF2196F3)),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: NotionText.body(
+                            child: NotionText(
                               'Current: $_currentUrl',
-                              style: const TextStyle(fontSize: 12),
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -247,9 +254,10 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
                           const Icon(Icons.error_outline, color: Colors.red),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: NotionText.body(
+                            child: NotionText(
                               _errorMessage!,
-                              style: const TextStyle(fontSize: 12, color: Colors.red),
+                              fontSize: 12,
+                              color: Colors.red,
                             ),
                           ),
                         ],
@@ -270,9 +278,10 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
                           const Icon(Icons.check_circle_outline, color: Colors.green),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: NotionText.body(
+                            child: NotionText(
                               _successMessage!,
-                              style: const TextStyle(fontSize: 12, color: Colors.green),
+                              fontSize: 12,
+                              color: Colors.green,
                             ),
                           ),
                         ],
@@ -287,9 +296,13 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  NotionText.heading('Local Network'),
+                  NotionText(
+                    'Local Network',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                   const SizedBox(height: 8),
-                  NotionText.body(
+                  NotionText(
                     'If ngrok URL is not set, the app will use your local network IP:',
                   ),
                   const SizedBox(height: 8),
@@ -299,9 +312,9 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
                       color: const Color(0xFFF5F5F5),
                       borderRadius: BorderRadius.circular(3),
                     ),
-                    child: NotionText.body(
+                    child: NotionText(
                       'http://${ApiService.serverIpAddress}${ApiService.projectPathValue}',
-                      style: const TextStyle(fontFamily: 'monospace'),
+                      // Note: fontFamily not directly supported in NotionText
                     ),
                   ),
                 ],
@@ -312,9 +325,13 @@ class _ServerSettingsScreenState extends State<ServerSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  NotionText.heading('How to Update ngrok URL'),
+                  NotionText(
+                    'How to Update ngrok URL',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                   const SizedBox(height: 8),
-                  NotionText.body(
+                  NotionText(
                     '1. Start ngrok: ngrok http 80\n'
                     '2. Get your URL from http://127.0.0.1:4040\n'
                     '3. Click "Auto-Fetch" button above, or\n'

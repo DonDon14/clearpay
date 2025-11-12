@@ -204,3 +204,4 @@ You have **two options** for DNS configuration:
 **Remember:** The connection timeout error is almost always a DNS/domain configuration issue, not a CodeIgniter problem. Fix the domain setup first, then worry about application configuration.
 
 
+

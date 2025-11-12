@@ -4,7 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:html' as html show File, FileReader;
+// Conditional import for web-only features
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show File, FileReader;
 
 class ApiService {
   // Automatically detect platform and set base URL
