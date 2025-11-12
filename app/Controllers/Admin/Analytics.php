@@ -167,6 +167,10 @@ class Analytics extends BaseController
     {
         $db = \Config\Database::connect();
         
+        // Detect database type for GROUP BY compatibility
+        $dbDriver = $db->getPlatform();
+        $isPostgres = (strpos(strtolower($dbDriver), 'postgre') !== false);
+        
         // Payment status breakdown
         $statusStats = $db->table('payments')
                          ->select('payment_status as status, COUNT(*) as count, SUM(amount_paid) as total_amount')
