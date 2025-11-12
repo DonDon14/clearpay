@@ -193,6 +193,39 @@ class Database extends Config
     {
         parent::__construct();
 
+        // Support Render.com environment variables
+        // Render provides DATABASE_URL or individual DB_* variables
+        if (getenv('DB_HOST')) {
+            $this->default['hostname'] = getenv('DB_HOST');
+        }
+        if (getenv('DB_PORT')) {
+            $this->default['port'] = (int) getenv('DB_PORT');
+        }
+        if (getenv('DB_NAME')) {
+            $this->default['database'] = getenv('DB_NAME');
+        }
+        if (getenv('DB_USER')) {
+            $this->default['username'] = getenv('DB_USER');
+        }
+        if (getenv('DB_PASSWORD')) {
+            $this->default['password'] = getenv('DB_PASSWORD');
+        }
+        if (getenv('DB_DRIVER')) {
+            $this->default['DBDriver'] = getenv('DB_DRIVER');
+        }
+
+        // Parse DATABASE_URL if provided (mainly for PostgreSQL)
+        if (getenv('DATABASE_URL') && empty($this->default['hostname'])) {
+            $url = parse_url(getenv('DATABASE_URL'));
+            if ($url) {
+                $this->default['hostname'] = $url['host'] ?? 'localhost';
+                $this->default['port'] = $url['port'] ?? 3306;
+                $this->default['username'] = $url['user'] ?? 'root';
+                $this->default['password'] = $url['pass'] ?? '';
+                $this->default['database'] = ltrim($url['path'] ?? '', '/');
+            }
+        }
+
         // Ensure that we always set the database group to 'tests' if
         // we are currently running an automated test suite, so that
         // we don't overwrite live data on accident.

@@ -26,12 +26,17 @@ class App extends BaseConfig
     {
         parent::__construct();
         
+        // Support Render.com environment variable
+        if (getenv('APP_BASE_URL')) {
+            $this->baseURL = getenv('APP_BASE_URL');
+        }
         // Auto-detect baseURL from the current request
         // This ensures it works correctly whether accessed via:
         // - http://localhost/ (local)
         // - http://192.168.18.60/ (local network)
         // - http://206.62.40.138/ (internet)
-        if (!empty($_SERVER['HTTP_HOST'])) {
+        // - Render.com URLs
+        elseif (!empty($_SERVER['HTTP_HOST'])) {
             $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
             $host = $_SERVER['HTTP_HOST'];
             // Remove port if present

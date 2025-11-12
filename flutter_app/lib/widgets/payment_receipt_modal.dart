@@ -1,6 +1,9 @@
 import 'dart:convert';
-import 'dart:html' as html;
 import 'dart:typed_data';
+// Conditional import for web-only features
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
+// Import window separately for web
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' show window;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
@@ -753,12 +756,12 @@ class _PaymentReceiptDialog extends StatelessWidget {
 
       // Fill white background
       canvasCtx.fillStyle = '#ffffff';
-      canvasCtx.fillRect(0, 0, canvas.width!, canvas.height!);
+      canvasCtx.fillRect(0, 0, canvas.width!.toDouble(), canvas.height!.toDouble());
 
       // Add blue border
       canvasCtx.strokeStyle = '#0d6efd';
       canvasCtx.lineWidth = 2;
-      canvasCtx.strokeRect(1, 1, canvas.width! - 2, canvas.height! - 2);
+      canvasCtx.strokeRect(1.0, 1.0, (canvas.width! - 2).toDouble(), (canvas.height! - 2).toDouble());
 
       // Draw elements with compact spacing
       double currentY = padding.toDouble();
@@ -766,7 +769,7 @@ class _PaymentReceiptDialog extends StatelessWidget {
       // Draw logo at the top (centered)
       if (logoLoaded && logoDrawSize > 0) {
         final logoX = (canvas.width! - logoDrawSize) / 2;
-        canvasCtx.drawImageScaled(logoImage, logoX, currentY, logoDrawSize, logoDrawSize);
+        canvasCtx.drawImageScaled(logoImage, logoX.toDouble(), currentY.toDouble(), logoDrawSize.toDouble(), logoDrawSize.toDouble());
         currentY += logoDrawSize + logoSpacing;
       }
 
@@ -775,12 +778,12 @@ class _PaymentReceiptDialog extends StatelessWidget {
       canvasCtx.font = 'bold 18px Arial';
       canvasCtx.textAlign = 'center';
       canvasCtx.textBaseline = 'top';
-      canvasCtx.fillText('ClearPay', canvas.width! / 2, currentY);
+      canvasCtx.fillText('ClearPay', (canvas.width! / 2).toDouble(), currentY);
       currentY += titleHeight + titleSpacing;
 
       // Draw QR code (centered)
       final qrX = (canvas.width! - qrSize) / 2;
-      canvasCtx.drawImageScaled(qrImage, qrX, currentY, qrSize, qrSize);
+      canvasCtx.drawImageScaled(qrImage, qrX.toDouble(), currentY, qrSize.toDouble(), qrSize.toDouble());
       currentY += qrSize + qrSpacing;
 
       // Add reference number at the bottom (centered)
@@ -788,7 +791,7 @@ class _PaymentReceiptDialog extends StatelessWidget {
       canvasCtx.font = '12px Arial';
       canvasCtx.textAlign = 'center';
       canvasCtx.textBaseline = 'top';
-      canvasCtx.fillText(referenceNumber, canvas.width! / 2, currentY);
+      canvasCtx.fillText(referenceNumber, (canvas.width! / 2).toDouble(), currentY);
 
       // Convert canvas to blob and download
       final blob = await canvas.toBlob();
@@ -1119,7 +1122,9 @@ class _PaymentReceiptDialog extends StatelessWidget {
       final url = html.Url.createObjectUrlFromBlob(blob);
       
       // Open in new window
-      html.window.open(url, '_blank');
+      if (kIsWeb) {
+        window.open(url, '_blank');
+      }
       
       // Clean up blob URL after a delay
       Future.delayed(const Duration(seconds: 2), () {
