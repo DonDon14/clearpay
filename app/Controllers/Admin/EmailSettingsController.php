@@ -414,6 +414,7 @@ class EmailSettingsController extends BaseController
 
     /**
      * Get email configuration from database or fallback to config/environment
+     * Priority: Database > Environment Variables > Config defaults
      */
     private function getEmailConfig()
     {
@@ -430,13 +431,21 @@ class EmailSettingsController extends BaseController
                     ->getRowArray();
                 
                 if ($settings) {
+                    // Get password from database
+                    $smtpPass = $settings['smtp_pass'] ?? '';
+                    
+                    // IMPORTANT: Remove spaces from Gmail App Password (works with or without spaces)
+                    if (!empty($smtpPass)) {
+                        $smtpPass = str_replace(' ', '', $smtpPass);
+                    }
+                    
                     return [
                         'fromEmail' => $settings['from_email'] ?? '',
                         'fromName' => $settings['from_name'] ?? 'ClearPay',
                         'protocol' => $settings['protocol'] ?? 'smtp',
                         'SMTPHost' => $settings['smtp_host'] ?? '',
                         'SMTPUser' => $settings['smtp_user'] ?? '',
-                        'SMTPPass' => $settings['smtp_pass'] ?? '',
+                        'SMTPPass' => $smtpPass, // Password with spaces removed
                         'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
                         'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
                         'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
@@ -450,15 +459,25 @@ class EmailSettingsController extends BaseController
             log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
         }
         
-        // Fallback to config
+        // Fallback to config (which reads from environment variables via BaseConfig)
         $config = config('Email');
+        
+        // Get password from config
+        $smtpPass = $config->SMTPPass ?? '';
+        
+        // IMPORTANT: Remove spaces from Gmail App Password (works with or without spaces)
+        // This handles passwords from environment variables too
+        if (!empty($smtpPass)) {
+            $smtpPass = str_replace(' ', '', $smtpPass);
+        }
+        
         return [
             'fromEmail' => $config->fromEmail,
             'fromName' => $config->fromName,
             'protocol' => $config->protocol,
             'SMTPHost' => $config->SMTPHost,
             'SMTPUser' => $config->SMTPUser,
-            'SMTPPass' => $config->SMTPPass,
+            'SMTPPass' => $smtpPass, // Password with spaces removed
             'SMTPPort' => $config->SMTPPort,
             'SMTPCrypto' => $config->SMTPCrypto,
             'SMTPTimeout' => $config->SMTPTimeout,
