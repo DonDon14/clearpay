@@ -25,23 +25,52 @@ class TestController extends Controller
         $cloudinaryStatus = 'not_configured';
         $cloudinaryError = null;
         $cloudinaryUrl = null;
+        $debugInfo = [];
         
         try {
+            // Check if Cloudinary classes exist
+            $debugInfo['cloudinary_class_exists'] = class_exists('\Cloudinary\Cloudinary');
+            $debugInfo['configuration_class_exists'] = class_exists('\Cloudinary\Configuration\Configuration');
+            $debugInfo['upload_api_class_exists'] = class_exists('\Cloudinary\Api\Upload\UploadApi');
+            
             $cloudinaryService = new \App\Services\CloudinaryService();
+            $debugInfo['service_created'] = true;
+            $debugInfo['is_configured'] = $cloudinaryService->isConfigured();
+            
             if ($cloudinaryService->isConfigured()) {
                 $cloudinaryStatus = 'configured';
             } else {
                 $cloudinaryStatus = 'not_configured';
+                // Try to manually check what went wrong
+                if (empty($cloudName) || empty($apiKey) || empty($apiSecret)) {
+                    $cloudinaryError = 'Environment variables are empty';
+                } else {
+                    $cloudinaryError = 'Service initialization failed - check logs for details';
+                }
             }
         } catch (\Exception $e) {
             $cloudinaryStatus = 'error';
             $cloudinaryError = $e->getMessage();
+            $debugInfo['exception'] = [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ];
+        } catch (\Error $e) {
+            $cloudinaryStatus = 'error';
+            $cloudinaryError = $e->getMessage();
+            $debugInfo['error'] = [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ];
         }
         
         // Return status
         return $this->response->setJSON([
             'cloudinary_status' => $cloudinaryStatus,
             'cloudinary_error' => $cloudinaryError,
+            'debug_info' => $debugInfo,
             'env_vars' => [
                 'CLOUDINARY_CLOUD_NAME' => $cloudName ? 'SET (' . strlen($cloudName) . ' chars)' : 'NOT SET',
                 'CLOUDINARY_API_KEY' => $apiKey ? 'SET (' . strlen($apiKey) . ' chars)' : 'NOT SET',

@@ -40,6 +40,7 @@ class CloudinaryService
         }
         
         try {
+            log_message('error', 'Cloudinary init - Attempting Configuration::instance()');
             Configuration::instance([
                 'cloud' => [
                     'cloud_name' => $cloudName,
@@ -50,14 +51,26 @@ class CloudinaryService
                     'secure' => true
                 ]
             ]);
+            log_message('error', 'Cloudinary init - Configuration::instance() succeeded');
             
+            log_message('error', 'Cloudinary init - Creating Cloudinary() object');
             $this->cloudinary = new Cloudinary();
+            log_message('error', 'Cloudinary init - Cloudinary() object created');
+            
+            log_message('error', 'Cloudinary init - Creating UploadApi() object');
             $this->uploadApi = new UploadApi();
+            log_message('error', 'Cloudinary init - UploadApi() object created');
+            
             $this->isConfigured = true;
             
-            log_message('info', 'Cloudinary service initialized successfully');
+            log_message('error', 'Cloudinary service initialized successfully');
         } catch (\Exception $e) {
-            log_message('error', 'Failed to initialize Cloudinary: ' . $e->getMessage());
+            log_message('error', 'Failed to initialize Cloudinary (Exception): ' . $e->getMessage());
+            log_message('error', 'Cloudinary initialization error trace: ' . $e->getTraceAsString());
+            $this->isConfigured = false;
+        } catch (\Error $e) {
+            log_message('error', 'Failed to initialize Cloudinary (Error): ' . $e->getMessage());
+            log_message('error', 'Cloudinary initialization error trace: ' . $e->getTraceAsString());
             $this->isConfigured = false;
         }
     }
