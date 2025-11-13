@@ -211,7 +211,7 @@ class Analytics extends BaseController
         // Top payers (by total amount paid)
         // For PostgreSQL, all non-aggregated columns must be in GROUP BY
         $groupByColumns = $isPostgres 
-            ? 'p.payer_id, py.payer_name, py.payer_id'
+            ? 'p.payer_id, py.payer_name, py.payer_id, py.profile_picture, py.id'
             : 'p.payer_id';
             
         $topPayers = $db->table('payments p')
