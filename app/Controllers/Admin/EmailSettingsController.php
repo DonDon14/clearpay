@@ -340,13 +340,41 @@ class EmailSettingsController extends BaseController
             try {
                 $result = $emailService->send();
             } catch (\Exception $sendException) {
-                log_message('error', 'Email send exception: ' . $sendException->getMessage());
+                $errorMsg = $sendException->getMessage();
+                log_message('error', 'Email send exception: ' . $errorMsg);
+                log_message('error', 'Exception class: ' . get_class($sendException));
+                log_message('error', 'Exception code: ' . $sendException->getCode());
+                log_message('error', 'Exception file: ' . $sendException->getFile() . ':' . $sendException->getLine());
                 log_message('error', 'Exception trace: ' . $sendException->getTraceAsString());
-                $errorDetails = $sendException->getMessage();
+                $errorDetails = $errorMsg;
+                
+                // Also get debug info from email service if available
+                try {
+                    $debugInfo = $emailService->printDebugger(['headers', 'subject', 'body']);
+                    if (!empty($debugInfo)) {
+                        log_message('error', 'Email debug info: ' . $debugInfo);
+                        $errorDetails .= "\n\nDebug Info:\n" . $debugInfo;
+                    }
+                } catch (\Exception $debugException) {
+                    log_message('error', 'Could not get email debug info: ' . $debugException->getMessage());
+                }
             } catch (\Error $sendError) {
-                log_message('error', 'Email send error: ' . $sendError->getMessage());
+                $errorMsg = $sendError->getMessage();
+                log_message('error', 'Email send error: ' . $errorMsg);
+                log_message('error', 'Error file: ' . $sendError->getFile() . ':' . $sendError->getLine());
                 log_message('error', 'Error trace: ' . $sendError->getTraceAsString());
-                $errorDetails = $sendError->getMessage();
+                $errorDetails = $errorMsg;
+                
+                // Also get debug info from email service if available
+                try {
+                    $debugInfo = $emailService->printDebugger(['headers', 'subject', 'body']);
+                    if (!empty($debugInfo)) {
+                        log_message('error', 'Email debug info: ' . $debugInfo);
+                        $errorDetails .= "\n\nDebug Info:\n" . $debugInfo;
+                    }
+                } catch (\Exception $debugException) {
+                    log_message('error', 'Could not get email debug info: ' . $debugException->getMessage());
+                }
             }
             
             if ($result) {
@@ -367,24 +395,51 @@ class EmailSettingsController extends BaseController
                     log_message('error', 'PHP Error: ' . $phpError);
                 }
                 
+                // Extract the actual SMTP error from debug output
+                $smtpError = '';
+                if (preg_match('/Failed to (.*?)(?:\.|$)/i', $error, $matches)) {
+                    $smtpError = $matches[1];
+                } elseif (preg_match('/Error: (.*?)(?:\.|$)/i', $error, $matches)) {
+                    $smtpError = $matches[1];
+                } elseif (preg_match('/Unable to (.*?)(?:\.|$)/i', $error, $matches)) {
+                    $smtpError = $matches[1];
+                }
+                
                 // Build user-friendly error message
                 $errorMessage = 'Failed to send test email.';
                 $hints = [];
                 
-                if (stripos($error, 'connection') !== false || stripos($error, 'connect') !== false) {
+                // Check for specific error patterns
+                $errorLower = strtolower($error . ' ' . $errorDetails);
+                
+                if (stripos($errorLower, 'connection') !== false || stripos($errorLower, 'connect') !== false || stripos($errorLower, 'timeout') !== false) {
                     $errorMessage = 'Cannot connect to SMTP server.';
                     $hints[] = 'Check if SMTP Host and Port are correct.';
                     $hints[] = 'Verify your server can make outbound connections on port ' . $emailConfig['SMTPPort'] . '.';
-                    $hints[] = 'Check firewall settings.';
-                } elseif (stripos($error, 'authentication') !== false || stripos($error, 'auth') !== false) {
+                    $hints[] = '⚠️ **Render.com may block SMTP ports on free tier**. Consider using SendGrid, Mailgun, or another email service.';
+                    $hints[] = 'Check firewall settings and network restrictions.';
+                } elseif (stripos($errorLower, 'authentication') !== false || stripos($errorLower, 'auth') !== false || stripos($errorLower, '535') !== false || stripos($errorLower, 'username and password') !== false) {
                     $errorMessage = 'SMTP authentication failed.';
                     $hints[] = 'Verify your SMTP Username and Password are correct.';
                     $hints[] = 'For Gmail, ensure you are using an App Password, not your regular password.';
                     $hints[] = 'Check if 2-Step Verification is enabled on your Gmail account.';
-                } elseif (stripos($error, 'ssl') !== false || stripos($error, 'tls') !== false) {
+                    $hints[] = 'Try generating a NEW App Password from Google Account settings.';
+                    $hints[] = 'Verify the App Password hasn\'t been revoked or expired.';
+                } elseif (stripos($errorLower, 'ssl') !== false || stripos($errorLower, 'tls') !== false || stripos($errorLower, 'certificate') !== false) {
                     $errorMessage = 'SSL/TLS connection error.';
                     $hints[] = 'Ensure OpenSSL extension is enabled in PHP.';
                     $hints[] = 'Check if SMTP Crypto setting matches the port (TLS for 587, SSL for 465).';
+                    $hints[] = 'Try using port 465 with SSL instead of 587 with TLS.';
+                } elseif (stripos($errorLower, 'blocked') !== false || stripos($errorLower, 'firewall') !== false) {
+                    $errorMessage = 'SMTP connection blocked.';
+                    $hints[] = 'Your hosting provider may be blocking SMTP ports.';
+                    $hints[] = '⚠️ **Render.com free tier may block outbound SMTP connections**.';
+                    $hints[] = 'Consider using a transactional email service like SendGrid, Mailgun, or AWS SES.';
+                }
+                
+                // Include the actual SMTP error if found
+                if (!empty($smtpError)) {
+                    $errorMessage .= ' (' . $smtpError . ')';
                 }
                 
                 return $this->response->setJSON([
@@ -392,7 +447,8 @@ class EmailSettingsController extends BaseController
                     'error' => $errorMessage,
                     'debug' => $errorDetails ?: $error,
                     'hints' => $hints,
-                    'phpError' => $phpError
+                    'phpError' => $phpError,
+                    'smtpError' => $smtpError
                 ])->setStatusCode(500);
             }
         } catch (\Exception $e) {
