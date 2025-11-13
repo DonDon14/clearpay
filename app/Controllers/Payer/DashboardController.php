@@ -72,8 +72,14 @@ class DashboardController extends BaseController
             $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
             
-            // Use ImageController route for serving images
-            $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+            // Verify file exists before setting path
+            $filePath = FCPATH . 'uploads/profile/' . $filename;
+            if (file_exists($filePath)) {
+                $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+            } else {
+                log_message('warning', 'Profile picture not found: ' . $filePath);
+                $payer['profile_picture'] = null;
+            }
         }
 
         $data = [
@@ -102,10 +108,16 @@ class DashboardController extends BaseController
             $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
             
-            // Use ImageController route for serving images
-            $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+            // Verify file exists before setting path
+            $filePath = FCPATH . 'uploads/profile/' . $filename;
+            if (file_exists($filePath)) {
+                $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+            } else {
+                log_message('warning', 'Profile picture not found: ' . $filePath);
+                $payer['profile_picture'] = null;
+            }
         }
-        
+
         $data = [
             'title' => 'My Data',
             'pageTitle' => 'My Data',
@@ -1040,8 +1052,14 @@ class DashboardController extends BaseController
                 $path = preg_replace('#^payment_proofs/#', '', $path);
                 $filename = basename($path);
                 
-                // Use ImageController route for serving images
-                $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/payment_proofs/' . $filename;
+                if (file_exists($filePath)) {
+                    $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                } else {
+                    log_message('warning', 'Proof of payment image not found: ' . $filePath);
+                    $request['proof_of_payment_path'] = null;
+                }
             }
         }
         
@@ -1798,7 +1816,20 @@ class DashboardController extends BaseController
 
         // Add base_url to profile picture if present
         if (!empty($foundRefund['profile_picture'])) {
-            $foundRefund['profile_picture'] = base_url($foundRefund['profile_picture']);
+            // Extract filename from path, handling various formats
+            $path = $foundRefund['profile_picture'];
+            $path = preg_replace('#^uploads/profile/#', '', $path);
+            $path = preg_replace('#^profile/#', '', $path);
+            $filename = basename($path);
+            
+            // Verify file exists before setting path
+            $filePath = FCPATH . 'uploads/profile/' . $filename;
+            if (file_exists($filePath)) {
+                $foundRefund['profile_picture'] = base_url('uploads/profile/' . $filename);
+            } else {
+                log_message('warning', 'Profile picture not found: ' . $filePath);
+                $foundRefund['profile_picture'] = null;
+            }
         }
 
         return $this->response->setJSON([
@@ -1935,10 +1966,16 @@ class DashboardController extends BaseController
             $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
             
-            // Use ImageController route for serving images
-            $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+            // Verify file exists before setting path
+            $filePath = FCPATH . 'uploads/profile/' . $filename;
+            if (file_exists($filePath)) {
+                $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+            } else {
+                log_message('warning', 'Profile picture not found: ' . $filePath);
+                $payer['profile_picture'] = null;
+            }
         }
-        
+
         return $this->response->setJSON([
             'success' => true,
             'data' => [
@@ -2149,8 +2186,14 @@ class DashboardController extends BaseController
                 $path = preg_replace('#^payment_proofs/#', '', $path);
                 $filename = basename($path);
                 
-                // Use ImageController route for serving images
-                $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/payment_proofs/' . $filename;
+                if (file_exists($filePath)) {
+                    $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                } else {
+                    log_message('warning', 'Proof of payment image not found: ' . $filePath);
+                    $request['proof_of_payment_path'] = null;
+                }
             }
         }
         

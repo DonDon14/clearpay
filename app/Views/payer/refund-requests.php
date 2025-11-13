@@ -230,13 +230,24 @@ function submitRefundRequest() {
 }
 
 function viewRefundDetails(refundId) {
+    // Show loading state
+    const content = document.getElementById('refundDetailsContent');
+    if (content) {
+        content.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    }
+    
     // Fetch refund details via AJAX (payer-specific endpoint)
     fetch('<?= base_url('payer/refund-details') ?>?refund_id=' + refundId, {
         headers: {
             'X-Requested-With': 'XMLHttpRequest'
         }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             const refund = data.refund;
@@ -318,12 +329,22 @@ function viewRefundDetails(refundId) {
             const modal = new bootstrap.Modal(document.getElementById('refundDetailsModal'));
             modal.show();
         } else {
-            alert('Error loading refund details: ' + data.message);
+            const content = document.getElementById('refundDetailsContent');
+            if (content) {
+                content.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading refund details: ' + (data.message || 'Unknown error') + '</div>';
+            } else {
+                alert('Error loading refund details: ' + (data.message || 'Unknown error'));
+            }
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while loading refund details.');
+        console.error('Error fetching refund details:', error);
+        const content = document.getElementById('refundDetailsContent');
+        if (content) {
+            content.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>An error occurred while loading refund details. Please try again.</div>';
+        } else {
+            alert('An error occurred while loading refund details. Please try again.');
+        }
     });
 }
 </script>
