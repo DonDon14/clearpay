@@ -87,5 +87,63 @@ class TestController extends Controller
             ]
         ]);
     }
+    
+    /**
+     * Test Cloudinary upload with a sample file
+     * This helps diagnose upload issues
+     */
+    public function testCloudinaryUpload()
+    {
+        // Check if Cloudinary is configured
+        $cloudinaryService = new \App\Services\CloudinaryService();
+        
+        if (!$cloudinaryService->isConfigured()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Cloudinary is not configured',
+                'details' => 'Check /test/cloudinary-status for configuration details'
+            ]);
+        }
+        
+        // Try to create a test image and upload it
+        try {
+            // Create a simple test image (1x1 pixel PNG)
+            $testImagePath = sys_get_temp_dir() . '/cloudinary_test_' . time() . '.png';
+            $image = imagecreatetruecolor(1, 1);
+            imagepng($image, $testImagePath);
+            imagedestroy($image);
+            
+            // Upload test image
+            $publicId = 'test_' . time();
+            $result = $cloudinaryService->upload($testImagePath, 'profile', $publicId);
+            
+            // Clean up test file
+            @unlink($testImagePath);
+            
+            if ($result && isset($result['url'])) {
+                // Delete the test image from Cloudinary
+                $cloudinaryService->delete('profile/' . $publicId);
+                
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Cloudinary upload test successful',
+                    'uploaded_url' => $result['url'],
+                    'public_id' => $result['public_id'] ?? null
+                ]);
+            } else {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Upload returned invalid result',
+                    'result' => $result
+                ]);
+            }
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Exception during upload test: ' . $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
 }
 

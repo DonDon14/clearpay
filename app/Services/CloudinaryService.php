@@ -106,12 +106,9 @@ class CloudinaryService
                 'overwrite' => true,
             ];
             
-            // Add folder if provided
-            if ($folder) {
-                $uploadOptions['folder'] = $folder;
-            }
-            
             // If public_id is provided, include folder in public_id if folder is set
+            // NOTE: If public_id includes folder path, don't set 'folder' option separately
+            // Cloudinary will use the folder from public_id
             if ($publicId !== null) {
                 if ($folder) {
                     // Include folder in public_id: "profile/payer_2_1234567890"
@@ -119,6 +116,9 @@ class CloudinaryService
                 } else {
                     $uploadOptions['public_id'] = $publicId;
                 }
+            } else if ($folder) {
+                // Only set folder if public_id is not provided
+                $uploadOptions['folder'] = $folder;
             }
             
             // Add transformation options (simplified - apply transformations on-the-fly, not during upload)
