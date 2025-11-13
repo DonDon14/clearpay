@@ -100,16 +100,7 @@
                                                         <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
                                                              style="width: 32px; height: 32px; object-fit: cover;"
-                                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
-                                                             style="width: 32px; height: 32px; display: none;">
-                                                            <i class="fas fa-user"></i>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
-                                                             style="width: 32px; height: 32px;">
-                                                            <i class="fas fa-user"></i>
-                                                        </div>
+                                                             onerror="this.style.display='none';">
                                                     <?php endif; ?>
                                                     <div>
                                                         <div class="fw-bold"><?= esc($request['payer_name']) ?></div>
@@ -272,16 +263,7 @@
                                                         <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
                                                              style="width: 32px; height: 32px; object-fit: cover;"
-                                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
-                                                             style="width: 32px; height: 32px; display: none;">
-                                                            <i class="fas fa-user"></i>
-                                                        </div>
-                                                    <?php else: ?>
-                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
-                                                             style="width: 32px; height: 32px;">
-                                                            <i class="fas fa-user"></i>
-                                                        </div>
+                                                             onerror="this.style.display='none';">
                                                     <?php endif; ?>
                                                     <div>
                                                         <div class="fw-bold"><?= esc($request['payer_name']) ?></div>

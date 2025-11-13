@@ -216,7 +216,7 @@ class Analytics extends BaseController
             
         $topPayers = $db->table('payments p')
                        ->join('payers py', 'p.payer_id = py.id', 'left')
-                       ->select('py.payer_name, py.payer_id as payer_id_number, COUNT(p.id) as total_transactions, SUM(p.amount_paid) as total_paid')
+                       ->select('py.payer_name, py.payer_id as payer_id_number, py.profile_picture, py.id as payer_db_id, COUNT(p.id) as total_transactions, SUM(p.amount_paid) as total_paid')
                        ->whereIn('p.payment_status', ['fully paid', 'partial'])
                        ->where('p.deleted_at IS NULL')
                        ->groupBy($groupByColumns)
@@ -224,6 +224,16 @@ class Analytics extends BaseController
                        ->limit(10)
                        ->get()
                        ->getResultArray();
+        
+        // Normalize profile pictures for top payers
+        foreach ($topPayers as &$payer) {
+            $payer['profile_picture'] = $this->normalizeProfilePicturePath(
+                $payer['profile_picture'] ?? null,
+                $payer['payer_db_id'] ?? null,
+                null,
+                'payer'
+            );
+        }
 
         return [
             'by_status' => $statusStats,

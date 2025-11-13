@@ -12,8 +12,8 @@ class ApiService {
   // ============================================
   // SERVER CONFIGURATION
   // ============================================
-  // Render deployment URL (Development)
-  static const String productionUrl = 'https://clearpay-web-dev.onrender.com';
+  // Render deployment URL (Development - Active Service)
+  static const String productionUrl = 'https://clearpay-web-dev-k3h3.onrender.com';
   
   // Render deployment URL (Production - if you want to use production instead)
   // static const String productionUrl = 'https://clearpay-web.onrender.com';

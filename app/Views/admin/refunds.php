@@ -194,7 +194,25 @@
                                             <?php foreach ($refundHistory as $refund): ?>
                                                 <tr>
                                                     <td><?= date('M d, Y H:i', strtotime($refund['processed_at'] ?? $refund['requested_at'])) ?></td>
-                                                    <td><?= esc($refund['payer_name']) ?></td>
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            <?php if (!empty($refund['profile_picture'])): ?>
+                                                                <?php 
+                                                                // Check if it's already a full URL (Cloudinary or other)
+                                                                $refundPicUrl = (strpos($refund['profile_picture'], 'http://') === 0 || strpos($refund['profile_picture'], 'https://') === 0)
+                                                                    ? $refund['profile_picture'] 
+                                                                    : base_url($refund['profile_picture']);
+                                                                ?>
+                                                                <img src="<?= $refundPicUrl ?>" 
+                                                                     alt="Profile" class="rounded-circle me-2" 
+                                                                     style="width: 32px; height: 32px; object-fit: cover;"
+                                                                     onerror="this.style.display='none';">
+                                                            <?php endif; ?>
+                                                            <div>
+                                                                <div class="fw-bold"><?= esc($refund['payer_name']) ?></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                     <td>
                                                         <small class="text-muted">Receipt #<?= esc($refund['receipt_number']) ?></small>
                                                     </td>

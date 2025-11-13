@@ -6,6 +6,18 @@
             <?php if (!empty($payments['top_payers'])): ?>
                 <?php foreach (array_slice($payments['top_payers'], 0, 5) as $index => $payer): ?>
                     <div class="activity-item d-flex align-items-center gap-3 p-3 mb-2 bg-light rounded">
+                        <?php if (!empty($payer['profile_picture'])): ?>
+                            <?php 
+                            // Check if it's already a full URL (Cloudinary or other)
+                            $topPayerPicUrl = (strpos($payer['profile_picture'], 'http://') === 0 || strpos($payer['profile_picture'], 'https://') === 0)
+                                ? $payer['profile_picture'] 
+                                : base_url($payer['profile_picture']);
+                            ?>
+                            <img src="<?= $topPayerPicUrl ?>" 
+                                 alt="Profile" class="rounded-circle" 
+                                 style="width: 40px; height: 40px; object-fit: cover; flex-shrink: 0;"
+                                 onerror="this.style.display='none';">
+                        <?php endif; ?>
                         <div class="activity-icon">
                             <span class="badge bg-success rounded-pill"><?= $index + 1 ?></span>
                         </div>
