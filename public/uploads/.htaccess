@@ -1,5 +1,15 @@
-# Allow CORS for static files (images) to be accessed from Flutter Web
-# This is critical for Flutter Web apps running on different origins
+# Route all image requests through CodeIgniter ImageController for CORS headers
+# This ensures Flutter Web apps can load images from different origins
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Route all requests through CodeIgniter (ImageController will add CORS headers)
+    # This works for both subdirectories (profile/, payment_proofs/, etc.) and root files (logo.png)
+    # Use absolute path from document root (public/) to index.php
+    RewriteRule ^(.*)$ /index.php/uploads/$1 [L,NC,QSA]
+</IfModule>
+
+# Fallback CORS headers (if rewrite doesn't work, these headers will be applied)
 <IfModule mod_headers.c>
     # Set CORS headers for ALL image requests (needed for Flutter Web)
     # Allow all origins for image files to work with Flutter Web from any origin

@@ -24,10 +24,11 @@ class ImageController extends Controller
      */
     public function serve($subfolder = '', $filename = '')
     {
-        // Log request for debugging
-        log_message('info', 'ImageController::serve called - Subfolder: ' . $subfolder . ', Filename: ' . $filename);
-        log_message('info', 'ImageController::serve - Request URI: ' . $this->request->getUri()->getPath());
-        log_message('info', 'ImageController::serve - Request Method: ' . $this->request->getMethod());
+        // Log request for debugging (use error level so it shows in Render logs)
+        log_message('error', 'ImageController::serve called - Subfolder: [' . $subfolder . '], Filename: [' . $filename . ']');
+        log_message('error', 'ImageController::serve - Request URI: ' . $this->request->getUri()->getPath());
+        log_message('error', 'ImageController::serve - Request Method: ' . $this->request->getMethod());
+        log_message('error', 'ImageController::serve - Full URI: ' . (string)$this->request->getUri());
         
         // Set CORS headers for image requests (CRITICAL for Flutter Web)
         $this->response->setHeader('Access-Control-Allow-Origin', '*');

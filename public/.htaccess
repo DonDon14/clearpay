@@ -47,7 +47,7 @@ Options -Indexes
     # Route ALL uploads requests through CodeIgniter for CORS headers (Flutter Web compatibility)
     # This MUST come before the file existence check to force images through CodeIgniter
     # This ensures images are served with proper CORS headers even if files exist
-    # Match any file in uploads directory and route through CodeIgniter
+    # Force rewrite even if file exists (remove file check condition)
     RewriteCond %{REQUEST_URI} ^/uploads/ [NC]
     RewriteRule ^uploads/(.*)$ index.php/uploads/$1 [L,NC,QSA]
     
