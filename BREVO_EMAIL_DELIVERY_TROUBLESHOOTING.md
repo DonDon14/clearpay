@@ -4,20 +4,35 @@
 
 **Error Message**: `"Sending has been rejected because the sender you used project.clearpay@gmail.com is not valid. Validate your sender or authenticate your domain."`
 
-**This means**: The sender email address is **not verified** in Brevo.
+**This means**: The sender email address is **not verified** in Brevo, or verification is **pending**.
 
 ### ✅ Solution: Verify Sender Email
 
 1. **Login to Brevo**: https://app.brevo.com
 2. **Go to**: **Settings** → **Senders** (in left sidebar)
-3. **Click**: **"Add a sender"** or **"Verify a sender"**
-4. **Enter**: `project.clearpay@gmail.com`
-5. **Click**: **"Send verification email"**
-6. **Check Gmail inbox** for `project.clearpay@gmail.com`
-7. **Click the verification link** in the email from Brevo
-8. **Wait for verification** (shows as "Verified" ✅)
+3. **Check if sender exists**:
+   - Look for `project.clearpay@gmail.com` in the list
+   - Check status: Should show **"Verified"** ✅
+   - If **"Pending"**: Check email and click verification link
+   - If **"Unverified"** or **not in list**: Add it (see below)
 
-**After verification, try sending the test email again!**
+4. **If sender doesn't exist or is unverified**:
+   - Click **"Add a sender"**
+   - Enter: `project.clearpay@gmail.com`
+   - Click **"Send verification email"**
+   - In warning dialog: Click **"Add this sender anyway"** (blue button)
+   - Check Gmail inbox for `project.clearpay@gmail.com`
+   - Click the verification link in the email from Brevo
+   - Wait 1-2 minutes for status to update to "Verified" ✅
+
+5. **After verification**:
+   - **Wait 2-5 minutes** for changes to propagate
+   - **Redeploy Render service** (if error persists):
+     - Go to Render Dashboard → Your service
+     - Click **"Manual Deploy"** → **"Deploy latest commit"**
+   - Try sending test email again
+
+**👉 See `BREVO_SENDER_VERIFICATION_CHECKLIST.md` for detailed troubleshooting**
 
 ---
 
