@@ -72,14 +72,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final updatedUser = Map<String, dynamic>.from(authProvider.user!);
             final profilePictureUrl = uploadResponse['profile_picture'] as String?;
             if (profilePictureUrl != null) {
-              String relativePath = profilePictureUrl;
-              if (profilePictureUrl.startsWith(ApiService.baseUrl)) {
-                relativePath = profilePictureUrl.replaceFirst(ApiService.baseUrl, '').replaceFirst(RegExp(r'^/'), '');
+              // If it's a Cloudinary URL (full URL), store it as-is
+              // Otherwise, store as relative path
+              String profilePicPath = profilePictureUrl;
+              if (profilePictureUrl.startsWith('https://res.cloudinary.com')) {
+                // Cloudinary URL - store as full URL
+                profilePicPath = profilePictureUrl;
+              } else if (profilePictureUrl.startsWith(ApiService.baseUrl)) {
+                // Full URL from our server - extract relative path
+                profilePicPath = profilePictureUrl.replaceFirst(ApiService.baseUrl, '').replaceFirst(RegExp(r'^/'), '');
               } else if (profilePictureUrl.startsWith('http://') || profilePictureUrl.startsWith('https://')) {
+                // Other full URL - extract path
                 final uri = Uri.parse(profilePictureUrl);
-                relativePath = uri.path.replaceFirst(RegExp(r'^/'), '');
+                profilePicPath = uri.path.replaceFirst(RegExp(r'^/'), '');
               }
-              updatedUser['profile_picture'] = relativePath;
+              // If it's already a relative path, keep it as-is
+              updatedUser['profile_picture'] = profilePicPath;
               authProvider.updateUserData(updatedUser);
             }
           }
@@ -345,6 +353,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String _getProfilePictureUrl(String profilePicture) {
+    // Handle different profile picture formats from database
+    String picturePath = profilePicture.trim();
+    
+    // If already a full URL (Cloudinary or other), return as is
+    if (picturePath.startsWith('http://') || picturePath.startsWith('https://')) {
+      return picturePath;
+    }
+    
+    // Remove leading slash if present
+    if (picturePath.startsWith('/')) {
+      picturePath = picturePath.substring(1);
+    }
+    
+    // Construct full URL using baseUrl
+    String baseUrl = ApiService.baseUrl;
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
+    
+    // If path already includes uploads, use as-is
+    if (picturePath.startsWith('uploads/')) {
+      return '$baseUrl/$picturePath';
+    }
+    
+    // Otherwise, assume it's a profile picture in uploads/profile/
+    return '$baseUrl/uploads/profile/$picturePath';
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -426,7 +463,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     : user['profile_picture'] != null && user['profile_picture'].toString().isNotEmpty
                                         ? ClipOval(
                                             child: Image.network(
-                                              '${ApiService.baseUrl}/${user['profile_picture']}',
+                                              _getProfilePictureUrl(user['profile_picture'].toString()),
                                               width: 150,
                                               height: 150,
                                               fit: BoxFit.cover,
@@ -435,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               },
                                               errorBuilder: (context, error, stackTrace) {
                                                 print('Profile picture load error: $error');
-                                                print('Profile picture URL: ${ApiService.baseUrl}/${user['profile_picture']}');
+                                                print('Profile picture URL: ${_getProfilePictureUrl(user['profile_picture'].toString())}');
                                                 return const Icon(Icons.person, size: 60, color: Colors.grey);
                                               },
                                             ),

@@ -563,20 +563,39 @@ class ApiService {
         return {'success': false, 'error': 'Not authenticated'};
       }
 
-      final url = Uri.parse('$baseUrl/payer/upload-profile-picture');
+      // Use API endpoint for mobile/Flutter app (same as web)
+      final url = Uri.parse('$baseUrl/api/payer/upload-profile-picture');
       final request = http.MultipartRequest('POST', url);
+      
+      // Add payer_id to form fields
+      request.fields['payer_id'] = userId.toString();
+      
+      // Add file
       request.files.add(await http.MultipartFile.fromPath('profile_picture', filePath));
+
+      // Add headers
+      request.headers.addAll({
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      });
+      if (authToken != null) {
+        request.headers['Authorization'] = 'Bearer $authToken';
+      }
 
       final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
       final response = await http.Response.fromStream(streamedResponse);
 
+      final responseBody = jsonDecode(response.body);
+      
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return responseBody;
       } else {
-        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+        // Return error message from backend if available
+        final errorMessage = responseBody['message'] ?? responseBody['error'] ?? 'Server error: ${response.statusCode}';
+        return {'success': false, 'message': errorMessage, 'error': errorMessage};
       }
     } catch (e) {
-      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+      return {'success': false, 'message': 'Network error: ${e.toString()}', 'error': 'Network error: ${e.toString()}'};
     }
   }
 
