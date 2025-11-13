@@ -4,11 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:io';
 // Conditional import for web-only features
-import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show File, FileReader, FileUploadInputElement;
-// Conditional import for mobile image picker
-import 'package:image_picker/image_picker.dart' if (dart.library.html) '../utils/html_stub.dart';
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show FileReader, FileUploadInputElement;
+// Image picker works on both web and mobile
+import 'package:image_picker/image_picker.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notion_app_bar.dart';
@@ -302,10 +301,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (image == null) return;
 
+        // Read file as bytes (works on both web and mobile)
+        final fileBytes = await image.readAsBytes();
+        
         // Validate file size (max 2MB)
-        final file = File(image.path);
-        final fileSize = await file.length();
-        if (fileSize > 2 * 1024 * 1024) {
+        if (fileBytes.length > 2 * 1024 * 1024) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -316,9 +316,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
           return;
         }
-
-        // Read file as bytes
-        final fileBytes = await file.readAsBytes();
 
         if (mounted) {
           // Store the file temporarily - don't upload yet

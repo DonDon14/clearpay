@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -327,6 +326,8 @@ class ApiService {
     String? paymentSequence,
     String? proofOfPaymentPath,
     dynamic proofOfPaymentFile, // For web: html.File, for mobile: File
+    Uint8List? proofOfPaymentBytes, // For web: file bytes from file_picker
+    String? proofOfPaymentFileName, // For web: file name from file_picker
   }) async {
     try {
       final userId = await getUserId();
@@ -358,9 +359,17 @@ class ApiService {
       }
       
       // Add file if provided (web and mobile)
-      if (proofOfPaymentFile != null) {
+      if (proofOfPaymentBytes != null && proofOfPaymentFileName != null) {
+        // Web: Use bytes from file_picker
+        final multipartFile = http.MultipartFile.fromBytes(
+          'proof_of_payment',
+          proofOfPaymentBytes,
+          filename: proofOfPaymentFileName,
+        );
+        request.files.add(multipartFile);
+      } else if (proofOfPaymentFile != null) {
         if (kIsWeb) {
-          // Web: html.File
+          // Web: html.File (legacy)
           final htmlFile = proofOfPaymentFile as html.File;
           final fileName = htmlFile.name;
           
@@ -393,12 +402,13 @@ class ApiService {
           );
           request.files.add(multipartFile);
         } else {
-          // Mobile: File
-          final file = proofOfPaymentFile as File;
-          final fileName = file.path.split('/').last;
+          // Mobile: proofOfPaymentFile is a path string
+          final filePath = proofOfPaymentFile as String;
+          final fileName = filePath.split('/').last;
+          // Use path directly - don't create File object to avoid type issues
           final multipartFile = await http.MultipartFile.fromPath(
             'proof_of_payment',
-            file.path,
+            filePath,
             filename: fileName,
           );
           request.files.add(multipartFile);

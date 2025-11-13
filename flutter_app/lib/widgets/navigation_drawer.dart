@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/dashboard_provider.dart';
 import '../screens/main_navigation_screen.dart';
 import '../screens/contributions_screen.dart';
 import '../screens/payment_requests_screen.dart';
@@ -19,12 +20,57 @@ class AppNavigationDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    // Listen to dashboard provider to update when dashboard data loads
+    final dashboardProvider = Provider.of<DashboardProvider>(context);
     final user = authProvider.user;
     
-    // Get user info
-    final userName = user?['payer_name'] ?? user?['name'] ?? 'User';
-    final userEmail = user?['email_address'] ?? user?['email'] ?? '';
-    final profilePicture = user?['profile_picture'];
+    // Get user info - prioritize dashboard data if available (more up-to-date)
+    final payerData = dashboardProvider.dashboardData?.payer;
+    final userName = payerData?['payer_name'] ?? 
+                     payerData?['name'] ?? 
+                     user?['payer_name'] ?? 
+                     user?['name'] ?? 
+                     'User';
+    final userEmail = payerData?['email_address'] ?? 
+                      payerData?['email'] ?? 
+                      user?['email_address'] ?? 
+                      user?['email'] ?? '';
+    
+    // Get profile picture - check multiple sources in priority order
+    // 1. Dashboard data (normalized, most up-to-date)
+    // 2. User data from AuthProvider (from login or merged from dashboard)
+    // 3. Check if dashboard is still loading and user data has profile picture
+    String? profilePicture;
+    
+    if (payerData != null && payerData['profile_picture'] != null) {
+      // Dashboard data available
+      final dashPic = payerData['profile_picture'];
+      if (dashPic.toString().trim().isNotEmpty && dashPic.toString().trim().toLowerCase() != 'null') {
+        profilePicture = dashPic.toString();
+        debugPrint('Navigation Drawer - Profile Picture from Dashboard: $profilePicture');
+      }
+    }
+    
+    // Fallback to user data if dashboard doesn't have it
+    if ((profilePicture == null || profilePicture.isEmpty) && user != null) {
+      final userPic = user['profile_picture'];
+      if (userPic != null && userPic.toString().trim().isNotEmpty && userPic.toString().trim().toLowerCase() != 'null') {
+        profilePicture = userPic.toString();
+        debugPrint('Navigation Drawer - Profile Picture from User data: $profilePicture');
+      }
+    }
+    
+    // Final debug output
+    if (profilePicture == null || profilePicture.isEmpty) {
+      debugPrint('Navigation Drawer - Profile Picture is NULL or empty');
+      debugPrint('Navigation Drawer - Dashboard loaded: ${dashboardProvider.hasData}');
+      debugPrint('Navigation Drawer - Dashboard loading: ${dashboardProvider.isLoading}');
+      debugPrint('Navigation Drawer - User data: ${user != null ? "Available" : "NULL"}');
+      if (payerData != null) {
+        debugPrint('Navigation Drawer - Payer data keys: ${payerData.keys.toList()}');
+        debugPrint('Navigation Drawer - Payer profile_picture value: ${payerData['profile_picture']}');
+      }
+    }
     
     // Web portal color scheme
     const primaryBlue = Color(0xFF3B82F6);
@@ -36,84 +82,87 @@ class AppNavigationDrawer extends StatelessWidget {
     return Drawer(
       width: 260, // Matching web portal sidebar width
       backgroundColor: Colors.white,
-      child: Column(
-        children: [
-          // Sidebar Header with Logo (matching web portal)
-          Container(
-            height: 90,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Sidebar Header with Logo (matching web portal)
+            Container(
+              height: 90,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Logo - ClearPay (matching web portal) - Using official logo
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        // Official Logo Image
+                        Image.network(
+                          LogoHelper.getLogoUrl(),
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            // If official logo fails, show icon fallback (no text duplication)
+                            return Icon(
+                              Icons.credit_card,
+                              color: primaryBlue,
+                              size: 32,
+                            );
+                          },
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            // Show minimal loading indicator
+                            return SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        // ClearPay Text (always shown, matching web portal)
+                        const Text(
+                          'ClearPay',
+                          style: TextStyle(
+                            color: darkGray,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.025,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Close button (mobile)
+                  IconButton(
+                    icon: const Icon(Icons.close, color: mediumGray, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Logo - ClearPay (matching web portal)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      // Logo Image
-                      Image.network(
-                        LogoHelper.getLogoUrl(),
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          // Fallback to icon if image fails to load
-                          return Icon(
-                            Icons.credit_card,
-                            color: primaryBlue,
-                            size: 48,
-                          );
-                        },
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation<Color>(primaryBlue),
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'ClearPay',
-                        style: TextStyle(
-                          color: darkGray,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.025,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Close button (mobile)
-                IconButton(
-                  icon: const Icon(Icons.close, color: mediumGray, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
           
           // Profile Section (styled to match web portal design)
           Container(
@@ -129,16 +178,26 @@ class AppNavigationDrawer extends StatelessWidget {
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: lightGray,
-                  backgroundImage: profilePicture != null && profilePicture.toString().isNotEmpty
+                  backgroundImage: profilePicture != null && 
+                      profilePicture.toString().trim().isNotEmpty &&
+                      profilePicture.toString().trim().toLowerCase() != 'null'
                       ? NetworkImage(
-                          profilePicture.toString().startsWith('http')
-                              ? profilePicture.toString()
-                              : '${ApiService.baseUrl}/${profilePicture.toString()}'
+                          _getProfilePictureUrl(profilePicture.toString()),
+                          headers: {
+                            'Accept': 'image/*',
+                          },
                         )
                       : null,
-                  child: profilePicture == null || profilePicture.toString().isEmpty
+                  onBackgroundImageError: (exception, stackTrace) {
+                    // Log error for debugging
+                    debugPrint('Profile picture load error: $exception');
+                    debugPrint('Stack trace: $stackTrace');
+                  },
+                  child: profilePicture == null || 
+                      profilePicture.toString().trim().isEmpty ||
+                      profilePicture.toString().trim().toLowerCase() == 'null'
                       ? Text(
-                          userName[0].toUpperCase(),
+                          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
                           style: TextStyle(
                             color: primaryBlue,
                             fontSize: 20,
@@ -318,12 +377,82 @@ class AppNavigationDrawer extends StatelessWidget {
                 const SizedBox(height: 8),
                 // Logout button
                 _buildLogoutItem(context),
+                // Add bottom padding to ensure logout is above system navigation
+                SizedBox(height: MediaQuery.of(context).padding.bottom),
               ],
             ),
           ),
         ],
+        ),
       ),
     );
+  }
+
+  String _getProfilePictureUrl(String profilePicture) {
+    // Handle different profile picture formats from database
+    String picturePath = profilePicture.trim();
+    
+    // Debug
+    debugPrint('_getProfilePictureUrl - Input: $picturePath');
+    
+    // If already a full URL, return as is
+    if (picturePath.startsWith('http://') || picturePath.startsWith('https://')) {
+      debugPrint('_getProfilePictureUrl - Already full URL: $picturePath');
+      return picturePath;
+    }
+    
+    // Remove leading slash if present
+    if (picturePath.startsWith('/')) {
+      picturePath = picturePath.substring(1);
+    }
+    
+    // Extract subfolder and filename from path (e.g., "uploads/profile/filename.png")
+    // The path should be in format: "uploads/profile/filename.png" or "profile/filename.png"
+    String subfolder = 'profile';
+    String filename = '';
+    
+    if (picturePath.contains('/')) {
+      final parts = picturePath.split('/');
+      // Find the subfolder (profile, payment_proofs, etc.)
+      if (parts.contains('profile')) {
+        subfolder = 'profile';
+        filename = parts.last;
+      } else if (parts.contains('payment_proofs')) {
+        subfolder = 'payment_proofs';
+        filename = parts.last;
+      } else if (parts.contains('payment_methods')) {
+        subfolder = 'payment_methods';
+        filename = parts.last;
+      } else if (parts.contains('qr_receipts')) {
+        subfolder = 'qr_receipts';
+        filename = parts.last;
+      } else {
+        // Fallback: assume profile if path contains profile in any part
+        filename = parts.last;
+        // Try to find subfolder
+        for (final part in parts) {
+          if (part == 'profile' || part == 'payment_proofs' || part == 'payment_methods' || part == 'qr_receipts') {
+            subfolder = part;
+            break;
+          }
+        }
+      }
+    } else {
+      // Just filename, assume profile folder
+      filename = picturePath;
+    }
+    
+    // Construct full URL using ImageController (ensures CORS headers)
+    // This route goes through CodeIgniter and will have proper CORS headers
+    String baseUrl = ApiService.baseUrl;
+    if (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
+    
+    // Use ImageController route for CORS-enabled image serving
+    final fullUrl = '$baseUrl/uploads/$subfolder/$filename';
+    debugPrint('_getProfilePictureUrl - Constructed URL (via ImageController): $fullUrl');
+    return fullUrl;
   }
 
   Widget _buildLogoutItem(BuildContext context) {

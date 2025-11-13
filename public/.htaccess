@@ -44,9 +44,17 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/health\.php$ [NC]
     RewriteRule ^ - [L]
     
+    # Route ALL uploads requests through CodeIgniter for CORS headers (Flutter Web compatibility)
+    # This MUST come before the file existence check to force images through CodeIgniter
+    # This ensures images are served with proper CORS headers even if files exist
+    # Match any file in uploads directory and route through CodeIgniter
+    RewriteCond %{REQUEST_URI} ^/uploads/ [NC]
+    RewriteRule ^uploads/(.*)$ index.php/uploads/$1 [L,NC,QSA]
+    
     # Checks to see if the user is attempting to access a valid file,
     # such as an image or css document, if this isn't true it sends the
     # request to the front controller, index.php
+    # NOTE: Image requests above are already routed, so they won't hit this rule
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^([\s\S]*)$ index.php/$1 [L,NC,QSA]
@@ -55,6 +63,23 @@ Options -Indexes
     # Ensure Authorization header is passed along
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# CORS headers for static files (images, etc.) - needed for Flutter Web
+<IfModule mod_headers.c>
+    # Set CORS headers for uploads directory (profile pictures, etc.)
+    <FilesMatch "^uploads/.*\.(jpg|jpeg|png|gif|webp|svg|ico|pdf)$">
+        Header always set Access-Control-Allow-Origin "*"
+        Header always set Access-Control-Allow-Methods "GET, OPTIONS, HEAD"
+        Header always set Access-Control-Allow-Headers "Content-Type, Accept, Authorization, X-Requested-With, Origin"
+        Header always set Access-Control-Max-Age "86400"
+    </FilesMatch>
+    
+    # Set CORS headers for logo and other static images
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
+        Header always set Access-Control-Allow-Origin "*"
+        Header always set Access-Control-Allow-Methods "GET, OPTIONS, HEAD"
+    </FilesMatch>
 </IfModule>
 
 

@@ -94,15 +94,16 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // ClearPay Logo
+                    // ClearPay Logo - Show official logo
                     Image.network(
                       LogoHelper.getLogoUrl(),
                       width: 120,
                       height: 120,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
-                        // Fallback to text if image fails to load
-                        return Text(
+                        // If logo fails to load, show text fallback
+                        debugPrint('Splash Screen - Logo failed to load: $error');
+                        return const Text(
                           'ClearPay',
                           style: TextStyle(
                             fontSize: 48,
@@ -113,7 +114,11 @@ class _SplashScreenState extends State<SplashScreen>
                         );
                       },
                       loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
+                        if (loadingProgress == null) {
+                          // Logo loaded successfully
+                          return child;
+                        }
+                        // Show loading indicator while image loads
                         return SizedBox(
                           width: 120,
                           height: 120,
@@ -129,17 +134,6 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         );
                       },
-                    ),
-                    const SizedBox(height: 20),
-                    // ClearPay Text
-                    const Text(
-                      'ClearPay',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        color: primaryBlue,
-                        letterSpacing: 1.2,
-                      ),
                     ),
                     const SizedBox(height: 24),
                     // Loading indicator

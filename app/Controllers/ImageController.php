@@ -4,63 +4,108 @@ namespace App\Controllers;
 
 use CodeIgniter\Controller;
 
+/**
+ * Image Controller
+ * Serves images with proper CORS headers for Flutter Web compatibility
+ */
 class ImageController extends Controller
 {
     /**
-     * Serve images from uploads directory
-     * This ensures images are accessible even when static file serving fails
+     * Serve image files with CORS headers
+     * This allows Flutter Web apps to load images from different origins
+     * 
+     * Handles routes like:
+     * - /uploads/profile/filename.png -> $subfolder='profile', $filename='filename.png'
+     * - /uploads/logo.png -> $subfolder='logo.png', $filename=''
+     * 
+     * @param string $subfolder The subfolder (profile, payment_proofs, etc.) or full path like 'logo.png'
+     * @param string $filename The filename (empty for logo.png)
+     * @return \CodeIgniter\HTTP\Response
      */
-    public function serve($type, $filename)
+    public function serve($subfolder = '', $filename = '')
     {
-        // Validate type to prevent directory traversal
-        $allowedTypes = ['profile', 'payment_proofs'];
-        if (!in_array($type, $allowedTypes)) {
-            return $this->response->setStatusCode(404)->setJSON([
-                'error' => 'Invalid image type'
-            ]);
+        // Log request for debugging
+        log_message('info', 'ImageController::serve called - Subfolder: ' . $subfolder . ', Filename: ' . $filename);
+        log_message('info', 'ImageController::serve - Request URI: ' . $this->request->getUri()->getPath());
+        log_message('info', 'ImageController::serve - Request Method: ' . $this->request->getMethod());
+        
+        // Set CORS headers for image requests (CRITICAL for Flutter Web)
+        $this->response->setHeader('Access-Control-Allow-Origin', '*');
+        $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS, HEAD');
+        $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+        $this->response->setHeader('Access-Control-Max-Age', '86400');
+        
+        // Handle OPTIONS preflight request
+        if ($this->request->getMethod() === 'OPTIONS') {
+            log_message('info', 'ImageController::serve - Handling OPTIONS preflight');
+            return $this->response->setStatusCode(200)->setBody('');
         }
         
-        // Sanitize filename to prevent directory traversal
-        // Handle both full paths and just filenames
-        $filename = basename($filename);
+        $filePath = null;
         
-        // Construct file path
-        $filePath = FCPATH . 'uploads/' . $type . '/' . $filename;
+        // Handle logo requests: /uploads/logo.png -> $subfolder='logo.png', $filename=''
+        if (preg_match('/^logo\.(png|jpg|jpeg|svg|ico)$/i', $subfolder)) {
+            $extension = pathinfo($subfolder, PATHINFO_EXTENSION);
+            $filePath = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . 'logo.' . $extension;
+        } elseif ($filename) {
+            // Handle two-segment routes: /uploads/profile/filename.png
+            // Route: /uploads/profile/filename.png -> $subfolder='profile', $filename='filename.png'
+            $allowedSubfolders = ['profile', 'payment_proofs', 'payment_methods', 'qr_receipts'];
+            if (!in_array($subfolder, $allowedSubfolders)) {
+                return $this->response->setStatusCode(403)->setBody('Invalid subfolder: ' . $subfolder);
+            }
+            
+            // Sanitize filename to prevent directory traversal
+            $filename = basename($filename);
+            $filename = str_replace(['../', '..\\', '/..', '\\..'], '', $filename);
+            
+            // Construct full file path
+            $filePath = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . $subfolder . DIRECTORY_SEPARATOR . $filename;
+        } else {
+            // Single segment - invalid format, need either logo.png or subfolder/filename
+            return $this->response->setStatusCode(400)->setBody('Invalid image path format. Expected: /uploads/subfolder/filename or /uploads/logo.png');
+        }
         
-        // Log for debugging (remove in production if needed)
-        log_message('debug', 'ImageController::serve - Type: ' . $type . ', Filename: ' . $filename . ', Path: ' . $filePath . ', Exists: ' . (file_exists($filePath) ? 'Yes' : 'No'));
+        // Security: Ensure file is within uploads directory
+        $realUploadsPath = realpath(FCPATH . 'uploads');
+        $realFilePath = realpath($filePath);
+        
+        if (!$realFilePath || strpos($realFilePath, $realUploadsPath) !== 0) {
+            return $this->response->setStatusCode(404)->setBody('Image not found');
+        }
         
         // Check if file exists
         if (!file_exists($filePath) || !is_file($filePath)) {
-            // Return 404 with proper headers
-            $this->response->setStatusCode(404);
-            $this->response->setContentType('image/png');
-            
-            // Return a 1x1 transparent PNG as placeholder
-            $transparent = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-            return $this->response->setBody($transparent);
+            return $this->response->setStatusCode(404)->setBody('Image not found');
         }
         
-        // Get file extension to set proper content type
-        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        $contentTypes = [
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp'
-        ];
+        // Get file mime type
+        $mimeType = mime_content_type($filePath);
+        if (!$mimeType) {
+            // Fallback based on extension
+            $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+            $mimeTypes = [
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                'svg' => 'image/svg+xml',
+                'ico' => 'image/x-icon',
+            ];
+            $mimeType = $mimeTypes[$extension] ?? 'application/octet-stream';
+        }
         
-        $contentType = $contentTypes[$extension] ?? 'application/octet-stream';
+        // Set content type
+        $this->response->setContentType($mimeType);
         
-        // Set headers
-        $this->response->setContentType($contentType);
+        // Set cache headers
         $this->response->setHeader('Cache-Control', 'public, max-age=31536000');
         $this->response->setHeader('Expires', gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
         
         // Read and output file
         $fileContent = file_get_contents($filePath);
+        
         return $this->response->setBody($fileContent);
     }
 }
-

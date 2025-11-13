@@ -105,12 +105,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      // Show splash screen while loading
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      // Don't show duplicate loading - splash screen already handles this
+      // Return empty container to prevent duplication
+      return const SizedBox.shrink();
     }
 
     if (_isAuthenticated) {

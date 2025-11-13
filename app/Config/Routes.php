@@ -9,9 +9,15 @@ use CodeIgniter\Router\RouteCollection;
 // Health check route (must be before default route for Render health checks)
 $routes->get('/health', 'HealthController::index');
 
-// Image serving route (must be before other routes to catch image requests)
-// This route handles image requests that might not be served as static files
-$routes->get('uploads/(profile|payment_proofs)/(:any)', 'ImageController::serve/$1/$2');
+// Image serving route with CORS headers (must be before other routes to catch image requests)
+// This route handles image requests with proper CORS headers for Flutter Web
+// Route: /uploads/profile/filename.png or /uploads/payment_proofs/filename.jpg
+// Route: /uploads/logo.png (for official logo)
+// Catch-all route for uploads - .htaccess routes all /uploads/* to /uploads/* which matches this
+$routes->options('uploads/(:segment)/(:segment)', 'ImageController::serve/$1/$2');
+$routes->get('uploads/(:segment)/(:segment)', 'ImageController::serve/$1/$2');
+$routes->options('uploads/(:segment)', 'ImageController::serve/$1');
+$routes->get('uploads/(:segment)', 'ImageController::serve/$1');
 
 // Default route - redirect to admin login
 

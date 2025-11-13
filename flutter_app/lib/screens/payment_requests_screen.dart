@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import 'dart:async';
-import 'dart:io';
+import 'dart:typed_data';
 import '../services/api_service.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
 // Conditional import for web-only features
-import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show FileUploadInputElement, File;
-// Conditional import for mobile file picker
-import 'package:file_picker/file_picker.dart' if (dart.library.html) '../utils/html_stub.dart';
+import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show FileUploadInputElement;
+// File picker works on both web and mobile
+import 'package:file_picker/file_picker.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/navigation_drawer.dart';
 
@@ -430,6 +428,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
   String? _proofOfPaymentPath;
   final _proofOfPaymentController = TextEditingController();
   dynamic _proofOfPaymentFile; // For web: html.File, for mobile: File
+  Uint8List? _proofOfPaymentBytes; // For web: file bytes
 
   List<Map<String, dynamic>> _paymentMethods = [];
   bool _isLoadingPaymentMethods = false;
@@ -613,13 +612,6 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
     );
   }
 
-  int _parseInt(dynamic value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
-  }
-
   double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -662,10 +654,9 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
           if (pickedFile.path != null) {
             final filePath = pickedFile.path!;
             final fileName = pickedFile.name;
-            final file = File(filePath);
             
             // Validate file size (max 5MB for proof of payment)
-            final fileSize = await file.length();
+            int fileSize = pickedFile.size;
             if (fileSize > 5 * 1024 * 1024) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -682,7 +673,28 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
             setState(() {
               _proofOfPaymentPath = filePath;
               _proofOfPaymentController.text = fileName;
-              _proofOfPaymentFile = file; // Store File object for mobile
+              // Store path string - File object will be created in API service when needed
+              _proofOfPaymentFile = filePath; // Store path string for mobile
+            });
+          } else if (pickedFile.bytes != null) {
+            // Web platform - use bytes
+            final fileSize = pickedFile.bytes!.length;
+            if (fileSize > 5 * 1024 * 1024) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('File size too large. Maximum 5MB allowed.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return;
+            }
+            
+            setState(() {
+              _proofOfPaymentPath = null;
+              _proofOfPaymentController.text = pickedFile.name;
+              _proofOfPaymentBytes = pickedFile.bytes;
             });
           }
         }
@@ -1038,6 +1050,8 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
         notes: _notesController.text.isEmpty ? null : _notesController.text,
         paymentSequence: paymentSequence,
         proofOfPaymentFile: _proofOfPaymentFile,
+        proofOfPaymentBytes: _proofOfPaymentBytes,
+        proofOfPaymentFileName: _proofOfPaymentController.text.isEmpty ? null : _proofOfPaymentController.text,
       );
 
       if (response['success'] == true) {
@@ -1607,6 +1621,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
                                           _proofOfPaymentPath = null;
                                           _proofOfPaymentController.clear();
                                           _proofOfPaymentFile = null;
+                                          _proofOfPaymentBytes = null;
                                         });
                                       },
                                     ),

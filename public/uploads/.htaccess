@@ -1,18 +1,19 @@
 # Allow CORS for static files (images) to be accessed from Flutter Web
+# This is critical for Flutter Web apps running on different origins
 <IfModule mod_headers.c>
-    # Allow requests from Flutter Web development ports
-    SetEnvIf Origin "^http://localhost(:\d+)?$" CORS=1
-    SetEnvIf Origin "^http://127\.0\.0\.1(:\d+)?$" CORS=1
-    SetEnvIf Origin "^http://10\.0\.2\.2(:\d+)?$" CORS=1
+    # Set CORS headers for ALL image requests (needed for Flutter Web)
+    # Allow all origins for image files to work with Flutter Web from any origin
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, OPTIONS, HEAD"
+    Header always set Access-Control-Allow-Headers "Content-Type, Accept, Authorization, X-Requested-With, Origin"
+    Header always set Access-Control-Max-Age "86400"
+    Header always set Access-Control-Allow-Credentials "false"
     
-    # Set CORS headers for cross-origin requests
-    Header always set Access-Control-Allow-Origin "*" env=CORS
-    Header always set Access-Control-Allow-Methods "GET, OPTIONS" env=CORS
-    Header always set Access-Control-Allow-Headers "Content-Type, Accept, Authorization, X-Requested-With, Origin" env=CORS
-    Header always set Access-Control-Max-Age "7200" env=CORS
-    
-    # Handle preflight OPTIONS requests
-    Header always set Access-Control-Allow-Origin "*" env=CORS
+    # Handle preflight OPTIONS requests for images
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
+        Header always set Access-Control-Allow-Origin "*"
+        Header always set Access-Control-Allow-Methods "GET, OPTIONS, HEAD"
+    </FilesMatch>
 </IfModule>
 
 # Disable directory browsing
