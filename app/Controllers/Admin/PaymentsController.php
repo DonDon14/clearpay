@@ -1511,7 +1511,12 @@ class PaymentsController extends BaseController
                     'payer_student_id' => $payment['payer_student_id'] ?? $payment['payer_id'],
                     'contact_number' => $payment['contact_number'] ?? '',
                     'email_address' => $payment['email_address'] ?? '',
-                    'profile_picture' => $payment['profile_picture'] ?? '',
+                    'profile_picture' => $this->normalizeProfilePicturePath(
+                        $payment['profile_picture'] ?? null, 
+                        $payment['payer_id'] ?? null, 
+                        null, 
+                        'payer'
+                    ) ?? '',
                     'contribution_title' => $payment['contribution_title'] ?? 'N/A',
                     'contribution_description' => $payment['contribution_description'] ?? '',
                     'contribution_amount' => $payment['contribution_amount'] ?? $payment['amount_paid'] ?? 0,

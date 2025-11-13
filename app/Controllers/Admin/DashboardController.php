@@ -72,18 +72,32 @@ class DashboardController extends BaseController
             ->limit(7)
             ->findAll(); // last 7 payments
 
-        // Add computed status to each payment
+        // Add computed status and normalize profile pictures for each payment
         foreach ($recentPayments as &$payment) {
             $payerId = $payment['payer_id'];
             $contributionId = $payment['contrib_id'] ?? $payment['contribution_id'] ?? null;
             $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+            // Normalize profile picture with fallback
+            $payment['profile_picture'] = $this->normalizeProfilePicturePath(
+                $payment['profile_picture'] ?? null, 
+                $payerId, 
+                null, 
+                'payer'
+            );
         }
 
-        // Add computed status to all payments as well
+        // Add computed status and normalize profile pictures for all payments
         foreach ($allPayments as &$payment) {
             $payerId = $payment['payer_id'];
             $contributionId = $payment['contribution_id'] ?? null;
             $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+            // Normalize profile picture with fallback
+            $payment['profile_picture'] = $this->normalizeProfilePicturePath(
+                $payment['profile_picture'] ?? null, 
+                $payerId, 
+                null, 
+                'payer'
+            );
         }
 
         // --- Fetch Contributions for Modal ---
@@ -93,7 +107,7 @@ class DashboardController extends BaseController
         // --- Fetch User Activities ---
         $db = \Config\Database::connect();
         $userActivities = $db->table('user_activities ua')
-            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture')
+            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture, u.id as user_id')
             ->join('users u', 'u.id = ua.user_id', 'left')
             ->orderBy('ua.created_at', 'DESC')
             ->limit(5)
@@ -102,11 +116,30 @@ class DashboardController extends BaseController
         
         // Fetch all user activities for the modal
         $allUserActivities = $db->table('user_activities ua')
-            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture')
+            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture, u.id as user_id')
             ->join('users u', 'u.id = ua.user_id', 'left')
             ->orderBy('ua.created_at', 'DESC')
             ->get()
             ->getResultArray();
+        
+        // Normalize profile pictures for user activities
+        foreach ($userActivities as &$activity) {
+            $activity['profile_picture'] = $this->normalizeProfilePicturePath(
+                $activity['profile_picture'] ?? null, 
+                null, 
+                $activity['user_id'] ?? null, 
+                'user'
+            );
+        }
+        
+        foreach ($allUserActivities as &$activity) {
+            $activity['profile_picture'] = $this->normalizeProfilePicturePath(
+                $activity['profile_picture'] ?? null, 
+                null, 
+                $activity['user_id'] ?? null, 
+                'user'
+            );
+        }
 
         // --- Fetch Payment Requests Count ---
         $paymentRequestModel = new PaymentRequestModel();
@@ -280,22 +313,13 @@ class DashboardController extends BaseController
                 }
             }
             if (!empty($request['profile_picture'])) {
-                $path = $request['profile_picture'];
-                // Remove any base_url or http prefixes
-                $path = preg_replace('#^https?://[^/]+/#', '', $path);
-                $path = preg_replace('#^uploads/profile/#', '', $path);
-                $path = preg_replace('#^profile/#', '', $path);
-                $filename = basename($path);
-                
-                // Verify file exists before setting path
-                $filePath = FCPATH . 'uploads/profile/' . $filename;
-                if (file_exists($filePath)) {
-                    // Return relative path (views will apply base_url)
-                    $request['profile_picture'] = 'uploads/profile/' . $filename;
-                } else {
-                    log_message('warning', 'Profile picture not found: ' . $filePath);
-                    $request['profile_picture'] = null;
-                }
+                // Use shared helper method with fallback
+                $request['profile_picture'] = $this->normalizeProfilePicturePath(
+                    $request['profile_picture'], 
+                    $request['payer_id'] ?? null, 
+                    null, 
+                    'payer'
+                );
             }
         };
         
@@ -754,23 +778,13 @@ class DashboardController extends BaseController
                 }
             }
             if (!empty($request['profile_picture'])) {
-                // Extract filename from path, handling various formats
-                $path = $request['profile_picture'];
-                // Remove any base_url or http prefixes
-                $path = preg_replace('#^https?://[^/]+/#', '', $path);
-                $path = preg_replace('#^uploads/profile/#', '', $path);
-                $path = preg_replace('#^profile/#', '', $path);
-                $filename = basename($path);
-                
-                // Verify file exists before setting path
-                $filePath = FCPATH . 'uploads/profile/' . $filename;
-                if (file_exists($filePath)) {
-                    // Return relative path (views will apply base_url)
-                    $request['profile_picture'] = 'uploads/profile/' . $filename;
-                } else {
-                    log_message('warning', 'Profile picture not found: ' . $filePath);
-                    $request['profile_picture'] = null;
-                }
+                // Use shared helper method with fallback
+                $request['profile_picture'] = $this->normalizeProfilePicturePath(
+                    $request['profile_picture'], 
+                    $request['payer_id'] ?? null, 
+                    null, 
+                    'payer'
+                );
             }
 
             return $this->response->setJSON([

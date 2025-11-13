@@ -29,9 +29,29 @@ class RefundsController extends BaseController
 
         // Get pending refund requests (from payers)
         $pendingRequests = $refundModel->getPendingRequests();
+        
+        // Normalize profile pictures for pending requests
+        foreach ($pendingRequests as &$request) {
+            $request['profile_picture'] = $this->normalizeProfilePicturePath(
+                $request['profile_picture'] ?? null, 
+                $request['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         // Get refund history
         $refundHistory = $refundModel->getRefundHistory(null, 100);
+        
+        // Normalize profile pictures for refund history
+        foreach ($refundHistory as &$refund) {
+            $refund['profile_picture'] = $this->normalizeProfilePicturePath(
+                $refund['profile_picture'] ?? null, 
+                $refund['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         // Get all payments for refund processing (recently paid, not fully refunded)
         $recentPayments = $paymentModel
@@ -435,6 +455,16 @@ class RefundsController extends BaseController
                     ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
                     ->where('refunds.id', $refundId)
                     ->first();
+                    
+                    // Normalize profile picture with fallback
+                    if ($refundDetails) {
+                        $refundDetails['profile_picture'] = $this->normalizeProfilePicturePath(
+                            $refundDetails['profile_picture'] ?? null, 
+                            $refundDetails['payer_id'] ?? null, 
+                            null, 
+                            'payer'
+                        );
+                    }
 
                     // Send email to payer if email address is available
                     if ($refundDetails && !empty($refundDetails['email_address'])) {
@@ -729,6 +759,16 @@ class RefundsController extends BaseController
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
+        
+        // Normalize profile picture with fallback
+        if ($refundDetails) {
+            $refundDetails['profile_picture'] = $this->normalizeProfilePicturePath(
+                $refundDetails['profile_picture'] ?? null, 
+                $refundDetails['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         // Approve and complete the refund in one step
         // When admin approves, it means they've processed and confirmed the refund
@@ -834,6 +874,16 @@ class RefundsController extends BaseController
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
+        
+        // Normalize profile picture with fallback
+        if ($refundDetails) {
+            $refundDetails['profile_picture'] = $this->normalizeProfilePicturePath(
+                $refundDetails['profile_picture'] ?? null, 
+                $refundDetails['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         $refundModel->completeRefund(
             $refundId,
@@ -999,6 +1049,14 @@ class RefundsController extends BaseController
                 'message' => 'Refund not found'
             ]);
         }
+        
+        // Normalize profile picture with fallback
+        $foundRefund['profile_picture'] = $this->normalizeProfilePicturePath(
+            $foundRefund['profile_picture'] ?? null, 
+            $foundRefund['payer_id'] ?? null, 
+            null, 
+            'payer'
+        );
 
         return $this->response->setJSON([
             'success' => true,

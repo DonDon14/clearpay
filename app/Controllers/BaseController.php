@@ -55,4 +55,73 @@ abstract class BaseController extends Controller
 
         // E.g.: $this->session = service('session');
     }
+
+    /**
+     * Normalize profile picture path with fallback to find similar files
+     * This handles cases where database path doesn't match actual file
+     * 
+     * @param string|null $profilePicturePath The path from database
+     * @param int|null $payerId The payer ID for fallback lookup (for payers)
+     * @param int|null $userId The user ID for fallback lookup (for admin users)
+     * @param string $type Either 'payer' or 'user' to determine lookup pattern
+     * @return string|null Normalized relative path or null
+     */
+    protected function normalizeProfilePicturePath($profilePicturePath, $payerId = null, $userId = null, $type = 'payer')
+    {
+        if (empty($profilePicturePath)) {
+            return null;
+        }
+
+        // Extract filename from path, handling various formats
+        $path = $profilePicturePath;
+        // Remove any base_url or http prefixes
+        $path = preg_replace('#^https?://[^/]+/#', '', $path);
+        $path = preg_replace('#^uploads/profile/#', '', $path);
+        $path = preg_replace('#^profile/#', '', $path);
+        $filename = basename($path);
+        
+        // Verify file exists before setting path
+        $filePath = FCPATH . 'uploads/profile/' . $filename;
+        if (file_exists($filePath)) {
+            // Return relative path (views will apply base_url)
+            return 'uploads/profile/' . $filename;
+        }
+        
+        log_message('warning', 'Profile picture not found: ' . $filePath);
+        
+        // Try to find a similar file (fallback)
+        $entityId = ($type === 'payer' && $payerId) ? $payerId : ($type === 'user' && $userId ? $userId : null);
+        
+        if ($entityId) {
+            $uploadDir = FCPATH . 'uploads/profile/';
+            $pattern = ($type === 'payer') ? 'payer_' . $entityId . '_*' : $entityId . '_*';
+            $files = glob($uploadDir . $pattern);
+            if (!empty($files)) {
+                // Use the most recent file
+                usort($files, function($a, $b) {
+                    return filemtime($b) - filemtime($a);
+                });
+                $foundFile = basename($files[0]);
+                log_message('info', 'Found fallback profile picture: ' . $foundFile . ' for ' . $type . ' ID: ' . $entityId);
+                
+                // Update database with correct path
+                try {
+                    if ($type === 'payer') {
+                        $payerModel = new \App\Models\PayerModel();
+                        $payerModel->update($entityId, ['profile_picture' => 'uploads/profile/' . $foundFile]);
+                    } else {
+                        $userModel = new \App\Models\UserModel();
+                        $userModel->update($entityId, ['profile_picture' => 'uploads/profile/' . $foundFile]);
+                    }
+                    log_message('info', 'Updated database with correct profile picture path for ' . $type . ' ID: ' . $entityId);
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to update database with correct profile picture path: ' . $e->getMessage());
+                }
+                
+                return 'uploads/profile/' . $foundFile;
+            }
+        }
+        
+        return null;
+    }
 }
