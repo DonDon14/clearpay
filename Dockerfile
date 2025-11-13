@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions (both MySQL and PostgreSQL for flexibility)
+# Note: OpenSSL is built into PHP core and doesn't need to be installed separately
 RUN docker-php-ext-install pdo_mysql mysqli pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl
 
 # Install Composer
