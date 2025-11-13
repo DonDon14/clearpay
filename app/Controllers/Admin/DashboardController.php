@@ -72,18 +72,32 @@ class DashboardController extends BaseController
             ->limit(7)
             ->findAll(); // last 7 payments
 
-        // Add computed status to each payment
+        // Add computed status and normalize profile pictures for each payment
         foreach ($recentPayments as &$payment) {
             $payerId = $payment['payer_id'];
             $contributionId = $payment['contrib_id'] ?? $payment['contribution_id'] ?? null;
             $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+            // Normalize profile picture with fallback
+            $payment['profile_picture'] = $this->normalizeProfilePicturePath(
+                $payment['profile_picture'] ?? null, 
+                $payerId, 
+                null, 
+                'payer'
+            );
         }
 
-        // Add computed status to all payments as well
+        // Add computed status and normalize profile pictures for all payments
         foreach ($allPayments as &$payment) {
             $payerId = $payment['payer_id'];
             $contributionId = $payment['contribution_id'] ?? null;
             $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
+            // Normalize profile picture with fallback
+            $payment['profile_picture'] = $this->normalizeProfilePicturePath(
+                $payment['profile_picture'] ?? null, 
+                $payerId, 
+                null, 
+                'payer'
+            );
         }
 
         // --- Fetch Contributions for Modal ---
@@ -93,7 +107,7 @@ class DashboardController extends BaseController
         // --- Fetch User Activities ---
         $db = \Config\Database::connect();
         $userActivities = $db->table('user_activities ua')
-            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture')
+            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture, u.id as user_id')
             ->join('users u', 'u.id = ua.user_id', 'left')
             ->orderBy('ua.created_at', 'DESC')
             ->limit(5)
@@ -102,11 +116,30 @@ class DashboardController extends BaseController
         
         // Fetch all user activities for the modal
         $allUserActivities = $db->table('user_activities ua')
-            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture')
+            ->select('ua.*, u.name as user_name, u.username, u.role, u.profile_picture, u.id as user_id')
             ->join('users u', 'u.id = ua.user_id', 'left')
             ->orderBy('ua.created_at', 'DESC')
             ->get()
             ->getResultArray();
+        
+        // Normalize profile pictures for user activities
+        foreach ($userActivities as &$activity) {
+            $activity['profile_picture'] = $this->normalizeProfilePicturePath(
+                $activity['profile_picture'] ?? null, 
+                null, 
+                $activity['user_id'] ?? null, 
+                'user'
+            );
+        }
+        
+        foreach ($allUserActivities as &$activity) {
+            $activity['profile_picture'] = $this->normalizeProfilePicturePath(
+                $activity['profile_picture'] ?? null, 
+                null, 
+                $activity['user_id'] ?? null, 
+                'user'
+            );
+        }
 
         // --- Fetch Payment Requests Count ---
         $paymentRequestModel = new PaymentRequestModel();
@@ -261,6 +294,38 @@ class DashboardController extends BaseController
         $pendingRequests = $paymentRequestModel->getRequestsWithDetails('pending');
         $approvedRequests = $paymentRequestModel->getRequestsWithDetails('approved');
         $rejectedRequests = $paymentRequestModel->getRequestsWithDetails('rejected');
+        
+        // Fix image paths for all requests
+        $fixImagePath = function(&$request) {
+            if (!empty($request['proof_of_payment_path'])) {
+                $path = $request['proof_of_payment_path'];
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
+                $filename = basename($path);
+                
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/payment_proofs/' . $filename;
+                if (file_exists($filePath)) {
+                    $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                } else {
+                    log_message('warning', 'Proof of payment image not found: ' . $filePath);
+                    $request['proof_of_payment_path'] = null;
+                }
+            }
+            if (!empty($request['profile_picture'])) {
+                // Use shared helper method with fallback
+                $request['profile_picture'] = $this->normalizeProfilePicturePath(
+                    $request['profile_picture'], 
+                    $request['payer_id'] ?? null, 
+                    null, 
+                    'payer'
+                );
+            }
+        };
+        
+        foreach ($pendingRequests as &$req) $fixImagePath($req);
+        foreach ($approvedRequests as &$req) $fixImagePath($req);
+        foreach ($rejectedRequests as &$req) $fixImagePath($req);
         
         // Get stats
         $stats = [
@@ -693,6 +758,35 @@ class DashboardController extends BaseController
                 ]);
             }
 
+            // Normalize proof of payment path and profile picture
+            if (!empty($request['proof_of_payment_path'])) {
+                // Extract filename from path, handling various formats
+                $path = $request['proof_of_payment_path'];
+                // Remove any base_url or http prefixes
+                $path = preg_replace('#^https?://[^/]+/#', '', $path);
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
+                $filename = basename($path);
+                
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/payment_proofs/' . $filename;
+                if (file_exists($filePath)) {
+                    $request['proof_of_payment_path'] = 'uploads/payment_proofs/' . $filename;
+                } else {
+                    log_message('warning', 'Proof of payment image not found: ' . $filePath);
+                    $request['proof_of_payment_path'] = null;
+                }
+            }
+            if (!empty($request['profile_picture'])) {
+                // Use shared helper method with fallback
+                $request['profile_picture'] = $this->normalizeProfilePicturePath(
+                    $request['profile_picture'], 
+                    $request['payer_id'] ?? null, 
+                    null, 
+                    'payer'
+                );
+            }
+
             return $this->response->setJSON([
                 'success' => true,
                 'request' => $request
@@ -834,7 +928,7 @@ class DashboardController extends BaseController
             'amount_paid' => $request['requested_amount'],
             'payment_method' => $request['payment_method'],
             'payment_status' => $paymentStatus,
-            'is_partial_payment' => $isPartial ? 1 : 0,
+            'is_partial_payment' => $isPartial ? true : false,
             'remaining_balance' => $remainingBalance,
             'payment_sequence' => $paymentSequence,
             'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($request['id']), 0, 12)),
@@ -977,15 +1071,48 @@ class DashboardController extends BaseController
                 return false;
             }
 
-            // Initialize email service
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for receipt email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
             
-            // Use configured email settings
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Clear any previous configuration
+            $emailService->clear();
             
-            $emailService->setFrom($fromEmail, $fromName);
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for receipt email (Dashboard) - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($paymentData['email_address']);
             $emailService->setSubject('Payment Receipt - ' . ($paymentData['receipt_number'] ?? 'ClearPay'));
             
@@ -1029,12 +1156,10 @@ class DashboardController extends BaseController
             $emailService->setMessage($message);
             
             // Log email attempt
-            log_message('info', "Attempting to send receipt email to: {$paymentData['email_address']}");
+            log_message('info', "Attempting to send receipt email to: {$paymentData['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
             
             // Send email
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Receipt email sent successfully to: {$paymentData['email_address']}");
@@ -1054,6 +1179,60 @@ class DashboardController extends BaseController
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
+    }
+    
+    /**
+     * Get email configuration from database or fallback to config/environment
+     */
+    private function getEmailConfig()
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            // Try to load from database first
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+                
+                if ($settings) {
+                    return [
+                        'fromEmail' => $settings['from_email'] ?? '',
+                        'fromName' => $settings['from_name'] ?? 'ClearPay',
+                        'protocol' => $settings['protocol'] ?? 'smtp',
+                        'SMTPHost' => $settings['smtp_host'] ?? '',
+                        'SMTPUser' => $settings['smtp_user'] ?? '',
+                        'SMTPPass' => $settings['smtp_pass'] ?? '',
+                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
+                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
+                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
+                        'mailType' => $settings['mail_type'] ?? 'html',
+                        'charset' => $settings['charset'] ?? 'UTF-8',
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+        }
+        
+        // Fallback to config
+        $config = config('Email');
+        return [
+            'fromEmail' => $config->fromEmail,
+            'fromName' => $config->fromName,
+            'protocol' => $config->protocol,
+            'SMTPHost' => $config->SMTPHost,
+            'SMTPUser' => $config->SMTPUser,
+            'SMTPPass' => $config->SMTPPass,
+            'SMTPPort' => $config->SMTPPort,
+            'SMTPCrypto' => $config->SMTPCrypto,
+            'SMTPTimeout' => $config->SMTPTimeout,
+            'mailType' => $config->mailType,
+            'charset' => $config->charset,
+        ];
     }
 
     /**

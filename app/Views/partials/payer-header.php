@@ -61,9 +61,18 @@
             log_message('info', 'Header Debug - Final Profile Picture: ' . ($profilePicture ?? 'null'));
             ?>
             <?php if (!empty($profilePicture)): ?>
-              <img src="<?= base_url($profilePicture) ?>" 
+              <?php 
+              // Normalize profile picture path
+              $profilePath = $profilePicture;
+              $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
+              $profilePath = preg_replace('#^profile/#', '', $profilePath);
+              $profileFilename = basename($profilePath);
+              $profileUrl = base_url('uploads/profile/' . $profileFilename);
+              ?>
+              <img src="<?= $profileUrl ?>" 
                    alt="Profile Picture" 
-                   class="avatar-image">
+                   class="avatar-image"
+                   onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
             <?php else: ?>
               <i class="fas fa-user"></i>
             <?php endif; ?>

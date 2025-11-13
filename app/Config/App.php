@@ -49,7 +49,30 @@ class App extends BaseConfig
             $host = $_SERVER['HTTP_HOST'];
             // Remove port if present
             $host = preg_replace('/:\d+$/', '', $host);
-            $this->baseURL = $protocol . '://' . $host . '/';
+            
+            // Detect subdirectory path from SCRIPT_NAME (more reliable)
+            // NOTE: If DocumentRoot is set to public/ folder, SCRIPT_NAME will be relative to that
+            $path = '';
+            if (!empty($_SERVER['SCRIPT_NAME'])) {
+                // SCRIPT_NAME is relative to DocumentRoot
+                // If DocumentRoot is C:/xampp/htdocs/ClearPay/public, then SCRIPT_NAME is /index.php (not /ClearPay/public/index.php)
+                $scriptPath = dirname($_SERVER['SCRIPT_NAME']);
+                // Only add path if it's not root and not current directory
+                if ($scriptPath !== '/' && $scriptPath !== '.' && $scriptPath !== '\\') {
+                    $path = rtrim($scriptPath, '/') . '/';
+                }
+            } elseif (!empty($_SERVER['REQUEST_URI'])) {
+                // Fallback: try to detect from REQUEST_URI
+                // But only if DocumentRoot is NOT set to public folder
+                $requestUri = $_SERVER['REQUEST_URI'];
+                $requestUri = strtok($requestUri, '?');
+                // Only match if we see /ClearPay/public in the URI (meaning DocumentRoot is htdocs, not public)
+                if (preg_match('#^/([^/]+/public)(/|$)#', $requestUri, $matches)) {
+                    $path = '/' . $matches[1] . '/';
+                }
+            }
+            
+            $this->baseURL = $protocol . '://' . $host . $path;
         }
     }
 

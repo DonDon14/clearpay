@@ -91,7 +91,7 @@ class PayersController extends BaseController
                 'email_address' => trim($jsonData['payer_email']),
                 'contact_number' => $contactNumber,
                 'course_department' => !empty($jsonData['course_department']) ? trim($jsonData['course_department']) : null,
-                'email_verified' => 1,
+                'email_verified' => true,
                 'verification_token' => null,
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s')

@@ -39,6 +39,9 @@ class SignupController extends BaseController
         $password = $this->request->getPost('password');
         $confirmPassword = $this->request->getPost('confirm_password');
 
+        // Check if this is an AJAX request (from form submission)
+        $isAjax = $this->request->isAJAX() || $this->request->getHeader('X-Requested-With') === 'XMLHttpRequest';
+        
         // Validate required fields
         $validation = \Config\Services::validation();
         $validation->setRules([
@@ -53,9 +56,11 @@ class SignupController extends BaseController
 
         if (!$validation->withRequest($this->request)->run()) {
             $errors = $validation->getErrors();
-            return redirect()->back()
-                ->withInput()
-                ->with('error', implode(', ', $errors));
+            // Always return JSON for AJAX requests (form uses fetch)
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => implode(', ', $errors)
+            ]);
         }
 
         try {
@@ -64,15 +69,17 @@ class SignupController extends BaseController
             $allPayers = $this->payerModel->findAll();
             foreach ($allPayers as $p) {
                 if ($p['payer_id'] === $data['payer_id']) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'A payer with this Student ID already exists');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'A payer with this Student ID already exists'
+                    ]);
                 }
                 // Only check email if provided
                 if (!empty($data['email_address']) && $p['email_address'] === $data['email_address']) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'A payer with this email address already exists');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'A payer with this email address already exists'
+                    ]);
                 }
             }
             
@@ -86,9 +93,10 @@ class SignupController extends BaseController
                 
                 // Validate phone number format (must be exactly 11 digits)
                 if (!validate_phone_number($data['contact_number'])) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Contact number must be exactly 11 digits (numbers only)');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Contact number must be exactly 11 digits (numbers only)'
+                    ]);
                 }
             } else {
                 $data['contact_number'] = null;
@@ -96,9 +104,10 @@ class SignupController extends BaseController
 
             // Validate email format if provided
             if (!empty($data['email_address']) && !filter_var($data['email_address'], FILTER_VALIDATE_EMAIL)) {
-                return redirect()->back()
-                    ->withInput()
-                    ->with('error', 'Invalid email address format');
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Invalid email address format'
+                ]);
             }
             
             // Set email to null if empty
@@ -114,16 +123,18 @@ class SignupController extends BaseController
                 // Validate file type
                 $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
                 if (!in_array($file->getMimeType(), $allowedTypes)) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Invalid image file type. Only JPG, PNG, and GIF are allowed');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Invalid image file type. Only JPG, PNG, and GIF are allowed'
+                    ]);
                 }
 
                 // Validate file size (2MB max)
                 if ($file->getSize() > 2 * 1024 * 1024) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Image size must be less than 2MB');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Image size must be less than 2MB'
+                    ]);
                 }
 
                 // Generate unique filename
@@ -139,9 +150,10 @@ class SignupController extends BaseController
                 if ($file->move($uploadPath, $newName)) {
                     $profilePicturePath = 'uploads/profile/' . $newName;
                 } else {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Failed to upload profile picture. Please try again.');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Failed to upload profile picture. Please try again.'
+                    ]);
                 }
             }
 
@@ -241,18 +253,58 @@ class SignupController extends BaseController
     public function sendVerificationEmail($email, $name, $code)
     {
         try {
-            // Initialize email service
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials - check all required fields
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost']) || empty($emailConfig['fromEmail'])) {
+                log_message('error', 'SMTP configuration incomplete for verification email - Missing: ' . 
+                    (empty($emailConfig['SMTPUser']) ? 'SMTPUser ' : '') .
+                    (empty($emailConfig['SMTPPass']) ? 'SMTPPass ' : '') .
+                    (empty($emailConfig['SMTPHost']) ? 'SMTPHost ' : '') .
+                    (empty($emailConfig['fromEmail']) ? 'fromEmail ' : '')
+                );
+                return false;
+            }
+            
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
             
-            // Use configured email settings
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Clear any previous configuration
+            $emailService->clear();
             
-            $emailService->setFrom($fromEmail, $fromName);
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            // Set email properties
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
             $emailService->setTo($email);
             $emailService->setSubject('Email Verification - ClearPay Payer Portal');
             
+            // Get email template
             $message = view('emails/verification', [
                 'name' => $name,
                 'code' => $code
@@ -260,29 +312,91 @@ class SignupController extends BaseController
             
             $emailService->setMessage($message);
             
-            // Log SMTP settings for debugging
+            // Log SMTP settings for debugging (without password)
             log_message('info', "Attempting to send verification email to payer: {$email}");
+            log_message('info', "SMTP Config - Host: {$emailConfig['SMTPHost']}, Port: {$emailConfig['SMTPPort']}, User: {$emailConfig['SMTPUser']}, Crypto: {$emailConfig['SMTPCrypto']}");
+            log_message('info', "SMTP Password length: " . strlen($emailConfig['SMTPPass']) . " characters");
             
-            // Suppress errors during email sending and log instead
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Verification email sent successfully to payer: {$email}");
                 return true;
             } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
+                $error = $emailService->printDebugger(['headers', 'subject', 'body']);
                 log_message('error', "Failed to send verification email to payer: {$error}");
+                
+                // Try to get more specific error information
+                $lastError = error_get_last();
+                if ($lastError) {
+                    log_message('error', 'PHP Error: ' . $lastError['message']);
+                }
+                
                 return false;
             }
         } catch (\Exception $e) {
             log_message('error', 'Failed to send verification email to payer: ' . $e->getMessage());
+            log_message('error', 'Exception trace: ' . $e->getTraceAsString());
             return false;
         } catch (\Error $e) {
             log_message('error', 'Failed to send verification email to payer (Error): ' . $e->getMessage());
+            log_message('error', 'Error trace: ' . $e->getTraceAsString());
             return false;
         }
+    }
+    
+    /**
+     * Get email configuration from database or fallback to config/environment
+     */
+    private function getEmailConfig()
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            // Try to load from database first
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+                
+                if ($settings) {
+                    return [
+                        'fromEmail' => $settings['from_email'] ?? '',
+                        'fromName' => $settings['from_name'] ?? 'ClearPay',
+                        'protocol' => $settings['protocol'] ?? 'smtp',
+                        'SMTPHost' => $settings['smtp_host'] ?? '',
+                        'SMTPUser' => $settings['smtp_user'] ?? '',
+                        'SMTPPass' => $settings['smtp_pass'] ?? '',
+                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
+                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
+                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
+                        'mailType' => $settings['mail_type'] ?? 'html',
+                        'charset' => $settings['charset'] ?? 'UTF-8',
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+        }
+        
+        // Fallback to config
+        $config = config('Email');
+        return [
+            'fromEmail' => $config->fromEmail,
+            'fromName' => $config->fromName,
+            'protocol' => $config->protocol,
+            'SMTPHost' => $config->SMTPHost,
+            'SMTPUser' => $config->SMTPUser,
+            'SMTPPass' => $config->SMTPPass,
+            'SMTPPort' => $config->SMTPPort,
+            'SMTPCrypto' => $config->SMTPCrypto,
+            'SMTPTimeout' => $config->SMTPTimeout,
+            'mailType' => $config->mailType,
+            'charset' => $config->charset,
+        ];
     }
 
     public function verifyEmail()

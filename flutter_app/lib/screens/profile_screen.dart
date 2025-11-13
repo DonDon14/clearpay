@@ -4,8 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:io';
 // Conditional import for web-only features
 import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show File, FileReader, FileUploadInputElement;
+// Conditional import for mobile image picker
+import 'package:image_picker/image_picker.dart' if (dart.library.html) '../utils/html_stub.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notion_app_bar.dart';
@@ -191,85 +194,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _uploadProfilePicture() async {
-    if (!kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile picture upload is only available on web')),
-      );
-      return;
-    }
+    if (kIsWeb) {
+      // Web implementation
+      final input = html.FileUploadInputElement();
+      input.accept = 'image/*';
+      input.click();
 
-    // Create file input element
-    final input = html.FileUploadInputElement();
-    input.accept = 'image/*';
-    input.click();
+      input.onChange.listen((e) async {
+        final files = input.files;
+        if (files == null || files.isEmpty) return;
 
-    input.onChange.listen((e) async {
-      final files = input.files;
-      if (files == null || files.isEmpty) return;
+        final file = files[0];
+        
+        // Validate file type
+        final allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+        if (!allowedTypes.contains(file.type)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Invalid file type. Only JPEG, PNG, and GIF are allowed.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
 
-      final file = files[0];
-      
-      // Validate file type
-      final allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-      if (!allowedTypes.contains(file.type)) {
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('File size too large. Maximum 2MB allowed.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Show loading dialog
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid file type. Only JPEG, PNG, and GIF are allowed.'),
-              backgroundColor: Colors.red,
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(),
             ),
           );
         }
-        return;
-      }
 
-      // Validate file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('File size too large. Maximum 2MB allowed.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      // Show loading dialog
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
-
-      try {
-        // Read file as bytes
-        final reader = html.FileReader();
-        final completer = Completer<Uint8List>();
-        
-        reader.onLoadEnd.listen((e) {
-          completer.complete(reader.result as Uint8List);
-        });
-        
-        reader.onError.listen((e) {
-          completer.completeError('Failed to read file');
-        });
-        
-        reader.readAsArrayBuffer(file);
-        final fileBytes = await completer.future;
-
-        if (mounted) {
-          Navigator.pop(context); // Close loading dialog
+        try {
+          // Read file as bytes
+          final reader = html.FileReader();
+          final completer = Completer<Uint8List>();
           
+          reader.onLoadEnd.listen((e) {
+            completer.complete(reader.result as Uint8List);
+          });
+          
+          reader.onError.listen((e) {
+            completer.completeError('Failed to read file');
+          });
+          
+          reader.readAsArrayBuffer(file);
+          final fileBytes = await completer.future;
+
+          if (mounted) {
+            Navigator.pop(context); // Close loading dialog
+            
+            // Store the file temporarily - don't upload yet
+            setState(() {
+              _pendingProfilePictureBytes = fileBytes;
+              _pendingProfilePictureFileName = file.name;
+            });
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile picture selected. Click "Save Changes" to upload.'),
+                backgroundColor: Colors.blue,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            Navigator.pop(context); // Close loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: ${e.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      });
+    } else {
+      // Mobile implementation using image_picker
+      try {
+        final ImagePicker picker = ImagePicker();
+        final XFile? image = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 85,
+        );
+
+        if (image == null) return;
+
+        // Validate file size (max 2MB)
+        final file = File(image.path);
+        final fileSize = await file.length();
+        if (fileSize > 2 * 1024 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('File size too large. Maximum 2MB allowed.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Read file as bytes
+        final fileBytes = await file.readAsBytes();
+
+        if (mounted) {
           // Store the file temporarily - don't upload yet
           setState(() {
             _pendingProfilePictureBytes = fileBytes;
-            _pendingProfilePictureFileName = file.name;
+            _pendingProfilePictureFileName = image.name;
           });
           
           ScaffoldMessenger.of(context).showSnackBar(
@@ -282,16 +337,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       } catch (e) {
         if (mounted) {
-          Navigator.pop(context); // Close loading dialog
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: ${e.toString()}'),
+              content: Text('Error selecting image: ${e.toString()}'),
               backgroundColor: Colors.red,
             ),
           );
         }
       }
-    });
+    }
   }
 
   @override

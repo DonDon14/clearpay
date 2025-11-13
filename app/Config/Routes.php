@@ -9,6 +9,10 @@ use CodeIgniter\Router\RouteCollection;
 // Health check route (must be before default route for Render health checks)
 $routes->get('/health', 'HealthController::index');
 
+// Image serving route (must be before other routes to catch image requests)
+// This route handles image requests that might not be served as static files
+$routes->get('uploads/(profile|payment_proofs)/(:any)', 'ImageController::serve/$1/$2');
+
 // Default route - redirect to admin login
 
 // Admin Routes
@@ -242,6 +246,9 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
         $routes->options('api/payer/upload-profile-picture', 'Payer\\DashboardController::handleOptions');
         $routes->post('api/payer/upload-profile-picture', 'Payer\\DashboardController::uploadProfilePicture');
         // Update profile API endpoint (no auth filter - will check in controller)
+        $routes->options('api/payer/update-profile', 'Payer\\DashboardController::handleOptions');
+        $routes->post('api/payer/update-profile', 'Payer\\DashboardController::updateProfile');
+        // Also keep web route for backward compatibility
         $routes->options('payer/update-profile', 'Payer\\DashboardController::handleOptions');
         $routes->post('payer/update-profile', 'Payer\\DashboardController::updateProfile');
         // Check new activities API endpoint (no auth filter - will check in controller)
@@ -273,6 +280,7 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
             $routes->get('refund-requests', 'Payer\\DashboardController::refundRequests');
             // Provide active refund methods for the payer modal dropdown
             $routes->get('refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+            $routes->get('refund-details', 'Payer\\DashboardController::getRefundDetails');
             $routes->post('submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
             // Provide active payment methods for the payer
             $routes->get('payment-methods', 'Payer\\DashboardController::getActivePaymentMethods');

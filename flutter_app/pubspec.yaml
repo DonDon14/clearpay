@@ -31,6 +31,12 @@ dependencies:
   
   # URL Launcher for email and phone
   url_launcher: ^6.2.5
+  
+  # Image Picker for mobile profile pictures
+  image_picker: ^1.0.7
+  
+  # File Picker for mobile file uploads
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:

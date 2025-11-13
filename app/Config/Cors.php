@@ -35,6 +35,9 @@ class Cors extends BaseConfig
          *   - ['https://www.example.com']
          */
         'allowedOrigins' => [
+            // Render deployment URLs
+            'https://clearpay-web-dev.onrender.com',
+            'https://clearpay-web.onrender.com',
             // Production domains
             'https://clearpay.infinityfreeapp.com',
             'https://clearpay.fwh.is',
@@ -67,6 +70,7 @@ class Cors extends BaseConfig
          *   - ['https://\w+\.example\.com']
          */
         'allowedOriginsPatterns' => [
+            'https://clearpay-web.*\.onrender\.com',  // Render deployment URLs (matches any subdomain)
             'https://clearpay\.infinityfreeapp\.com',  // InfinityFree app domain
             'https://clearpay\.fwh\.is',               // Production domain
             'http://localhost(:\d+)?',                // Matches localhost with or without port

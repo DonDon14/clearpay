@@ -29,9 +29,29 @@ class RefundsController extends BaseController
 
         // Get pending refund requests (from payers)
         $pendingRequests = $refundModel->getPendingRequests();
+        
+        // Normalize profile pictures for pending requests
+        foreach ($pendingRequests as &$request) {
+            $request['profile_picture'] = $this->normalizeProfilePicturePath(
+                $request['profile_picture'] ?? null, 
+                $request['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         // Get refund history
         $refundHistory = $refundModel->getRefundHistory(null, 100);
+        
+        // Normalize profile pictures for refund history
+        foreach ($refundHistory as &$refund) {
+            $refund['profile_picture'] = $this->normalizeProfilePicturePath(
+                $refund['profile_picture'] ?? null, 
+                $refund['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         // Get all payments for refund processing (recently paid, not fully refunded)
         $recentPayments = $paymentModel
@@ -435,6 +455,16 @@ class RefundsController extends BaseController
                     ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
                     ->where('refunds.id', $refundId)
                     ->first();
+                    
+                    // Normalize profile picture with fallback
+                    if ($refundDetails) {
+                        $refundDetails['profile_picture'] = $this->normalizeProfilePicturePath(
+                            $refundDetails['profile_picture'] ?? null, 
+                            $refundDetails['payer_id'] ?? null, 
+                            null, 
+                            'payer'
+                        );
+                    }
 
                     // Send email to payer if email address is available
                     if ($refundDetails && !empty($refundDetails['email_address'])) {
@@ -729,6 +759,16 @@ class RefundsController extends BaseController
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
+        
+        // Normalize profile picture with fallback
+        if ($refundDetails) {
+            $refundDetails['profile_picture'] = $this->normalizeProfilePicturePath(
+                $refundDetails['profile_picture'] ?? null, 
+                $refundDetails['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         // Approve and complete the refund in one step
         // When admin approves, it means they've processed and confirmed the refund
@@ -834,6 +874,16 @@ class RefundsController extends BaseController
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
+        
+        // Normalize profile picture with fallback
+        if ($refundDetails) {
+            $refundDetails['profile_picture'] = $this->normalizeProfilePicturePath(
+                $refundDetails['profile_picture'] ?? null, 
+                $refundDetails['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
 
         $refundModel->completeRefund(
             $refundId,
@@ -975,27 +1025,42 @@ class RefundsController extends BaseController
             ]);
         }
 
+        // Cast refund_id to integer for proper comparison
+        $refundId = (int)$refundId;
+
         $refundModel = new RefundModel();
-        $refund = $refundModel->getRefundsWithDetails(null, null, null);
         
-        $refundDetails = null;
-        foreach ($refund as $r) {
-            if ($r['id'] == $refundId) {
-                $refundDetails = $r;
+        // More efficient: query directly by ID instead of loading all refunds
+        $refundDetails = $refundModel->getRefundsWithDetails(null, null, null);
+        
+        // Find the specific refund
+        $foundRefund = null;
+        foreach ($refundDetails as $r) {
+            // Ensure both are compared as integers
+            if ((int)$r['id'] === $refundId) {
+                $foundRefund = $r;
                 break;
             }
         }
 
-        if (!$refundDetails) {
+        if (!$foundRefund) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Refund not found'
             ]);
         }
+        
+        // Normalize profile picture with fallback
+        $foundRefund['profile_picture'] = $this->normalizeProfilePicturePath(
+            $foundRefund['profile_picture'] ?? null, 
+            $foundRefund['payer_id'] ?? null, 
+            null, 
+            'payer'
+        );
 
         return $this->response->setJSON([
             'success' => true,
-            'refund' => $refundDetails
+            'refund' => $foundRefund
         ]);
     }
 
@@ -1011,15 +1076,48 @@ class RefundsController extends BaseController
                 return false;
             }
 
-            // Initialize email service
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for refund approval email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
             
-            // Use configured email settings
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Clear any previous configuration
+            $emailService->clear();
             
-            $emailService->setFrom($fromEmail, $fromName);
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for refund approval - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($refundDetails['email_address']);
             $emailService->setSubject('Refund Approved - ClearPay');
             
@@ -1052,12 +1150,10 @@ class RefundsController extends BaseController
             $emailService->setMessage($message);
             
             // Log email attempt
-            log_message('info', "Attempting to send refund approval email to: {$refundDetails['email_address']}");
+            log_message('info', "Attempting to send refund approval email to: {$refundDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
             
             // Send email
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Refund approval email sent successfully to: {$refundDetails['email_address']}");
@@ -1077,6 +1173,60 @@ class RefundsController extends BaseController
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
+    }
+    
+    /**
+     * Get email configuration from database or fallback to config/environment
+     */
+    private function getEmailConfig()
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            // Try to load from database first
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+                
+                if ($settings) {
+                    return [
+                        'fromEmail' => $settings['from_email'] ?? '',
+                        'fromName' => $settings['from_name'] ?? 'ClearPay',
+                        'protocol' => $settings['protocol'] ?? 'smtp',
+                        'SMTPHost' => $settings['smtp_host'] ?? '',
+                        'SMTPUser' => $settings['smtp_user'] ?? '',
+                        'SMTPPass' => $settings['smtp_pass'] ?? '',
+                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
+                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
+                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
+                        'mailType' => $settings['mail_type'] ?? 'html',
+                        'charset' => $settings['charset'] ?? 'UTF-8',
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+        }
+        
+        // Fallback to config
+        $config = config('Email');
+        return [
+            'fromEmail' => $config->fromEmail,
+            'fromName' => $config->fromName,
+            'protocol' => $config->protocol,
+            'SMTPHost' => $config->SMTPHost,
+            'SMTPUser' => $config->SMTPUser,
+            'SMTPPass' => $config->SMTPPass,
+            'SMTPPort' => $config->SMTPPort,
+            'SMTPCrypto' => $config->SMTPCrypto,
+            'SMTPTimeout' => $config->SMTPTimeout,
+            'mailType' => $config->mailType,
+            'charset' => $config->charset,
+        ];
     }
 
     /**

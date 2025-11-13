@@ -41,13 +41,48 @@ class LoginController extends Controller
         // Make username check case-sensitive (SQL might be case-insensitive)
         $user = $userModel->where('username', $username)->first();
         if ($user && $user['username'] === $username && password_verify($password, $user['password'])) {
+            // Normalize profile picture path
+            $normalizedProfilePicture = null;
+            if (!empty($user['profile_picture'])) {
+                $path = $user['profile_picture'];
+                // Remove any base_url or http prefixes
+                $path = preg_replace('#^https?://[^/]+/#', '', $path);
+                $path = preg_replace('#^uploads/profile/#', '', $path);
+                $path = preg_replace('#^profile/#', '', $path);
+                $filename = basename($path);
+                
+                // Verify file exists
+                $filePath = FCPATH . 'uploads/profile/' . $filename;
+                if (file_exists($filePath)) {
+                    $normalizedProfilePicture = 'uploads/profile/' . $filename;
+                } else {
+                    // Try to find a similar file for this user (fallback)
+                    $uploadDir = FCPATH . 'uploads/profile/';
+                    $pattern = $user['id'] . '_*';
+                    $files = glob($uploadDir . $pattern);
+                    if (!empty($files)) {
+                        usort($files, function($a, $b) {
+                            return filemtime($b) - filemtime($a);
+                        });
+                        $foundFile = basename($files[0]);
+                        $normalizedProfilePicture = 'uploads/profile/' . $foundFile;
+                        // Update database with correct path
+                        try {
+                            $userModel->update($user['id'], ['profile_picture' => $normalizedProfilePicture]);
+                        } catch (\Exception $e) {
+                            log_message('error', 'Failed to update database with correct profile picture path: ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
+            
             $session->set([
                 'user-id'         => $user['id'],
                 'username'        => $user['username'],
                 'email'           => $user['email'],
                 'name'            => $user['name'],
                 'role'            => $user['role'],
-                'profile_picture' => $user['profile_picture'] ?? null,
+                'profile_picture' => $normalizedProfilePicture,
                 'isLoggedIn'      => true,
             ]);
             
@@ -177,15 +212,48 @@ class LoginController extends Controller
     private function sendVerificationEmail($email, $name, $code)
     {
         try {
-            // Initialize email service - it will load the Email config automatically
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for admin verification email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
             
-            // Use configured email settings
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Clear any previous configuration
+            $emailService->clear();
             
-            $emailService->setFrom($fromEmail, $fromName);
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for admin verification - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($email);
             $emailService->setSubject('Email Verification - ClearPay');
             
@@ -196,14 +264,10 @@ class LoginController extends Controller
             
             $emailService->setMessage($message);
             
-            // Log SMTP settings for debugging
-            log_message('info', "Attempting to send email to: {$email}");
-            log_message('info', "Using SMTP: {$config->SMTPHost}:{$config->SMTPPort} with user: {$config->SMTPUser}");
+            // Log SMTP settings for debugging (without password)
+            log_message('info', "Attempting to send verification email to: {$email} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
             
-            // Suppress errors during email sending and log instead
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Verification email sent successfully to: {$email}");
@@ -215,13 +279,67 @@ class LoginController extends Controller
             }
         } catch (\Exception $e) {
             log_message('error', 'Failed to send verification email: ' . $e->getMessage());
-            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            log_message('error', 'Exception trace: ' . $e->getTraceAsString());
             return false;
         } catch (\Error $e) {
             log_message('error', 'Failed to send verification email (Error): ' . $e->getMessage());
-            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            log_message('error', 'Error trace: ' . $e->getTraceAsString());
             return false;
         }
+    }
+    
+    /**
+     * Get email configuration from database or fallback to config/environment
+     */
+    private function getEmailConfig()
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            // Try to load from database first
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+                
+                if ($settings) {
+                    return [
+                        'fromEmail' => $settings['from_email'] ?? '',
+                        'fromName' => $settings['from_name'] ?? 'ClearPay',
+                        'protocol' => $settings['protocol'] ?? 'smtp',
+                        'SMTPHost' => $settings['smtp_host'] ?? '',
+                        'SMTPUser' => $settings['smtp_user'] ?? '',
+                        'SMTPPass' => $settings['smtp_pass'] ?? '',
+                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
+                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
+                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
+                        'mailType' => $settings['mail_type'] ?? 'html',
+                        'charset' => $settings['charset'] ?? 'UTF-8',
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+        }
+        
+        // Fallback to config
+        $config = config('Email');
+        return [
+            'fromEmail' => $config->fromEmail,
+            'fromName' => $config->fromName,
+            'protocol' => $config->protocol,
+            'SMTPHost' => $config->SMTPHost,
+            'SMTPUser' => $config->SMTPUser,
+            'SMTPPass' => $config->SMTPPass,
+            'SMTPPort' => $config->SMTPPort,
+            'SMTPCrypto' => $config->SMTPCrypto,
+            'SMTPTimeout' => $config->SMTPTimeout,
+            'mailType' => $config->mailType,
+            'charset' => $config->charset,
+        ];
     }
 
     public function verifyEmail()
@@ -386,13 +504,48 @@ class LoginController extends Controller
     private function sendPasswordResetEmail($email, $name, $code)
     {
         try {
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost']) || empty($emailConfig['fromEmail'])) {
+                log_message('error', 'SMTP configuration incomplete for admin password reset email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
             
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Clear any previous configuration
+            $emailService->clear();
             
-            $emailService->setFrom($fromEmail, $fromName);
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for admin password reset - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
             $emailService->setTo($email);
             $emailService->setSubject('Password Reset Request - ClearPay');
             
@@ -405,20 +558,30 @@ class LoginController extends Controller
             
             log_message('info', "Attempting to send password reset email to: {$email}");
             
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Password reset email sent successfully to: {$email}");
                 return true;
             } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
+                $error = $emailService->printDebugger(['headers', 'subject', 'body']);
                 log_message('error', "Failed to send password reset email: {$error}");
+                
+                // Try to get more specific error information
+                $lastError = error_get_last();
+                if ($lastError) {
+                    log_message('error', 'PHP Error: ' . $lastError['message']);
+                }
+                
                 return false;
             }
         } catch (\Exception $e) {
             log_message('error', 'Failed to send password reset email: ' . $e->getMessage());
+            log_message('error', 'Exception trace: ' . $e->getTraceAsString());
+            return false;
+        } catch (\Error $e) {
+            log_message('error', 'Failed to send password reset email (Error): ' . $e->getMessage());
+            log_message('error', 'Error trace: ' . $e->getTraceAsString());
             return false;
         }
     }

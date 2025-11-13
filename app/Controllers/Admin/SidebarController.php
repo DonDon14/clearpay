@@ -354,9 +354,9 @@ class SidebarController extends BaseController
             
             // Mark email verified when created by admin (if email provided)
             if (!empty($data['email_address'])) {
-                $data['email_verified'] = 1;
+                $data['email_verified'] = true;
             } else {
-                $data['email_verified'] = 1; // No email verification needed if no email
+                $data['email_verified'] = true; // No email verification needed if no email
             }
             $data['verification_token'] = null;
             
@@ -465,6 +465,14 @@ class SidebarController extends BaseController
                 $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
             }
             
+            // Normalize profile picture with fallback
+            $payer['profile_picture'] = $this->normalizeProfilePicturePath(
+                $payer['profile_picture'] ?? null, 
+                $payer['id'] ?? null, 
+                null, 
+                'payer'
+            );
+
             return $this->response->setJSON([
                 'success' => true,
                 'payer' => $payer,
@@ -968,11 +976,21 @@ class SidebarController extends BaseController
             log_message('error', 'Failed to log admin user update activity: ' . $e->getMessage());
         }
 
+        // Normalize profile picture URL
+        $profileUrl = null;
+        if (!empty($updatedUser['profile_picture'])) {
+            $path = $updatedUser['profile_picture'];
+            $path = preg_replace('#^uploads/profile/#', '', $path);
+            $path = preg_replace('#^profile/#', '', $path);
+            $filename = basename($path);
+            $profileUrl = base_url('uploads/profile/' . $filename);
+        }
+        
         return $this->response->setJSON([
             'success' => true,
             'message' => 'Profile updated successfully',
             'user' => $updatedUser,
-            'profile_picture_url' => $updatedUser['profile_picture'] ? base_url($updatedUser['profile_picture']) : null
+            'profile_picture_url' => $profileUrl
         ]);
     }
 
@@ -990,8 +1008,13 @@ class SidebarController extends BaseController
                 'message' => 'User not found.'
             ]);
         }
-        // Create absolute URL for profile pic if set
-        $user['profile_picture'] = $user['profile_picture'] ? base_url($user['profile_picture']) : '';
+        // Normalize profile picture with fallback
+        $user['profile_picture'] = $this->normalizeProfilePicturePath(
+            $user['profile_picture'] ?? null, 
+            null, 
+            $user['id'] ?? null, 
+            'user'
+        ) ?? '';
         return $this->response->setJSON([
             'success' => true,
             'user' => [

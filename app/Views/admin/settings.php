@@ -456,6 +456,9 @@ function configureEmail() {
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('smtpConfigModal'));
             modal.show();
+            
+            // Setup password toggle after modal is shown
+            setTimeout(() => setupPasswordToggle(), 100);
         } else {
             showNotification('Failed to load email configuration: ' + (data.error || 'Unknown error'), 'error');
         }
@@ -583,6 +586,19 @@ function testEmail() {
     
     showNotification('Sending test email...', 'info');
     
+    // Get current form values to send with test request
+    // This allows testing without saving first
+    const formData = {
+        email: testEmailAddress,
+        SMTPHost: document.getElementById('smtpHost')?.value || '',
+        SMTPUser: document.getElementById('smtpUser')?.value || '',
+        SMTPPass: document.getElementById('smtpPass')?.value || '',
+        SMTPPort: document.getElementById('smtpPort')?.value || 587,
+        SMTPCrypto: document.getElementById('smtpCrypto')?.value || 'tls',
+        fromEmail: document.getElementById('smtpFromEmail')?.value || '',
+        fromName: document.getElementById('smtpFromName')?.value || 'ClearPay'
+    };
+    
     fetch('/admin/email-settings/test-email', {
         method: 'POST',
         headers: {
@@ -590,18 +606,47 @@ function testEmail() {
             'X-Requested-With': 'XMLHttpRequest'
         },
         credentials: 'same-origin',
-        body: JSON.stringify({
-            email: testEmailAddress
-        })
+        body: JSON.stringify(formData)
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             showNotification(data.message || 'Test email sent successfully!', 'success');
         } else {
-            showNotification('Failed to send test email: ' + (data.error || 'Unknown error'), 'error');
+            let errorMsg = data.error || 'Unknown error';
+            if (data.hints && data.hints.length > 0) {
+                errorMsg += '\n\nHints:\n' + data.hints.map((hint, i) => (i + 1) + '. ' + hint).join('\n');
+            }
+            if (data.hint) {
+                errorMsg += '\n\nHint: ' + data.hint;
+            }
+            
+            // Show diagnostics in console and error message
+            if (data.diagnostics) {
+                const diag = data.diagnostics;
+                const diagMsg = `\n\n📊 Configuration Diagnostics:\n` +
+                    `- Config Source: ${diag.config_source || 'unknown'}\n` +
+                    `- SMTP Host: ${diag.smtp_host || 'NOT SET'}\n` +
+                    `- SMTP User: ${diag.smtp_user || 'NOT SET'}\n` +
+                    `- SMTP Password: ${diag.smtp_pass_set ? 'SET (' + diag.smtp_pass_length + ' chars)' : 'EMPTY ⚠️'}\n` +
+                    `- SMTP Port: ${diag.smtp_port || 'NOT SET'}\n` +
+                    `- SMTP Crypto: ${diag.smtp_crypto || 'NOT SET'}\n` +
+                    `- From Email: ${diag.from_email || 'NOT SET'}`;
+                errorMsg += diagMsg;
+                console.error('📊 Email Configuration Diagnostics:', data.diagnostics);
+                
+                // Add specific hint if password is empty
+                if (!diag.smtp_pass_set || diag.smtp_pass_length === 0) {
+                    errorMsg += '\n\n⚠️ CRITICAL: SMTP Password is EMPTY! Set email.SMTPPass in Render environment variables.';
+                }
+            }
+            
+            showNotification(errorMsg, 'error');
             if (data.debug) {
                 console.error('Email debug info:', data.debug);
+            }
+            if (data.phpError) {
+                console.error('PHP Error:', data.phpError);
             }
         }
     })
@@ -843,6 +888,50 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Failed to load email notifications status:', error);
     });
 });
+
+// Password toggle functionality for SMTP password field
+function setupPasswordToggle() {
+    const togglePasswordBtn = document.getElementById('toggleSmtpPassword');
+    const passwordInput = document.getElementById('smtpPass');
+    const toggleIcon = document.getElementById('toggleSmtpPasswordIcon');
+    
+    if (togglePasswordBtn && passwordInput && toggleIcon) {
+        // Remove any existing event listeners by cloning
+        const newBtn = togglePasswordBtn.cloneNode(true);
+        togglePasswordBtn.parentNode.replaceChild(newBtn, togglePasswordBtn);
+        
+        // Get fresh references after replacement
+        const btn = document.getElementById('toggleSmtpPassword');
+        const icon = document.getElementById('toggleSmtpPasswordIcon');
+        const input = document.getElementById('smtpPass');
+        
+        btn.addEventListener('click', function() {
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+            
+            // Toggle icon
+            if (type === 'text') {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                btn.setAttribute('title', 'Hide Password');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                btn.setAttribute('title', 'Show Password');
+            }
+        });
+    }
+}
+
+// Setup password toggle when modal is shown
+document.addEventListener('DOMContentLoaded', function() {
+    const smtpModal = document.getElementById('smtpConfigModal');
+    if (smtpModal) {
+        smtpModal.addEventListener('shown.bs.modal', function() {
+            setupPasswordToggle();
+        });
+    }
+});
 </script>
 
 <?= payment_methods_modal($paymentMethods ?? []) ?>
@@ -898,7 +987,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="col-md-6">
                             <label for="smtpPass" class="form-label">SMTP Password <span class="text-danger">*</span></label>
-                            <input type="password" class="form-control" id="smtpPass" required>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="smtpPass" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleSmtpPassword" title="Show/Hide Password">
+                                    <i class="fas fa-eye" id="toggleSmtpPasswordIcon"></i>
+                                </button>
+                            </div>
                             <small class="text-muted">For Gmail, use App Password</small>
                         </div>
                     </div>

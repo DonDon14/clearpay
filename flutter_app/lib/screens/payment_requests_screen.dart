@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'dart:io';
 import '../services/api_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 // Conditional import for web-only features
 import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show FileUploadInputElement, File;
+// Conditional import for mobile file picker
+import 'package:file_picker/file_picker.dart' if (dart.library.html) '../utils/html_stub.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/navigation_drawer.dart';
 
@@ -426,7 +429,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
   String? _accountName;
   String? _proofOfPaymentPath;
   final _proofOfPaymentController = TextEditingController();
-  html.File? _proofOfPaymentFile;
+  dynamic _proofOfPaymentFile; // For web: html.File, for mobile: File
 
   List<Map<String, dynamic>> _paymentMethods = [];
   bool _isLoadingPaymentMethods = false;
@@ -647,11 +650,52 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
         }
       });
     } else {
-      // For mobile, you'd use image_picker or file_picker package
-      // For now, just show a message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File picker not implemented for mobile yet')),
-      );
+      // Mobile implementation using file_picker
+      try {
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+        );
+
+        if (result != null && result.files.isNotEmpty) {
+          final pickedFile = result.files.first;
+          if (pickedFile.path != null) {
+            final filePath = pickedFile.path!;
+            final fileName = pickedFile.name;
+            final file = File(filePath);
+            
+            // Validate file size (max 5MB for proof of payment)
+            final fileSize = await file.length();
+            if (fileSize > 5 * 1024 * 1024) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('File size too large. Maximum 5MB allowed.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return;
+            }
+
+            // Store file path for upload
+            setState(() {
+              _proofOfPaymentPath = filePath;
+              _proofOfPaymentController.text = fileName;
+              _proofOfPaymentFile = file; // Store File object for mobile
+            });
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error selecting file: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 

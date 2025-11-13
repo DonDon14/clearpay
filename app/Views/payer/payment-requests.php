@@ -166,7 +166,13 @@ function refreshPaymentRequests() {
 
 function viewProofOfPayment(imagePath, referenceNumber) {
     const modal = new bootstrap.Modal(document.getElementById('proofOfPaymentModal'));
-    document.getElementById('proofImage').src = imagePath;
+    // Ensure image path is absolute (already includes base_url from PHP)
+    const imgElement = document.getElementById('proofImage');
+    imgElement.src = imagePath;
+    imgElement.onerror = function() {
+        this.src = '<?= base_url('assets/img/placeholder-image.png') ?>';
+        this.onerror = null;
+    };
     document.getElementById('downloadProofBtn').href = imagePath;
     document.getElementById('downloadProofBtn').download = `proof_of_payment_${referenceNumber}.jpg`;
     modal.show();

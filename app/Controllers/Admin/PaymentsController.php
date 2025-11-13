@@ -263,7 +263,7 @@ class PaymentsController extends BaseController
                         'contact_number' => $this->request->getPost('contact_number'),
                         'email_address' => $this->request->getPost('email_address') ?: null,
                         'password' => password_hash($payerId, PASSWORD_DEFAULT), // Set password to payer_id for admin-created accounts
-                        'email_verified' => 1,
+                        'email_verified' => true,
                         'verification_token' => null,
                     ];
                     $payerDbId = $payerModel->insert($payerData);
@@ -396,7 +396,7 @@ class PaymentsController extends BaseController
                 'amount_paid' => $this->request->getPost('amount_paid'),
                 'payment_method' => $submittedPaymentMethod, // Use normalized name from database
                 'payment_status' => $paymentStatus,
-                'is_partial_payment' => $isPartial ? 1 : 0,
+                'is_partial_payment' => $isPartial ? true : false,
                 'remaining_balance' => $remainingBalance,
                 'parent_payment_id' => $this->request->getPost('parent_payment_id') ?: null,
                 'payment_sequence' => $paymentSequence,
@@ -1124,7 +1124,7 @@ class PaymentsController extends BaseController
                 'amount_paid' => $newPaymentAmount,
                 'payment_method' => $json['payment_method'] ?? 'cash',
                 'payment_status' => $newRemaining <= 0.01 ? 'fully paid' : 'partial',
-                'is_partial_payment' => $newRemaining > 0 ? 1 : 0,
+                'is_partial_payment' => $newRemaining > 0 ? true : false,
                 'remaining_balance' => $newRemaining,
                 'parent_payment_id' => $json['original_payment_id'],
                 'payment_sequence' => 1,
@@ -1248,12 +1248,12 @@ class PaymentsController extends BaseController
             if ($calculatedRemainingBalance > 0.01) {
                 // Still partial payment
                 $updateData['payment_status'] = 'partial';
-                $updateData['is_partial_payment'] = 1;
+                $updateData['is_partial_payment'] = true;
                 $updateData['remaining_balance'] = $calculatedRemainingBalance;
             } else {
                 // Fully paid
                 $updateData['payment_status'] = 'fully paid';
-                $updateData['is_partial_payment'] = 0;
+                $updateData['is_partial_payment'] = false;
                 $updateData['remaining_balance'] = 0;
             }
 
@@ -1511,7 +1511,12 @@ class PaymentsController extends BaseController
                     'payer_student_id' => $payment['payer_student_id'] ?? $payment['payer_id'],
                     'contact_number' => $payment['contact_number'] ?? '',
                     'email_address' => $payment['email_address'] ?? '',
-                    'profile_picture' => $payment['profile_picture'] ?? '',
+                    'profile_picture' => $this->normalizeProfilePicturePath(
+                        $payment['profile_picture'] ?? null, 
+                        $payment['payer_id'] ?? null, 
+                        null, 
+                        'payer'
+                    ) ?? '',
                     'contribution_title' => $payment['contribution_title'] ?? 'N/A',
                     'contribution_description' => $payment['contribution_description'] ?? '',
                     'contribution_amount' => $payment['contribution_amount'] ?? $payment['amount_paid'] ?? 0,
@@ -2286,7 +2291,7 @@ class PaymentsController extends BaseController
             ->set([
                 'payment_status' => 'fully paid',
                 'remaining_balance' => 0,
-                'is_partial_payment' => 0
+                'is_partial_payment' => false
             ])
             ->update();
     }
@@ -2497,15 +2502,48 @@ class PaymentsController extends BaseController
                 return false;
             }
 
-            // Initialize email service
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for receipt email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
             
-            // Use configured email settings
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Clear any previous configuration
+            $emailService->clear();
             
-            $emailService->setFrom($fromEmail, $fromName);
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for receipt email - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($paymentData['email_address']);
             $emailService->setSubject('Payment Receipt - ' . ($paymentData['receipt_number'] ?? 'ClearPay'));
             
@@ -2549,12 +2587,10 @@ class PaymentsController extends BaseController
             $emailService->setMessage($message);
             
             // Log email attempt
-            log_message('info', "Attempting to send receipt email to: {$paymentData['email_address']}");
+            log_message('info', "Attempting to send receipt email to: {$paymentData['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
             
             // Send email
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Receipt email sent successfully to: {$paymentData['email_address']}");
@@ -2574,5 +2610,59 @@ class PaymentsController extends BaseController
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
+    }
+    
+    /**
+     * Get email configuration from database or fallback to config/environment
+     */
+    private function getEmailConfig()
+    {
+        try {
+            $db = \Config\Database::connect();
+            
+            // Try to load from database first
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+                
+                if ($settings) {
+                    return [
+                        'fromEmail' => $settings['from_email'] ?? '',
+                        'fromName' => $settings['from_name'] ?? 'ClearPay',
+                        'protocol' => $settings['protocol'] ?? 'smtp',
+                        'SMTPHost' => $settings['smtp_host'] ?? '',
+                        'SMTPUser' => $settings['smtp_user'] ?? '',
+                        'SMTPPass' => $settings['smtp_pass'] ?? '',
+                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
+                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
+                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
+                        'mailType' => $settings['mail_type'] ?? 'html',
+                        'charset' => $settings['charset'] ?? 'UTF-8',
+                    ];
+                }
+            }
+        } catch (\Exception $e) {
+            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+        }
+        
+        // Fallback to config
+        $config = config('Email');
+        return [
+            'fromEmail' => $config->fromEmail,
+            'fromName' => $config->fromName,
+            'protocol' => $config->protocol,
+            'SMTPHost' => $config->SMTPHost,
+            'SMTPUser' => $config->SMTPUser,
+            'SMTPPass' => $config->SMTPPass,
+            'SMTPPort' => $config->SMTPPort,
+            'SMTPCrypto' => $config->SMTPCrypto,
+            'SMTPTimeout' => $config->SMTPTimeout,
+            'mailType' => $config->mailType,
+            'charset' => $config->charset,
+        ];
     }
 }

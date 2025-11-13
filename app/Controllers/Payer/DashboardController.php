@@ -64,6 +64,9 @@ class DashboardController extends BaseController
             ->limit(3)
             ->findAll();
         
+        // Normalize profile picture path with fallback
+        $payer['profile_picture'] = $this->normalizeProfilePicturePath($payer['profile_picture'] ?? null, $payer['id'] ?? null, null, 'payer');
+
         $data = [
             'title' => 'Dashboard',
             'pageTitle' => 'Dashboard',
@@ -82,6 +85,9 @@ class DashboardController extends BaseController
         $payerId = session('payer_id');
         $payer = $this->payerModel->find($payerId);
         
+        // Normalize profile picture path with fallback
+        $payer['profile_picture'] = $this->normalizeProfilePicturePath($payer['profile_picture'] ?? null, $payer['id'] ?? null, null, 'payer');
+
         $data = [
             'title' => 'My Data',
             'pageTitle' => 'My Data',
@@ -284,53 +290,124 @@ class DashboardController extends BaseController
 
         // Create upload directory if it doesn't exist
         $uploadPath = FCPATH . 'uploads/profile/';
+        
+        // Log the actual path being used
+        log_message('info', 'Profile upload - FCPATH: ' . FCPATH . ', Upload path: ' . $uploadPath);
+        
+        // Ensure parent directory exists
+        $parentDir = dirname($uploadPath);
+        if (!is_dir($parentDir)) {
+            if (!mkdir($parentDir, 0755, true)) {
+                log_message('error', 'Failed to create parent directory: ' . $parentDir);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: Could not create parent upload directory. Please contact administrator.'
+                ]);
+            }
+        }
+        
         if (!is_dir($uploadPath)) {
-            mkdir($uploadPath, 0755, true);
+            if (!mkdir($uploadPath, 0755, true)) {
+                log_message('error', 'Failed to create profile upload directory: ' . $uploadPath);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: Could not create upload directory. Please contact administrator.'
+                ]);
+            }
+            // Set permissions after creation
+            chmod($uploadPath, 0755);
+        }
+        
+        // Check if directory is writable
+        if (!is_writable($uploadPath)) {
+            // Try to fix permissions
+            @chmod($uploadPath, 0755);
+            @chown($uploadPath, 'www-data');
+            
+            if (!is_writable($uploadPath)) {
+                log_message('error', 'Profile upload directory is not writable: ' . $uploadPath . ', Permissions: ' . substr(sprintf('%o', fileperms($uploadPath)), -4));
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+                ]);
+            }
         }
 
         // Generate unique filename
         $newName = 'payer_' . $payerId . '_' . time() . '.' . $file->getExtension();
         
-                if ($file->move($uploadPath, $newName)) {
-                    // Get current payer data to delete old profile picture
-                    $payer = $this->payerModel->find($payerId);
-                    $oldProfilePicture = $payer['profile_picture'] ?? null;
-                    
-                    // Get old payer data for activity logging
-                    $oldPayerData = $this->payerModel->find($payerId);
-                    
-                    // Update database with new profile picture path
-                    $profilePicturePath = 'uploads/profile/' . $newName;
-                    $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
-                    
-                    // Update session with new profile picture path
-                    session()->set('payer_profile_picture', $profilePicturePath);
-                    
-                    // Delete old profile picture if it exists
-                    if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
-                        unlink(FCPATH . $oldProfilePicture);
-                    }
-
-                    // Log payer profile picture update activity for admin notification
-                    try {
-                        $activityLogger = new \App\Services\ActivityLogger();
-                        $updatedPayerData = array_merge($oldPayerData, ['profile_picture' => $profilePicturePath, 'id' => $payerId]);
-                        $activityLogger->logPayer('updated', $updatedPayerData, $oldPayerData);
-                    } catch (\Exception $e) {
-                        log_message('error', 'Failed to log payer profile picture update activity: ' . $e->getMessage());
-                    }
-
-                    return $this->response->setJSON([
-                        'success' => true,
-                        'message' => 'Profile picture uploaded successfully',
-                        'profile_picture' => base_url($profilePicturePath)
-                    ]);
-        } else {
+        // Log detailed information before move
+        log_message('info', 'Attempting to move file - Path: ' . $uploadPath . ', File: ' . $newName . ', Directory exists: ' . (is_dir($uploadPath) ? 'Yes' : 'No') . ', Writable: ' . (is_writable($uploadPath) ? 'Yes' : 'No'));
+        
+        if (!$file->move($uploadPath, $newName)) {
+            // Get error from file object
+            $error = $file->getErrorString();
+            if (empty($error)) {
+                $error = $file->getError() . ' (Error code: ' . $file->getError() . ')';
+            }
+            
+            // Get system-level error if available
+            $lastError = error_get_last();
+            $systemError = $lastError ? $lastError['message'] : 'Unknown system error';
+            
+            // Check if directory exists and is writable
+            $dirExists = is_dir($uploadPath);
+            $dirWritable = is_writable($uploadPath);
+            $fullPath = $uploadPath . $newName;
+            $parentWritable = is_writable(dirname($uploadPath));
+            
+            log_message('error', 'Profile picture upload failed - Error: ' . $error . ', System Error: ' . $systemError . ', Path: ' . $uploadPath . ', File: ' . $newName . ', Dir exists: ' . ($dirExists ? 'Yes' : 'No') . ', Dir writable: ' . ($dirWritable ? 'Yes' : 'No') . ', Parent writable: ' . ($parentWritable ? 'Yes' : 'No'));
+            
+            $errorMessage = 'Error: Could not move file "' . $file->getName() . '" to upload directory.';
+            if (!$dirExists) {
+                $errorMessage .= ' Directory does not exist.';
+            } elseif (!$dirWritable) {
+                $errorMessage .= ' Directory is not writable.';
+            } elseif (!empty($error) && $error !== '0') {
+                $errorMessage .= ' Reason: ' . $error;
+            } else {
+                $errorMessage .= ' Reason: ' . $systemError;
+            }
+            
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Failed to upload profile picture'
+                'message' => $errorMessage
             ]);
         }
+        
+        // File moved successfully - Get current payer data to delete old profile picture
+        $payer = $this->payerModel->find($payerId);
+        $oldProfilePicture = $payer['profile_picture'] ?? null;
+        
+        // Get old payer data for activity logging
+        $oldPayerData = $this->payerModel->find($payerId);
+        
+        // Update database with new profile picture path
+        $profilePicturePath = 'uploads/profile/' . $newName;
+        $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
+        
+        // Update session with new profile picture path
+        session()->set('payer_profile_picture', $profilePicturePath);
+        
+        // Delete old profile picture if it exists
+        if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
+            unlink(FCPATH . $oldProfilePicture);
+        }
+
+        // Log payer profile picture update activity for admin notification
+        try {
+            $activityLogger = new \App\Services\ActivityLogger();
+            $updatedPayerData = array_merge($oldPayerData, ['profile_picture' => $profilePicturePath, 'id' => $payerId]);
+            $activityLogger->logPayer('updated', $updatedPayerData, $oldPayerData);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to log payer profile picture update activity: ' . $e->getMessage());
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Profile picture uploaded successfully',
+            'profile_picture' => base_url($profilePicturePath) // Return full URL for API response
+        ]);
     }
 
     public function announcements()
@@ -475,9 +552,9 @@ class DashboardController extends BaseController
                 MAX(payment_date) as last_payment_date,
                 MIN(payment_date) as first_payment_date,
                 CASE 
-                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN "fully paid"
-                    WHEN SUM(amount_paid) > 0 THEN "partial"
-                    ELSE "unpaid"
+                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN \'fully paid\'
+                    WHEN SUM(amount_paid) > 0 THEN \'partial\'
+                    ELSE \'unpaid\'
                 END as computed_status,
                 ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
             ')
@@ -935,6 +1012,27 @@ class DashboardController extends BaseController
         // Get payer's payment requests
         $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
         
+        // Add base_url to proof of payment paths - use ImageController route
+        foreach ($paymentRequests as &$request) {
+            if (!empty($request['proof_of_payment_path'])) {
+                // Extract filename from path (handles both full paths and just filenames)
+                $path = $request['proof_of_payment_path'];
+                // Remove any existing uploads/ prefix to avoid duplication
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
+                $filename = basename($path);
+                
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/payment_proofs/' . $filename;
+                if (file_exists($filePath)) {
+                    $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                } else {
+                    log_message('warning', 'Proof of payment image not found: ' . $filePath);
+                    $request['proof_of_payment_path'] = null;
+                }
+            }
+        }
+        
         $data = [
             'title' => 'Payment Requests',
             'pageTitle' => 'Payment Requests',
@@ -1068,17 +1166,97 @@ class DashboardController extends BaseController
             if ($file && $file->isValid() && !$file->hasMoved()) {
                 $uploadPath = FCPATH . 'uploads/payment_proofs/';
                 
+                // Log the actual path being used
+                log_message('info', 'Payment proof upload - FCPATH: ' . FCPATH . ', Upload path: ' . $uploadPath);
+                
+                // Ensure parent directory exists
+                $parentDir = dirname($uploadPath);
+                if (!is_dir($parentDir)) {
+                    if (!mkdir($parentDir, 0755, true)) {
+                        log_message('error', 'Failed to create parent directory: ' . $parentDir);
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Could not create parent upload directory. Please contact administrator.'
+                        ]);
+                    }
+                }
+                
                 // Create directory if it doesn't exist
                 if (!is_dir($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
+                    if (!mkdir($uploadPath, 0755, true)) {
+                        log_message('error', 'Failed to create upload directory: ' . $uploadPath);
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Could not create upload directory. Please contact administrator.'
+                        ]);
+                    }
+                    // Set permissions after creation
+                    chmod($uploadPath, 0755);
+                }
+                
+                // Check if directory is writable
+                if (!is_writable($uploadPath)) {
+                    // Try to fix permissions
+                    @chmod($uploadPath, 0755);
+                    @chown($uploadPath, 'www-data');
+                    
+                    if (!is_writable($uploadPath)) {
+                        log_message('error', 'Upload directory is not writable: ' . $uploadPath . ', Permissions: ' . substr(sprintf('%o', fileperms($uploadPath)), -4));
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+                        ]);
+                    }
                 }
                 
                 $newName = 'proof_' . $payerId . '_' . time() . '.' . $file->getExtension();
-                $file->move($uploadPath, $newName);
+                
+                // Log detailed information before move
+                log_message('info', 'Attempting to move payment proof - Path: ' . $uploadPath . ', File: ' . $newName . ', Directory exists: ' . (is_dir($uploadPath) ? 'Yes' : 'No') . ', Writable: ' . (is_writable($uploadPath) ? 'Yes' : 'No'));
+                
+                if (!$file->move($uploadPath, $newName)) {
+                    // Get error from file object
+                    $error = $file->getErrorString();
+                    if (empty($error)) {
+                        $error = $file->getError() . ' (Error code: ' . $file->getError() . ')';
+                    }
+                    
+                    // Get system-level error if available
+                    $lastError = error_get_last();
+                    $systemError = $lastError ? $lastError['message'] : 'Unknown system error';
+                    
+                    // Check if directory exists and is writable
+                    $dirExists = is_dir($uploadPath);
+                    $dirWritable = is_writable($uploadPath);
+                    $parentWritable = is_writable(dirname($uploadPath));
+                    
+                    log_message('error', 'Payment proof upload failed - Error: ' . $error . ', System Error: ' . $systemError . ', Path: ' . $uploadPath . ', File: ' . $newName . ', Dir exists: ' . ($dirExists ? 'Yes' : 'No') . ', Dir writable: ' . ($dirWritable ? 'Yes' : 'No') . ', Parent writable: ' . ($parentWritable ? 'Yes' : 'No'));
+                    
+                    $errorMessage = 'Error: Could not move file "' . $file->getName() . '" to upload directory.';
+                    if (!$dirExists) {
+                        $errorMessage .= ' Directory does not exist.';
+                    } elseif (!$dirWritable) {
+                        $errorMessage .= ' Directory is not writable.';
+                    } elseif (!empty($error) && $error !== '0') {
+                        $errorMessage .= ' Reason: ' . $error;
+                    } else {
+                        $errorMessage .= ' Reason: ' . $systemError;
+                    }
+                    
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => $errorMessage
+                    ]);
+                }
+                
                 $proofOfPaymentPath = 'uploads/payment_proofs/' . $newName;
                 log_message('info', 'File uploaded successfully: ' . $proofOfPaymentPath);
             } else {
-                log_message('info', 'No file uploaded or file upload failed');
+                if ($file) {
+                    log_message('info', 'File upload validation failed - Valid: ' . ($file->isValid() ? 'Yes' : 'No') . ', HasMoved: ' . ($file->hasMoved() ? 'Yes' : 'No'));
+                } else {
+                    log_message('info', 'No file uploaded');
+                }
             }
 
             // Create payment request
@@ -1558,6 +1736,68 @@ class DashboardController extends BaseController
     /**
      * Return active refund methods (code + name) for payer modal dropdown
      */
+    /**
+     * Get refund details for payer (payer-specific endpoint)
+     */
+    public function getRefundDetails()
+    {
+        // Get payer_id from session
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Please log in to view refund details'
+            ])->setStatusCode(401);
+        }
+
+        $refundId = $this->request->getGet('refund_id');
+        if (!$refundId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Refund ID is required'
+            ]);
+        }
+
+        // Cast refund_id to integer for proper comparison
+        $refundId = (int)$refundId;
+
+        $refundModel = new RefundModel();
+        
+        // Get refund with details, but only if it belongs to this payer
+        $refundDetails = $refundModel->getRefundsWithDetails(null, null, null);
+        
+        // Find the specific refund that belongs to this payer
+        $foundRefund = null;
+        foreach ($refundDetails as $r) {
+            // Ensure both are compared as integers and check payer_id
+            if ((int)$r['id'] === $refundId && (int)$r['payer_id'] === (int)$payerId) {
+                $foundRefund = $r;
+                break;
+            }
+        }
+
+        if (!$foundRefund) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Refund not found or you do not have permission to view this refund'
+            ]);
+        }
+
+        // Normalize profile picture path with fallback
+        $foundRefund['profile_picture'] = $this->normalizeProfilePicturePath(
+            $foundRefund['profile_picture'] ?? null, 
+            $foundRefund['payer_id'] ?? null,
+            null,
+            'payer'
+        );
+
+        return $this->response->setJSON([
+            'success' => true,
+            'refund' => $foundRefund
+        ]);
+    }
+
     public function getActiveRefundMethods()
     {
         // Check if this is an API request
@@ -1678,6 +1918,9 @@ class DashboardController extends BaseController
             ->where('status', 'pending')
             ->countAllResults();
         
+        // Normalize profile picture path with fallback
+        $payer['profile_picture'] = $this->normalizeProfilePicturePath($payer['profile_picture'] ?? null, $payer['id'] ?? null, null, 'payer');
+
         return $this->response->setJSON([
             'success' => true,
             'data' => [
@@ -1738,9 +1981,9 @@ class DashboardController extends BaseController
                 MAX(payment_date) as last_payment_date,
                 MIN(payment_date) as first_payment_date,
                 CASE 
-                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN "fully paid"
-                    WHEN SUM(amount_paid) > 0 THEN "partial"
-                    ELSE "unpaid"
+                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN \'fully paid\'
+                    WHEN SUM(amount_paid) > 0 THEN \'partial\'
+                    ELSE \'unpaid\'
                 END as computed_status,
                 ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
             ')
@@ -1878,6 +2121,27 @@ class DashboardController extends BaseController
         // Get payer's payment requests
         $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
         
+        // Add base_url to proof of payment paths - use ImageController route
+        foreach ($paymentRequests as &$request) {
+            if (!empty($request['proof_of_payment_path'])) {
+                // Extract filename from path (handles both full paths and just filenames)
+                $path = $request['proof_of_payment_path'];
+                // Remove any existing uploads/ prefix to avoid duplication
+                $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
+                $path = preg_replace('#^payment_proofs/#', '', $path);
+                $filename = basename($path);
+                
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/payment_proofs/' . $filename;
+                if (file_exists($filePath)) {
+                    $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                } else {
+                    log_message('warning', 'Proof of payment image not found: ' . $filePath);
+                    $request['proof_of_payment_path'] = null;
+                }
+            }
+        }
+        
         return $this->response->setJSON([
             'success' => true,
             'data' => [
@@ -1902,4 +2166,5 @@ class DashboardController extends BaseController
         // Return empty response for OPTIONS request
         return $this->response->setStatusCode(200)->setBody('');
     }
+
 }

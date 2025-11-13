@@ -42,9 +42,51 @@
             $payerModel = new \App\Models\PayerModel();
             $payer = $payerModel->find($payerId);
             if ($payer && !empty($payer['profile_picture'])) {
-                $payerData['profile_picture'] = $payer['profile_picture'];
-                // Update session for future requests
-                session()->set('payer_profile_picture', $payer['profile_picture']);
+                // Normalize profile picture path from database with fallback
+                $path = $payer['profile_picture'];
+                // Remove any base_url or http prefixes
+                $path = preg_replace('#^https?://[^/]+/#', '', $path);
+                $path = preg_replace('#^uploads/profile/#', '', $path);
+                $path = preg_replace('#^profile/#', '', $path);
+                $filename = basename($path);
+                
+                // Verify file exists
+                $filePath = FCPATH . 'uploads/profile/' . $filename;
+                if (file_exists($filePath)) {
+                    $normalizedPath = 'uploads/profile/' . $filename;
+                    $payerData['profile_picture'] = $normalizedPath;
+                    // Update session for future requests
+                    session()->set('payer_profile_picture', $normalizedPath);
+                } else {
+                    log_message('warning', 'Profile picture not found in layout: ' . $filePath);
+                    
+                    // Try to find a similar file for this payer (fallback)
+                    $uploadDir = FCPATH . 'uploads/profile/';
+                    $pattern = 'payer_' . $payerId . '_*';
+                    $files = glob($uploadDir . $pattern);
+                    if (!empty($files)) {
+                        // Use the most recent file for this payer
+                        usort($files, function($a, $b) {
+                            return filemtime($b) - filemtime($a);
+                        });
+                        $foundFile = basename($files[0]);
+                        log_message('info', 'Found fallback profile picture in layout: ' . $foundFile . ' for payer ID: ' . $payerId);
+                        $normalizedPath = 'uploads/profile/' . $foundFile;
+                        $payerData['profile_picture'] = $normalizedPath;
+                        // Update session for future requests
+                        session()->set('payer_profile_picture', $normalizedPath);
+                        
+                        // Update database with correct path
+                        try {
+                            $payerModel->update($payerId, ['profile_picture' => $normalizedPath]);
+                            log_message('info', 'Updated database with correct profile picture path in layout for payer ID: ' . $payerId);
+                        } catch (\Exception $e) {
+                            log_message('error', 'Failed to update database with correct profile picture path in layout: ' . $e->getMessage());
+                        }
+                    } else {
+                        $payerData['profile_picture'] = null;
+                    }
+                }
             }
             if ($payer && !empty($payer['payer_id'])) {
                 $payerData['student_id'] = $payer['payer_id'];

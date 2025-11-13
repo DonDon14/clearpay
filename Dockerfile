@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions (both MySQL and PostgreSQL for flexibility)
+# Note: OpenSSL is built into PHP core and doesn't need to be installed separately
 RUN docker-php-ext-install pdo_mysql mysqli pdo_pgsql pgsql mbstring exif pcntl bcmath gd intl
 
 # Install Composer
@@ -36,9 +37,16 @@ COPY . /var/www/html
 # Install Composer dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Set permissions for writable directories
-RUN chown -R www-data:www-data /var/www/html/writable
-RUN chmod -R 775 /var/www/html/writable
+# Create upload directories and set permissions
+# Note: These will be recreated at runtime by docker-entrypoint.sh, but creating them here ensures they exist
+RUN mkdir -p /var/www/html/public/uploads/profile \
+    && mkdir -p /var/www/html/public/uploads/payment_proofs \
+    && mkdir -p /var/www/html/public/uploads/payment_methods/qr_codes \
+    && chown -R www-data:www-data /var/www/html/writable \
+    && chown -R www-data:www-data /var/www/html/public/uploads \
+    && chmod -R 775 /var/www/html/writable \
+    && chmod -R 775 /var/www/html/public/uploads \
+    && echo "✅ Upload directories created in Dockerfile"
 
 # Configure Apache to use public directory as document root
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public

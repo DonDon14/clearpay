@@ -457,9 +457,19 @@ function viewPayerDetails(payerId) {
                 const profileIcon = document.getElementById('viewPayerProfileIcon');
                 
                 if (payer.profile_picture && payer.profile_picture.trim() !== '') {
-                    profilePicture.src = `<?= base_url() ?>${payer.profile_picture}`;
+                    // Ensure path doesn't already start with http or base_url
+                    let profilePath = payer.profile_picture;
+                    if (!profilePath.startsWith('http') && !profilePath.startsWith('<?= base_url() ?>')) {
+                        profilePath = `<?= base_url() ?>${profilePath}`;
+                    }
+                    profilePicture.src = profilePath;
                     profilePicture.style.display = 'block';
                     profileIcon.style.display = 'none';
+                    profilePicture.onerror = function() {
+                        this.style.display = 'none';
+                        profileIcon.style.display = 'block';
+                        this.onerror = null;
+                    };
                 } else {
                     profilePicture.style.display = 'none';
                     profileIcon.style.display = 'block';
