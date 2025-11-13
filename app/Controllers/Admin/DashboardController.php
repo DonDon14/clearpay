@@ -281,6 +281,8 @@ class DashboardController extends BaseController
             }
             if (!empty($request['profile_picture'])) {
                 $path = $request['profile_picture'];
+                // Remove any base_url or http prefixes
+                $path = preg_replace('#^https?://[^/]+/#', '', $path);
                 $path = preg_replace('#^uploads/profile/#', '', $path);
                 $path = preg_replace('#^profile/#', '', $path);
                 $filename = basename($path);
@@ -288,7 +290,8 @@ class DashboardController extends BaseController
                 // Verify file exists before setting path
                 $filePath = FCPATH . 'uploads/profile/' . $filename;
                 if (file_exists($filePath)) {
-                    $request['profile_picture'] = base_url('uploads/profile/' . $filename);
+                    // Return relative path (views will apply base_url)
+                    $request['profile_picture'] = 'uploads/profile/' . $filename;
                 } else {
                     log_message('warning', 'Profile picture not found: ' . $filePath);
                     $request['profile_picture'] = null;
@@ -731,22 +734,43 @@ class DashboardController extends BaseController
                 ]);
             }
 
-            // Add base_url to proof of payment path and profile picture
+            // Normalize proof of payment path and profile picture
             if (!empty($request['proof_of_payment_path'])) {
                 // Extract filename from path, handling various formats
                 $path = $request['proof_of_payment_path'];
+                // Remove any base_url or http prefixes
+                $path = preg_replace('#^https?://[^/]+/#', '', $path);
                 $path = preg_replace('#^uploads/payment_proofs/#', '', $path);
                 $path = preg_replace('#^payment_proofs/#', '', $path);
                 $filename = basename($path);
-                $request['proof_of_payment_path'] = base_url('uploads/payment_proofs/' . $filename);
+                
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/payment_proofs/' . $filename;
+                if (file_exists($filePath)) {
+                    $request['proof_of_payment_path'] = 'uploads/payment_proofs/' . $filename;
+                } else {
+                    log_message('warning', 'Proof of payment image not found: ' . $filePath);
+                    $request['proof_of_payment_path'] = null;
+                }
             }
             if (!empty($request['profile_picture'])) {
                 // Extract filename from path, handling various formats
                 $path = $request['profile_picture'];
+                // Remove any base_url or http prefixes
+                $path = preg_replace('#^https?://[^/]+/#', '', $path);
                 $path = preg_replace('#^uploads/profile/#', '', $path);
                 $path = preg_replace('#^profile/#', '', $path);
                 $filename = basename($path);
-                $request['profile_picture'] = base_url('uploads/profile/' . $filename);
+                
+                // Verify file exists before setting path
+                $filePath = FCPATH . 'uploads/profile/' . $filename;
+                if (file_exists($filePath)) {
+                    // Return relative path (views will apply base_url)
+                    $request['profile_picture'] = 'uploads/profile/' . $filename;
+                } else {
+                    log_message('warning', 'Profile picture not found: ' . $filePath);
+                    $request['profile_picture'] = null;
+                }
             }
 
             return $this->response->setJSON([

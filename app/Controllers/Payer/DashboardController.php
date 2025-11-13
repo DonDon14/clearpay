@@ -64,10 +64,12 @@ class DashboardController extends BaseController
             ->limit(3)
             ->findAll();
         
-        // Add base_url to profile picture if present - use ImageController route
+        // Normalize profile picture path - ensure it's a relative path
         if (!empty($payer['profile_picture'])) {
             // Extract filename from path, handling various formats
             $path = $payer['profile_picture'];
+            // Remove any base_url or http prefixes
+            $path = preg_replace('#^https?://[^/]+/#', '', $path);
             $path = preg_replace('#^uploads/profile/#', '', $path);
             $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
@@ -75,7 +77,8 @@ class DashboardController extends BaseController
             // Verify file exists before setting path
             $filePath = FCPATH . 'uploads/profile/' . $filename;
             if (file_exists($filePath)) {
-                $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+                // Return relative path (views will apply base_url)
+                $payer['profile_picture'] = 'uploads/profile/' . $filename;
             } else {
                 log_message('warning', 'Profile picture not found: ' . $filePath);
                 $payer['profile_picture'] = null;
@@ -100,10 +103,12 @@ class DashboardController extends BaseController
         $payerId = session('payer_id');
         $payer = $this->payerModel->find($payerId);
         
-        // Add base_url to profile picture if present - use ImageController route
+        // Normalize profile picture path - ensure it's a relative path
         if (!empty($payer['profile_picture'])) {
             // Extract filename from path, handling various formats
             $path = $payer['profile_picture'];
+            // Remove any base_url or http prefixes
+            $path = preg_replace('#^https?://[^/]+/#', '', $path);
             $path = preg_replace('#^uploads/profile/#', '', $path);
             $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
@@ -111,7 +116,8 @@ class DashboardController extends BaseController
             // Verify file exists before setting path
             $filePath = FCPATH . 'uploads/profile/' . $filename;
             if (file_exists($filePath)) {
-                $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+                // Return relative path (views will apply base_url)
+                $payer['profile_picture'] = 'uploads/profile/' . $filename;
             } else {
                 log_message('warning', 'Profile picture not found: ' . $filePath);
                 $payer['profile_picture'] = null;
@@ -436,7 +442,7 @@ class DashboardController extends BaseController
         return $this->response->setJSON([
             'success' => true,
             'message' => 'Profile picture uploaded successfully',
-            'profile_picture' => base_url($profilePicturePath)
+            'profile_picture' => base_url($profilePicturePath) // Return full URL for API response
         ]);
     }
 
@@ -1814,10 +1820,12 @@ class DashboardController extends BaseController
             ]);
         }
 
-        // Add base_url to profile picture if present
+        // Normalize profile picture path - ensure it's a relative path
         if (!empty($foundRefund['profile_picture'])) {
             // Extract filename from path, handling various formats
             $path = $foundRefund['profile_picture'];
+            // Remove any base_url or http prefixes
+            $path = preg_replace('#^https?://[^/]+/#', '', $path);
             $path = preg_replace('#^uploads/profile/#', '', $path);
             $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
@@ -1825,7 +1833,8 @@ class DashboardController extends BaseController
             // Verify file exists before setting path
             $filePath = FCPATH . 'uploads/profile/' . $filename;
             if (file_exists($filePath)) {
-                $foundRefund['profile_picture'] = base_url('uploads/profile/' . $filename);
+                // Return relative path (views will apply base_url)
+                $foundRefund['profile_picture'] = 'uploads/profile/' . $filename;
             } else {
                 log_message('warning', 'Profile picture not found: ' . $filePath);
                 $foundRefund['profile_picture'] = null;
@@ -1958,10 +1967,12 @@ class DashboardController extends BaseController
             ->where('status', 'pending')
             ->countAllResults();
         
-        // Add base_url to profile picture if present - use ImageController route
+        // Normalize profile picture path - ensure it's a relative path
         if (!empty($payer['profile_picture'])) {
             // Extract filename from path, handling various formats
             $path = $payer['profile_picture'];
+            // Remove any base_url or http prefixes
+            $path = preg_replace('#^https?://[^/]+/#', '', $path);
             $path = preg_replace('#^uploads/profile/#', '', $path);
             $path = preg_replace('#^profile/#', '', $path);
             $filename = basename($path);
@@ -1969,7 +1980,8 @@ class DashboardController extends BaseController
             // Verify file exists before setting path
             $filePath = FCPATH . 'uploads/profile/' . $filename;
             if (file_exists($filePath)) {
-                $payer['profile_picture'] = base_url('uploads/profile/' . $filename);
+                // Return relative path (views will apply base_url)
+                $payer['profile_picture'] = 'uploads/profile/' . $filename;
             } else {
                 log_message('warning', 'Profile picture not found: ' . $filePath);
                 $payer['profile_picture'] = null;
