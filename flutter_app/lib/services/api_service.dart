@@ -517,6 +517,30 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getRefundDetails(int refundId) async {
+    try {
+      final userId = await getUserId();
+      if (userId == null) {
+        return {'success': false, 'error': 'Not authenticated'};
+      }
+
+      // Use API endpoint for mobile/Flutter app
+      final url = Uri.parse('$baseUrl/api/payer/refund-details?refund_id=$refundId&payer_id=$userId');
+      final response = await http.get(
+        url,
+        headers: _getHeaders(),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {'success': false, 'error': 'Server error: ${response.statusCode}'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: ${e.toString()}'};
+    }
+  }
+
   static Future<Map<String, dynamic>> updateProfile({
     String? emailAddress,
     String? contactNumber,

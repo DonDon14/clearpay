@@ -48,6 +48,12 @@ services:
       # Get API key from Brevo → Settings → SMTP & API → API Keys (format: xkeysib-...)
       # This is different from SMTP key (xsmtpsib-...). API key allows sending via HTTPS instead of SMTP ports.
       # If set, verification emails will use Brevo API instead of SMTP (works on Render free tier)
+      # Cloudinary Configuration - Set these manually in Render dashboard for persistent file storage
+      # Get credentials from Cloudinary Dashboard: https://cloudinary.com/console
+      # CLOUDINARY_CLOUD_NAME - Your cloud name (e.g., dxyz123abc)
+      # CLOUDINARY_API_KEY - Your API key (e.g., 123456789012345)
+      # CLOUDINARY_API_SECRET - Your API secret (e.g., abcdefghijklmnopqrstuvwxyz123456)
+      # If not set, files will use local storage (lost on redeploy on Render)
     # Auto-deploy from main branch (production)
     autoDeploy: true
 

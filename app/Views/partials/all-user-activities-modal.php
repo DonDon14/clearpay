@@ -64,47 +64,50 @@
                                         onmouseover="<?= $isClickable ? "this.style.backgroundColor='#f8f9fa'" : '' ?>"
                                         onmouseout="<?= $isClickable ? "this.style.backgroundColor=''" : '' ?>">
                                         <td>
+                                            <?php 
+                                                $activityIcon = match($activity['activity_type'] ?? '') {
+                                                    'create' => 'fa-plus-circle',
+                                                    'update' => 'fa-edit',
+                                                    'delete' => 'fa-trash',
+                                                    'login' => 'fa-sign-in-alt',
+                                                    'logout' => 'fa-sign-out-alt',
+                                                    'approved' => 'fa-check-circle',
+                                                    'rejected' => 'fa-times-circle',
+                                                    'processed' => 'fa-check-double',
+                                                    'completed' => 'fa-check-double',
+                                                    default => 'fa-circle'
+                                                };
+                                                $activityColor = match($activity['activity_type'] ?? '') {
+                                                    'create' => 'bg-success',
+                                                    'update' => 'bg-info',
+                                                    'delete' => 'bg-danger',
+                                                    'login' => 'bg-primary',
+                                                    'logout' => 'bg-secondary',
+                                                    'approved' => 'bg-success',
+                                                    'rejected' => 'bg-danger',
+                                                    'processed', 'completed' => 'bg-primary',
+                                                    default => 'bg-secondary'
+                                                };
+                                            ?>
                                             <?php if (!empty($activity['profile_picture'])): ?>
                                                 <?php 
                                                 // Check if it's a Cloudinary URL (full URL) or local path
-                                                $modalActivityPicUrl = (strpos($activity['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                $modalActivityPicUrl = (strpos($activity['profile_picture'], 'res.cloudinary.com') !== false || 
+                                                                       strpos($activity['profile_picture'], 'http://') === 0 || 
+                                                                       strpos($activity['profile_picture'], 'https://') === 0)
                                                     ? $activity['profile_picture'] 
                                                     : base_url($activity['profile_picture']);
                                                 ?>
                                                 <img src="<?= $modalActivityPicUrl ?>" 
                                                      alt="Profile Picture" 
                                                      class="rounded-circle" 
-                                                     style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
-                                            <?php else: ?>
-                                                <?php 
-                                                    $activityIcon = match($activity['activity_type']) {
-                                                        'create' => 'fa-plus-circle',
-                                                        'update' => 'fa-edit',
-                                                        'delete' => 'fa-trash',
-                                                        'login' => 'fa-sign-in-alt',
-                                                        'logout' => 'fa-sign-out-alt',
-                                                        'approved' => 'fa-check-circle',
-                                                        'rejected' => 'fa-times-circle',
-                                                        'processed' => 'fa-check-double',
-                                                        'completed' => 'fa-check-double',
-                                                        default => 'fa-circle'
-                                                    };
-                                                    $activityColor = match($activity['activity_type']) {
-                                                        'create' => 'bg-success',
-                                                        'update' => 'bg-info',
-                                                        'delete' => 'bg-danger',
-                                                        'login' => 'bg-primary',
-                                                        'logout' => 'bg-secondary',
-                                                        'approved' => 'bg-success',
-                                                        'rejected' => 'bg-danger',
-                                                        'processed', 'completed' => 'bg-primary',
-                                                        default => 'bg-secondary'
-                                                    };
-                                                ?>
-                                                <div class="<?= $activityColor ?> text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                    <i class="fas <?= $activityIcon ?>"></i>
-                                                </div>
+                                                     style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;"
+                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                             <?php endif; ?>
+                                            <div class="<?= $activityColor ?> text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                                 style="width: 40px; height: 40px; <?= !empty($activity['profile_picture']) ? 'display: none;' : '' ?>">
+                                                <i class="fas <?= $activityIcon ?>"></i>
+                                            </div>
                                         </td>
                                         <td>
                                             <strong><?= esc($activity['user_name']) ?? esc($activity['username']) ?></strong>

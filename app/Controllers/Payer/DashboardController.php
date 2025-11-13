@@ -1792,8 +1792,22 @@ class DashboardController extends BaseController
      */
     public function getRefundDetails()
     {
-        // Get payer_id from session
-        $payerId = session('payer_id');
+        // Check if this is an API request
+        $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+        
+        // Set CORS headers if it's an API endpoint
+        if ($isApiEndpoint) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+        
+        // Get payer_id from session (web) or query parameter (API)
+        $payerId = $isApiEndpoint 
+            ? ($this->request->getGet('payer_id') ?? session('payer_id'))
+            : session('payer_id');
         
         if (!$payerId) {
             return $this->response->setJSON([

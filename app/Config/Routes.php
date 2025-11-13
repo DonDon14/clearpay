@@ -250,6 +250,8 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
         $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
         $routes->options('api/payer/refund-methods', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
+        $routes->options('api/payer/refund-details', 'Payer\\DashboardController::handleOptions');
+        $routes->get('api/payer/refund-details', 'Payer\\DashboardController::getRefundDetails');
         $routes->options('api/payer/submit-refund-request', 'Payer\\DashboardController::handleOptions');
         $routes->post('api/payer/submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
         // Profile picture upload API endpoint (no auth filter - will check in controller)

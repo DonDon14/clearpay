@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/navigation_drawer.dart';
+import '../widgets/refund_details_modal.dart';
 
 class RefundRequestsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -220,15 +221,25 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
     final reference = request['refund_reference'] ?? 'N/A';
     final method = request['refund_method'] ?? 'N/A';
     final contribution = request['contribution_title'] ?? 'N/A';
+    final refundId = request['id'] is int 
+        ? request['id'] 
+        : int.tryParse(request['id'].toString());
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        onTap: refundId != null
+            ? () {
+                RefundDetailsModal.show(context, refundId);
+              }
+            : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -332,8 +343,33 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
                 ),
               ],
             ),
+            // Tap indicator
+            if (refundId != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Tap to view details',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[600],
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: Colors.blue[600],
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
+      ),
       ),
     );
   }

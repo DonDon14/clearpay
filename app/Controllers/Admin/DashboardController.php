@@ -1321,13 +1321,17 @@ class DashboardController extends BaseController
         
         log_message('info', "No activities found for admin user {$userId}");
         
+        // Return success: true even when no activities (frontend expects this)
+        $activityLogModel = new ActivityLogModel();
+        $unreadCount = $activityLogModel->getUnreadCountForAdmin($userId);
+        
         return $this->response->setJSON([
-            'success' => false,
+            'success' => true,
             'message' => 'No activities',
             'activities' => [],
             'newActivities' => [],
             'hasNew' => false,
-            'unreadCount' => 0
+            'unreadCount' => $unreadCount
         ]);
     }
 
