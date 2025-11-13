@@ -502,15 +502,23 @@ class EmailSettingsController extends BaseController
     {
         try {
             $db = \Config\Database::connect();
+            log_message('info', 'Database connection successful in getEmailConfig');
             
             // Try to load from database first
             if ($db->tableExists('email_settings')) {
+                log_message('info', 'email_settings table exists, querying for active settings');
                 $settings = $db->table('email_settings')
                     ->where('is_active', true)
                     ->orderBy('id', 'DESC')
                     ->limit(1)
                     ->get()
                     ->getRowArray();
+                
+                if ($settings) {
+                    log_message('info', 'Found email settings in database - Host: ' . ($settings['smtp_host'] ?? 'EMPTY') . ', User: ' . ($settings['smtp_user'] ?? 'EMPTY') . ', Pass: ' . (!empty($settings['smtp_pass']) ? 'SET (' . strlen($settings['smtp_pass']) . ' chars)' : 'EMPTY'));
+                } else {
+                    log_message('info', 'No active email settings found in database, falling back to environment variables');
+                }
                 
                 if ($settings) {
                     // Get password from database
@@ -545,11 +553,13 @@ class EmailSettingsController extends BaseController
                 }
             }
         } catch (\Exception $e) {
-            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+            log_message('error', 'Database connection failed in getEmailConfig, using environment variables: ' . $e->getMessage());
+            log_message('error', 'Exception trace: ' . $e->getTraceAsString());
         }
         
         // Fallback to config (which reads from environment variables via BaseConfig)
         $config = config('Email');
+        log_message('info', 'Using config/environment variables - Host: ' . ($config->SMTPHost ?? 'EMPTY') . ', User: ' . ($config->SMTPUser ?? 'EMPTY') . ', Pass: ' . (!empty($config->SMTPPass) ? 'SET (' . strlen($config->SMTPPass) . ' chars)' : 'EMPTY'));
         
         // Get password from config
         $smtpPass = $config->SMTPPass ?? '';
