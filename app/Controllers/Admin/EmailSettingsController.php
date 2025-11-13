@@ -408,6 +408,9 @@ class EmailSettingsController extends BaseController
                             // Fall through to SMTP attempt
                         }
                     }
+                } catch (\Exception $outerException) {
+                    log_message('error', 'Outer Brevo API try block exception: ' . $outerException->getMessage());
+                    // Fall through to SMTP attempt
                 }
             }
             
