@@ -465,26 +465,13 @@ class SidebarController extends BaseController
                 $payment['computed_status'] = $paymentModel->getPaymentStatus($payerId, $contributionId);
             }
             
-            // Add base_url to profile picture if present
-            if (!empty($payer['profile_picture'])) {
-                // Extract filename from path, handling various formats
-                $path = $payer['profile_picture'];
-                // Remove any base_url or http prefixes
-                $path = preg_replace('#^https?://[^/]+/#', '', $path);
-                $path = preg_replace('#^uploads/profile/#', '', $path);
-                $path = preg_replace('#^profile/#', '', $path);
-                $filename = basename($path);
-                
-                // Verify file exists before setting path
-                $filePath = FCPATH . 'uploads/profile/' . $filename;
-                if (file_exists($filePath)) {
-                    // Return relative path (views will apply base_url)
-                    $payer['profile_picture'] = 'uploads/profile/' . $filename;
-                } else {
-                    log_message('warning', 'Profile picture not found: ' . $filePath);
-                    $payer['profile_picture'] = null;
-                }
-            }
+            // Normalize profile picture with fallback
+            $payer['profile_picture'] = $this->normalizeProfilePicturePath(
+                $payer['profile_picture'] ?? null, 
+                $payer['id'] ?? null, 
+                null, 
+                'payer'
+            );
 
             return $this->response->setJSON([
                 'success' => true,
@@ -1021,27 +1008,13 @@ class SidebarController extends BaseController
                 'message' => 'User not found.'
             ]);
         }
-        // Create absolute URL for profile pic if set - normalize path
-        if (!empty($user['profile_picture'])) {
-            $path = $user['profile_picture'];
-            // Remove any base_url or http prefixes
-            $path = preg_replace('#^https?://[^/]+/#', '', $path);
-            $path = preg_replace('#^uploads/profile/#', '', $path);
-            $path = preg_replace('#^profile/#', '', $path);
-            $filename = basename($path);
-            
-            // Verify file exists before setting path
-            $filePath = FCPATH . 'uploads/profile/' . $filename;
-            if (file_exists($filePath)) {
-                // Return relative path (views will apply base_url)
-                $user['profile_picture'] = 'uploads/profile/' . $filename;
-            } else {
-                log_message('warning', 'Profile picture not found: ' . $filePath);
-                $user['profile_picture'] = '';
-            }
-        } else {
-            $user['profile_picture'] = '';
-        }
+        // Normalize profile picture with fallback
+        $user['profile_picture'] = $this->normalizeProfilePicturePath(
+            $user['profile_picture'] ?? null, 
+            null, 
+            $user['id'] ?? null, 
+            'user'
+        ) ?? '';
         return $this->response->setJSON([
             'success' => true,
             'user' => [

@@ -41,13 +41,48 @@ class LoginController extends Controller
         // Make username check case-sensitive (SQL might be case-insensitive)
         $user = $userModel->where('username', $username)->first();
         if ($user && $user['username'] === $username && password_verify($password, $user['password'])) {
+            // Normalize profile picture path
+            $normalizedProfilePicture = null;
+            if (!empty($user['profile_picture'])) {
+                $path = $user['profile_picture'];
+                // Remove any base_url or http prefixes
+                $path = preg_replace('#^https?://[^/]+/#', '', $path);
+                $path = preg_replace('#^uploads/profile/#', '', $path);
+                $path = preg_replace('#^profile/#', '', $path);
+                $filename = basename($path);
+                
+                // Verify file exists
+                $filePath = FCPATH . 'uploads/profile/' . $filename;
+                if (file_exists($filePath)) {
+                    $normalizedProfilePicture = 'uploads/profile/' . $filename;
+                } else {
+                    // Try to find a similar file for this user (fallback)
+                    $uploadDir = FCPATH . 'uploads/profile/';
+                    $pattern = $user['id'] . '_*';
+                    $files = glob($uploadDir . $pattern);
+                    if (!empty($files)) {
+                        usort($files, function($a, $b) {
+                            return filemtime($b) - filemtime($a);
+                        });
+                        $foundFile = basename($files[0]);
+                        $normalizedProfilePicture = 'uploads/profile/' . $foundFile;
+                        // Update database with correct path
+                        try {
+                            $userModel->update($user['id'], ['profile_picture' => $normalizedProfilePicture]);
+                        } catch (\Exception $e) {
+                            log_message('error', 'Failed to update database with correct profile picture path: ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
+            
             $session->set([
                 'user-id'         => $user['id'],
                 'username'        => $user['username'],
                 'email'           => $user['email'],
                 'name'            => $user['name'],
                 'role'            => $user['role'],
-                'profile_picture' => $user['profile_picture'] ?? null,
+                'profile_picture' => $normalizedProfilePicture,
                 'isLoggedIn'      => true,
             ]);
             
