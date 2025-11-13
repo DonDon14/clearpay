@@ -14,46 +14,49 @@
   <link href="<?= base_url('css/auth-shared.css') ?>" rel="stylesheet">
   <link href="<?= base_url('css/auth-login.css') ?>" rel="stylesheet">
   <style>
-    /* Use same container structure as login page for consistency */
+    /* Use same classes as login page for consistency */
     .signup-container {
       display: flex;
-      min-height: 100vh;
-      height: auto;
+      height: 100vh;
       width: 100%;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       position: relative;
     }
     
-    /* Use same structure as login page */
+    /* Use same structure as login page - signup-left matches login-left */
     .signup-left {
-      flex: 0 0 100%;
+      flex: 0 0 50%;
       background: #ffffff;
       display: flex;
       flex-direction: column;
       position: relative;
-      min-height: 100vh;
+      overflow-y: auto; /* This is the key for scrolling! */
     }
     
-    @media (min-width: 992px) {
-      .signup-left {
-        flex: 0 0 50%;
+    /* Mobile: full width, hide right panel */
+    @media (max-width: 768px) {
+      .signup-container {
+        flex-direction: column;
+      }
+      
+      .signup-left,
+      .signup-right {
+        flex: 0 0 100%;
+      }
+      
+      .signup-right {
+        display: none;
       }
     }
     
     .signup-right {
       flex: 0 0 50%;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: none;
+      display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
       overflow: hidden;
-    }
-    
-    @media (min-width: 992px) {
-      .signup-right {
-        display: flex;
-      }
     }
     
     .profile-picture-preview {
@@ -86,36 +89,40 @@
       background: #f0f0f0;
     }
     
-    /* Ensure login-content can scroll properly on mobile */
+    /* Ensure login-content can scroll properly - matches login page */
     .login-content {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start; /* Changed from center to allow scrolling */
+      padding: 2rem 6rem;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
       overflow-y: auto;
       overflow-x: hidden;
-      padding-bottom: 2rem;
       -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
     }
     
-    /* Mobile-specific adjustments */
-    @media (max-width: 991px) {
-      .signup-container {
-        min-height: 100vh;
-        height: auto;
-      }
-      
-      .signup-left {
-        min-height: 100vh;
-      }
-      
+    /* Mobile adjustments for login-content */
+    @media (max-width: 1024px) {
       .login-content {
+        padding: 2rem 3rem;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .login-content {
+        padding: 2rem 2rem;
         padding-bottom: 3rem; /* Extra padding for mobile */
       }
     }
   </style>
 </head>
 <body>
-  <div class="signup-container">
+  <div class="login-container signup-container">
     <!-- Left Column: Signup Form -->
-    <div class="signup-left">
+    <div class="login-left signup-left">
       <!-- Top Navigation -->
       <nav class="login-nav">
         <a href="<?= base_url('/') ?>" class="nav-link">Home</a>
@@ -298,7 +305,7 @@
     </div>
 
     <!-- Right Column: Illustration -->
-    <div class="signup-right">
+    <div class="login-right signup-right">
       <div class="illustration-container">
         <!-- Payment Illustration -->
         <div class="payment-illustration">
