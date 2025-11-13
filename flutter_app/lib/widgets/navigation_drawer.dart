@@ -86,9 +86,10 @@ class AppNavigationDrawer extends StatelessWidget {
         child: Column(
           children: [
             // Sidebar Header with Logo (matching web portal)
+            // SafeArea already handles top padding, so just add vertical spacing
             Container(
-              height: 90,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              constraints: const BoxConstraints(minHeight: 90),
               decoration: const BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
@@ -378,7 +379,8 @@ class AppNavigationDrawer extends StatelessWidget {
                 // Logout button
                 _buildLogoutItem(context),
                 // Add bottom padding to ensure logout is above system navigation
-                SizedBox(height: MediaQuery.of(context).padding.bottom),
+                // Use minimum 16px + system padding for better spacing
+                SizedBox(height: 16 + MediaQuery.of(context).padding.bottom),
               ],
             ),
           ),

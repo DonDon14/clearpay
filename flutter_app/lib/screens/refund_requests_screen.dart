@@ -188,7 +188,12 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
   Widget _buildRefundRequestsList() {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: 16 + MediaQuery.of(context).padding.bottom,
+      ),
       itemCount: _refundRequests.length,
       itemBuilder: (context, index) {
         final request = _refundRequests[index];

@@ -255,9 +255,9 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
                           : const SizedBox(),
             ),
             
-            // Add bottom padding to prevent overflow with FAB
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 100),
+            // Add bottom padding to prevent overflow with FAB and system UI
+            SliverToBoxAdapter(
+              child: SizedBox(height: 100 + MediaQuery.of(context).padding.bottom),
             ),
           ],
         ),
