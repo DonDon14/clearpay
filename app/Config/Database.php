@@ -191,7 +191,46 @@ class Database extends Config
 
     public function __construct()
     {
+        // Call parent constructor FIRST - this loads .env values
         parent::__construct();
+
+        // AFTER parent::__construct(), check if PostgreSQL is configured
+        // BaseConfig loads .env values, so $this->default['DBDriver'] should now be set from .env
+        $isPostgres = false;
+        
+        // Check the DBDriver value (may be set from .env by parent::__construct())
+        if (!empty($this->default['DBDriver']) && $this->default['DBDriver'] === 'Postgre') {
+            $isPostgres = true;
+        } else {
+            // Fallback: check environment directly if not set yet
+            if (function_exists('env')) {
+                $dbDriver = env('database.default.DBDriver') ?: env('DB_DRIVER');
+                if ($dbDriver === 'Postgre') {
+                    $isPostgres = true;
+                    $this->default['DBDriver'] = 'Postgre';
+                }
+            } elseif (getenv('DB_DRIVER') === 'Postgre' || getenv('database.default.DBDriver') === 'Postgre') {
+                $isPostgres = true;
+                $this->default['DBDriver'] = 'Postgre';
+            }
+        }
+        
+        // CRITICAL: If PostgreSQL, FORCE charset to UTF8 (PostgreSQL doesn't support utf8mb4)
+        // This MUST override any value set by parent::__construct() or .env
+        if ($isPostgres) {
+            $this->default['DBDriver'] = 'Postgre';
+            $this->default['charset'] = 'UTF8'; // PostgreSQL requires UTF8, NOT utf8mb4
+            if (!isset($this->default['schema']) || empty($this->default['schema'])) {
+                $this->default['schema'] = 'public';
+            }
+            if (!isset($this->default['port']) || $this->default['port'] == 3306) {
+                $this->default['port'] = 5432;
+            }
+            // Remove MySQL-specific settings that PostgreSQL doesn't use
+            unset($this->default['DBCollat']);
+            unset($this->default['numberNative']);
+            unset($this->default['foundRows']);
+        }
 
         // Support Render.com environment variables
         // Render provides DATABASE_URL or individual DB_* variables
@@ -232,7 +271,7 @@ class Database extends Config
                 if ($isPostgres && !getenv('DB_DRIVER')) {
                     $this->default['DBDriver'] = 'Postgre';
                     $this->default['schema'] = 'public';
-                    $this->default['charset'] = 'utf8';
+                    $this->default['charset'] = 'UTF8'; // PostgreSQL uses uppercase UTF8
                     // Remove MySQL-specific settings
                     unset($this->default['DBCollat']);
                     unset($this->default['numberNative']);
@@ -241,18 +280,37 @@ class Database extends Config
             }
         }
         
-        // Set PostgreSQL defaults if DB_DRIVER is Postgre
-        if (getenv('DB_DRIVER') === 'Postgre' || $this->default['DBDriver'] === 'Postgre') {
-            if (!isset($this->default['schema'])) {
+        // FINAL OVERRIDE: Ensure PostgreSQL charset is ALWAYS UTF8
+        // This is the LAST check - runs after ALL environment variables are loaded
+        // BaseConfig may have loaded charset from .env or kept default utf8mb4
+        // We MUST override it if PostgreSQL is being used
+        $finalDbDriver = $this->default['DBDriver'] ?? null;
+        
+        // Double-check if PostgreSQL (in case it was set by environment variables above)
+        if (empty($finalDbDriver) || $finalDbDriver !== 'Postgre') {
+            // Check environment one more time
+            if (function_exists('env')) {
+                $envDriver = env('database.default.DBDriver') ?: env('DB_DRIVER');
+                if ($envDriver === 'Postgre') {
+                    $finalDbDriver = 'Postgre';
+                    $this->default['DBDriver'] = 'Postgre';
+                }
+            }
+        }
+        
+        // ABSOLUTE FINAL CHECK: If PostgreSQL, FORCE charset to UTF8
+        // This overrides ANY previous charset value (including utf8mb4 from default or .env)
+        if ($finalDbDriver === 'Postgre' || (!empty($this->default['DBDriver']) && $this->default['DBDriver'] === 'Postgre')) {
+            // Force PostgreSQL settings - this MUST be the final word
+            $this->default['DBDriver'] = 'Postgre';
+            $this->default['charset'] = 'UTF8'; // PostgreSQL ONLY supports UTF8, NOT utf8mb4
+            if (empty($this->default['schema'])) {
                 $this->default['schema'] = 'public';
             }
-            if (!isset($this->default['port']) || $this->default['port'] == 3306) {
+            if (empty($this->default['port']) || $this->default['port'] == 3306) {
                 $this->default['port'] = 5432;
             }
-            if (!isset($this->default['charset'])) {
-                $this->default['charset'] = 'utf8';
-            }
-            // Remove MySQL-specific settings
+            // Remove MySQL-specific settings that cause issues with PostgreSQL
             unset($this->default['DBCollat']);
             unset($this->default['numberNative']);
             unset($this->default['foundRows']);

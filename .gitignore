@@ -45,6 +45,11 @@ $RECYCLE.BIN/
 .vagrant
 Vagrantfile
 
+# Sensitive credential files
+gmailapppassword.txt
+*password*.txt
+*credentials*.txt
+
 #-------------------------
 # Temporary Files
 #-------------------------
@@ -80,6 +85,13 @@ tests/coverage*
 
 # Don't save phpunit under version control.
 phpunit
+
+# Temporary test/debug files
+test-*.php
+*-test.php
+verify-*.php
+setup-*.bat
+start-*.bat
 
 #-------------------------
 # Composer

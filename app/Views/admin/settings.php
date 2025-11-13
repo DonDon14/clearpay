@@ -456,6 +456,9 @@ function configureEmail() {
             // Show modal
             const modal = new bootstrap.Modal(document.getElementById('smtpConfigModal'));
             modal.show();
+            
+            // Setup password toggle after modal is shown
+            setTimeout(() => setupPasswordToggle(), 100);
         } else {
             showNotification('Failed to load email configuration: ' + (data.error || 'Unknown error'), 'error');
         }
@@ -853,6 +856,50 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Failed to load email notifications status:', error);
     });
 });
+
+// Password toggle functionality for SMTP password field
+function setupPasswordToggle() {
+    const togglePasswordBtn = document.getElementById('toggleSmtpPassword');
+    const passwordInput = document.getElementById('smtpPass');
+    const toggleIcon = document.getElementById('toggleSmtpPasswordIcon');
+    
+    if (togglePasswordBtn && passwordInput && toggleIcon) {
+        // Remove any existing event listeners by cloning
+        const newBtn = togglePasswordBtn.cloneNode(true);
+        togglePasswordBtn.parentNode.replaceChild(newBtn, togglePasswordBtn);
+        
+        // Get fresh references after replacement
+        const btn = document.getElementById('toggleSmtpPassword');
+        const icon = document.getElementById('toggleSmtpPasswordIcon');
+        const input = document.getElementById('smtpPass');
+        
+        btn.addEventListener('click', function() {
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+            
+            // Toggle icon
+            if (type === 'text') {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+                btn.setAttribute('title', 'Hide Password');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+                btn.setAttribute('title', 'Show Password');
+            }
+        });
+    }
+}
+
+// Setup password toggle when modal is shown
+document.addEventListener('DOMContentLoaded', function() {
+    const smtpModal = document.getElementById('smtpConfigModal');
+    if (smtpModal) {
+        smtpModal.addEventListener('shown.bs.modal', function() {
+            setupPasswordToggle();
+        });
+    }
+});
 </script>
 
 <?= payment_methods_modal($paymentMethods ?? []) ?>
@@ -908,7 +955,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="col-md-6">
                             <label for="smtpPass" class="form-label">SMTP Password <span class="text-danger">*</span></label>
-                            <input type="password" class="form-control" id="smtpPass" required>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="smtpPass" required>
+                                <button class="btn btn-outline-secondary" type="button" id="toggleSmtpPassword" title="Show/Hide Password">
+                                    <i class="fas fa-eye" id="toggleSmtpPasswordIcon"></i>
+                                </button>
+                            </div>
                             <small class="text-muted">For Gmail, use App Password</small>
                         </div>
                     </div>

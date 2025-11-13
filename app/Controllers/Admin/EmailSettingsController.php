@@ -258,13 +258,21 @@ class EmailSettingsController extends BaseController
             // Clear any previous configuration
             $emailService->clear();
             
+            // IMPORTANT: Gmail App Passwords can have spaces (e.g., "jdab pewu hoqn whho")
+            // Gmail accepts them with or without spaces, but removing spaces is more reliable
+            $smtpPassword = $emailConfig['SMTPPass'] ?? '';
+            if (!empty($smtpPassword)) {
+                // Remove spaces from Gmail App Password for better compatibility
+                $smtpPassword = str_replace(' ', '', $smtpPassword);
+            }
+            
             // Manually configure SMTP settings to ensure they're current
             // Ensure all values are properly set and not empty
             $smtpConfig = [
                 'protocol' => $emailConfig['protocol'] ?? 'smtp',
                 'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
                 'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPass' => $smtpPassword, // Gmail App Password (spaces removed for compatibility)
                 'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
                 'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
@@ -321,7 +329,9 @@ class EmailSettingsController extends BaseController
             // Log SMTP config (without password for security)
             log_message('info', 'Attempting to send test email to: ' . $testEmail);
             log_message('info', 'SMTP Config - Host: ' . $emailConfig['SMTPHost'] . ', Port: ' . $emailConfig['SMTPPort'] . ', User: ' . $emailConfig['SMTPUser'] . ', Crypto: ' . $emailConfig['SMTPCrypto']);
-            log_message('info', 'SMTP Password length: ' . strlen($emailConfig['SMTPPass']) . ' characters');
+            log_message('info', 'SMTP Password length (original): ' . strlen($emailConfig['SMTPPass']) . ' characters');
+            log_message('info', 'SMTP Password length (after space removal): ' . strlen($smtpConfig['SMTPPass']) . ' characters');
+            log_message('info', 'SMTP Password had spaces: ' . (strpos($emailConfig['SMTPPass'], ' ') !== false ? 'YES (removed)' : 'NO'));
 
             // Attempt to send email with better error handling
             $result = false;
