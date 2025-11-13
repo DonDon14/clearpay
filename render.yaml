@@ -1,18 +1,18 @@
 services:
-  # Web Service - Development/Staging Application
+  # Web Service - Production Application
   # Blueprint sync trigger
   - type: web
-    name: clearpay-web-dev
+    name: clearpay-web
     env: docker
     plan: free  # Options: free, starter, standard, pro
     region: oregon  # Options: oregon, frankfurt, singapore, mumbai, tokyo
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health.php
-    branch: development  # Deploy from development branch
+    branch: main  # Deploy from main branch (production)
     envVars:
       - key: CI_ENVIRONMENT
-        value: development  # Development environment
+        value: production  # Production environment
       - key: APP_TIMEZONE
         value: Asia/Manila
       # Database connection - using same database as production (free tier limitation)
@@ -44,7 +44,7 @@ services:
         value: tls
       - key: email.mailType
         value: html
-    # Auto-deploy from development branch
+    # Auto-deploy from main branch (production)
     autoDeploy: true
 
 # Note: Using same database as production (clearpay-db)
