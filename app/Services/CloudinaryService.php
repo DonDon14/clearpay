@@ -115,20 +115,43 @@ class CloudinaryService
             }
             
             // Upload the file
+            log_message('error', 'Cloudinary upload - Calling uploadApi->upload() with filePath: ' . $filePath);
+            log_message('error', 'Cloudinary upload - Options: ' . json_encode($uploadOptions));
             $result = $this->uploadApi->upload($filePath, $uploadOptions);
             
-            log_message('info', 'File uploaded to Cloudinary successfully: ' . $result['secure_url']);
+            // Log full result for debugging
+            log_message('error', 'Cloudinary upload API result type: ' . gettype($result));
+            if (is_array($result)) {
+                log_message('error', 'Cloudinary upload API result keys: ' . implode(', ', array_keys($result)));
+                log_message('error', 'Cloudinary upload API result (full): ' . json_encode($result));
+            } else {
+                log_message('error', 'Cloudinary upload API result is not array: ' . var_export($result, true));
+            }
+            
+            // Check if upload was successful
+            if (!isset($result['secure_url'])) {
+                log_message('error', 'Cloudinary upload failed: secure_url not in result. Available keys: ' . (is_array($result) ? implode(', ', array_keys($result)) : 'not an array'));
+                return false;
+            }
+            
+            log_message('error', 'File uploaded to Cloudinary successfully: ' . $result['secure_url']);
             
             return [
                 'url' => $result['secure_url'],
-                'public_id' => $result['public_id'],
+                'public_id' => $result['public_id'] ?? null,
                 'format' => $result['format'] ?? null,
                 'width' => $result['width'] ?? null,
                 'height' => $result['height'] ?? null,
                 'bytes' => $result['bytes'] ?? null,
             ];
         } catch (\Exception $e) {
-            log_message('error', 'Cloudinary upload failed: ' . $e->getMessage());
+            log_message('error', 'Cloudinary upload failed (Exception): ' . $e->getMessage());
+            log_message('error', 'Cloudinary upload error class: ' . get_class($e));
+            log_message('error', 'Cloudinary upload error trace: ' . $e->getTraceAsString());
+            return false;
+        } catch (\Error $e) {
+            log_message('error', 'Cloudinary upload failed (Error): ' . $e->getMessage());
+            log_message('error', 'Cloudinary upload error class: ' . get_class($e));
             log_message('error', 'Cloudinary upload error trace: ' . $e->getTraceAsString());
             return false;
         }
