@@ -14,10 +14,11 @@
   <link href="<?= base_url('css/auth-shared.css') ?>" rel="stylesheet">
   <link href="<?= base_url('css/auth-login.css') ?>" rel="stylesheet">
   <style>
-    /* Override container to use login-container class */
+    /* Use same container structure as login page for consistency */
     .signup-container {
       display: flex;
-      height: 100vh;
+      min-height: 100vh;
+      height: auto;
       width: 100%;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       position: relative;
@@ -25,12 +26,18 @@
     
     /* Use same structure as login page */
     .signup-left {
-      flex: 0 0 50%;
+      flex: 0 0 100%;
       background: #ffffff;
       display: flex;
       flex-direction: column;
       position: relative;
-      overflow-y: auto;
+      min-height: 100vh;
+    }
+    
+    @media (min-width: 992px) {
+      .signup-left {
+        flex: 0 0 50%;
+      }
     }
     
     .signup-right {
@@ -79,11 +86,29 @@
       background: #f0f0f0;
     }
     
-    /* Ensure login-content can scroll */
+    /* Ensure login-content can scroll properly on mobile */
     .login-content {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       padding-bottom: 2rem;
+      -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    }
+    
+    /* Mobile-specific adjustments */
+    @media (max-width: 991px) {
+      .signup-container {
+        min-height: 100vh;
+        height: auto;
+      }
+      
+      .signup-left {
+        min-height: 100vh;
+      }
+      
+      .login-content {
+        padding-bottom: 3rem; /* Extra padding for mobile */
+      }
     }
   </style>
 </head>

@@ -39,6 +39,9 @@ class SignupController extends BaseController
         $password = $this->request->getPost('password');
         $confirmPassword = $this->request->getPost('confirm_password');
 
+        // Check if this is an AJAX request (from form submission)
+        $isAjax = $this->request->isAJAX() || $this->request->getHeader('X-Requested-With') === 'XMLHttpRequest';
+        
         // Validate required fields
         $validation = \Config\Services::validation();
         $validation->setRules([
@@ -53,9 +56,11 @@ class SignupController extends BaseController
 
         if (!$validation->withRequest($this->request)->run()) {
             $errors = $validation->getErrors();
-            return redirect()->back()
-                ->withInput()
-                ->with('error', implode(', ', $errors));
+            // Always return JSON for AJAX requests (form uses fetch)
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => implode(', ', $errors)
+            ]);
         }
 
         try {
@@ -64,15 +69,17 @@ class SignupController extends BaseController
             $allPayers = $this->payerModel->findAll();
             foreach ($allPayers as $p) {
                 if ($p['payer_id'] === $data['payer_id']) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'A payer with this Student ID already exists');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'A payer with this Student ID already exists'
+                    ]);
                 }
                 // Only check email if provided
                 if (!empty($data['email_address']) && $p['email_address'] === $data['email_address']) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'A payer with this email address already exists');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'A payer with this email address already exists'
+                    ]);
                 }
             }
             
@@ -86,9 +93,10 @@ class SignupController extends BaseController
                 
                 // Validate phone number format (must be exactly 11 digits)
                 if (!validate_phone_number($data['contact_number'])) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Contact number must be exactly 11 digits (numbers only)');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Contact number must be exactly 11 digits (numbers only)'
+                    ]);
                 }
             } else {
                 $data['contact_number'] = null;
@@ -96,9 +104,10 @@ class SignupController extends BaseController
 
             // Validate email format if provided
             if (!empty($data['email_address']) && !filter_var($data['email_address'], FILTER_VALIDATE_EMAIL)) {
-                return redirect()->back()
-                    ->withInput()
-                    ->with('error', 'Invalid email address format');
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Invalid email address format'
+                ]);
             }
             
             // Set email to null if empty
@@ -114,16 +123,18 @@ class SignupController extends BaseController
                 // Validate file type
                 $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
                 if (!in_array($file->getMimeType(), $allowedTypes)) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Invalid image file type. Only JPG, PNG, and GIF are allowed');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Invalid image file type. Only JPG, PNG, and GIF are allowed'
+                    ]);
                 }
 
                 // Validate file size (2MB max)
                 if ($file->getSize() > 2 * 1024 * 1024) {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Image size must be less than 2MB');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Image size must be less than 2MB'
+                    ]);
                 }
 
                 // Generate unique filename
@@ -139,9 +150,10 @@ class SignupController extends BaseController
                 if ($file->move($uploadPath, $newName)) {
                     $profilePicturePath = 'uploads/profile/' . $newName;
                 } else {
-                    return redirect()->back()
-                        ->withInput()
-                        ->with('error', 'Failed to upload profile picture. Please try again.');
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Failed to upload profile picture. Please try again.'
+                    ]);
                 }
             }
 
