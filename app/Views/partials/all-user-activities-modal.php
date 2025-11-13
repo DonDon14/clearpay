@@ -65,7 +65,13 @@
                                         onmouseout="<?= $isClickable ? "this.style.backgroundColor=''" : '' ?>">
                                         <td>
                                             <?php if (!empty($activity['profile_picture'])): ?>
-                                                <img src="<?= base_url($activity['profile_picture']) ?>" 
+                                                <?php 
+                                                // Check if it's a Cloudinary URL (full URL) or local path
+                                                $modalActivityPicUrl = (strpos($activity['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                    ? $activity['profile_picture'] 
+                                                    : base_url($activity['profile_picture']);
+                                                ?>
+                                                <img src="<?= $modalActivityPicUrl ?>" 
                                                      alt="Profile Picture" 
                                                      class="rounded-circle" 
                                                      style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">

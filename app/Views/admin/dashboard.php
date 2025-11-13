@@ -178,7 +178,13 @@
                                  onclick="showPaymentReceipt(<?= htmlspecialchars(json_encode($payment), ENT_QUOTES, 'UTF-8') ?>)">
                                 <div class="me-3">
                                     <?php if (!empty($payment['profile_picture'])): ?>
-                                        <img src="<?= base_url($payment['profile_picture']) ?>" 
+                                        <?php 
+                                        // Check if it's a Cloudinary URL (full URL) or local path
+                                        $paymentPicUrl = (strpos($payment['profile_picture'], 'res.cloudinary.com') !== false) 
+                                            ? $payment['profile_picture'] 
+                                            : base_url($payment['profile_picture']);
+                                        ?>
+                                        <img src="<?= $paymentPicUrl ?>" 
                                              alt="Profile Picture" 
                                              class="rounded-circle" 
                                              style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">

@@ -915,26 +915,130 @@ class SidebarController extends BaseController
         // Handle profile picture upload
         $profilePicFile = $this->request->getFile('profile_picture');
         if ($profilePicFile && $profilePicFile->isValid() && !$profilePicFile->hasMoved()) {
-            $newName = $profilePicFile->getRandomName();
-            
-            // Store in both writable and public directories
-            $writablePath = WRITEPATH . 'uploads/profile/';
-            $publicPath = FCPATH . 'uploads/profile/';
-            
-            // Create directories if they don't exist
-            if (!is_dir($writablePath)) {
-                mkdir($writablePath, 0777, true);
-            }
-            if (!is_dir($publicPath)) {
-                mkdir($publicPath, 0777, true);
+            // Validate file type
+            $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!in_array($profilePicFile->getMimeType(), $allowedTypes)) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid file type. Only JPEG, PNG, and GIF are allowed.'
+                ]);
             }
 
-            // Move to writable first
-            if ($profilePicFile->move($writablePath, $newName)) {
-                // Copy to public directory for web access
-                copy($writablePath . $newName, $publicPath . $newName);
-                $updateData['profile_picture'] = 'uploads/profile/' . $newName;
+            // Validate file size (max 2MB)
+            if ($profilePicFile->getSize() > 2 * 1024 * 1024) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'File size too large. Maximum 2MB allowed.'
+                ]);
             }
+
+            // Try Cloudinary upload first (if configured), fallback to local storage
+            $cloudinaryService = new \App\Services\CloudinaryService();
+            $profilePicturePath = null;
+            $oldProfilePicture = $user['profile_picture'] ?? null;
+            
+            if ($cloudinaryService->isConfigured()) {
+                // Upload to Cloudinary
+                log_message('info', 'Attempting Cloudinary upload for admin user ID: ' . $userId);
+                
+                // Generate public ID for Cloudinary
+                $publicId = 'user_' . $userId . '_' . time();
+                
+                $cloudinaryResult = $cloudinaryService->uploadFile($profilePicFile, 'profile', $publicId);
+                
+                if ($cloudinaryResult && is_array($cloudinaryResult) && isset($cloudinaryResult['url'])) {
+                    // Cloudinary upload successful
+                    $profilePicturePath = $cloudinaryResult['url']; // Store full Cloudinary URL in database
+                    
+                    log_message('info', 'Profile picture uploaded to Cloudinary successfully: ' . $profilePicturePath);
+                    
+                    // Delete old profile picture from Cloudinary if it exists
+                    if ($oldProfilePicture && $cloudinaryService->isCloudinaryUrl($oldProfilePicture)) {
+                        $oldPublicId = $cloudinaryService->extractPublicId($oldProfilePicture);
+                        if ($oldPublicId) {
+                            $cloudinaryService->delete($oldPublicId);
+                            log_message('info', 'Deleted old Cloudinary profile picture: ' . $oldPublicId);
+                        }
+                    }
+                } else {
+                    // Cloudinary upload failed, fallback to local storage
+                    log_message('warning', 'Cloudinary upload failed, falling back to local storage');
+                }
+            }
+            
+            // Fallback to local storage if Cloudinary is not configured or upload failed
+            if (!$profilePicturePath) {
+                log_message('info', 'Using local storage for admin profile picture upload');
+                
+                // Create upload directory if it doesn't exist
+                $uploadPath = FCPATH . 'uploads/profile/';
+                
+                // Ensure parent directory exists
+                $parentDir = dirname($uploadPath);
+                if (!is_dir($parentDir)) {
+                    if (!mkdir($parentDir, 0755, true)) {
+                        log_message('error', 'Failed to create parent directory: ' . $parentDir);
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Could not create parent upload directory. Please contact administrator.'
+                        ]);
+                    }
+                }
+                
+                if (!is_dir($uploadPath)) {
+                    if (!mkdir($uploadPath, 0755, true)) {
+                        log_message('error', 'Failed to create profile upload directory: ' . $uploadPath);
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Could not create upload directory. Please contact administrator.'
+                        ]);
+                    }
+                    chmod($uploadPath, 0755);
+                }
+
+                // Check if directory is writable
+                if (!is_writable($uploadPath)) {
+                    @chmod($uploadPath, 0755);
+                    if (!is_writable($uploadPath)) {
+                        log_message('error', 'Profile upload directory is not writable: ' . $uploadPath);
+                        return $this->response->setJSON([
+                            'success' => false,
+                            'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+                        ]);
+                    }
+                }
+
+                // Generate unique filename
+                $newName = 'user_' . $userId . '_' . time() . '.' . $profilePicFile->getExtension();
+                
+                if (!$profilePicFile->move($uploadPath, $newName)) {
+                    $error = $profilePicFile->getErrorString() ?: 'Unknown error';
+                    log_message('error', 'Profile picture upload failed - Error: ' . $error);
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Error: Could not save file. ' . $error
+                    ]);
+                }
+                
+                // Verify file exists
+                $fullFilePath = $uploadPath . $newName;
+                if (!file_exists($fullFilePath)) {
+                    log_message('error', 'Profile picture upload failed - File not found after move: ' . $fullFilePath);
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Error: File was not saved correctly. Please try again.'
+                    ]);
+                }
+                
+                $profilePicturePath = 'uploads/profile/' . $newName;
+                
+                // Delete old local profile picture if it exists
+                if ($oldProfilePicture && strpos($oldProfilePicture, 'res.cloudinary.com') === false && file_exists(FCPATH . $oldProfilePicture)) {
+                    unlink(FCPATH . $oldProfilePicture);
+                }
+            }
+            
+            $updateData['profile_picture'] = $profilePicturePath;
         }
 
         // Get old user data for activity logging
@@ -979,11 +1083,18 @@ class SidebarController extends BaseController
         // Normalize profile picture URL
         $profileUrl = null;
         if (!empty($updatedUser['profile_picture'])) {
-            $path = $updatedUser['profile_picture'];
-            $path = preg_replace('#^uploads/profile/#', '', $path);
-            $path = preg_replace('#^profile/#', '', $path);
-            $filename = basename($path);
-            $profileUrl = base_url('uploads/profile/' . $filename);
+            // Check if it's a Cloudinary URL (full URL) or local path
+            if (strpos($updatedUser['profile_picture'], 'res.cloudinary.com') !== false) {
+                // Cloudinary URL - use as-is
+                $profileUrl = $updatedUser['profile_picture'];
+            } else {
+                // Local path - construct full URL
+                $path = $updatedUser['profile_picture'];
+                $path = preg_replace('#^uploads/profile/#', '', $path);
+                $path = preg_replace('#^profile/#', '', $path);
+                $filename = basename($path);
+                $profileUrl = base_url('uploads/profile/' . $filename);
+            }
         }
         
         return $this->response->setJSON([

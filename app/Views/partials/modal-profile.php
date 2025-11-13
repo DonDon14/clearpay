@@ -16,7 +16,14 @@
           <div class="profile-picture-container position-relative d-inline-block">
             <div id="profilePicturePreview" class="rounded-circle overflow-hidden" style="width: 120px; height: 120px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); display: flex; align-items: center; justify-content: center; cursor: pointer; border: 4px solid #e5e7eb;">
               <?php if (session('profile_picture')): ?>
-                <img id="profilePictureImg" src="<?= base_url(session('profile_picture')) ?>" alt="Profile Picture" style="width: 100%; height: 100%; object-fit: cover;">
+                <?php 
+                // Check if it's a Cloudinary URL (full URL) or local path
+                $modalProfilePic = session('profile_picture');
+                $modalPicUrl = (strpos($modalProfilePic, 'res.cloudinary.com') !== false) 
+                    ? $modalProfilePic 
+                    : base_url($modalProfilePic);
+                ?>
+                <img id="profilePictureImg" src="<?= $modalPicUrl ?>" alt="Profile Picture" style="width: 100%; height: 100%; object-fit: cover;">
                 <i class="fas fa-user fa-3x text-white" id="profileIcon" style="display: none;"></i>
               <?php else: ?>
                 <i class="fas fa-user fa-3x text-white" id="profileIcon"></i>

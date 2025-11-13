@@ -121,7 +121,13 @@
                                                     <td>
                                                         <div class="d-flex align-items-center">
                                                             <?php if (!empty($request['profile_picture'])): ?>
-                                                                <img src="<?= base_url($request['profile_picture']) ?>" 
+                                                                <?php 
+                                                                // Check if it's a Cloudinary URL (full URL) or local path
+                                                                $refundPicUrl = (strpos($request['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                                    ? $request['profile_picture'] 
+                                                                    : base_url($request['profile_picture']);
+                                                                ?>
+                                                                <img src="<?= $refundPicUrl ?>" 
                                                                      alt="Profile" class="rounded-circle me-2" 
                                                                      style="width: 32px; height: 32px; object-fit: cover;">
                                                             <?php else: ?>

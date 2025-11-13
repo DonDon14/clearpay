@@ -158,7 +158,13 @@
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <?php if (!empty($payer['profile_picture']) && trim($payer['profile_picture']) !== ''): ?>
-                                                <img src="<?= base_url($payer['profile_picture']) ?>" 
+                                                <?php 
+                                                // Check if it's a Cloudinary URL (full URL) or local path
+                                                $payerPicUrl = (strpos($payer['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                    ? $payer['profile_picture'] 
+                                                    : base_url($payer['profile_picture']);
+                                                ?>
+                                                <img src="<?= $payerPicUrl ?>" 
                                                      alt="<?= esc($payer['payer_name']) ?>"
                                                      class="rounded-circle"
                                                      style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">

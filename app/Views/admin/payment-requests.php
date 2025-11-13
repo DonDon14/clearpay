@@ -91,11 +91,10 @@
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
                                                         <?php 
-                                                        $profilePath = $request['profile_picture'];
-                                                        $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
-                                                        $profilePath = preg_replace('#^profile/#', '', $profilePath);
-                                                        $profileFilename = basename($profilePath);
-                                                        $profileUrl = base_url('uploads/profile/' . $profileFilename);
+                                                        // Check if it's a Cloudinary URL (full URL) or local path
+                                                        $profileUrl = (strpos($request['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                            ? $request['profile_picture'] 
+                                                            : base_url($request['profile_picture']);
                                                         ?>
                                                         <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
@@ -178,11 +177,10 @@
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
                                                         <?php 
-                                                        $profilePath = $request['profile_picture'];
-                                                        $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
-                                                        $profilePath = preg_replace('#^profile/#', '', $profilePath);
-                                                        $profileFilename = basename($profilePath);
-                                                        $profileUrl = base_url('uploads/profile/' . $profileFilename);
+                                                        // Check if it's a Cloudinary URL (full URL) or local path
+                                                        $profileUrl = (strpos($request['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                            ? $request['profile_picture'] 
+                                                            : base_url($request['profile_picture']);
                                                         ?>
                                                         <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
@@ -264,11 +262,10 @@
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
                                                         <?php 
-                                                        $profilePath = $request['profile_picture'];
-                                                        $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
-                                                        $profilePath = preg_replace('#^profile/#', '', $profilePath);
-                                                        $profileFilename = basename($profilePath);
-                                                        $profileUrl = base_url('uploads/profile/' . $profileFilename);
+                                                        // Check if it's a Cloudinary URL (full URL) or local path
+                                                        $profileUrl = (strpos($request['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                            ? $request['profile_picture'] 
+                                                            : base_url($request['profile_picture']);
                                                         ?>
                                                         <img src="<?= $profileUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 

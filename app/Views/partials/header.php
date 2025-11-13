@@ -51,7 +51,14 @@
         <div class="user-avatar">
           <div class="avatar-circle">
             <?php if (session('profile_picture')): ?>
-              <img src="<?= base_url(session('profile_picture')) ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              <?php 
+              // Check if it's a Cloudinary URL (full URL) or local path
+              $headerProfilePic = session('profile_picture');
+              $headerPicUrl = (strpos($headerProfilePic, 'res.cloudinary.com') !== false) 
+                  ? $headerProfilePic 
+                  : base_url($headerProfilePic);
+              ?>
+              <img src="<?= $headerPicUrl ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
             <?php else: ?>
               <i class="fas fa-user"></i>
             <?php endif; ?>
@@ -70,7 +77,14 @@
         <div class="user-profile-info">
           <div class="user-avatar-large">
             <?php if (session('profile_picture')): ?>
-              <img src="<?= base_url(session('profile_picture')) ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              <?php 
+              // Check if it's a Cloudinary URL (full URL) or local path
+              $headerProfilePic = session('profile_picture');
+              $headerPicUrl = (strpos($headerProfilePic, 'res.cloudinary.com') !== false) 
+                  ? $headerProfilePic 
+                  : base_url($headerProfilePic);
+              ?>
+              <img src="<?= $headerPicUrl ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
             <?php else: ?>
               <i class="fas fa-user"></i>
             <?php endif; ?>

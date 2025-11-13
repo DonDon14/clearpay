@@ -114,7 +114,13 @@ body.modal-open .main-content {
                                     <tr class="payment-row" data-payment-id="<?= esc($payment['id']) ?>" data-payer-id="<?= esc($payment['payer_student_id'] ?? $payment['payer_id'] ?? '') ?>" data-payment-data="<?= esc(json_encode($payment)) ?>">
                                         <td class="payment-cell-clickable">
                                             <?php if (!empty($payment['profile_picture'])): ?>
-                                                <img src="<?= base_url($payment['profile_picture']) ?>" 
+                                                <?php 
+                                                // Check if it's a Cloudinary URL (full URL) or local path
+                                                $modalPaymentPicUrl = (strpos($payment['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                    ? $payment['profile_picture'] 
+                                                    : base_url($payment['profile_picture']);
+                                                ?>
+                                                <img src="<?= $modalPaymentPicUrl ?>" 
                                                      alt="Profile Picture" 
                                                      class="rounded-circle" 
                                                      style="width: 35px; height: 35px; object-fit: cover; border: 2px solid #e9ecef;">

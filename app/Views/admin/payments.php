@@ -76,7 +76,13 @@
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($group['profile_picture'])): ?>
-                                                        <img src="<?= base_url($group['profile_picture']) ?>" 
+                                                        <?php 
+                                                        // Check if it's a Cloudinary URL (full URL) or local path
+                                                        $groupPicUrl = (strpos($group['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                            ? $group['profile_picture'] 
+                                                            : base_url($group['profile_picture']);
+                                                        ?>
+                                                        <img src="<?= $groupPicUrl ?>" 
                                                              alt="Profile" class="rounded-circle me-2" 
                                                              style="width: 32px; height: 32px; object-fit: cover;">
                                                     <?php else: ?>
