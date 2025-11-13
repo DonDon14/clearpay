@@ -49,6 +49,8 @@ Vagrantfile
 gmailapppassword.txt
 *password*.txt
 *credentials*.txt
+resend-api-key.txt
+*api-key*.txt
 
 #-------------------------
 # Temporary Files
