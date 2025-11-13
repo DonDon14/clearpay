@@ -46,33 +46,29 @@ class CloudinaryService
         }
         
         try {
-            log_message('error', 'Cloudinary init - Setting Configuration');
-            // Set configuration using Configuration::instance()
-            $config = Configuration::instance();
-            $config->cloud->cloudName = $cloudName;
-            $config->cloud->apiKey = $apiKey;
-            $config->cloud->apiSecret = $apiSecret;
-            $config->url->secure = true;
-            log_message('error', 'Cloudinary init - Configuration set successfully');
+            // Use the simplest initialization method - pass config directly to constructor
+            $this->cloudinary = new Cloudinary([
+                'cloud' => [
+                    'cloud_name' => $cloudName,
+                    'api_key' => $apiKey,
+                    'api_secret' => $apiSecret
+                ],
+                'url' => [
+                    'secure' => true
+                ]
+            ]);
             
-            log_message('error', 'Cloudinary init - Creating Cloudinary() object');
-            $this->cloudinary = new Cloudinary();
-            log_message('error', 'Cloudinary init - Cloudinary() object created');
-            
-            log_message('error', 'Cloudinary init - Creating UploadApi() object');
-            $this->uploadApi = new UploadApi();
-            log_message('error', 'Cloudinary init - UploadApi() object created');
-            
+            $this->uploadApi = $this->cloudinary->uploadApi();
             $this->isConfigured = true;
             
-            log_message('error', 'Cloudinary service initialized successfully');
+            log_message('info', 'Cloudinary service initialized successfully');
         } catch (\Exception $e) {
-            log_message('error', 'Failed to initialize Cloudinary (Exception): ' . $e->getMessage());
-            log_message('error', 'Cloudinary initialization error trace: ' . $e->getTraceAsString());
+            log_message('error', 'Failed to initialize Cloudinary: ' . $e->getMessage());
+            log_message('error', 'Stack trace: ' . $e->getTraceAsString());
             $this->isConfigured = false;
         } catch (\Error $e) {
             log_message('error', 'Failed to initialize Cloudinary (Error): ' . $e->getMessage());
-            log_message('error', 'Cloudinary initialization error trace: ' . $e->getTraceAsString());
+            log_message('error', 'Stack trace: ' . $e->getTraceAsString());
             $this->isConfigured = false;
         }
     }
