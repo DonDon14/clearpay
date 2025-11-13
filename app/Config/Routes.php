@@ -9,6 +9,9 @@ use CodeIgniter\Router\RouteCollection;
 // Health check route (must be before default route for Render health checks)
 $routes->get('/health', 'HealthController::index');
 
+// Test route for Cloudinary debugging (temporary)
+$routes->get('/test/cloudinary-status', 'TestController::cloudinaryStatus');
+
 // Image serving route with CORS headers (must be before other routes to catch image requests)
 // This route handles image requests with proper CORS headers for Flutter Web
 // Route: /uploads/profile/filename.png or /uploads/payment_proofs/filename.jpg
