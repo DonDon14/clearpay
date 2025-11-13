@@ -46,18 +46,14 @@ class CloudinaryService
         }
         
         try {
-            log_message('error', 'Cloudinary init - Attempting Configuration::instance()');
-            Configuration::instance([
-                'cloud' => [
-                    'cloud_name' => $cloudName,
-                    'api_key' => $apiKey,
-                    'api_secret' => $apiSecret
-                ],
-                'url' => [
-                    'secure' => true
-                ]
-            ]);
-            log_message('error', 'Cloudinary init - Configuration::instance() succeeded');
+            log_message('error', 'Cloudinary init - Setting Configuration');
+            // Set configuration using Configuration::instance()
+            $config = Configuration::instance();
+            $config->cloud->cloudName = $cloudName;
+            $config->cloud->apiKey = $apiKey;
+            $config->cloud->apiSecret = $apiSecret;
+            $config->url->secure = true;
+            log_message('error', 'Cloudinary init - Configuration set successfully');
             
             log_message('error', 'Cloudinary init - Creating Cloudinary() object');
             $this->cloudinary = new Cloudinary();
