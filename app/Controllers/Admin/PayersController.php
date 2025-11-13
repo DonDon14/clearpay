@@ -85,12 +85,15 @@ class PayersController extends BaseController
                 ]);
             }
             
+            $payerIdValue = trim($jsonData['new_payer_id']);
+            
             $data = [
                 'payer_name' => trim($jsonData['payer_name']),
-                'payer_id' => trim($jsonData['new_payer_id']),
+                'payer_id' => $payerIdValue,
                 'email_address' => trim($jsonData['payer_email']),
                 'contact_number' => $contactNumber,
                 'course_department' => !empty($jsonData['course_department']) ? trim($jsonData['course_department']) : null,
+                'password' => password_hash($payerIdValue, PASSWORD_DEFAULT), // Set password to payer_id for admin-created accounts
                 'email_verified' => true,
                 'verification_token' => null,
                 'created_at' => date('Y-m-d H:i:s'),
