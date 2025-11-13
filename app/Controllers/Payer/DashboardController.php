@@ -64,26 +64,8 @@ class DashboardController extends BaseController
             ->limit(3)
             ->findAll();
         
-        // Normalize profile picture path - ensure it's a relative path
-        if (!empty($payer['profile_picture'])) {
-            // Extract filename from path, handling various formats
-            $path = $payer['profile_picture'];
-            // Remove any base_url or http prefixes
-            $path = preg_replace('#^https?://[^/]+/#', '', $path);
-            $path = preg_replace('#^uploads/profile/#', '', $path);
-            $path = preg_replace('#^profile/#', '', $path);
-            $filename = basename($path);
-            
-            // Verify file exists before setting path
-            $filePath = FCPATH . 'uploads/profile/' . $filename;
-            if (file_exists($filePath)) {
-                // Return relative path (views will apply base_url)
-                $payer['profile_picture'] = 'uploads/profile/' . $filename;
-            } else {
-                log_message('warning', 'Profile picture not found: ' . $filePath);
-                $payer['profile_picture'] = null;
-            }
-        }
+        // Normalize profile picture path with fallback
+        $payer['profile_picture'] = $this->normalizeProfilePicturePath($payer['profile_picture'] ?? null, $payer['id'] ?? null);
 
         $data = [
             'title' => 'Dashboard',
@@ -103,26 +85,8 @@ class DashboardController extends BaseController
         $payerId = session('payer_id');
         $payer = $this->payerModel->find($payerId);
         
-        // Normalize profile picture path - ensure it's a relative path
-        if (!empty($payer['profile_picture'])) {
-            // Extract filename from path, handling various formats
-            $path = $payer['profile_picture'];
-            // Remove any base_url or http prefixes
-            $path = preg_replace('#^https?://[^/]+/#', '', $path);
-            $path = preg_replace('#^uploads/profile/#', '', $path);
-            $path = preg_replace('#^profile/#', '', $path);
-            $filename = basename($path);
-            
-            // Verify file exists before setting path
-            $filePath = FCPATH . 'uploads/profile/' . $filename;
-            if (file_exists($filePath)) {
-                // Return relative path (views will apply base_url)
-                $payer['profile_picture'] = 'uploads/profile/' . $filename;
-            } else {
-                log_message('warning', 'Profile picture not found: ' . $filePath);
-                $payer['profile_picture'] = null;
-            }
-        }
+        // Normalize profile picture path with fallback
+        $payer['profile_picture'] = $this->normalizeProfilePicturePath($payer['profile_picture'] ?? null, $payer['id'] ?? null);
 
         $data = [
             'title' => 'My Data',
@@ -1820,26 +1784,11 @@ class DashboardController extends BaseController
             ]);
         }
 
-        // Normalize profile picture path - ensure it's a relative path
-        if (!empty($foundRefund['profile_picture'])) {
-            // Extract filename from path, handling various formats
-            $path = $foundRefund['profile_picture'];
-            // Remove any base_url or http prefixes
-            $path = preg_replace('#^https?://[^/]+/#', '', $path);
-            $path = preg_replace('#^uploads/profile/#', '', $path);
-            $path = preg_replace('#^profile/#', '', $path);
-            $filename = basename($path);
-            
-            // Verify file exists before setting path
-            $filePath = FCPATH . 'uploads/profile/' . $filename;
-            if (file_exists($filePath)) {
-                // Return relative path (views will apply base_url)
-                $foundRefund['profile_picture'] = 'uploads/profile/' . $filename;
-            } else {
-                log_message('warning', 'Profile picture not found: ' . $filePath);
-                $foundRefund['profile_picture'] = null;
-            }
-        }
+        // Normalize profile picture path with fallback
+        $foundRefund['profile_picture'] = $this->normalizeProfilePicturePath(
+            $foundRefund['profile_picture'] ?? null, 
+            $foundRefund['payer_id'] ?? null
+        );
 
         return $this->response->setJSON([
             'success' => true,
@@ -1967,26 +1916,8 @@ class DashboardController extends BaseController
             ->where('status', 'pending')
             ->countAllResults();
         
-        // Normalize profile picture path - ensure it's a relative path
-        if (!empty($payer['profile_picture'])) {
-            // Extract filename from path, handling various formats
-            $path = $payer['profile_picture'];
-            // Remove any base_url or http prefixes
-            $path = preg_replace('#^https?://[^/]+/#', '', $path);
-            $path = preg_replace('#^uploads/profile/#', '', $path);
-            $path = preg_replace('#^profile/#', '', $path);
-            $filename = basename($path);
-            
-            // Verify file exists before setting path
-            $filePath = FCPATH . 'uploads/profile/' . $filename;
-            if (file_exists($filePath)) {
-                // Return relative path (views will apply base_url)
-                $payer['profile_picture'] = 'uploads/profile/' . $filename;
-            } else {
-                log_message('warning', 'Profile picture not found: ' . $filePath);
-                $payer['profile_picture'] = null;
-            }
-        }
+        // Normalize profile picture path with fallback
+        $payer['profile_picture'] = $this->normalizeProfilePicturePath($payer['profile_picture'] ?? null, $payer['id'] ?? null);
 
         return $this->response->setJSON([
             'success' => true,
@@ -2232,5 +2163,64 @@ class DashboardController extends BaseController
         
         // Return empty response for OPTIONS request
         return $this->response->setStatusCode(200)->setBody('');
+    }
+
+    /**
+     * Normalize profile picture path with fallback to find similar files
+     * This handles cases where database path doesn't match actual file
+     * 
+     * @param string|null $profilePicturePath The path from database
+     * @param int|null $payerId The payer ID for fallback lookup
+     * @return string|null Normalized relative path or null
+     */
+    private function normalizeProfilePicturePath($profilePicturePath, $payerId = null)
+    {
+        if (empty($profilePicturePath)) {
+            return null;
+        }
+
+        // Extract filename from path, handling various formats
+        $path = $profilePicturePath;
+        // Remove any base_url or http prefixes
+        $path = preg_replace('#^https?://[^/]+/#', '', $path);
+        $path = preg_replace('#^uploads/profile/#', '', $path);
+        $path = preg_replace('#^profile/#', '', $path);
+        $filename = basename($path);
+        
+        // Verify file exists before setting path
+        $filePath = FCPATH . 'uploads/profile/' . $filename;
+        if (file_exists($filePath)) {
+            // Return relative path (views will apply base_url)
+            return 'uploads/profile/' . $filename;
+        }
+        
+        log_message('warning', 'Profile picture not found: ' . $filePath);
+        
+        // Try to find a similar file for this payer (fallback)
+        if ($payerId) {
+            $uploadDir = FCPATH . 'uploads/profile/';
+            $pattern = 'payer_' . $payerId . '_*';
+            $files = glob($uploadDir . $pattern);
+            if (!empty($files)) {
+                // Use the most recent file for this payer
+                usort($files, function($a, $b) {
+                    return filemtime($b) - filemtime($a);
+                });
+                $foundFile = basename($files[0]);
+                log_message('info', 'Found fallback profile picture: ' . $foundFile . ' for payer ID: ' . $payerId);
+                
+                // Update database with correct path
+                try {
+                    $this->payerModel->update($payerId, ['profile_picture' => 'uploads/profile/' . $foundFile]);
+                    log_message('info', 'Updated database with correct profile picture path for payer ID: ' . $payerId);
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to update database with correct profile picture path: ' . $e->getMessage());
+                }
+                
+                return 'uploads/profile/' . $foundFile;
+            }
+        }
+        
+        return null;
     }
 }
