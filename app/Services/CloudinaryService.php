@@ -100,18 +100,32 @@ class CloudinaryService
         }
         
         try {
-            $uploadOptions = array_merge([
-                'folder' => $folder,
+            // Build upload options - start with basic options
+            $uploadOptions = [
                 'resource_type' => 'image',
-                'transformation' => [
-                    ['width' => 400, 'height' => 400, 'crop' => 'fill', 'gravity' => 'face', 'quality' => 'auto']
-                ],
                 'overwrite' => true,
-            ], $options);
+            ];
             
-            // If public_id is provided, add it to options
+            // Add folder if provided
+            if ($folder) {
+                $uploadOptions['folder'] = $folder;
+            }
+            
+            // If public_id is provided, include folder in public_id if folder is set
             if ($publicId !== null) {
-                $uploadOptions['public_id'] = $publicId;
+                if ($folder) {
+                    // Include folder in public_id: "profile/payer_2_1234567890"
+                    $uploadOptions['public_id'] = $folder . '/' . $publicId;
+                } else {
+                    $uploadOptions['public_id'] = $publicId;
+                }
+            }
+            
+            // Add transformation options (simplified - apply transformations on-the-fly, not during upload)
+            // Transformations are better applied via URL parameters, not during upload
+            // This avoids potential issues with transformation format
+            if (!empty($options)) {
+                $uploadOptions = array_merge($uploadOptions, $options);
             }
             
             // Upload the file
