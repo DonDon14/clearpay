@@ -62,12 +62,10 @@
             ?>
             <?php if (!empty($profilePicture)): ?>
               <?php 
-              // Normalize profile picture path
-              $profilePath = $profilePicture;
-              $profilePath = preg_replace('#^uploads/profile/#', '', $profilePath);
-              $profilePath = preg_replace('#^profile/#', '', $profilePath);
-              $profileFilename = basename($profilePath);
-              $profileUrl = base_url('uploads/profile/' . $profileFilename);
+              // Check if it's a Cloudinary URL (full URL) or local path
+              $profileUrl = (strpos($profilePicture, 'res.cloudinary.com') !== false) 
+                  ? $profilePicture 
+                  : base_url($profilePicture);
               ?>
               <img src="<?= $profileUrl ?>" 
                    alt="Profile Picture" 
@@ -95,7 +93,13 @@
             $dropdownProfilePicture = $payerData['profile_picture'] ?? session('payer_profile_picture');
             ?>
             <?php if (!empty($dropdownProfilePicture)): ?>
-              <img src="<?= base_url($dropdownProfilePicture) ?>" 
+              <?php 
+              // Check if it's a Cloudinary URL (full URL) or local path
+              $dropdownPicUrl = (strpos($dropdownProfilePicture, 'res.cloudinary.com') !== false) 
+                  ? $dropdownProfilePicture 
+                  : base_url($dropdownProfilePicture);
+              ?>
+              <img src="<?= $dropdownPicUrl ?>" 
                    alt="Profile Picture" 
                    class="avatar-image-large">
             <?php else: ?>

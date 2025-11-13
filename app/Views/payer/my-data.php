@@ -13,7 +13,13 @@
                     <div class="profile-picture-container">
                         <div class="profile-picture-wrapper" id="profilePictureWrapper">
                             <?php if ($payer && !empty($payer['profile_picture'])): ?>
-                                <img src="<?= base_url($payer['profile_picture']) ?>" 
+                                <?php 
+                                // Check if it's a Cloudinary URL (full URL) or local path
+                                $profilePicUrl = (strpos($payer['profile_picture'], 'res.cloudinary.com') !== false) 
+                                    ? $payer['profile_picture'] 
+                                    : base_url($payer['profile_picture']);
+                                ?>
+                                <img src="<?= $profilePicUrl ?>" 
                                      alt="Profile Picture" 
                                      class="profile-picture" 
                                      id="profilePicture">
