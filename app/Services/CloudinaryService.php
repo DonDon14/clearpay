@@ -24,11 +24,17 @@ class CloudinaryService
         $apiKey = $_ENV['CLOUDINARY_API_KEY'] ?? getenv('CLOUDINARY_API_KEY') ?: null;
         $apiSecret = $_ENV['CLOUDINARY_API_SECRET'] ?? getenv('CLOUDINARY_API_SECRET') ?: null;
         
-        // Debug logging to see what we're getting (use error level so it shows in Render logs)
-        log_message('error', 'Cloudinary init - CloudName: ' . ($cloudName ? 'SET (' . strlen($cloudName) . ' chars)' : 'NOT SET'));
-        log_message('error', 'Cloudinary init - APIKey: ' . ($apiKey ? 'SET (' . strlen($apiKey) . ' chars)' : 'NOT SET'));
-        log_message('error', 'Cloudinary init - APISecret: ' . ($apiSecret ? 'SET (' . strlen($apiSecret) . ' chars)' : 'NOT SET'));
+        // Trim whitespace
+        $cloudName = $cloudName ? trim($cloudName) : null;
+        $apiKey = $apiKey ? trim($apiKey) : null;
+        $apiSecret = $apiSecret ? trim($apiSecret) : null;
         
+        // Debug logging to see what we're getting (use error level so it shows in Render logs)
+        log_message('error', 'Cloudinary init - CloudName: ' . ($cloudName ? 'SET (' . strlen($cloudName) . ' chars): [' . $cloudName . ']' : 'NOT SET'));
+        log_message('error', 'Cloudinary init - APIKey: ' . ($apiKey ? 'SET (' . strlen($apiKey) . ' chars): [' . substr($apiKey, 0, 5) . '...]' : 'NOT SET'));
+        log_message('error', 'Cloudinary init - APISecret: ' . ($apiSecret ? 'SET (' . strlen($apiSecret) . ' chars): [' . substr($apiSecret, 0, 5) . '...]' : 'NOT SET'));
+        
+        // Check if values are empty (after trimming)
         if (empty($cloudName) || empty($apiKey) || empty($apiSecret)) {
             log_message('error', 'Cloudinary credentials not configured. Missing: ' . 
                 (empty($cloudName) ? 'CLOUDINARY_CLOUD_NAME ' : '') .
