@@ -72,6 +72,11 @@ abstract class BaseController extends Controller
             return null;
         }
 
+        // If it's a Cloudinary URL, return it as-is (full URL)
+        if (strpos($profilePicturePath, 'res.cloudinary.com') !== false) {
+            return $profilePicturePath;
+        }
+
         // Extract filename from path, handling various formats
         $path = $profilePicturePath;
         // Remove any base_url or http prefixes
@@ -87,7 +92,13 @@ abstract class BaseController extends Controller
             return 'uploads/profile/' . $filename;
         }
         
-        log_message('warning', 'Profile picture not found: ' . $filePath);
+        // Log detailed warning about missing file
+        $isRender = getenv('RENDER') === 'true' || strpos($_SERVER['SERVER_NAME'] ?? '', 'render.com') !== false;
+        if ($isRender) {
+            log_message('error', 'Profile picture file missing on Render (ephemeral filesystem): ' . $filePath . ' | Database path: ' . $profilePicturePath . ' | This is expected after deployment - files are lost on redeploy. Consider implementing cloud storage.');
+        } else {
+            log_message('warning', 'Profile picture not found: ' . $filePath . ' | Database path: ' . $profilePicturePath);
+        }
         
         // Try to find a similar file (fallback)
         $entityId = ($type === 'payer' && $payerId) ? $payerId : ($type === 'user' && $userId ? $userId : null);

@@ -288,111 +288,143 @@ class DashboardController extends BaseController
             ]);
         }
 
-        // Create upload directory if it doesn't exist
-        $uploadPath = FCPATH . 'uploads/profile/';
+        // Try Cloudinary upload first (if configured), fallback to local storage
+        $cloudinaryService = new \App\Services\CloudinaryService();
+        $profilePicturePath = null;
+        $profilePictureUrl = null;
+        $oldProfilePicture = null;
         
-        // Log the actual path being used
-        log_message('info', 'Profile upload - FCPATH: ' . FCPATH . ', Upload path: ' . $uploadPath);
+        // Get current payer data for old profile picture deletion
+        $payer = $this->payerModel->find($payerId);
+        $oldProfilePicture = $payer['profile_picture'] ?? null;
+        $oldPayerData = $this->payerModel->find($payerId);
         
-        // Ensure parent directory exists
-        $parentDir = dirname($uploadPath);
-        if (!is_dir($parentDir)) {
-            if (!mkdir($parentDir, 0755, true)) {
-                log_message('error', 'Failed to create parent directory: ' . $parentDir);
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Error: Could not create parent upload directory. Please contact administrator.'
-                ]);
-            }
-        }
-        
-        if (!is_dir($uploadPath)) {
-            if (!mkdir($uploadPath, 0755, true)) {
-                log_message('error', 'Failed to create profile upload directory: ' . $uploadPath);
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Error: Could not create upload directory. Please contact administrator.'
-                ]);
-            }
-            // Set permissions after creation
-            chmod($uploadPath, 0755);
-        }
-        
-        // Check if directory is writable
-        if (!is_writable($uploadPath)) {
-            // Try to fix permissions
-            @chmod($uploadPath, 0755);
-            @chown($uploadPath, 'www-data');
+        if ($cloudinaryService->isConfigured()) {
+            // Upload to Cloudinary
+            log_message('info', 'Attempting Cloudinary upload for payer ID: ' . $payerId);
             
-            if (!is_writable($uploadPath)) {
-                log_message('error', 'Profile upload directory is not writable: ' . $uploadPath . ', Permissions: ' . substr(sprintf('%o', fileperms($uploadPath)), -4));
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Error: Upload directory is not writable. Please contact administrator.'
-                ]);
-            }
-        }
-
-        // Generate unique filename
-        $newName = 'payer_' . $payerId . '_' . time() . '.' . $file->getExtension();
-        
-        // Log detailed information before move
-        log_message('info', 'Attempting to move file - Path: ' . $uploadPath . ', File: ' . $newName . ', Directory exists: ' . (is_dir($uploadPath) ? 'Yes' : 'No') . ', Writable: ' . (is_writable($uploadPath) ? 'Yes' : 'No'));
-        
-        if (!$file->move($uploadPath, $newName)) {
-            // Get error from file object
-            $error = $file->getErrorString();
-            if (empty($error)) {
-                $error = $file->getError() . ' (Error code: ' . $file->getError() . ')';
-            }
+            // Generate public ID for Cloudinary
+            $publicId = 'payer_' . $payerId . '_' . time();
             
-            // Get system-level error if available
-            $lastError = error_get_last();
-            $systemError = $lastError ? $lastError['message'] : 'Unknown system error';
+            $cloudinaryResult = $cloudinaryService->uploadFile($file, 'profile', $publicId);
             
-            // Check if directory exists and is writable
-            $dirExists = is_dir($uploadPath);
-            $dirWritable = is_writable($uploadPath);
-            $fullPath = $uploadPath . $newName;
-            $parentWritable = is_writable(dirname($uploadPath));
-            
-            log_message('error', 'Profile picture upload failed - Error: ' . $error . ', System Error: ' . $systemError . ', Path: ' . $uploadPath . ', File: ' . $newName . ', Dir exists: ' . ($dirExists ? 'Yes' : 'No') . ', Dir writable: ' . ($dirWritable ? 'Yes' : 'No') . ', Parent writable: ' . ($parentWritable ? 'Yes' : 'No'));
-            
-            $errorMessage = 'Error: Could not move file "' . $file->getName() . '" to upload directory.';
-            if (!$dirExists) {
-                $errorMessage .= ' Directory does not exist.';
-            } elseif (!$dirWritable) {
-                $errorMessage .= ' Directory is not writable.';
-            } elseif (!empty($error) && $error !== '0') {
-                $errorMessage .= ' Reason: ' . $error;
+            if ($cloudinaryResult && isset($cloudinaryResult['url'])) {
+                // Cloudinary upload successful
+                $profilePictureUrl = $cloudinaryResult['url'];
+                $profilePicturePath = $profilePictureUrl; // Store full Cloudinary URL in database
+                
+                log_message('info', 'Profile picture uploaded to Cloudinary successfully: ' . $profilePictureUrl);
+                
+                // Delete old profile picture from Cloudinary if it exists
+                if ($oldProfilePicture && $cloudinaryService->isCloudinaryUrl($oldProfilePicture)) {
+                    $oldPublicId = $cloudinaryService->extractPublicId($oldProfilePicture);
+                    if ($oldPublicId) {
+                        $cloudinaryService->delete($oldPublicId);
+                        log_message('info', 'Deleted old Cloudinary profile picture: ' . $oldPublicId);
+                    }
+                }
             } else {
-                $errorMessage .= ' Reason: ' . $systemError;
+                // Cloudinary upload failed, fallback to local storage
+                log_message('warning', 'Cloudinary upload failed, falling back to local storage');
+                $cloudinaryService = null; // Force local storage
+            }
+        }
+        
+        // Fallback to local storage if Cloudinary is not configured or upload failed
+        if (!$profilePicturePath) {
+            log_message('info', 'Using local storage for profile picture upload');
+            
+            // Create upload directory if it doesn't exist
+            $uploadPath = FCPATH . 'uploads/profile/';
+            
+            // Ensure parent directory exists
+            $parentDir = dirname($uploadPath);
+            if (!is_dir($parentDir)) {
+                if (!mkdir($parentDir, 0755, true)) {
+                    log_message('error', 'Failed to create parent directory: ' . $parentDir);
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Error: Could not create parent upload directory. Please contact administrator.'
+                    ]);
+                }
             }
             
+            if (!is_dir($uploadPath)) {
+                if (!mkdir($uploadPath, 0755, true)) {
+                    log_message('error', 'Failed to create profile upload directory: ' . $uploadPath);
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Error: Could not create upload directory. Please contact administrator.'
+                    ]);
+                }
+                chmod($uploadPath, 0755);
+            }
+            
+            // Check if directory is writable
+            if (!is_writable($uploadPath)) {
+                @chmod($uploadPath, 0755);
+                if (!is_writable($uploadPath)) {
+                    log_message('error', 'Profile upload directory is not writable: ' . $uploadPath);
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Error: Upload directory is not writable. Please contact administrator.'
+                    ]);
+                }
+            }
+
+            // Generate unique filename
+            $newName = 'payer_' . $payerId . '_' . time() . '.' . $file->getExtension();
+            
+            if (!$file->move($uploadPath, $newName)) {
+                $error = $file->getErrorString() ?: 'Unknown error';
+                log_message('error', 'Profile picture upload failed - Error: ' . $error);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: Could not save file. ' . $error
+                ]);
+            }
+            
+            // Verify file exists
+            $fullFilePath = $uploadPath . $newName;
+            if (!file_exists($fullFilePath)) {
+                log_message('error', 'Profile picture upload failed - File not found after move: ' . $fullFilePath);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Error: File was not saved correctly. Please try again.'
+                ]);
+            }
+            
+            $profilePicturePath = 'uploads/profile/' . $newName;
+            $profilePictureUrl = base_url($profilePicturePath);
+            
+            // Delete old local profile picture if it exists
+            if ($oldProfilePicture && strpos($oldProfilePicture, 'res.cloudinary.com') === false && file_exists(FCPATH . $oldProfilePicture)) {
+                unlink(FCPATH . $oldProfilePicture);
+            }
+        }
+        
+        // Update database with profile picture path/URL
+        $updateResult = $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
+        
+        // Verify database update was successful
+        if (!$updateResult) {
+            log_message('error', 'Profile picture database update failed for payer ID: ' . $payerId);
             return $this->response->setJSON([
                 'success' => false,
-                'message' => $errorMessage
+                'message' => 'Error: Failed to update database. Please try again.'
             ]);
         }
         
-        // File moved successfully - Get current payer data to delete old profile picture
-        $payer = $this->payerModel->find($payerId);
-        $oldProfilePicture = $payer['profile_picture'] ?? null;
-        
-        // Get old payer data for activity logging
-        $oldPayerData = $this->payerModel->find($payerId);
-        
-        // Update database with new profile picture path
-        $profilePicturePath = 'uploads/profile/' . $newName;
-        $this->payerModel->update($payerId, ['profile_picture' => $profilePicturePath]);
+        // Verify the path was saved correctly in database
+        $updatedPayer = $this->payerModel->find($payerId);
+        if (empty($updatedPayer['profile_picture'])) {
+            log_message('error', 'Profile picture path not saved in database for payer ID: ' . $payerId);
+        } else {
+            log_message('info', 'Profile picture successfully saved and database updated for payer ID: ' . $payerId . ', Path: ' . $updatedPayer['profile_picture']);
+        }
         
         // Update session with new profile picture path
         session()->set('payer_profile_picture', $profilePicturePath);
-        
-        // Delete old profile picture if it exists
-        if ($oldProfilePicture && file_exists(FCPATH . $oldProfilePicture)) {
-            unlink(FCPATH . $oldProfilePicture);
-        }
 
         // Log payer profile picture update activity for admin notification
         try {
@@ -403,10 +435,15 @@ class DashboardController extends BaseController
             log_message('error', 'Failed to log payer profile picture update activity: ' . $e->getMessage());
         }
 
+        // Return appropriate URL based on storage type
+        $returnUrl = (strpos($profilePicturePath, 'res.cloudinary.com') !== false)
+            ? $profilePicturePath 
+            : base_url($profilePicturePath);
+        
         return $this->response->setJSON([
             'success' => true,
             'message' => 'Profile picture uploaded successfully',
-            'profile_picture' => base_url($profilePicturePath) // Return full URL for API response
+            'profile_picture' => $returnUrl // Return full URL (Cloudinary URL or local base_url)
         ]);
     }
 
