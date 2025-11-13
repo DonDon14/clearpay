@@ -101,7 +101,45 @@ function processSchoolIDQRCode(qrData) {
         // NEW: If scan was requested from Add New Payer, reopen that modal
         if (window._openSchoolIDFromNewPayer) {
           setTimeout(() => {
-            const addModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('addPaymentModal'));
+            const addModalElement = document.getElementById('addPaymentModal');
+            if (!addModalElement) return;
+            
+            const addModal = bootstrap.Modal.getOrCreateInstance(addModalElement);
+            
+            // Set flag to prevent reset from interfering
+            window._preserveNewPayerSelection = true;
+            
+            // Ensure "New Payer" is selected AFTER modal is shown
+            const ensureNewPayerSelection = () => {
+              const newPayerRadio = document.getElementById('newPayer');
+              const existingPayerRadio = document.getElementById('existingPayer');
+              const newPayerFields = document.getElementById('newPayerFields');
+              const existingPayerFields = document.getElementById('existingPayerFields');
+              
+              if (newPayerRadio && existingPayerRadio && newPayerFields && existingPayerFields) {
+                // Select "New Payer" radio button
+                newPayerRadio.checked = true;
+                existingPayerRadio.checked = false;
+                
+                // Show new payer fields, hide existing payer fields
+                newPayerFields.style.display = 'block';
+                existingPayerFields.style.display = 'none';
+                
+                // Set required attributes
+                const payerNameField = document.getElementById('payerName');
+                const payerIdField = document.getElementById('payerId');
+                if (payerNameField) payerNameField.required = true;
+                if (payerIdField) payerIdField.required = true;
+                
+                // Remove the event listener after first use
+                addModalElement.removeEventListener('shown.bs.modal', ensureNewPayerSelection);
+                window._preserveNewPayerSelection = false;
+              }
+            };
+            
+            // Attach event listener to ensure selection happens after modal is shown
+            addModalElement.addEventListener('shown.bs.modal', ensureNewPayerSelection, { once: true });
+            
             addModal.show();
             window._openSchoolIDFromNewPayer = false;
           }, 500); // Wait a bit so modals don't stack
