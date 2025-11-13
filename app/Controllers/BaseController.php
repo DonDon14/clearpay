@@ -77,6 +77,11 @@ abstract class BaseController extends Controller
             return $profilePicturePath;
         }
 
+        // If it's already a full URL (but not Cloudinary), return as-is
+        if (strpos($profilePicturePath, 'http://') === 0 || strpos($profilePicturePath, 'https://') === 0) {
+            return $profilePicturePath;
+        }
+
         // Extract filename from path, handling various formats
         $path = $profilePicturePath;
         // Remove any base_url or http prefixes

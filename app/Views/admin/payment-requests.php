@@ -91,8 +91,9 @@
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
                                                         <?php 
-                                                        // Check if it's a Cloudinary URL (full URL) or local path
-                                                        $profileUrl = (strpos($request['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                        // normalizeProfilePicturePath already returns full Cloudinary URL or relative path
+                                                        // Check if it's already a full URL (Cloudinary or other)
+                                                        $profileUrl = (strpos($request['profile_picture'], 'http://') === 0 || strpos($request['profile_picture'], 'https://') === 0)
                                                             ? $request['profile_picture'] 
                                                             : base_url($request['profile_picture']);
                                                         ?>
@@ -262,8 +263,9 @@
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($request['profile_picture'])): ?>
                                                         <?php 
-                                                        // Check if it's a Cloudinary URL (full URL) or local path
-                                                        $profileUrl = (strpos($request['profile_picture'], 'res.cloudinary.com') !== false) 
+                                                        // normalizeProfilePicturePath already returns full Cloudinary URL or relative path
+                                                        // Check if it's already a full URL (Cloudinary or other)
+                                                        $profileUrl = (strpos($request['profile_picture'], 'http://') === 0 || strpos($request['profile_picture'], 'https://') === 0)
                                                             ? $request['profile_picture'] 
                                                             : base_url($request['profile_picture']);
                                                         ?>
