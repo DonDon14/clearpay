@@ -145,18 +145,25 @@ class CloudinaryService
     public function uploadFile($file, $folder = 'profile', $publicId = null)
     {
         if (!$this->isConfigured) {
+            log_message('error', 'Cloudinary uploadFile called but service is not configured');
             return false;
         }
         
         // Get the temporary file path
         $tempPath = $file->getTempName();
         
+        log_message('error', 'Cloudinary uploadFile - Temp path: ' . $tempPath);
+        log_message('error', 'Cloudinary uploadFile - File exists: ' . (file_exists($tempPath) ? 'YES' : 'NO'));
+        log_message('error', 'Cloudinary uploadFile - File size: ' . (file_exists($tempPath) ? filesize($tempPath) : 'N/A'));
+        
         if (!file_exists($tempPath)) {
             log_message('error', 'Cloudinary upload: Temporary file not found: ' . $tempPath);
             return false;
         }
         
-        return $this->upload($tempPath, $folder, $publicId);
+        $uploadResult = $this->upload($tempPath, $folder, $publicId);
+        log_message('error', 'Cloudinary uploadFile - upload() returned: ' . gettype($uploadResult));
+        return $uploadResult;
     }
     
     /**

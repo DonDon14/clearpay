@@ -301,19 +301,29 @@ class DashboardController extends BaseController
         
         if ($cloudinaryService->isConfigured()) {
             // Upload to Cloudinary
-            log_message('info', 'Attempting Cloudinary upload for payer ID: ' . $payerId);
+            log_message('error', 'Cloudinary is configured, attempting upload for payer ID: ' . $payerId);
+            log_message('error', 'File info - Name: ' . $file->getName() . ', Size: ' . $file->getSize() . ', MimeType: ' . $file->getMimeType());
             
             // Generate public ID for Cloudinary
             $publicId = 'payer_' . $payerId . '_' . time();
+            log_message('error', 'Generated public ID: ' . $publicId);
             
             $cloudinaryResult = $cloudinaryService->uploadFile($file, 'profile', $publicId);
             
-            if ($cloudinaryResult && isset($cloudinaryResult['url'])) {
+            log_message('error', 'Cloudinary upload result type: ' . gettype($cloudinaryResult));
+            if (is_array($cloudinaryResult)) {
+                log_message('error', 'Cloudinary upload result keys: ' . implode(', ', array_keys($cloudinaryResult)));
+                log_message('error', 'Cloudinary upload result: ' . json_encode($cloudinaryResult));
+            } else {
+                log_message('error', 'Cloudinary upload result is not array: ' . var_export($cloudinaryResult, true));
+            }
+            
+            if ($cloudinaryResult && is_array($cloudinaryResult) && isset($cloudinaryResult['url'])) {
                 // Cloudinary upload successful
                 $profilePictureUrl = $cloudinaryResult['url'];
                 $profilePicturePath = $profilePictureUrl; // Store full Cloudinary URL in database
                 
-                log_message('info', 'Profile picture uploaded to Cloudinary successfully: ' . $profilePictureUrl);
+                log_message('error', 'Profile picture uploaded to Cloudinary successfully: ' . $profilePictureUrl);
                 
                 // Delete old profile picture from Cloudinary if it exists
                 if ($oldProfilePicture && $cloudinaryService->isCloudinaryUrl($oldProfilePicture)) {
@@ -325,9 +335,13 @@ class DashboardController extends BaseController
                 }
             } else {
                 // Cloudinary upload failed, fallback to local storage
-                log_message('warning', 'Cloudinary upload failed, falling back to local storage');
+                log_message('error', 'Cloudinary upload failed or returned invalid result, falling back to local storage');
+                log_message('error', 'Result was: ' . var_export($cloudinaryResult, true));
                 $cloudinaryService = null; // Force local storage
             }
+        } else {
+            log_message('error', 'Cloudinary is NOT configured - checking why...');
+            log_message('error', 'Cloudinary service isConfigured() returned: false');
         }
         
         // Fallback to local storage if Cloudinary is not configured or upload failed
