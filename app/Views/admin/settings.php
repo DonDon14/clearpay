@@ -620,6 +620,27 @@ function testEmail() {
             if (data.hint) {
                 errorMsg += '\n\nHint: ' + data.hint;
             }
+            
+            // Show diagnostics in console and error message
+            if (data.diagnostics) {
+                const diag = data.diagnostics;
+                const diagMsg = `\n\n📊 Configuration Diagnostics:\n` +
+                    `- Config Source: ${diag.config_source || 'unknown'}\n` +
+                    `- SMTP Host: ${diag.smtp_host || 'NOT SET'}\n` +
+                    `- SMTP User: ${diag.smtp_user || 'NOT SET'}\n` +
+                    `- SMTP Password: ${diag.smtp_pass_set ? 'SET (' + diag.smtp_pass_length + ' chars)' : 'EMPTY ⚠️'}\n` +
+                    `- SMTP Port: ${diag.smtp_port || 'NOT SET'}\n` +
+                    `- SMTP Crypto: ${diag.smtp_crypto || 'NOT SET'}\n` +
+                    `- From Email: ${diag.from_email || 'NOT SET'}`;
+                errorMsg += diagMsg;
+                console.error('📊 Email Configuration Diagnostics:', data.diagnostics);
+                
+                // Add specific hint if password is empty
+                if (!diag.smtp_pass_set || diag.smtp_pass_length === 0) {
+                    errorMsg += '\n\n⚠️ CRITICAL: SMTP Password is EMPTY! Set email.SMTPPass in Render environment variables.';
+                }
+            }
+            
             showNotification(errorMsg, 'error');
             if (data.debug) {
                 console.error('Email debug info:', data.debug);

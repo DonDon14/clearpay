@@ -413,6 +413,42 @@ class EmailSettingsController extends BaseController
                 $error = $emailService->printDebugger(['headers', 'subject', 'body']);
                 log_message('error', 'Test email failed. Debug info: ' . $error);
                 
+                // Get diagnostic information about what config was used
+                $diagnostics = [
+                    'config_source' => 'unknown',
+                    'smtp_host' => $emailConfig['SMTPHost'] ?? 'NOT SET',
+                    'smtp_user' => $emailConfig['SMTPUser'] ?? 'NOT SET',
+                    'smtp_pass_length' => !empty($emailConfig['SMTPPass']) ? strlen($emailConfig['SMTPPass']) : 0,
+                    'smtp_pass_set' => !empty($emailConfig['SMTPPass']),
+                    'smtp_port' => $emailConfig['SMTPPort'] ?? 'NOT SET',
+                    'smtp_crypto' => $emailConfig['SMTPCrypto'] ?? 'NOT SET',
+                    'from_email' => $emailConfig['fromEmail'] ?? 'NOT SET',
+                ];
+                
+                // Try to determine config source
+                try {
+                    $db = \Config\Database::connect();
+                    if ($db->tableExists('email_settings')) {
+                        $dbSettings = $db->table('email_settings')
+                            ->where('is_active', true)
+                            ->orderBy('id', 'DESC')
+                            ->limit(1)
+                            ->get()
+                            ->getRowArray();
+                        if ($dbSettings) {
+                            $diagnostics['config_source'] = 'database';
+                        } else {
+                            $diagnostics['config_source'] = 'environment_variables';
+                        }
+                    } else {
+                        $diagnostics['config_source'] = 'environment_variables';
+                    }
+                } catch (\Exception $e) {
+                    $diagnostics['config_source'] = 'environment_variables (db_error: ' . $e->getMessage() . ')';
+                }
+                
+                log_message('error', 'Email diagnostics: ' . json_encode($diagnostics));
+                
                 // Try to get more specific error
                 $lastError = error_get_last();
                 $phpError = '';
@@ -474,7 +510,8 @@ class EmailSettingsController extends BaseController
                     'debug' => $errorDetails ?: $error,
                     'hints' => $hints,
                     'phpError' => $phpError,
-                    'smtpError' => $smtpError
+                    'smtpError' => $smtpError,
+                    'diagnostics' => $diagnostics ?? []
                 ])->setStatusCode(500);
             }
         } catch (\Exception $e) {
