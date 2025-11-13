@@ -586,6 +586,19 @@ function testEmail() {
     
     showNotification('Sending test email...', 'info');
     
+    // Get current form values to send with test request
+    // This allows testing without saving first
+    const formData = {
+        email: testEmailAddress,
+        SMTPHost: document.getElementById('smtpHost')?.value || '',
+        SMTPUser: document.getElementById('smtpUser')?.value || '',
+        SMTPPass: document.getElementById('smtpPass')?.value || '',
+        SMTPPort: document.getElementById('smtpPort')?.value || 587,
+        SMTPCrypto: document.getElementById('smtpCrypto')?.value || 'tls',
+        fromEmail: document.getElementById('smtpFromEmail')?.value || '',
+        fromName: document.getElementById('smtpFromName')?.value || 'ClearPay'
+    };
+    
     fetch('/admin/email-settings/test-email', {
         method: 'POST',
         headers: {
@@ -593,9 +606,7 @@ function testEmail() {
             'X-Requested-With': 'XMLHttpRequest'
         },
         credentials: 'same-origin',
-        body: JSON.stringify({
-            email: testEmailAddress
-        })
+        body: JSON.stringify(formData)
     })
     .then(response => response.json())
     .then(data => {

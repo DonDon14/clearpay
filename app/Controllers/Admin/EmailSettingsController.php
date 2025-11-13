@@ -242,13 +242,28 @@ class EmailSettingsController extends BaseController
             // Get email config from database (just saved) or config
             $emailConfig = $this->getEmailConfig();
             
+            // If SMTP credentials are provided in the request (from form), use them for testing
+            // This allows testing without saving first
+            if (!empty($data['SMTPHost']) && !empty($data['SMTPUser']) && !empty($data['SMTPPass'])) {
+                log_message('info', 'Using SMTP credentials from request (testing without saving)');
+                $emailConfig['SMTPHost'] = trim($data['SMTPHost']);
+                $emailConfig['SMTPUser'] = trim($data['SMTPUser']);
+                $emailConfig['SMTPPass'] = (string)$data['SMTPPass']; // Keep as-is, no trimming
+                $emailConfig['SMTPPort'] = (int)($data['SMTPPort'] ?? 587);
+                $emailConfig['SMTPCrypto'] = trim($data['SMTPCrypto'] ?? 'tls');
+                $emailConfig['fromEmail'] = trim($data['fromEmail'] ?? $emailConfig['fromEmail']);
+                $emailConfig['fromName'] = trim($data['fromName'] ?? $emailConfig['fromName']);
+            }
+            
             // Validate SMTP credentials are not empty
             if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost']) || empty($emailConfig['fromEmail'])) {
-                log_message('error', 'SMTP credentials are empty - User: ' . (empty($emailConfig['SMTPUser']) ? 'EMPTY' : 'SET') . ', Pass: ' . (empty($emailConfig['SMTPPass']) ? 'EMPTY' : 'SET (length: ' . strlen($emailConfig['SMTPPass']) . ')') . ', Host: ' . (empty($emailConfig['SMTPHost']) ? 'EMPTY' : 'SET') . ', From: ' . (empty($emailConfig['fromEmail']) ? 'EMPTY' : 'SET'));
+                $passLength = !empty($emailConfig['SMTPPass']) ? strlen($emailConfig['SMTPPass']) : 0;
+                $passPreview = !empty($emailConfig['SMTPPass']) ? substr($emailConfig['SMTPPass'], 0, 10) . '...' : 'EMPTY';
+                log_message('error', 'SMTP credentials are empty - User: ' . (empty($emailConfig['SMTPUser']) ? 'EMPTY' : $emailConfig['SMTPUser']) . ', Pass: ' . (empty($emailConfig['SMTPPass']) ? 'EMPTY' : 'SET (length: ' . $passLength . ', starts: ' . $passPreview . ')') . ', Host: ' . (empty($emailConfig['SMTPHost']) ? 'EMPTY' : $emailConfig['SMTPHost']) . ', From: ' . (empty($emailConfig['fromEmail']) ? 'EMPTY' : $emailConfig['fromEmail']));
                 return $this->response->setJSON([
                     'success' => false,
                     'error' => 'SMTP configuration is incomplete. Please fill in all required fields.',
-                    'hint' => 'Make sure SMTP Host, Username, Password, and From Email are all filled in.'
+                    'hint' => 'Make sure SMTP Host, Username, Password, and From Email are all filled in. Current status: Host=' . (!empty($emailConfig['SMTPHost']) ? 'SET' : 'EMPTY') . ', User=' . (!empty($emailConfig['SMTPUser']) ? 'SET' : 'EMPTY') . ', Pass=' . (!empty($emailConfig['SMTPPass']) ? 'SET (' . $passLength . ' chars)' : 'EMPTY') . ', From=' . (!empty($emailConfig['fromEmail']) ? 'SET' : 'EMPTY')
                 ])->setStatusCode(400);
             }
             
@@ -260,10 +275,20 @@ class EmailSettingsController extends BaseController
             
             // IMPORTANT: Gmail App Passwords can have spaces (e.g., "jdab pewu hoqn whho")
             // Gmail accepts them with or without spaces, but removing spaces is more reliable
+            // For Brevo and other services, keep password as-is
             $smtpPassword = $emailConfig['SMTPPass'] ?? '';
             if (!empty($smtpPassword)) {
-                // Remove spaces from Gmail App Password for better compatibility
-                $smtpPassword = str_replace(' ', '', $smtpPassword);
+                // Only remove spaces for Gmail (contains @gmail.com or smtp.gmail.com)
+                $isGmail = stripos($emailConfig['SMTPHost'] ?? '', 'gmail') !== false || 
+                          stripos($emailConfig['SMTPUser'] ?? '', 'gmail') !== false;
+                if ($isGmail) {
+                    // Remove spaces from Gmail App Password for better compatibility
+                    $smtpPassword = str_replace(' ', '', $smtpPassword);
+                    log_message('info', 'Removed spaces from Gmail App Password');
+                } else {
+                    // Keep Brevo and other SMTP passwords as-is (no spaces to remove)
+                    log_message('info', 'Using SMTP password as-is (non-Gmail service)');
+                }
             }
             
             // Manually configure SMTP settings to ensure they're current
@@ -330,8 +355,9 @@ class EmailSettingsController extends BaseController
             log_message('info', 'Attempting to send test email to: ' . $testEmail);
             log_message('info', 'SMTP Config - Host: ' . $emailConfig['SMTPHost'] . ', Port: ' . $emailConfig['SMTPPort'] . ', User: ' . $emailConfig['SMTPUser'] . ', Crypto: ' . $emailConfig['SMTPCrypto']);
             log_message('info', 'SMTP Password length (original): ' . strlen($emailConfig['SMTPPass']) . ' characters');
-            log_message('info', 'SMTP Password length (after space removal): ' . strlen($smtpConfig['SMTPPass']) . ' characters');
-            log_message('info', 'SMTP Password had spaces: ' . (strpos($emailConfig['SMTPPass'], ' ') !== false ? 'YES (removed)' : 'NO'));
+            log_message('info', 'SMTP Password length (final): ' . strlen($smtpConfig['SMTPPass']) . ' characters');
+            log_message('info', 'SMTP Password starts with: ' . substr($smtpConfig['SMTPPass'], 0, 10) . '...');
+            log_message('info', 'SMTP Password ends with: ...' . substr($smtpConfig['SMTPPass'], -10));
 
             // Attempt to send email with better error handling
             $result = false;
@@ -490,9 +516,16 @@ class EmailSettingsController extends BaseController
                     // Get password from database
                     $smtpPass = $settings['smtp_pass'] ?? '';
                     
-                    // IMPORTANT: Remove spaces from Gmail App Password (works with or without spaces)
+                    // IMPORTANT: Only remove spaces for Gmail App Passwords
+                    // Brevo and other services should keep password as-is
                     if (!empty($smtpPass)) {
-                        $smtpPass = str_replace(' ', '', $smtpPass);
+                        $isGmail = stripos($settings['smtp_host'] ?? '', 'gmail') !== false || 
+                                  stripos($settings['smtp_user'] ?? '', 'gmail') !== false;
+                        if ($isGmail) {
+                            // Remove spaces from Gmail App Password for better compatibility
+                            $smtpPass = str_replace(' ', '', $smtpPass);
+                        }
+                        // For Brevo and other services, keep password as-is
                     }
                     
                     return [
@@ -521,10 +554,16 @@ class EmailSettingsController extends BaseController
         // Get password from config
         $smtpPass = $config->SMTPPass ?? '';
         
-        // IMPORTANT: Remove spaces from Gmail App Password (works with or without spaces)
-        // This handles passwords from environment variables too
+        // IMPORTANT: Only remove spaces for Gmail App Passwords
+        // Brevo and other services should keep password as-is
         if (!empty($smtpPass)) {
-            $smtpPass = str_replace(' ', '', $smtpPass);
+            $isGmail = stripos($config->SMTPHost ?? '', 'gmail') !== false || 
+                      stripos($config->SMTPUser ?? '', 'gmail') !== false;
+            if ($isGmail) {
+                // Remove spaces from Gmail App Password for better compatibility
+                $smtpPass = str_replace(' ', '', $smtpPass);
+            }
+            // For Brevo and other services, keep password as-is
         }
         
         return [

@@ -49,26 +49,40 @@ If port 587 is blocked, try port 465:
    - **Encryption**: `SSL` (not TLS)
 2. Save and test
 
-### Option B: Use SendGrid (Recommended for Render)
+### Option B: Use Resend (Recommended - Easy Approval)
 
-SendGrid offers a free tier (100 emails/day) and works well with Render:
+**Resend** is modern, developer-friendly, and has easy approval:
 
-1. **Sign up**: https://sendgrid.com
-2. **Create API Key**:
-   - Settings → API Keys → Create API Key
-   - Copy the API key
+1. **Sign up**: https://resend.com
+   - Free tier: 3,000 emails/month
+   - Very easy approval (usually instant)
+   - No credit card required
+2. **Get API Key**:
+   - Go to **API Keys** → **Create API Key**
+   - Copy the API key (starts with `re_`)
 3. **Update SMTP settings**:
-   - **SMTP Host**: `smtp.sendgrid.net`
-   - **SMTP User**: `apikey`
-   - **SMTP Password**: `[Your SendGrid API Key]`
+   - **SMTP Host**: `smtp.resend.com`
+   - **SMTP User**: `resend`
+   - **SMTP Password**: `[Your Resend API Key]`
    - **Port**: `587`
    - **Encryption**: `TLS`
 
-### Option C: Use Mailgun
+### Option C: Use Mailgun (Alternative)
+
+**Mailgun** is reliable and easy to set up:
 
 1. **Sign up**: https://www.mailgun.com
-2. **Get SMTP credentials** from dashboard
-3. **Update SMTP settings** with Mailgun credentials
+   - Free tier: 5,000 emails/month (first 3 months)
+   - Easy approval process
+2. **Get SMTP credentials**:
+   - Go to **Sending** → **Domain Settings** → **SMTP credentials**
+   - Or use **API Keys** section
+3. **Update SMTP settings**:
+   - **SMTP Host**: `smtp.mailgun.org`
+   - **SMTP User**: `postmaster@[your-domain].mailgun.org`
+   - **SMTP Password**: `[Your Mailgun SMTP Password]`
+   - **Port**: `587`
+   - **Encryption**: `TLS`
 
 ## Step 4: Check if Render Blocks SMTP
 

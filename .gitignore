@@ -51,6 +51,8 @@ gmailapppassword.txt
 *credentials*.txt
 resend-api-key.txt
 *api-key*.txt
+brevo-smtp-key.txt
+*smtp*.txt
 
 #-------------------------
 # Temporary Files
