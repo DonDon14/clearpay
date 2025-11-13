@@ -283,25 +283,13 @@ class SignupController extends BaseController
                 return false;
             }
             
-            // Check if we should use Brevo API instead of SMTP (for Render)
-            // Render free tier blocks SMTP ports, so use API as fallback
-            $useBrevoApi = false;
-            $brevoApiKey = null;
-            
-            // Try to get Brevo API key from environment
-            // Brevo API key format: xkeysib-... (different from SMTP key which is xsmtpsib-...)
+            // Use Brevo API only for verification emails (bypasses Render port blocking)
             $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
             
-            // If SMTP host is Brevo, try API if available
-            if (stripos($emailConfig['SMTPHost'] ?? '', 'brevo') !== false) {
-                // Check if we have API key
-                if (!empty($brevoApiKey)) {
-                    $useBrevoApi = true;
-                    log_message('info', 'Brevo API key found, will use API instead of SMTP (bypasses Render port blocking)');
-                } else {
-                    log_message('info', 'Brevo SMTP detected but no API key found. Will try SMTP (may fail on Render due to port blocking).');
-                    log_message('info', 'To use Brevo API on Render, set BREVO_API_KEY environment variable. Get API key from Brevo → Settings → SMTP & API → API Keys');
-                }
+            if (empty($brevoApiKey)) {
+                log_message('error', 'BREVO_API_KEY not found. Verification emails require Brevo API key. Set BREVO_API_KEY environment variable.');
+                log_message('info', 'Get API key from Brevo → Settings → SMTP & API → API Keys');
+                return false;
             }
             
             // Get email template
@@ -313,122 +301,34 @@ class SignupController extends BaseController
             // Extract text version from HTML
             $textMessage = strip_tags($htmlMessage);
             
-            // Try Brevo API first if available (works on Render)
-            if ($useBrevoApi && !empty($brevoApiKey)) {
-                try {
-                    log_message('info', 'Attempting to send verification email via Brevo API (bypassing SMTP port blocking)');
-                    
-                    // Check if BrevoEmailService class exists
-                    if (!class_exists('\App\Services\BrevoEmailService')) {
-                        log_message('error', 'BrevoEmailService class not found. Code may not be deployed yet. Falling back to SMTP.');
-                        $useBrevoApi = false;
-                    } else {
-                        try {
-                            $brevoService = new \App\Services\BrevoEmailService(
-                                $brevoApiKey,
-                                $emailConfig['fromEmail'],
-                                $emailConfig['fromName'] ?? 'ClearPay'
-                            );
-                            
-                            $result = $brevoService->send($email, 'Email Verification - ClearPay Payer Portal', $htmlMessage, $textMessage);
-                            
-                            if ($result['success']) {
-                                log_message('info', 'Verification email sent successfully via Brevo API to payer: ' . $email);
-                                return true;
-                            } else {
-                                log_message('error', 'Brevo API failed, falling back to SMTP: ' . ($result['error'] ?? 'Unknown error'));
-                                // Fall through to SMTP attempt
-                            }
-                        } catch (\Exception $apiException) {
-                            log_message('error', 'Brevo API exception, falling back to SMTP: ' . $apiException->getMessage());
-                            // Fall through to SMTP attempt
-                        }
-                    }
-                } catch (\Exception $outerException) {
-                    log_message('error', 'Outer Brevo API try block exception: ' . $outerException->getMessage());
-                    // Fall through to SMTP attempt
-                }
-            }
-            
-            // Fallback to SMTP (or use SMTP if Brevo API not available)
-            $emailService = \Config\Services::email();
-            
-            // Clear any previous configuration
-            $emailService->clear();
-            
-            // Manually configure SMTP settings to ensure they're current
-            $smtpPassword = $emailConfig['SMTPPass'] ?? '';
-            if (!empty($smtpPassword)) {
-                // Only remove spaces for Gmail (contains @gmail.com or smtp.gmail.com)
-                $isGmail = stripos($emailConfig['SMTPHost'] ?? '', 'gmail') !== false || 
-                          stripos($emailConfig['SMTPUser'] ?? '', 'gmail') !== false;
-                if ($isGmail) {
-                    // Remove spaces from Gmail App Password for better compatibility
-                    $smtpPassword = str_replace(' ', '', $smtpPassword);
-                    log_message('info', 'Removed spaces from Gmail App Password');
-                } else {
-                    // Keep Brevo and other SMTP passwords as-is (no spaces to remove)
-                    log_message('info', 'Using SMTP password as-is (non-Gmail service)');
-                }
-            }
-            
-            $smtpConfig = [
-                'protocol' => $emailConfig['protocol'] ?? 'smtp',
-                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
-                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $smtpPassword, // Gmail App Password (spaces removed for compatibility) or Brevo password as-is
-                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
-                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
-                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
-                'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
-                'charset' => $emailConfig['charset'] ?? 'UTF-8',
-                'newline' => "\r\n", // Required for SMTP
-                'CRLF' => "\r\n", // Required for SMTP
-                'wordWrap' => true,
-                'validate' => false, // Don't validate email addresses
-            ];
-            
-            // Validate configuration before initializing
-            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
-                log_message('error', 'SMTP configuration validation failed - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
-                return false;
-            }
-            
-            // Initialize email service with error handling
+            // Use Brevo API only (no SMTP fallback for verification emails)
             try {
-                $emailService->initialize($smtpConfig);
-            } catch (\Exception $initException) {
-                log_message('error', 'Email service initialization failed: ' . $initException->getMessage());
-                return false;
-            }
-            
-            // Set email properties
-            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
-            $emailService->setTo($email);
-            $emailService->setSubject('Email Verification - ClearPay Payer Portal');
-            $emailService->setMessage($htmlMessage);
-            
-            // Log SMTP settings for debugging (without password)
-            log_message('info', "Attempting to send verification email to payer via SMTP: {$email}");
-            log_message('info', "SMTP Config - Host: {$emailConfig['SMTPHost']}, Port: {$emailConfig['SMTPPort']}, User: {$emailConfig['SMTPUser']}, Crypto: {$emailConfig['SMTPCrypto']}");
-            log_message('info', "SMTP Password length: " . strlen($emailConfig['SMTPPass']) . " characters");
-            
-            $result = $emailService->send();
-            
-            if ($result) {
-                log_message('info', "Verification email sent successfully to payer via SMTP: {$email}");
-                return true;
-            } else {
-                $error = $emailService->printDebugger(['headers', 'subject', 'body']);
-                log_message('error', "Failed to send verification email to payer via SMTP: {$error}");
+                log_message('info', 'Attempting to send verification email via Brevo API to payer: ' . $email);
                 
-                // Try to get more specific error information
-                $lastError = error_get_last();
-                if ($lastError) {
-                    log_message('error', 'PHP Error: ' . $lastError['message']);
+                // Check if BrevoEmailService class exists
+                if (!class_exists('\App\Services\BrevoEmailService')) {
+                    log_message('error', 'BrevoEmailService class not found. Code may not be deployed yet.');
+                    return false;
                 }
                 
+                $brevoService = new \App\Services\BrevoEmailService(
+                    $brevoApiKey,
+                    $emailConfig['fromEmail'],
+                    $emailConfig['fromName'] ?? 'ClearPay'
+                );
+                
+                $result = $brevoService->send($email, 'Email Verification - ClearPay Payer Portal', $htmlMessage, $textMessage);
+                
+                if ($result['success']) {
+                    log_message('info', 'Verification email sent successfully via Brevo API to payer: ' . $email);
+                    return true;
+                } else {
+                    log_message('error', 'Brevo API failed to send verification email: ' . ($result['error'] ?? 'Unknown error'));
+                    return false;
+                }
+            } catch (\Exception $apiException) {
+                log_message('error', 'Brevo API exception while sending verification email: ' . $apiException->getMessage());
+                log_message('error', 'Exception trace: ' . $apiException->getTraceAsString());
                 return false;
             }
         } catch (\Exception $e) {
