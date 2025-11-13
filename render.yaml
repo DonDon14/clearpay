@@ -44,6 +44,10 @@ services:
         value: tls
       - key: email.mailType
         value: html
+      # BREVO_API_KEY - Set this manually in Render dashboard for API-based email sending (bypasses port blocking)
+      # Get API key from Brevo → Settings → SMTP & API → API Keys (format: xkeysib-...)
+      # This is different from SMTP key (xsmtpsib-...). API key allows sending via HTTPS instead of SMTP ports.
+      # If set, verification emails will use Brevo API instead of SMTP (works on Render free tier)
     # Auto-deploy from main branch (production)
     autoDeploy: true
 

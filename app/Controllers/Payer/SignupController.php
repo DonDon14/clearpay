@@ -257,28 +257,126 @@ class SignupController extends BaseController
             $emailConfig = $this->getEmailConfig();
             
             // Validate SMTP credentials - check all required fields
-            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost']) || empty($emailConfig['fromEmail'])) {
-                log_message('error', 'SMTP configuration incomplete for verification email - Missing: ' . 
-                    (empty($emailConfig['SMTPUser']) ? 'SMTPUser ' : '') .
-                    (empty($emailConfig['SMTPPass']) ? 'SMTPPass ' : '') .
-                    (empty($emailConfig['SMTPHost']) ? 'SMTPHost ' : '') .
-                    (empty($emailConfig['fromEmail']) ? 'fromEmail ' : '')
-                );
+            $missingFields = [];
+            if (empty($emailConfig['SMTPUser'])) $missingFields[] = 'SMTPUser';
+            if (empty($emailConfig['SMTPPass'])) $missingFields[] = 'SMTPPass';
+            if (empty($emailConfig['SMTPHost'])) $missingFields[] = 'SMTPHost';
+            if (empty($emailConfig['fromEmail'])) $missingFields[] = 'fromEmail';
+            
+            if (!empty($missingFields)) {
+                $missingStr = implode(', ', $missingFields);
+                log_message('error', 'SMTP configuration incomplete for verification email - Missing: ' . $missingStr);
+                log_message('error', 'SMTP Config check - Host: ' . ($emailConfig['SMTPHost'] ?: 'EMPTY') . 
+                    ', User: ' . ($emailConfig['SMTPUser'] ?: 'EMPTY') . 
+                    ', Pass: ' . ($emailConfig['SMTPPass'] ? 'SET (' . strlen($emailConfig['SMTPPass']) . ' chars)' : 'EMPTY') .
+                    ', FromEmail: ' . ($emailConfig['fromEmail'] ?: 'EMPTY'));
+                
+                // Check if environment variables are accessible
+                $envCheck = [
+                    'email.SMTPHost' => getenv('email.SMTPHost') ?: 'NOT SET',
+                    'email.SMTPUser' => getenv('email.SMTPUser') ?: 'NOT SET',
+                    'email.SMTPPass' => getenv('email.SMTPPass') ? 'SET (' . strlen(getenv('email.SMTPPass')) . ' chars)' : 'NOT SET',
+                    'email.fromEmail' => getenv('email.fromEmail') ?: 'NOT SET',
+                ];
+                log_message('error', 'Environment variables check: ' . json_encode($envCheck));
+                
                 return false;
             }
             
-            // Get a fresh email service instance
+            // Check if we should use Brevo API instead of SMTP (for Render)
+            // Render free tier blocks SMTP ports, so use API as fallback
+            $useBrevoApi = false;
+            $brevoApiKey = null;
+            
+            // Try to get Brevo API key from environment
+            // Brevo API key format: xkeysib-... (different from SMTP key which is xsmtpsib-...)
+            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            
+            // If SMTP host is Brevo, try API if available
+            if (stripos($emailConfig['SMTPHost'] ?? '', 'brevo') !== false) {
+                // Check if we have API key
+                if (!empty($brevoApiKey)) {
+                    $useBrevoApi = true;
+                    log_message('info', 'Brevo API key found, will use API instead of SMTP (bypasses Render port blocking)');
+                } else {
+                    log_message('info', 'Brevo SMTP detected but no API key found. Will try SMTP (may fail on Render due to port blocking).');
+                    log_message('info', 'To use Brevo API on Render, set BREVO_API_KEY environment variable. Get API key from Brevo → Settings → SMTP & API → API Keys');
+                }
+            }
+            
+            // Get email template
+            $htmlMessage = view('emails/verification', [
+                'name' => $name,
+                'code' => $code
+            ]);
+            
+            // Extract text version from HTML
+            $textMessage = strip_tags($htmlMessage);
+            
+            // Try Brevo API first if available (works on Render)
+            if ($useBrevoApi && !empty($brevoApiKey)) {
+                try {
+                    log_message('info', 'Attempting to send verification email via Brevo API (bypassing SMTP port blocking)');
+                    
+                    // Check if BrevoEmailService class exists
+                    if (!class_exists('\App\Services\BrevoEmailService')) {
+                        log_message('error', 'BrevoEmailService class not found. Code may not be deployed yet. Falling back to SMTP.');
+                        $useBrevoApi = false;
+                    } else {
+                        try {
+                            $brevoService = new \App\Services\BrevoEmailService(
+                                $brevoApiKey,
+                                $emailConfig['fromEmail'],
+                                $emailConfig['fromName'] ?? 'ClearPay'
+                            );
+                            
+                            $result = $brevoService->send($email, 'Email Verification - ClearPay Payer Portal', $htmlMessage, $textMessage);
+                            
+                            if ($result['success']) {
+                                log_message('info', 'Verification email sent successfully via Brevo API to payer: ' . $email);
+                                return true;
+                            } else {
+                                log_message('error', 'Brevo API failed, falling back to SMTP: ' . ($result['error'] ?? 'Unknown error'));
+                                // Fall through to SMTP attempt
+                            }
+                        } catch (\Exception $apiException) {
+                            log_message('error', 'Brevo API exception, falling back to SMTP: ' . $apiException->getMessage());
+                            // Fall through to SMTP attempt
+                        }
+                    }
+                } catch (\Exception $outerException) {
+                    log_message('error', 'Outer Brevo API try block exception: ' . $outerException->getMessage());
+                    // Fall through to SMTP attempt
+                }
+            }
+            
+            // Fallback to SMTP (or use SMTP if Brevo API not available)
             $emailService = \Config\Services::email();
             
             // Clear any previous configuration
             $emailService->clear();
             
             // Manually configure SMTP settings to ensure they're current
+            $smtpPassword = $emailConfig['SMTPPass'] ?? '';
+            if (!empty($smtpPassword)) {
+                // Only remove spaces for Gmail (contains @gmail.com or smtp.gmail.com)
+                $isGmail = stripos($emailConfig['SMTPHost'] ?? '', 'gmail') !== false || 
+                          stripos($emailConfig['SMTPUser'] ?? '', 'gmail') !== false;
+                if ($isGmail) {
+                    // Remove spaces from Gmail App Password for better compatibility
+                    $smtpPassword = str_replace(' ', '', $smtpPassword);
+                    log_message('info', 'Removed spaces from Gmail App Password');
+                } else {
+                    // Keep Brevo and other SMTP passwords as-is (no spaces to remove)
+                    log_message('info', 'Using SMTP password as-is (non-Gmail service)');
+                }
+            }
+            
             $smtpConfig = [
                 'protocol' => $emailConfig['protocol'] ?? 'smtp',
                 'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
                 'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPass' => $smtpPassword, // Gmail App Password (spaces removed for compatibility) or Brevo password as-is
                 'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
                 'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
@@ -297,34 +395,33 @@ class SignupController extends BaseController
                 return false;
             }
             
-            $emailService->initialize($smtpConfig);
+            // Initialize email service with error handling
+            try {
+                $emailService->initialize($smtpConfig);
+            } catch (\Exception $initException) {
+                log_message('error', 'Email service initialization failed: ' . $initException->getMessage());
+                return false;
+            }
             
             // Set email properties
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
             $emailService->setTo($email);
             $emailService->setSubject('Email Verification - ClearPay Payer Portal');
-            
-            // Get email template
-            $message = view('emails/verification', [
-                'name' => $name,
-                'code' => $code
-            ]);
-            
-            $emailService->setMessage($message);
+            $emailService->setMessage($htmlMessage);
             
             // Log SMTP settings for debugging (without password)
-            log_message('info', "Attempting to send verification email to payer: {$email}");
+            log_message('info', "Attempting to send verification email to payer via SMTP: {$email}");
             log_message('info', "SMTP Config - Host: {$emailConfig['SMTPHost']}, Port: {$emailConfig['SMTPPort']}, User: {$emailConfig['SMTPUser']}, Crypto: {$emailConfig['SMTPCrypto']}");
             log_message('info', "SMTP Password length: " . strlen($emailConfig['SMTPPass']) . " characters");
             
             $result = $emailService->send();
             
             if ($result) {
-                log_message('info', "Verification email sent successfully to payer: {$email}");
+                log_message('info', "Verification email sent successfully to payer via SMTP: {$email}");
                 return true;
             } else {
                 $error = $emailService->printDebugger(['headers', 'subject', 'body']);
-                log_message('error', "Failed to send verification email to payer: {$error}");
+                log_message('error', "Failed to send verification email to payer via SMTP: {$error}");
                 
                 // Try to get more specific error information
                 $lastError = error_get_last();
@@ -362,7 +459,7 @@ class SignupController extends BaseController
                     ->get()
                     ->getRowArray();
                 
-                if ($settings) {
+                if ($settings && !empty($settings['smtp_host']) && !empty($settings['smtp_user']) && !empty($settings['smtp_pass'])) {
                     return [
                         'fromEmail' => $settings['from_email'] ?? '',
                         'fromName' => $settings['from_name'] ?? 'ClearPay',
@@ -379,12 +476,14 @@ class SignupController extends BaseController
                 }
             }
         } catch (\Exception $e) {
-            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
+            log_message('debug', 'Email settings table not found or incomplete, using config: ' . $e->getMessage());
         }
         
-        // Fallback to config
+        // Fallback to config (which loads from environment variables)
         $config = config('Email');
-        return [
+        
+        // Use config values (which already load from environment variables with fallbacks)
+        $emailConfig = [
             'fromEmail' => $config->fromEmail,
             'fromName' => $config->fromName,
             'protocol' => $config->protocol,
@@ -397,6 +496,13 @@ class SignupController extends BaseController
             'mailType' => $config->mailType,
             'charset' => $config->charset,
         ];
+        
+        // Log configuration status for debugging
+        log_message('debug', 'Email config loaded - Host: ' . ($emailConfig['SMTPHost'] ? 'SET' : 'EMPTY') . 
+            ', User: ' . ($emailConfig['SMTPUser'] ? 'SET' : 'EMPTY') . 
+            ', Pass: ' . ($emailConfig['SMTPPass'] ? 'SET (' . strlen($emailConfig['SMTPPass']) . ' chars)' : 'EMPTY'));
+        
+        return $emailConfig;
     }
 
     public function verifyEmail()

@@ -158,14 +158,15 @@ class Email extends BaseConfig
         }
         
         // Fallback to environment variables
-        $this->fromEmail = $_ENV['email.fromEmail'] ?? getenv('email.fromEmail') ?: 'project.clearpay@gmail.com';
-        $this->fromName = $_ENV['email.fromName'] ?? getenv('email.fromName') ?: 'ClearPay';
-        $this->protocol = $_ENV['email.protocol'] ?? getenv('email.protocol') ?: 'smtp';
-        $this->SMTPHost = $_ENV['email.SMTPHost'] ?? getenv('email.SMTPHost') ?: 'smtp.gmail.com';
-        $this->SMTPUser = $_ENV['email.SMTPUser'] ?? getenv('email.SMTPUser') ?: 'project.clearpay@gmail.com';
-        $this->SMTPPass = $_ENV['email.SMTPPass'] ?? getenv('email.SMTPPass') ?: '';
-        $this->SMTPPort = (int)($_ENV['email.SMTPPort'] ?? getenv('email.SMTPPort') ?: 587);
-        $this->SMTPCrypto = $_ENV['email.SMTPCrypto'] ?? getenv('email.SMTPCrypto') ?: 'tls';
-        $this->mailType = $_ENV['email.mailType'] ?? getenv('email.mailType') ?: 'html';
+        // Try both dot notation and underscore notation (some systems don't support dots in env var names)
+        $this->fromEmail = $_ENV['email.fromEmail'] ?? $_ENV['email_fromEmail'] ?? getenv('email.fromEmail') ?: getenv('email_fromEmail') ?: 'project.clearpay@gmail.com';
+        $this->fromName = $_ENV['email.fromName'] ?? $_ENV['email_fromName'] ?? getenv('email.fromName') ?: getenv('email_fromName') ?: 'ClearPay';
+        $this->protocol = $_ENV['email.protocol'] ?? $_ENV['email_protocol'] ?? getenv('email.protocol') ?: getenv('email_protocol') ?: 'smtp';
+        $this->SMTPHost = $_ENV['email.SMTPHost'] ?? $_ENV['email_SMTPHost'] ?? getenv('email.SMTPHost') ?: getenv('email_SMTPHost') ?: 'smtp.gmail.com';
+        $this->SMTPUser = $_ENV['email.SMTPUser'] ?? $_ENV['email_SMTPUser'] ?? getenv('email.SMTPUser') ?: getenv('email_SMTPUser') ?: 'project.clearpay@gmail.com';
+        $this->SMTPPass = $_ENV['email.SMTPPass'] ?? $_ENV['email_SMTPPass'] ?? getenv('email.SMTPPass') ?: getenv('email_SMTPPass') ?: '';
+        $this->SMTPPort = (int)($_ENV['email.SMTPPort'] ?? $_ENV['email_SMTPPort'] ?? getenv('email.SMTPPort') ?: getenv('email_SMTPPort') ?: 587);
+        $this->SMTPCrypto = $_ENV['email.SMTPCrypto'] ?? $_ENV['email_SMTPCrypto'] ?? getenv('email.SMTPCrypto') ?: getenv('email_SMTPCrypto') ?: 'tls';
+        $this->mailType = $_ENV['email.mailType'] ?? $_ENV['email_mailType'] ?? getenv('email.mailType') ?: getenv('email_mailType') ?: 'html';
     }
 }
