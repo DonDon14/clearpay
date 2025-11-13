@@ -2511,24 +2511,35 @@ class PaymentsController extends BaseController
                 return false;
             }
             
-            // Initialize email service with fresh config
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
+            
+            // Clear any previous configuration
+            $emailService->clear();
             
             // Manually configure SMTP settings to ensure they're current
             $smtpConfig = [
                 'protocol' => $emailConfig['protocol'] ?? 'smtp',
                 'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
                 'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
                 'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
                 'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
                 'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
                 'newline' => "\r\n", // Required for SMTP
                 'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
             ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for receipt email - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
             
             $emailService->initialize($smtpConfig);
             

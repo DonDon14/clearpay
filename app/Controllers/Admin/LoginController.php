@@ -221,24 +221,35 @@ class LoginController extends Controller
                 return false;
             }
             
-            // Initialize email service with fresh config
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
+            
+            // Clear any previous configuration
+            $emailService->clear();
             
             // Manually configure SMTP settings to ensure they're current
             $smtpConfig = [
                 'protocol' => $emailConfig['protocol'] ?? 'smtp',
                 'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
                 'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
                 'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
                 'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
                 'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
                 'newline' => "\r\n", // Required for SMTP
                 'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
             ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for admin verification - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
             
             $emailService->initialize($smtpConfig);
             
@@ -493,13 +504,48 @@ class LoginController extends Controller
     private function sendPasswordResetEmail($email, $name, $code)
     {
         try {
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost']) || empty($emailConfig['fromEmail'])) {
+                log_message('error', 'SMTP configuration incomplete for admin password reset email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
             
-            $config = config('Email');
-            $fromEmail = $config->fromEmail;
-            $fromName = $config->fromName;
+            // Clear any previous configuration
+            $emailService->clear();
             
-            $emailService->setFrom($fromEmail, $fromName);
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for admin password reset - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
             $emailService->setTo($email);
             $emailService->setSubject('Password Reset Request - ClearPay');
             
@@ -512,20 +558,30 @@ class LoginController extends Controller
             
             log_message('info', "Attempting to send password reset email to: {$email}");
             
-            $oldErrorReporting = error_reporting(0);
-            $result = @$emailService->send();
-            error_reporting($oldErrorReporting);
+            $result = $emailService->send();
             
             if ($result) {
                 log_message('info', "Password reset email sent successfully to: {$email}");
                 return true;
             } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
+                $error = $emailService->printDebugger(['headers', 'subject', 'body']);
                 log_message('error', "Failed to send password reset email: {$error}");
+                
+                // Try to get more specific error information
+                $lastError = error_get_last();
+                if ($lastError) {
+                    log_message('error', 'PHP Error: ' . $lastError['message']);
+                }
+                
                 return false;
             }
         } catch (\Exception $e) {
             log_message('error', 'Failed to send password reset email: ' . $e->getMessage());
+            log_message('error', 'Exception trace: ' . $e->getTraceAsString());
+            return false;
+        } catch (\Error $e) {
+            log_message('error', 'Failed to send password reset email (Error): ' . $e->getMessage());
+            log_message('error', 'Error trace: ' . $e->getTraceAsString());
             return false;
         }
     }

@@ -243,8 +243,11 @@ class EmailSettingsController extends BaseController
                 ])->setStatusCode(400);
             }
             
-            // Initialize email service with fresh config
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
+            
+            // Clear any previous configuration
+            $emailService->clear();
             
             // Manually configure SMTP settings to ensure they're current
             // Ensure all values are properly set and not empty
@@ -261,6 +264,8 @@ class EmailSettingsController extends BaseController
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
                 'newline' => "\r\n", // Required for SMTP
                 'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
             ];
             
             // Validate required fields

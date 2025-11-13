@@ -256,37 +256,55 @@ class SignupController extends BaseController
             // Get email settings from database or config
             $emailConfig = $this->getEmailConfig();
             
-            // Validate SMTP credentials
-            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
-                log_message('error', 'SMTP configuration incomplete for verification email');
+            // Validate SMTP credentials - check all required fields
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost']) || empty($emailConfig['fromEmail'])) {
+                log_message('error', 'SMTP configuration incomplete for verification email - Missing: ' . 
+                    (empty($emailConfig['SMTPUser']) ? 'SMTPUser ' : '') .
+                    (empty($emailConfig['SMTPPass']) ? 'SMTPPass ' : '') .
+                    (empty($emailConfig['SMTPHost']) ? 'SMTPHost ' : '') .
+                    (empty($emailConfig['fromEmail']) ? 'fromEmail ' : '')
+                );
                 return false;
             }
             
-            // Initialize email service with fresh config
+            // Get a fresh email service instance
             $emailService = \Config\Services::email();
+            
+            // Clear any previous configuration
+            $emailService->clear();
             
             // Manually configure SMTP settings to ensure they're current
             $smtpConfig = [
                 'protocol' => $emailConfig['protocol'] ?? 'smtp',
                 'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
                 'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
                 'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
                 'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
                 'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
                 'newline' => "\r\n", // Required for SMTP
                 'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
             ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
             
             $emailService->initialize($smtpConfig);
             
-            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
+            // Set email properties
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
             $emailService->setTo($email);
             $emailService->setSubject('Email Verification - ClearPay Payer Portal');
             
+            // Get email template
             $message = view('emails/verification', [
                 'name' => $name,
                 'code' => $code
@@ -295,7 +313,9 @@ class SignupController extends BaseController
             $emailService->setMessage($message);
             
             // Log SMTP settings for debugging (without password)
-            log_message('info', "Attempting to send verification email to payer: {$email} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
+            log_message('info', "Attempting to send verification email to payer: {$email}");
+            log_message('info', "SMTP Config - Host: {$emailConfig['SMTPHost']}, Port: {$emailConfig['SMTPPort']}, User: {$emailConfig['SMTPUser']}, Crypto: {$emailConfig['SMTPCrypto']}");
+            log_message('info', "SMTP Password length: " . strlen($emailConfig['SMTPPass']) . " characters");
             
             $result = $emailService->send();
             
@@ -303,8 +323,15 @@ class SignupController extends BaseController
                 log_message('info', "Verification email sent successfully to payer: {$email}");
                 return true;
             } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
+                $error = $emailService->printDebugger(['headers', 'subject', 'body']);
                 log_message('error', "Failed to send verification email to payer: {$error}");
+                
+                // Try to get more specific error information
+                $lastError = error_get_last();
+                if ($lastError) {
+                    log_message('error', 'PHP Error: ' . $lastError['message']);
+                }
+                
                 return false;
             }
         } catch (\Exception $e) {
