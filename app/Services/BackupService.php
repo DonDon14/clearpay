@@ -18,25 +18,47 @@ class BackupService
     {
         $this->db = Database::connect();
         
-        // Set backup directory to user's Documents folder
-        // For Windows: C:\Users\User\Documents\clearpaybackups
-        $backupDir = 'C:' . DIRECTORY_SEPARATOR . 'Users' . DIRECTORY_SEPARATOR . 'User' . DIRECTORY_SEPARATOR . 'Documents' . DIRECTORY_SEPARATOR . 'clearpaybackups';
+        // Determine backup directory based on environment
+        // On Render/cloud: use writable/backups
+        // On Windows localhost: try Documents folder first, then fallback to writable/backups
+        $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+        $backupDir = null;
         
-        // Fallback to writable/backups if the specified directory doesn't exist or can't be created
-        if (!is_dir($backupDir)) {
-            // Try to create the directory
-            if (!@mkdir($backupDir, 0755, true)) {
-                // If creation fails, fallback to writable/backups
-                $backupDir = WRITEPATH . 'backups' . DIRECTORY_SEPARATOR;
+        if ($isWindows) {
+            // Windows: Try user's Documents folder first
+            $backupDir = 'C:' . DIRECTORY_SEPARATOR . 'Users' . DIRECTORY_SEPARATOR . 'User' . DIRECTORY_SEPARATOR . 'Documents' . DIRECTORY_SEPARATOR . 'clearpaybackups';
+            
+            // Check if directory exists or can be created
+            if (!is_dir($backupDir)) {
+                if (!@mkdir($backupDir, 0755, true)) {
+                    $backupDir = null; // Will fallback to writable/backups
+                }
+            }
+        }
+        
+        // Fallback to writable/backups (works on all platforms including Render)
+        if (!$backupDir || !is_dir($backupDir) || !is_writable($backupDir)) {
+            $backupDir = WRITEPATH . 'backups';
+            if ($isWindows && $backupDir !== WRITEPATH . 'backups') {
                 log_message('warning', 'Could not create backup directory in Documents folder, using writable/backups instead');
             }
         }
         
-        $this->backupPath = $backupDir . DIRECTORY_SEPARATOR;
+        $this->backupPath = rtrim($backupDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
         
-        // Ensure backup directory exists
+        // Ensure backup directory exists and is writable
         if (!is_dir($this->backupPath)) {
-            mkdir($this->backupPath, 0755, true);
+            if (!@mkdir($this->backupPath, 0755, true)) {
+                throw new \Exception('Failed to create backup directory: ' . $this->backupPath);
+            }
+        }
+        
+        // Ensure directory is writable
+        if (!is_writable($this->backupPath)) {
+            @chmod($this->backupPath, 0755);
+            if (!is_writable($this->backupPath)) {
+                throw new \Exception('Backup directory is not writable: ' . $this->backupPath);
+            }
         }
     }
 
@@ -62,13 +84,19 @@ class BackupService
             $username = $dbSettings['username'] ?? 'root';
             $password = $dbSettings['password'] ?? '';
             $database = $dbSettings['database'] ?? 'clearpaydb';
-            $port = $dbSettings['port'] ?? 3306;
-
-            // Try to use mysqldump (preferred method)
-            $mysqldumpPath = $this->findMysqldump();
             
-            if ($mysqldumpPath && $this->isWindows()) {
-                // Windows: Use mysqldump.exe
+            // Detect database driver to set correct default port and backup method
+            $dbDriver = $dbSettings['DBDriver'] ?? 'MySQLi';
+            $isPostgres = (strtolower($dbDriver) === 'postgre');
+            $port = $dbSettings['port'] ?? ($isPostgres ? 5432 : 3306);
+            
+            // For PostgreSQL, always use CI method (no pg_dump on server)
+            // For MySQL, try mysqldump first, then fallback to CI method
+            $useMysqldump = !$isPostgres && $this->isWindows();
+            $mysqldumpPath = $useMysqldump ? $this->findMysqldump() : null;
+            
+            if ($mysqldumpPath && file_exists($mysqldumpPath)) {
+                // Windows: Try mysqldump.exe first
                 $command = sprintf(
                     '"%s" --host=%s --port=%d --user=%s %s %s > "%s"',
                     $mysqldumpPath,
@@ -83,11 +111,14 @@ class BackupService
                 // Execute command
                 exec($command . ' 2>&1', $output, $returnVar);
                 
+                // If mysqldump fails, fallback to CI method
                 if ($returnVar !== 0 || !file_exists($filepath) || filesize($filepath) === 0) {
-                    throw new \Exception('mysqldump failed: ' . implode("\n", $output));
+                    log_message('info', 'mysqldump failed, falling back to CI method: ' . implode("\n", $output));
+                    // Fallback: Use CodeIgniter's database utilities
+                    $this->createBackupUsingCI($filepath, $database);
                 }
             } else {
-                // Fallback: Use CodeIgniter's database utilities
+                // Fallback: Use CodeIgniter's database utilities (works for both MySQL and PostgreSQL)
                 $this->createBackupUsingCI($filepath, $database);
             }
 
@@ -129,6 +160,13 @@ class BackupService
     {
         $db = Database::connect();
         
+        // Detect database driver
+        $dbConfig = config('Database');
+        $defaultGroup = $dbConfig->defaultGroup;
+        $dbSettings = $dbConfig->{$defaultGroup};
+        $dbDriver = $dbSettings['DBDriver'] ?? 'MySQLi';
+        $isPostgres = (strtolower($dbDriver) === 'postgre');
+        
         // Get all tables
         $tables = $db->listTables();
         
@@ -138,30 +176,94 @@ class BackupService
 
         $output = "-- ClearPay Database Backup\n";
         $output .= "-- Generated: " . date('Y-m-d H:i:s') . "\n";
-        $output .= "-- Database: {$database}\n\n";
-        $output .= "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n";
-        $output .= "SET time_zone = \"+00:00\";\n\n";
-        $output .= "/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;\n";
-        $output .= "/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;\n";
-        $output .= "/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;\n";
-        $output .= "/*!40101 SET NAMES utf8mb4 */;\n\n";
+        $output .= "-- Database: {$database}\n";
+        $output .= "-- Database Driver: {$dbDriver}\n\n";
+        
+        if (!$isPostgres) {
+            // MySQL-specific headers
+            $output .= "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n";
+            $output .= "SET time_zone = \"+00:00\";\n\n";
+            $output .= "/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;\n";
+            $output .= "/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;\n";
+            $output .= "/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;\n";
+            $output .= "/*!40101 SET NAMES utf8mb4 */;\n\n";
+        } else {
+            // PostgreSQL-specific headers
+            $output .= "-- PostgreSQL Backup\n";
+            $output .= "BEGIN;\n\n";
+        }
 
         // Backup each table
         foreach ($tables as $table) {
-            $output .= "\n-- Table structure for table `{$table}`\n\n";
-            $output .= "DROP TABLE IF EXISTS `{$table}`;\n";
+            $tableName = $isPostgres ? $table : "`{$table}`";
+            $output .= "\n-- Table structure for table {$tableName}\n\n";
+            $output .= "DROP TABLE IF EXISTS {$tableName};\n";
             
-            // Get table structure
-            $createTable = $db->query("SHOW CREATE TABLE `{$table}`")->getRowArray();
-            if (isset($createTable['Create Table'])) {
-                $output .= $createTable['Create Table'] . ";\n\n";
+            // Get table structure - different syntax for MySQL vs PostgreSQL
+            if ($isPostgres) {
+                // PostgreSQL: Get table structure using information_schema
+                try {
+                    $columns = $db->query("
+                        SELECT 
+                            column_name, 
+                            data_type, 
+                            character_maximum_length,
+                            numeric_precision,
+                            numeric_scale,
+                            is_nullable,
+                            column_default
+                        FROM information_schema.columns 
+                        WHERE table_schema = 'public' AND table_name = '{$table}' 
+                        ORDER BY ordinal_position
+                    ")->getResultArray();
+                    
+                    if (!empty($columns)) {
+                        $output .= "CREATE TABLE {$tableName} (\n";
+                        $columnDefs = [];
+                        foreach ($columns as $col) {
+                            $def = "  " . $col['column_name'] . " " . strtoupper($col['data_type']);
+                            
+                            // Handle data type with length/precision
+                            if ($col['character_maximum_length']) {
+                                $def .= "(" . $col['character_maximum_length'] . ")";
+                            } elseif ($col['numeric_precision'] && $col['numeric_scale']) {
+                                $def .= "(" . $col['numeric_precision'] . "," . $col['numeric_scale'] . ")";
+                            } elseif ($col['numeric_precision']) {
+                                $def .= "(" . $col['numeric_precision'] . ")";
+                            }
+                            
+                            if ($col['is_nullable'] === 'NO') {
+                                $def .= " NOT NULL";
+                            }
+                            
+                            if ($col['column_default']) {
+                                $def .= " DEFAULT " . $col['column_default'];
+                            }
+                            
+                            $columnDefs[] = $def;
+                        }
+                        $output .= implode(",\n", $columnDefs) . "\n);\n\n";
+                    } else {
+                        throw new \Exception("No columns found for table {$table}");
+                    }
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to get PostgreSQL table structure: ' . $e->getMessage());
+                    throw new \Exception('Failed to get table structure for ' . $table . ': ' . $e->getMessage());
+                }
+            } else {
+                // MySQL: Use SHOW CREATE TABLE
+                $createTable = $db->query("SHOW CREATE TABLE `{$table}`")->getRowArray();
+                if (isset($createTable['Create Table'])) {
+                    $output .= $createTable['Create Table'] . ";\n\n";
+                }
             }
 
             // Get table data
-            $rows = $db->query("SELECT * FROM `{$table}`")->getResultArray();
+            $tableNameQuery = $isPostgres ? $table : "`{$table}`";
+            $rows = $db->query("SELECT * FROM {$tableNameQuery}")->getResultArray();
             
             if (!empty($rows)) {
-                $output .= "-- Dumping data for table `{$table}`\n\n";
+                $output .= "-- Dumping data for table {$tableName}\n\n";
                 
                 foreach ($rows as $row) {
                     $values = [];
@@ -169,18 +271,24 @@ class BackupService
                         if ($value === null) {
                             $values[] = 'NULL';
                         } else {
-                            $values[] = "'" . $db->escapeString($value) . "'";
+                            $escaped = $db->escapeString($value);
+                            // PostgreSQL uses single quotes, MySQL also uses single quotes
+                            $values[] = "'" . $escaped . "'";
                         }
                     }
-                    $output .= "INSERT INTO `{$table}` VALUES (" . implode(', ', $values) . ");\n";
+                    $output .= "INSERT INTO {$tableName} VALUES (" . implode(', ', $values) . ");\n";
                 }
                 $output .= "\n";
             }
         }
 
-        $output .= "\n/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;\n";
-        $output .= "/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;\n";
-        $output .= "/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;\n";
+        if (!$isPostgres) {
+            $output .= "\n/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;\n";
+            $output .= "/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;\n";
+            $output .= "/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;\n";
+        } else {
+            $output .= "\nCOMMIT;\n";
+        }
 
         // Write to file
         file_put_contents($filepath, $output);

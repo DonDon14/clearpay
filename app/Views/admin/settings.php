@@ -736,20 +736,59 @@ function createBackup() {
         },
         credentials: 'same-origin'
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            let message = 'Database backup created successfully!';
-            if (data.backup && data.backup.copied_to_documents) {
-                message += ' File saved to Documents\\clearpaybackups folder.';
-            }
-            showNotification(message, 'success');
-            
-            // Don't auto-download since file is already in Documents folder
-            // User can access it directly from C:\Users\User\Documents\clearpaybackups
-            // If they want to download, they can use the download link
+    .then(response => {
+        // Check if response is JSON or a file download
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json().then(data => {
+                if (data.success) {
+                    showNotification('Database backup created successfully! Downloading...', 'success');
+                    
+                    // Automatically trigger download
+                    if (data.backup && data.backup.download_url) {
+                        // Create a temporary link and click it to trigger download
+                        const link = document.createElement('a');
+                        link.href = data.backup.download_url;
+                        link.download = data.backup.filename;
+                        link.style.display = 'none';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Show success message after a short delay
+                        setTimeout(() => {
+                            showNotification('Backup downloaded to your Downloads folder!', 'success');
+                        }, 500);
+                    }
+                } else {
+                    showNotification('Failed to create backup: ' + (data.error || 'Unknown error'), 'error');
+                }
+            });
         } else {
-            showNotification('Failed to create backup: ' + (data.error || 'Unknown error'), 'error');
+            // Response is a file download
+            return response.blob().then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                
+                // Get filename from Content-Disposition header or use default
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'clearpay_backup.sql.gz';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = filenameMatch[1].replace(/['"]/g, '');
+                    }
+                }
+                
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                
+                showNotification('Backup downloaded to your Downloads folder!', 'success');
+            });
         }
     })
     .catch(error => {

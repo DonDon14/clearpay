@@ -188,6 +188,14 @@ class SystemController extends BaseController
         }
 
         try {
+            // Check if ZipArchive extension is available
+            if (!class_exists('ZipArchive')) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'ZipArchive extension is not available. Please contact your server administrator.'
+                ])->setStatusCode(500);
+            }
+            
             $logsPath = WRITEPATH . 'logs' . DIRECTORY_SEPARATOR;
             
             if (!is_dir($logsPath)) {
@@ -210,7 +218,23 @@ class SystemController extends BaseController
             // Create a temporary zip file
             $zipPath = WRITEPATH . 'temp' . DIRECTORY_SEPARATOR;
             if (!is_dir($zipPath)) {
-                mkdir($zipPath, 0755, true);
+                if (!@mkdir($zipPath, 0755, true)) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Failed to create temporary directory. Please check file permissions.'
+                    ])->setStatusCode(500);
+                }
+            }
+            
+            // Ensure directory is writable
+            if (!is_writable($zipPath)) {
+                @chmod($zipPath, 0755);
+                if (!is_writable($zipPath)) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'Temporary directory is not writable. Please check file permissions.'
+                    ])->setStatusCode(500);
+                }
             }
             
             $zipFilename = 'clearpay_logs_' . date('Y-m-d_H-i-s') . '.zip';
@@ -218,31 +242,76 @@ class SystemController extends BaseController
 
             // Create zip archive
             $zip = new ZipArchive();
-            if ($zip->open($zipFilepath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            $zipResult = $zip->open($zipFilepath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+            
+            if ($zipResult !== true) {
+                $errorMessages = [
+                    ZipArchive::ER_OK => 'No error',
+                    ZipArchive::ER_MULTIDISK => 'Multi-disk zip archives not supported',
+                    ZipArchive::ER_RENAME => 'Renaming temporary file failed',
+                    ZipArchive::ER_CLOSE => 'Closing zip archive failed',
+                    ZipArchive::ER_SEEK => 'Seek error',
+                    ZipArchive::ER_READ => 'Read error',
+                    ZipArchive::ER_WRITE => 'Write error',
+                    ZipArchive::ER_CRC => 'CRC error',
+                    ZipArchive::ER_ZIPCLOSED => 'Containing zip archive was closed',
+                    ZipArchive::ER_NOENT => 'No such file',
+                    ZipArchive::ER_EXISTS => 'File already exists',
+                    ZipArchive::ER_OPEN => 'Can\'t open file',
+                    ZipArchive::ER_TMPOPEN => 'Failure to create temporary file',
+                    ZipArchive::ER_ZLIB => 'Zlib error',
+                    ZipArchive::ER_MEMORY => 'Memory allocation failure',
+                    ZipArchive::ER_CHANGED => 'Entry has been changed',
+                    ZipArchive::ER_COMPNOTSUPP => 'Compression method not supported',
+                    ZipArchive::ER_EOF => 'Premature EOF',
+                    ZipArchive::ER_INVAL => 'Invalid argument',
+                    ZipArchive::ER_NOZIP => 'Not a zip archive',
+                    ZipArchive::ER_INTERNAL => 'Internal error',
+                    ZipArchive::ER_INCONS => 'Zip archive inconsistent',
+                    ZipArchive::ER_REMOVE => 'Can\'t remove file',
+                    ZipArchive::ER_DELETED => 'Entry has been deleted',
+                ];
+                
+                $errorMsg = $errorMessages[$zipResult] ?? 'Unknown error (code: ' . $zipResult . ')';
+                
                 return $this->response->setJSON([
                     'success' => false,
-                    'error' => 'Failed to create zip archive.'
+                    'error' => 'Failed to create zip archive: ' . $errorMsg
                 ])->setStatusCode(500);
             }
 
             // Add log files to zip
             foreach ($logFiles as $logFile) {
-                $zip->addFile($logFile, basename($logFile));
+                if (file_exists($logFile) && is_readable($logFile)) {
+                    $zip->addFile($logFile, basename($logFile));
+                }
             }
 
             $zip->close();
 
-            // Download the zip file
-            if (file_exists($zipFilepath)) {
-                return $this->response->download($zipFilepath, null);
-            } else {
+            // Verify zip file was created and is readable
+            if (!file_exists($zipFilepath) || !is_readable($zipFilepath)) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'error' => 'Failed to create zip file.'
+                    'error' => 'Failed to create zip file or file is not readable.'
                 ])->setStatusCode(500);
             }
+            
+            // Check file size
+            if (filesize($zipFilepath) === 0) {
+                @unlink($zipFilepath);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Created zip file is empty.'
+                ])->setStatusCode(500);
+            }
+
+            // Download the zip file
+            return $this->response->download($zipFilepath, null);
+            
         } catch (\Exception $e) {
             log_message('error', 'Logs download error: ' . $e->getMessage());
+            log_message('error', 'Logs download trace: ' . $e->getTraceAsString());
             return $this->response->setJSON([
                 'success' => false,
                 'error' => 'An error occurred while downloading logs: ' . $e->getMessage()

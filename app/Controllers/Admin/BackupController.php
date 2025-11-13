@@ -34,31 +34,28 @@ class BackupController extends BaseController
             $result = $this->backupService->createBackup();
 
             if ($result['success']) {
-                // Copy backup to Documents folder for easy access
-                $documentsPath = 'C:' . DIRECTORY_SEPARATOR . 'Users' . DIRECTORY_SEPARATOR . 'User' . DIRECTORY_SEPARATOR . 'Documents' . DIRECTORY_SEPARATOR . 'clearpaybackups' . DIRECTORY_SEPARATOR;
-                $copiedToDocuments = false;
+                // Check if this is an AJAX request (wants JSON) or direct download
+                $wantsJson = $this->request->getHeaderLine('X-Requested-With') === 'XMLHttpRequest' ||
+                            $this->request->getHeaderLine('Accept') === 'application/json';
                 
-                if (is_dir($documentsPath)) {
-                    $destinationPath = $documentsPath . $result['filename'];
-                    if (copy($result['filepath'], $destinationPath)) {
-                        $copiedToDocuments = true;
-                        log_message('info', "Backup file copied to Documents folder: {$destinationPath}");
-                    }
+                if ($wantsJson) {
+                    // Return JSON with download URL for frontend to handle
+                    return $this->response->setJSON([
+                        'success' => true,
+                        'message' => 'Database backup created successfully!',
+                        'backup' => [
+                            'filename' => $result['filename'],
+                            'size' => $result['size'],
+                            'size_formatted' => $result['size_formatted'],
+                            'created_at' => $result['created_at'],
+                            'download_url' => base_url('admin/backup/download/' . urlencode($result['filename'])),
+                            'filepath' => $result['filepath'],
+                        ]
+                    ]);
+                } else {
+                    // Direct download
+                    return $this->response->download($result['filepath'], null);
                 }
-
-                return $this->response->setJSON([
-                    'success' => true,
-                    'message' => 'Database backup created successfully!',
-                    'backup' => [
-                        'filename' => $result['filename'],
-                        'size' => $result['size'],
-                        'size_formatted' => $result['size_formatted'],
-                        'created_at' => $result['created_at'],
-                        'download_url' => base_url('admin/backup/download/' . urlencode($result['filename'])),
-                        'stored_at' => $copiedToDocuments ? $documentsPath . $result['filename'] : $result['filepath'],
-                        'copied_to_documents' => $copiedToDocuments,
-                    ]
-                ]);
             } else {
                 return $this->response->setJSON([
                     'success' => false,
@@ -67,6 +64,7 @@ class BackupController extends BaseController
             }
         } catch (\Exception $e) {
             log_message('error', 'Backup creation error: ' . $e->getMessage());
+            log_message('error', 'Backup creation trace: ' . $e->getTraceAsString());
             return $this->response->setJSON([
                 'success' => false,
                 'error' => 'An error occurred while creating the backup: ' . $e->getMessage()
@@ -104,16 +102,7 @@ class BackupController extends BaseController
             ])->setStatusCode(404);
         }
 
-        // Copy file to Documents folder for easy access
-        $documentsPath = 'C:' . DIRECTORY_SEPARATOR . 'Users' . DIRECTORY_SEPARATOR . 'User' . DIRECTORY_SEPARATOR . 'Documents' . DIRECTORY_SEPARATOR . 'clearpaybackups' . DIRECTORY_SEPARATOR;
-        if (is_dir($documentsPath)) {
-            $destinationPath = $documentsPath . $filename;
-            if (copy($filepath, $destinationPath)) {
-                log_message('info', "Backup file copied to Documents folder: {$destinationPath}");
-            }
-        }
-
-        // Set headers for file download
+        // Set headers for file download (will download to browser's default Downloads folder)
         return $this->response->download($filepath, null);
     }
 
