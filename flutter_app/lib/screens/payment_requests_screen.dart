@@ -401,6 +401,7 @@ class PaymentRequestDialog extends StatefulWidget {
   final Map<String, dynamic>? preSelectedContribution;
   final VoidCallback onSubmitted;
   final List<dynamic>? paymentMethods;
+  final BuildContext? parentContext; // Parent context for toast overlay
 
   const PaymentRequestDialog({
     super.key,
@@ -408,6 +409,7 @@ class PaymentRequestDialog extends StatefulWidget {
     this.preSelectedContribution,
     required this.onSubmitted,
     this.paymentMethods,
+    this.parentContext,
   });
 
   @override
@@ -1061,12 +1063,23 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
 
       if (response['success'] == true) {
         if (mounted) {
+          // Use parent context for toast so it persists after modal closes
+          final toastContext = widget.parentContext ?? context;
+          final successMessage = response['message'] ?? 'Payment request submitted successfully!${response['reference_number'] != null ? ' Reference: ${response['reference_number']}' : ''}';
+          
           _showToast(
-            context,
-            response['message'] ?? 'Payment request submitted successfully!${response['reference_number'] != null ? ' Reference: ${response['reference_number']}' : ''}',
+            toastContext,
+            successMessage,
             Colors.green,
+            durationSeconds: 5, // 5 seconds for success
           );
-          widget.onSubmitted();
+          
+          // Delay closing the modal so user can see the toast
+          await Future.delayed(const Duration(milliseconds: 1500));
+          
+          if (mounted) {
+            widget.onSubmitted();
+          }
         }
       } else {
         if (mounted) {
@@ -1702,58 +1715,68 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
     );
   }
 
-  void _showToast(BuildContext context, String message, Color backgroundColor) {
+  void _showToast(BuildContext context, String message, Color backgroundColor, {int? durationSeconds}) {
     // Remove previous toast if exists
     _currentToastEntry?.remove();
     
     // Get the root navigator overlay to ensure toast shows above dialogs
+    // Use rootNavigator: true to get the overlay that persists after dialogs close
     final navigator = Navigator.of(context, rootNavigator: true);
     final overlay = navigator.overlay;
     
     if (overlay == null) return;
     
+    // Determine duration: longer for success messages (green), shorter for errors/warnings
+    final isSuccess = backgroundColor == Colors.green || backgroundColor == const Color(0xFF198754);
+    final duration = durationSeconds ?? (isSuccess ? 5 : 3); // 5 seconds for success, 3 for others
+    
     final overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
-        top: 100,
-        left: MediaQuery.of(context).size.width / 2 - 150,
+        top: MediaQuery.of(context).padding.top + 16,
+        left: 16,
+        right: 16,
         child: Material(
           color: Colors.transparent,
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  backgroundColor == Colors.green ? Icons.check_circle : Icons.error,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+          child: SafeArea(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-              ],
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    backgroundColor == Colors.green || backgroundColor == const Color(0xFF198754)
+                        ? Icons.check_circle
+                        : backgroundColor == Colors.orange || backgroundColor == const Color(0xFFFF9800)
+                            ? Icons.warning
+                            : Icons.error,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1763,8 +1786,8 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
     _currentToastEntry = overlayEntry;
     overlay.insert(overlayEntry);
 
-    // Remove after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
+    // Remove after specified duration (longer for success messages)
+    Future.delayed(Duration(seconds: duration), () {
       if (_currentToastEntry == overlayEntry) {
         overlayEntry.remove();
         _currentToastEntry = null;

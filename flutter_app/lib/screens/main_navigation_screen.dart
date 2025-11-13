@@ -110,13 +110,17 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
             return;
           }
 
+          // Store parent context for toast overlay (so toast persists after modal closes)
+          final parentContext = context;
+          
           showDialog(
             context: context,
-            builder: (context) => PaymentRequestDialog(
+            builder: (dialogContext) => PaymentRequestDialog(
               contributions: contributions,
               paymentMethods: paymentMethods,
+              parentContext: parentContext, // Pass parent context for toast
               onSubmitted: () {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
             ),
           );

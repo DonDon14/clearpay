@@ -37,6 +37,15 @@ dependencies:
   
   # File Picker for mobile file uploads
   file_picker: ^8.1.2
+  
+  # File system access for mobile
+  path_provider: ^2.1.1
+  
+  # Share files on mobile
+  share_plus: ^7.2.1
+  
+  # Permission handling for mobile
+  permission_handler: ^11.1.0
 
 dev_dependencies:
   flutter_test:

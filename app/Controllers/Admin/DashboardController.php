@@ -20,6 +20,34 @@ class DashboardController extends BaseController
             return redirect()->to('/admin/login');
         }
 
+        // Refresh session profile picture from database to ensure it's up-to-date
+        $userModel = new UserModel();
+        $userId = session()->get('user-id');
+        if ($userId) {
+            $currentUser = $userModel->find($userId);
+            if ($currentUser && !empty($currentUser['profile_picture'])) {
+                $profilePic = $currentUser['profile_picture'];
+                // If it's a Cloudinary URL or other full URL, use as-is
+                // Otherwise, normalize local path
+                if (strpos($profilePic, 'res.cloudinary.com') !== false || 
+                    strpos($profilePic, 'http://') === 0 || 
+                    strpos($profilePic, 'https://') === 0) {
+                    session()->set('profile_picture', $profilePic);
+                } else {
+                    // Normalize local path
+                    $path = $profilePic;
+                    $path = preg_replace('#^uploads/profile/#', '', $path);
+                    $path = preg_replace('#^profile/#', '', $path);
+                    $filename = basename($path);
+                    $normalizedPath = 'uploads/profile/' . $filename;
+                    session()->set('profile_picture', $normalizedPath);
+                }
+            } else if ($currentUser && empty($currentUser['profile_picture'])) {
+                // Clear profile picture from session if it's empty in database
+                session()->remove('profile_picture');
+            }
+        }
+
         $paymentModel = new PaymentModel();
         $allPayments = $paymentModel
             ->select('payments.*, payers.payer_id as payer_student_id, payers.payer_name, payers.contact_number, payers.email_address, payers.profile_picture, contributions.title as contribution_title')

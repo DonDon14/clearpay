@@ -29,13 +29,17 @@ class ModalService {
           return;
         }
 
+        // Store parent context for toast overlay (so toast persists after modal closes)
+        final parentContext = context;
+        
         showDialog(
           context: context,
-          builder: (context) => payment_screen.PaymentRequestDialog(
+          builder: (dialogContext) => payment_screen.PaymentRequestDialog(
             contributions: contributions,
             preSelectedContribution: preSelectedContribution,
+            parentContext: parentContext, // Pass parent context for toast
             onSubmitted: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
           ),
         );

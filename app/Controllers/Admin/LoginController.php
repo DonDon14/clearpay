@@ -45,32 +45,43 @@ class LoginController extends Controller
             $normalizedProfilePicture = null;
             if (!empty($user['profile_picture'])) {
                 $path = $user['profile_picture'];
-                // Remove any base_url or http prefixes
-                $path = preg_replace('#^https?://[^/]+/#', '', $path);
-                $path = preg_replace('#^uploads/profile/#', '', $path);
-                $path = preg_replace('#^profile/#', '', $path);
-                $filename = basename($path);
                 
-                // Verify file exists
-                $filePath = FCPATH . 'uploads/profile/' . $filename;
-                if (file_exists($filePath)) {
-                    $normalizedProfilePicture = 'uploads/profile/' . $filename;
+                // Check if it's a Cloudinary URL first - use as-is
+                if (strpos($path, 'res.cloudinary.com') !== false) {
+                    // Cloudinary URL - store as-is (full URL)
+                    $normalizedProfilePicture = $path;
+                } else if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) {
+                    // Other full URL - use as-is
+                    $normalizedProfilePicture = $path;
                 } else {
-                    // Try to find a similar file for this user (fallback)
-                    $uploadDir = FCPATH . 'uploads/profile/';
-                    $pattern = $user['id'] . '_*';
-                    $files = glob($uploadDir . $pattern);
-                    if (!empty($files)) {
-                        usort($files, function($a, $b) {
-                            return filemtime($b) - filemtime($a);
-                        });
-                        $foundFile = basename($files[0]);
-                        $normalizedProfilePicture = 'uploads/profile/' . $foundFile;
-                        // Update database with correct path
-                        try {
-                            $userModel->update($user['id'], ['profile_picture' => $normalizedProfilePicture]);
-                        } catch (\Exception $e) {
-                            log_message('error', 'Failed to update database with correct profile picture path: ' . $e->getMessage());
+                    // Local path - normalize it
+                    // Remove any base_url or http prefixes
+                    $path = preg_replace('#^https?://[^/]+/#', '', $path);
+                    $path = preg_replace('#^uploads/profile/#', '', $path);
+                    $path = preg_replace('#^profile/#', '', $path);
+                    $filename = basename($path);
+                    
+                    // Verify file exists
+                    $filePath = FCPATH . 'uploads/profile/' . $filename;
+                    if (file_exists($filePath)) {
+                        $normalizedProfilePicture = 'uploads/profile/' . $filename;
+                    } else {
+                        // Try to find a similar file for this user (fallback)
+                        $uploadDir = FCPATH . 'uploads/profile/';
+                        $pattern = 'user_' . $user['id'] . '_*';
+                        $files = glob($uploadDir . $pattern);
+                        if (!empty($files)) {
+                            usort($files, function($a, $b) {
+                                return filemtime($b) - filemtime($a);
+                            });
+                            $foundFile = basename($files[0]);
+                            $normalizedProfilePicture = 'uploads/profile/' . $foundFile;
+                            // Update database with correct path
+                            try {
+                                $userModel->update($user['id'], ['profile_picture' => $normalizedProfilePicture]);
+                            } catch (\Exception $e) {
+                                log_message('error', 'Failed to update database with correct profile picture path: ' . $e->getMessage());
+                            }
                         }
                     }
                 }
