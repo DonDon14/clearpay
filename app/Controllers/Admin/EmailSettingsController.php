@@ -331,6 +331,87 @@ class EmailSettingsController extends BaseController
                 ])->setStatusCode(500);
             }
 
+            // Check if we should use Brevo API instead of SMTP (for Render)
+            // Render free tier blocks SMTP ports, so use API as fallback
+            $useBrevoApi = false;
+            $brevoApiKey = null;
+            
+            // Try to get Brevo API key from environment
+            // Brevo API key format: xkeysib-... (different from SMTP key which is xsmtpsib-...)
+            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            
+            // If SMTP host is Brevo, try API if available
+            if (stripos($emailConfig['SMTPHost'] ?? '', 'brevo') !== false) {
+                // Check if we have API key
+                if (!empty($brevoApiKey)) {
+                    $useBrevoApi = true;
+                    log_message('info', 'Brevo API key found, will use API instead of SMTP (bypasses Render port blocking)');
+                } else {
+                    log_message('info', 'Brevo SMTP detected but no API key found. Will try SMTP (may fail on Render due to port blocking).');
+                    log_message('info', 'To use Brevo API on Render, set BREVO_API_KEY environment variable. Get API key from Brevo → Settings → SMTP & API → API Keys');
+                }
+            }
+            
+            // Try Brevo API first if available (works on Render)
+            if ($useBrevoApi && !empty($brevoApiKey)) {
+                try {
+                    log_message('info', 'Attempting to send email via Brevo API (bypassing SMTP port blocking)');
+                    
+                    $htmlContent = '
+                        <html>
+                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                                <h2 style="color: #4CAF50;">ClearPay Test Email</h2>
+                                <p>This is a test email from your ClearPay system.</p>
+                                <p>If you received this email, your email configuration is working correctly!</p>
+                                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                                <p style="color: #666; font-size: 12px;">
+                                    Sent at: ' . date('Y-m-d H:i:s') . '<br>
+                                    From: ' . $emailConfig['fromEmail'] . '<br>
+                                    Method: Brevo API (HTTPS)
+                                </p>
+                            </div>
+                        </body>
+                        </html>
+                    ';
+                    
+                    $textContent = "ClearPay Test Email\n\nThis is a test email from your ClearPay system.\n\nIf you received this email, your email configuration is working correctly!\n\nSent at: " . date('Y-m-d H:i:s') . "\nFrom: " . $emailConfig['fromEmail'];
+                    
+                    // Check if BrevoEmailService class exists (might not be deployed yet)
+                    if (!class_exists('\App\Services\BrevoEmailService')) {
+                        log_message('error', 'BrevoEmailService class not found. Code may not be deployed yet. Falling back to SMTP.');
+                        // Don't throw exception, just skip API and use SMTP
+                        $useBrevoApi = false;
+                    } else {
+                        try {
+                            $brevoService = new \App\Services\BrevoEmailService(
+                                $brevoApiKey,
+                                $emailConfig['fromEmail'],
+                                $emailConfig['fromName'] ?? 'ClearPay'
+                            );
+                            
+                            $result = $brevoService->send($testEmail, 'ClearPay - Test Email', $htmlContent, $textContent);
+                            
+                            if ($result['success']) {
+                                log_message('info', 'Test email sent successfully via Brevo API to: ' . $testEmail);
+                                return $this->response->setJSON([
+                                    'success' => true,
+                                    'message' => 'Test email sent successfully to ' . $testEmail . ' via Brevo API!',
+                                    'method' => 'brevo_api'
+                                ]);
+                            } else {
+                                log_message('error', 'Brevo API failed, falling back to SMTP: ' . ($result['error'] ?? 'Unknown error'));
+                                // Fall through to SMTP attempt
+                            }
+                        } catch (\Exception $apiException) {
+                            log_message('error', 'Brevo API exception, falling back to SMTP: ' . $apiException->getMessage());
+                            // Fall through to SMTP attempt
+                        }
+                    }
+                }
+            }
+            
+            // Fallback to SMTP (for localhost or if API fails)
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
             $emailService->setTo($testEmail);
             $emailService->setSubject('ClearPay - Test Email');
