@@ -220,6 +220,15 @@ class EmailSettingsController extends BaseController
         }
 
         try {
+            // Check for required PHP extensions
+            if (!extension_loaded('openssl')) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'OpenSSL extension is not enabled. SMTP with TLS/SSL requires OpenSSL.',
+                    'hint' => 'Please enable the OpenSSL extension in your PHP configuration (php.ini).'
+                ])->setStatusCode(500);
+            }
+
             $data = $this->request->getJSON(true) ?? $this->request->getPost();
             $testEmail = $data['email'] ?? session()->get('email') ?? session()->get('username');
             
@@ -234,12 +243,12 @@ class EmailSettingsController extends BaseController
             $emailConfig = $this->getEmailConfig();
             
             // Validate SMTP credentials are not empty
-            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass'])) {
-                log_message('error', 'SMTP credentials are empty - User: ' . (empty($emailConfig['SMTPUser']) ? 'EMPTY' : 'SET') . ', Pass: ' . (empty($emailConfig['SMTPPass']) ? 'EMPTY' : 'SET (length: ' . strlen($emailConfig['SMTPPass']) . ')'));
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost']) || empty($emailConfig['fromEmail'])) {
+                log_message('error', 'SMTP credentials are empty - User: ' . (empty($emailConfig['SMTPUser']) ? 'EMPTY' : 'SET') . ', Pass: ' . (empty($emailConfig['SMTPPass']) ? 'EMPTY' : 'SET (length: ' . strlen($emailConfig['SMTPPass']) . ')') . ', Host: ' . (empty($emailConfig['SMTPHost']) ? 'EMPTY' : 'SET') . ', From: ' . (empty($emailConfig['fromEmail']) ? 'EMPTY' : 'SET'));
                 return $this->response->setJSON([
                     'success' => false,
-                    'error' => 'SMTP username and password are required. Please configure your email settings.',
-                    'hint' => 'Make sure both SMTP Username and SMTP Password are filled in the email configuration.'
+                    'error' => 'SMTP configuration is incomplete. Please fill in all required fields.',
+                    'hint' => 'Make sure SMTP Host, Username, Password, and From Email are all filled in.'
                 ])->setStatusCode(400);
             }
             
@@ -277,9 +286,19 @@ class EmailSettingsController extends BaseController
                 ])->setStatusCode(400);
             }
             
-            $emailService->initialize($smtpConfig);
+            // Initialize email service with error handling
+            try {
+                $emailService->initialize($smtpConfig);
+            } catch (\Exception $initException) {
+                log_message('error', 'Email service initialization failed: ' . $initException->getMessage());
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Failed to initialize email service: ' . $initException->getMessage(),
+                    'hint' => 'Check your SMTP settings and ensure OpenSSL is enabled.'
+                ])->setStatusCode(500);
+            }
 
-            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
             $emailService->setTo($testEmail);
             $emailService->setSubject('ClearPay - Test Email');
             $emailService->setMessage('
@@ -302,9 +321,23 @@ class EmailSettingsController extends BaseController
             // Log SMTP config (without password for security)
             log_message('info', 'Attempting to send test email to: ' . $testEmail);
             log_message('info', 'SMTP Config - Host: ' . $emailConfig['SMTPHost'] . ', Port: ' . $emailConfig['SMTPPort'] . ', User: ' . $emailConfig['SMTPUser'] . ', Crypto: ' . $emailConfig['SMTPCrypto']);
-            log_message('info', 'SMTP Password length: ' . strlen($emailConfig['SMTPPass']) . ' characters (contains spaces: ' . (strpos($emailConfig['SMTPPass'], ' ') !== false ? 'Yes' : 'No') . ')');
+            log_message('info', 'SMTP Password length: ' . strlen($emailConfig['SMTPPass']) . ' characters');
 
-            $result = $emailService->send();
+            // Attempt to send email with better error handling
+            $result = false;
+            $errorDetails = '';
+            
+            try {
+                $result = $emailService->send();
+            } catch (\Exception $sendException) {
+                log_message('error', 'Email send exception: ' . $sendException->getMessage());
+                log_message('error', 'Exception trace: ' . $sendException->getTraceAsString());
+                $errorDetails = $sendException->getMessage();
+            } catch (\Error $sendError) {
+                log_message('error', 'Email send error: ' . $sendError->getMessage());
+                log_message('error', 'Error trace: ' . $sendError->getTraceAsString());
+                $errorDetails = $sendError->getMessage();
+            }
             
             if ($result) {
                 log_message('info', 'Test email sent successfully to: ' . $testEmail);
@@ -315,23 +348,53 @@ class EmailSettingsController extends BaseController
             } else {
                 $error = $emailService->printDebugger(['headers', 'subject', 'body']);
                 log_message('error', 'Test email failed. Debug info: ' . $error);
-                log_message('error', 'SMTP Error details - Check if password contains spaces or special characters');
                 
                 // Try to get more specific error
                 $lastError = error_get_last();
+                $phpError = '';
                 if ($lastError) {
-                    log_message('error', 'PHP Error: ' . $lastError['message']);
+                    $phpError = $lastError['message'];
+                    log_message('error', 'PHP Error: ' . $phpError);
+                }
+                
+                // Build user-friendly error message
+                $errorMessage = 'Failed to send test email.';
+                $hints = [];
+                
+                if (stripos($error, 'connection') !== false || stripos($error, 'connect') !== false) {
+                    $errorMessage = 'Cannot connect to SMTP server.';
+                    $hints[] = 'Check if SMTP Host and Port are correct.';
+                    $hints[] = 'Verify your server can make outbound connections on port ' . $emailConfig['SMTPPort'] . '.';
+                    $hints[] = 'Check firewall settings.';
+                } elseif (stripos($error, 'authentication') !== false || stripos($error, 'auth') !== false) {
+                    $errorMessage = 'SMTP authentication failed.';
+                    $hints[] = 'Verify your SMTP Username and Password are correct.';
+                    $hints[] = 'For Gmail, ensure you are using an App Password, not your regular password.';
+                    $hints[] = 'Check if 2-Step Verification is enabled on your Gmail account.';
+                } elseif (stripos($error, 'ssl') !== false || stripos($error, 'tls') !== false) {
+                    $errorMessage = 'SSL/TLS connection error.';
+                    $hints[] = 'Ensure OpenSSL extension is enabled in PHP.';
+                    $hints[] = 'Check if SMTP Crypto setting matches the port (TLS for 587, SSL for 465).';
                 }
                 
                 return $this->response->setJSON([
                     'success' => false,
-                    'error' => 'Failed to send test email. Check your SMTP configuration and password.',
-                    'debug' => $error,
-                    'hint' => 'If your password contains spaces, ensure it is saved correctly in the database.'
+                    'error' => $errorMessage,
+                    'debug' => $errorDetails ?: $error,
+                    'hints' => $hints,
+                    'phpError' => $phpError
                 ])->setStatusCode(500);
             }
         } catch (\Exception $e) {
             log_message('error', 'Test email error: ' . $e->getMessage());
+            log_message('error', 'Exception trace: ' . $e->getTraceAsString());
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'An error occurred while sending test email: ' . $e->getMessage()
+            ])->setStatusCode(500);
+        } catch (\Error $e) {
+            log_message('error', 'Test email error (Error): ' . $e->getMessage());
+            log_message('error', 'Error trace: ' . $e->getTraceAsString());
             return $this->response->setJSON([
                 'success' => false,
                 'error' => 'An error occurred while sending test email: ' . $e->getMessage()

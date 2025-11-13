@@ -599,9 +599,19 @@ function testEmail() {
         if (data.success) {
             showNotification(data.message || 'Test email sent successfully!', 'success');
         } else {
-            showNotification('Failed to send test email: ' + (data.error || 'Unknown error'), 'error');
+            let errorMsg = data.error || 'Unknown error';
+            if (data.hints && data.hints.length > 0) {
+                errorMsg += '\n\nHints:\n' + data.hints.map((hint, i) => (i + 1) + '. ' + hint).join('\n');
+            }
+            if (data.hint) {
+                errorMsg += '\n\nHint: ' + data.hint;
+            }
+            showNotification(errorMsg, 'error');
             if (data.debug) {
                 console.error('Email debug info:', data.debug);
+            }
+            if (data.phpError) {
+                console.error('PHP Error:', data.phpError);
             }
         }
     })
