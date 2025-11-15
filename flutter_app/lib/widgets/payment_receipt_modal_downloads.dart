@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:io' show Platform, File;
+import 'dart:io' show Platform, File, Directory;
 // Conditional import for web-only features
 import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html;
 import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' show window;
@@ -174,30 +174,56 @@ class PaymentReceiptDownloads {
     Function(String, Color) showToast,
   ) async {
     try {
-      // Request storage permission (Android)
+      // For Android 10+ (API 29+), we don't need storage permission when using app-specific directories
+      // We'll use the app's documents directory which doesn't require permissions
+      Directory directory;
+      
       if (Platform.isAndroid) {
-        final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          showToast('Storage permission is required to save files', Colors.orange);
-          return;
+        // Try to get external storage directory (doesn't require permission on Android 10+)
+        try {
+          directory = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+        } catch (e) {
+          // Fallback to application documents directory
+          directory = await getApplicationDocumentsDirectory();
         }
+      } else if (Platform.isIOS) {
+        // iOS: Use application documents directory
+        directory = await getApplicationDocumentsDirectory();
+      } else {
+        // Fallback to temporary directory
+        directory = await getTemporaryDirectory();
       }
 
-      // Get temporary directory
-      final directory = await getTemporaryDirectory();
-      final filePath = '${directory.path}/$fileName';
+      // Create a Downloads subdirectory in the app's directory
+      final downloadsDir = Directory('${directory.path}/Downloads');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
+      final filePath = '${downloadsDir.path}/$fileName';
       final file = File(filePath);
 
       // Write file
       await file.writeAsBytes(qrImageBytes);
 
-      // Share the file
+      // Share the file (this doesn't require storage permissions)
       final xFile = XFile(filePath);
       await Share.shareXFiles([xFile], text: 'ClearPay Payment Receipt QR Code');
 
       showToast('QR code saved and ready to share', Colors.green);
     } catch (e) {
-      showToast('Failed to save QR code: ${e.toString()}', Colors.red);
+      // If sharing fails, try with temporary directory as fallback
+      try {
+        final tempDir = await getTemporaryDirectory();
+        final filePath = '${tempDir.path}/$fileName';
+        final file = File(filePath);
+        await file.writeAsBytes(qrImageBytes);
+        final xFile = XFile(filePath);
+        await Share.shareXFiles([xFile], text: 'ClearPay Payment Receipt QR Code');
+        showToast('QR code saved and ready to share', Colors.green);
+      } catch (fallbackError) {
+        showToast('Failed to save QR code: ${fallbackError.toString()}', Colors.red);
+      }
     }
   }
 
@@ -310,31 +336,58 @@ class PaymentReceiptDownloads {
     Function(String, Color) showToast,
   ) async {
     try {
-      // Request storage permission (Android)
+      // For Android 10+ (API 29+), we don't need storage permission when using app-specific directories
+      // We'll use the app's documents directory which doesn't require permissions
+      Directory directory;
+      
       if (Platform.isAndroid) {
-        final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          showToast('Storage permission is required to save files', Colors.orange);
-          return;
+        // Try to get external storage directory (doesn't require permission on Android 10+)
+        try {
+          directory = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+        } catch (e) {
+          // Fallback to application documents directory
+          directory = await getApplicationDocumentsDirectory();
         }
+      } else if (Platform.isIOS) {
+        // iOS: Use application documents directory
+        directory = await getApplicationDocumentsDirectory();
+      } else {
+        // Fallback to temporary directory
+        directory = await getTemporaryDirectory();
       }
 
-      // Get temporary directory
-      final directory = await getTemporaryDirectory();
+      // Create a Downloads subdirectory in the app's directory
+      final downloadsDir = Directory('${directory.path}/Downloads');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
       final fileName = 'Receipt_${receiptNumber.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.html';
-      final filePath = '${directory.path}/$fileName';
+      final filePath = '${downloadsDir.path}/$fileName';
       final file = File(filePath);
 
       // Write HTML file
       await file.writeAsString(htmlContent);
 
-      // Share the file
+      // Share the file (this doesn't require storage permissions)
       final xFile = XFile(filePath);
       await Share.shareXFiles([xFile], text: 'ClearPay Payment Receipt');
 
       showToast('Receipt saved and ready to share', Colors.green);
     } catch (e) {
-      showToast('Failed to save receipt: ${e.toString()}', Colors.red);
+      // If sharing fails, try with temporary directory as fallback
+      try {
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'Receipt_${receiptNumber.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.html';
+        final filePath = '${tempDir.path}/$fileName';
+        final file = File(filePath);
+        await file.writeAsString(htmlContent);
+        final xFile = XFile(filePath);
+        await Share.shareXFiles([xFile], text: 'ClearPay Payment Receipt');
+        showToast('Receipt saved and ready to share', Colors.green);
+      } catch (fallbackError) {
+        showToast('Failed to save receipt: ${fallbackError.toString()}', Colors.red);
+      }
     }
   }
 
