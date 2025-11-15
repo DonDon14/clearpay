@@ -57,7 +57,7 @@ class AnnouncementsController extends BaseController
                 'text' => $this->request->getPost('content'), // Note: form uses 'content' but DB uses 'text'
                 'type' => $this->request->getPost('type'),
                 'priority' => $this->request->getPost('priority'),
-                'target_audience' => $this->request->getPost('target_audience'),
+                'target_audience' => 'payers', // Always set to payers
                 'status' => $this->request->getPost('status'),
                 'created_by' => $userId,
                 'expires_at' => $this->request->getPost('expires_at') ?: null

@@ -63,11 +63,39 @@
       .then(data => {
         const badge = document.getElementById('paymentRequestsBadge');
         if (badge) {
+          // Check if sidebar is collapsed
+          const sidebar = document.querySelector('.sidebar');
+          const isCollapsed = sidebar && sidebar.classList.contains('collapsed');
+          
           if (data.success) {
             const count = data.count || 0;
             if (count > 0) {
-              badge.textContent = count;
-              badge.style.setProperty('display', 'flex', 'important');
+              // If collapsed, show as dot (empty text), otherwise show number
+              if (isCollapsed) {
+                badge.textContent = '';
+                badge.setAttribute('data-count', count); // Store count for when expanded
+                // Override inline styles for collapsed state - force small dot
+                badge.style.setProperty('width', '10px', 'important');
+                badge.style.setProperty('height', '10px', 'important');
+                badge.style.setProperty('min-width', '10px', 'important');
+                badge.style.setProperty('max-width', '10px', 'important');
+                badge.style.setProperty('padding', '0', 'important');
+                badge.style.setProperty('margin', '0', 'important');
+                badge.style.setProperty('margin-left', '0', 'important');
+                badge.style.setProperty('margin-right', '0', 'important');
+                badge.style.setProperty('border-radius', '50%', 'important');
+                badge.style.setProperty('font-size', '0', 'important');
+                badge.style.setProperty('line-height', '0', 'important');
+                badge.style.setProperty('display', 'block', 'important');
+              } else {
+                badge.textContent = count;
+                badge.removeAttribute('data-count');
+                // Restore expanded styles - remove forced styles
+                badge.style.removeProperty('width');
+                badge.style.removeProperty('height');
+                badge.style.removeProperty('max-width');
+              }
+              badge.style.setProperty('display', isCollapsed ? 'block' : 'flex', 'important');
               badge.style.setProperty('opacity', '1', 'important');
               badge.style.setProperty('visibility', 'visible', 'important');
               badge.style.background = '#ef4444';
@@ -112,11 +140,39 @@
       .then(data => {
         const badge = document.getElementById('refundRequestsBadge');
         if (badge) {
+          // Check if sidebar is collapsed
+          const sidebar = document.querySelector('.sidebar');
+          const isCollapsed = sidebar && sidebar.classList.contains('collapsed');
+          
           if (data.success) {
             const count = data.count || 0;
             if (count > 0) {
-              badge.textContent = count;
-              badge.style.setProperty('display', 'flex', 'important');
+              // If collapsed, show as dot (empty text), otherwise show number
+              if (isCollapsed) {
+                badge.textContent = '';
+                badge.setAttribute('data-count', count); // Store count for when expanded
+                // Override inline styles for collapsed state - force small dot
+                badge.style.setProperty('width', '10px', 'important');
+                badge.style.setProperty('height', '10px', 'important');
+                badge.style.setProperty('min-width', '10px', 'important');
+                badge.style.setProperty('max-width', '10px', 'important');
+                badge.style.setProperty('padding', '0', 'important');
+                badge.style.setProperty('margin', '0', 'important');
+                badge.style.setProperty('margin-left', '0', 'important');
+                badge.style.setProperty('margin-right', '0', 'important');
+                badge.style.setProperty('border-radius', '50%', 'important');
+                badge.style.setProperty('font-size', '0', 'important');
+                badge.style.setProperty('line-height', '0', 'important');
+                badge.style.setProperty('display', 'block', 'important');
+              } else {
+                badge.textContent = count;
+                badge.removeAttribute('data-count');
+                // Restore expanded styles - remove forced styles
+                badge.style.removeProperty('width');
+                badge.style.removeProperty('height');
+                badge.style.removeProperty('max-width');
+              }
+              badge.style.setProperty('display', isCollapsed ? 'block' : 'flex', 'important');
               badge.style.setProperty('opacity', '1', 'important');
               badge.style.setProperty('visibility', 'visible', 'important');
               badge.style.background = '#ef4444';
@@ -196,6 +252,14 @@
           sidebar.classList.remove('collapsed');
           saveSidebarState(false);
           updateMainContentMargin(false);
+          
+          // Update badges to show numbers when expanded
+          if (typeof updatePaymentRequestsBadge === 'function') {
+            updatePaymentRequestsBadge();
+          }
+          if (typeof updateRefundRequestsBadge === 'function') {
+            updateRefundRequestsBadge();
+          }
         }
       }
 
@@ -205,6 +269,14 @@
           sidebar.classList.add('collapsed');
           saveSidebarState(true);
           updateMainContentMargin(true);
+          
+          // Update badges to show dots when collapsed
+          if (typeof updatePaymentRequestsBadge === 'function') {
+            updatePaymentRequestsBadge();
+          }
+          if (typeof updateRefundRequestsBadge === 'function') {
+            updateRefundRequestsBadge();
+          }
         }
       }
 
@@ -245,6 +317,16 @@
 
       // Restore sidebar state on page load
       restoreSidebarState();
+      
+      // Update badges after restoring state
+      setTimeout(() => {
+        if (typeof updatePaymentRequestsBadge === 'function') {
+          updatePaymentRequestsBadge();
+        }
+        if (typeof updateRefundRequestsBadge === 'function') {
+          updateRefundRequestsBadge();
+        }
+      }, 100);
 
       // Toggle button (collapse/expand)
       if (toggleBtn && sidebar) {
@@ -254,6 +336,16 @@
           const isCollapsed = sidebar.classList.contains('collapsed');
           saveSidebarState(isCollapsed);
           updateMainContentMargin(isCollapsed);
+          
+          // Update badges to show dots when collapsed, numbers when expanded
+          setTimeout(() => {
+            if (typeof updatePaymentRequestsBadge === 'function') {
+              updatePaymentRequestsBadge();
+            }
+            if (typeof updateRefundRequestsBadge === 'function') {
+              updateRefundRequestsBadge();
+            }
+          }, 50);
         });
       }
 

@@ -284,6 +284,7 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
             $routes->get('get-contribution-payments/(:num)', 'Payer\\DashboardController::getContributionPayments/$1');
             $routes->get('payment-history', 'Payer\\DashboardController::paymentHistory');
             $routes->get('payment-requests', 'Payer\\DashboardController::paymentRequests');
+            $routes->get('payment-requests/count', 'Payer\\DashboardController::getPaymentRequestsCount');
             $routes->post('submit-payment-request', 'Payer\\DashboardController::submitPaymentRequest');
             $routes->get('get-contribution-details', 'Payer\\DashboardController::getContributionDetails');
             $routes->get('check-new-activities', 'Payer\\DashboardController::checkNewActivities');
@@ -291,6 +292,7 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
             $routes->get('get-all-activities', 'Payer\\DashboardController::getAllActivities');
             $routes->get('test-activity', 'Payer\\DashboardController::testActivity');
             $routes->get('refund-requests', 'Payer\\DashboardController::refundRequests');
+            $routes->get('refund-requests/count', 'Payer\\DashboardController::getRefundRequestsCount');
             // Provide active refund methods for the payer modal dropdown
             $routes->get('refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
             $routes->get('refund-details', 'Payer\\DashboardController::getRefundDetails');

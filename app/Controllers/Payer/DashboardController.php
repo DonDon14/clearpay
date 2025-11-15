@@ -2217,6 +2217,58 @@ class DashboardController extends BaseController
     }
 
     /**
+     * Get count of pending payment requests for the logged-in payer
+     */
+    public function getPaymentRequestsCount()
+    {
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Not authenticated',
+                'count' => 0
+            ]);
+        }
+        
+        $count = $this->paymentRequestModel
+            ->where('payer_id', $payerId)
+            ->where('status', 'pending')
+            ->countAllResults();
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'count' => $count
+        ]);
+    }
+    
+    /**
+     * Get count of pending refund requests for the logged-in payer
+     */
+    public function getRefundRequestsCount()
+    {
+        $payerId = session('payer_id');
+        
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Not authenticated',
+                'count' => 0
+            ]);
+        }
+        
+        $count = $this->refundModel
+            ->where('payer_id', $payerId)
+            ->whereIn('status', ['pending', 'processing'])
+            ->countAllResults();
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'count' => $count
+        ]);
+    }
+
+    /**
      * Handle CORS preflight OPTIONS request
      */
     public function handleOptions()

@@ -84,17 +84,8 @@ $status_counts = $stats ?? [
                         <option value="low">Low</option>
                     </select>
                 </div>
-                <div class="col-md-2 mb-3">
-                    <label class="form-label">Audience</label>
-                    <select class="form-select" id="audienceFilter">
-                        <option value="">All Audience</option>
-                        <option value="all">All Users</option>
-                        <option value="students">Students</option>
-                        <option value="staff">Staff</option>
-                        <option value="admins">Admins</option>
-                    </select>
-                </div>
-                <div class="col-md-2 mb-3">
+                <!-- Audience filter removed - always payers -->
+                <div class="col-md-3 mb-3">
                     <label class="form-label">&nbsp;</label>
                     <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
                         <i class="fas fa-times"></i> Clear
@@ -166,7 +157,7 @@ $status_counts = $stats ?? [
                                 <div class="d-flex flex-wrap gap-2">
                                     <span class="badge bg-' . $priorityColor . '">' . ucfirst($announcement['priority']) . ' Priority</span>
                                     <span class="badge bg-' . $statusColor . '">' . ucfirst($announcement['status']) . '</span>
-                                    <span class="badge bg-primary">' . ucfirst($announcement['target_audience']) . '</span>
+                                    <!-- Target audience badge removed - always payers -->
                                     <span class="badge bg-info">' . ucfirst($announcement['type']) . '</span>
                                 </div>
                             </div>
@@ -233,18 +224,7 @@ $status_counts = $stats ?? [
                     </div>
                     
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="target_audience" class="form-label">Target Audience <span class="text-danger">*</span></label>
-                            <select class="form-select" id="target_audience" name="target_audience" required>
-                                <option value="">Select Audience</option>
-                                <option value="all">All Users</option>
-                                <option value="students">Students Only</option>
-                                <option value="admins">Admins Only</option>
-                                <option value="staff">Staff Only</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-12 mb-3">
                             <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
                             <select class="form-select" id="status" name="status" required>
                                 <option value="draft">Draft</option>
@@ -275,7 +255,7 @@ function filterAnnouncements() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const statusFilter = document.getElementById('statusFilter').value;
     const priorityFilter = document.getElementById('priorityFilter').value;
-    const audienceFilter = document.getElementById('audienceFilter').value;
+    const audienceFilter = ''; // Always empty since audience is always payers
     
     const cards = document.querySelectorAll('.announcement-card');
     let visibleCount = 0;
@@ -313,7 +293,7 @@ function clearFilters() {
     document.getElementById('searchInput').value = '';
     document.getElementById('statusFilter').value = '';
     document.getElementById('priorityFilter').value = '';
-    document.getElementById('audienceFilter').value = '';
+    // audienceFilter is always empty (payers only)
     filterAnnouncements();
 }
 
@@ -322,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('searchInput').addEventListener('input', filterAnnouncements);
     document.getElementById('statusFilter').addEventListener('change', filterAnnouncements);
     document.getElementById('priorityFilter').addEventListener('change', filterAnnouncements);
-    document.getElementById('audienceFilter').addEventListener('change', filterAnnouncements);
+    // audienceFilter removed - always payers
     
     // Form submission
     document.getElementById('announcementForm').addEventListener('submit', function(e) {
@@ -412,7 +392,7 @@ function editAnnouncement(id) {
                 document.getElementById('content').value = announcement.text; // Note: DB uses 'text', form uses 'content'
                 document.getElementById('type').value = announcement.type;
                 document.getElementById('priority').value = announcement.priority;
-                document.getElementById('target_audience').value = announcement.target_audience;
+                // target_audience is always 'payers', no need to set it
                 document.getElementById('status').value = announcement.status;
                 document.getElementById('expires_at').value = announcement.expires_at ? announcement.expires_at.substring(0, 16) : '';
                 

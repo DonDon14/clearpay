@@ -76,20 +76,42 @@ body.sidebar-loading .main-content {
     letter-spacing: -0.025em;
 }
 
-/* Hide logo when collapsed and show expand button on hover */
-.sidebar.collapsed .logo i,
-.sidebar.collapsed .logo-text {
+/* Logo always visible when NOT collapsed */
+.sidebar:not(.collapsed) .logo img {
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.sidebar:not(.collapsed) .logo-text {
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Logo visible when collapsed (default state) */
+.sidebar.collapsed .logo img {
+    display: inline-block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
     transition: opacity 0.2s ease;
 }
 
-.sidebar.collapsed .logo:hover i,
-.sidebar.collapsed .logo:hover .logo-text {
-    opacity: 0;
+.sidebar.collapsed .logo-text {
+    display: none !important;
 }
 
-/* Show expand button on hover when collapsed */
+/* Hide logo on hover when collapsed */
+.sidebar.collapsed .logo:hover img {
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Show burger icon on hover when collapsed */
 .sidebar.collapsed .logo::before {
-    content: '☰';
+    content: '\f0c9';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
     position: absolute;
     left: 50%;
     top: 50%;
@@ -99,11 +121,14 @@ body.sidebar-loading .main-content {
     font-size: 1.5rem;
     color: #3b82f6;
     pointer-events: none;
+    z-index: 10;
 }
 
 .sidebar.collapsed .logo:hover::before {
     opacity: 1;
 }
+
+/* Logo is already hidden when collapsed, no need for hover rule */
 
 /* Tooltip showing "Open sidebar" */
 .sidebar.collapsed .logo::after {
@@ -153,12 +178,16 @@ body.sidebar-loading .main-content {
     margin: 0;
     flex-grow: 1;
     overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0; /* Allow flexbox to shrink */
 }
 
 .sidebar-content {
     flex-grow: 1;
     padding: 12px;
     overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0; /* Allow flexbox to shrink */
 }
 
 .sidebar-item {
@@ -282,7 +311,10 @@ body.sidebar-loading .main-content {
 .sidebar.collapsed .logo {
     justify-content: center;
     gap: 0;
+    position: relative;
 }
+
+/* Logo rules are handled above */
 
 .sidebar.collapsed .sidebar-header {
     padding: 0 12px;
@@ -298,29 +330,54 @@ body.sidebar-loading .main-content {
     justify-content: center;
 }
 
-/* Tooltip for collapsed items */
-.sidebar.collapsed .sidebar-item::before {
+/* Tooltip for collapsed items - positioned to the right of each icon */
+.sidebar.collapsed .sidebar-item {
+    position: relative;
+}
+
+.sidebar.collapsed .sidebar-item::after {
     content: attr(data-tooltip);
-    position: fixed;
-    left: 72px;
+    position: absolute;
+    left: calc(100% + 12px);
     top: 50%;
     transform: translateY(-50%);
     background: #1f2937;
     color: #ffffff;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     z-index: 2000;
     visibility: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    line-height: 1.4;
 }
 
-.sidebar.collapsed .sidebar-item:hover::before {
+.sidebar.collapsed .sidebar-item:hover::after {
     opacity: 1;
     visibility: visible;
+}
+
+/* JavaScript-enhanced tooltip class - matching reference design */
+.collapsed-tooltip {
+    position: fixed !important;
+    background: #1f2937 !important;
+    color: #ffffff !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    font-size: 0.7rem !important;
+    font-weight: 500 !important;
+    white-space: nowrap !important;
+    z-index: 2000 !important;
+    pointer-events: none !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    opacity: 0 !important;
+    transition: opacity 0.15s ease !important;
+    line-height: 1.4 !important;
 }
 
 /* Text styling */
@@ -421,7 +478,7 @@ body.sidebar-loading .main-content {
     outline-offset: 2px;
 }
 
-/* Notification Badge Styles */
+/* Notification Badge Styles - Expanded state */
 .sidebar-item .notification-badge {
     background: #ef4444 !important;
     color: white !important;
@@ -443,6 +500,20 @@ body.sidebar-loading .main-content {
     flex-shrink: 0 !important;
     position: relative !important;
     z-index: 10 !important;
+}
+
+/* Override base badge styles when collapsed - must come after base rule and override inline styles */
+.sidebar.collapsed .sidebar-item .notification-badge,
+.sidebar.collapsed .sidebar-item #paymentRequestsBadge,
+.sidebar.collapsed .sidebar-item #refundRequestsBadge {
+    min-width: 10px !important;
+    max-width: 10px !important;
+    width: 10px !important;
+    height: 10px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
 .sidebar-item .notification-badge:empty {
@@ -475,9 +546,38 @@ body.sidebar-loading .main-content {
     }
 }
 
-/* Hide badge when sidebar is collapsed */
-.sidebar.collapsed .sidebar-item .notification-badge {
-    display: none !important;
+/* Show notification badge as very small dot when sidebar is collapsed */
+/* Must override all inline styles with maximum specificity */
+.sidebar.collapsed .sidebar-item .notification-badge,
+.sidebar.collapsed .sidebar-item #paymentRequestsBadge,
+.sidebar.collapsed .sidebar-item #refundRequestsBadge {
+    position: absolute !important;
+    top: 2px !important;
+    right: 2px !important;
+    width: 10px !important;
+    height: 10px !important;
+    min-width: 10px !important;
+    max-width: 10px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background: #ef4444 !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    display: block !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    z-index: 20 !important;
+    box-shadow: 0 0 0 0.5px white !important;
+    text-indent: -9999px !important;
+    overflow: hidden !important;
+    line-height: 0 !important;
+    flex-shrink: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    animation: none !important;
+    text-decoration: none !important;
+    border: none !important;
 }
 
 /* Hide toggle button when collapsed */
