@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import '../services/api_service.dart';
+import '../utils/toast_helper.dart';
 import 'login_screen.dart';
 
 class EmailVerificationDialog extends StatefulWidget {
@@ -70,13 +71,7 @@ class _EmailVerificationDialogState extends State<EmailVerificationDialog> {
               MaterialPageRoute(builder: (_) => const LoginScreen()),
               (route) => false,
             );
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_successMessage!),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
+            ToastHelper.showSuccess(context, _successMessage!);
           }
         });
       } else {
@@ -109,46 +104,22 @@ class _EmailVerificationDialogState extends State<EmailVerificationDialog> {
       });
 
       if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'Verification code resent successfully!'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        ToastHelper.showSuccess(context, response['message'] ?? 'Verification code resent successfully!');
         
         // Update verification code if provided (for testing)
         if (response['verification_code'] != null) {
-          // You can show this in a snackbar for testing
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Test code: ${response['verification_code']}'),
-              backgroundColor: Colors.blue,
-              duration: const Duration(seconds: 5),
-            ),
-          );
+          // Show test code in a toast for testing
+          ToastHelper.showInfo(context, 'Test code: ${response['verification_code']}');
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['error'] ?? 'Failed to resend verification code.'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        ToastHelper.showError(context, response['error'] ?? 'Failed to resend verification code.');
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isResending = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('An error occurred: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      ToastHelper.showError(context, 'An error occurred: ${e.toString()}');
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/toast_helper.dart';
 
 // Web portal color scheme
 const _primaryBlue = Color(0xFF3B82F6);
@@ -44,24 +45,14 @@ class _HelpScreenState extends State<HelpScreen> {
       _scrollToSection('refund-requests');
     } else {
       // Show message that search found results
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Found results for "$query". Scroll to see relevant sections.'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      ToastHelper.showInfo(context, 'Found results for "$query". Scroll to see relevant sections.');
     }
   }
 
   void _scrollToSection(String sectionId) {
     // Simple scroll implementation - in a real app, you'd use keys for sections
     // For now, we'll just show a message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Scrolling to $sectionId section...'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+    ToastHelper.showInfo(context, 'Scrolling to $sectionId section...');
   }
 
   Future<void> _launchEmail() async {
@@ -75,16 +66,12 @@ class _HelpScreenState extends State<HelpScreen> {
         await launchUrl(emailUri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not launch email client')),
-          );
+          ToastHelper.showError(context, 'Could not launch email client');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not launch email client')),
-        );
+        ToastHelper.showError(context, 'Could not launch email client');
       }
     }
   }
@@ -96,16 +83,12 @@ class _HelpScreenState extends State<HelpScreen> {
         await launchUrl(phoneUri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not launch phone dialer')),
-          );
+          ToastHelper.showError(context, 'Could not launch phone dialer');
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not launch phone dialer')),
-        );
+        ToastHelper.showError(context, 'Could not launch phone dialer');
       }
     }
   }

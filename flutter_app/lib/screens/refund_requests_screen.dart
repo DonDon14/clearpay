@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/navigation_drawer.dart';
 import '../widgets/refund_details_modal.dart';
+import '../utils/toast_helper.dart';
 
 class RefundRequestsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -81,9 +82,7 @@ class _RefundRequestsScreenState extends State<RefundRequestsScreen> {
 
   void _showRefundRequestDialog() {
     if (_refundablePayments.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No refundable payments available')),
-      );
+      ToastHelper.showWarning(context, 'No refundable payments available');
       return;
     }
 

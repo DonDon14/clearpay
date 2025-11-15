@@ -15,6 +15,7 @@ import '../widgets/notion_card.dart';
 import '../widgets/notion_text.dart';
 import '../widgets/navigation_drawer.dart';
 import '../services/api_service.dart';
+import '../utils/toast_helper.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -104,9 +105,7 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
           final paymentMethods = paymentMethodsResponse['methods'] ?? [];
 
           if (contributions.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No active contributions available')),
-            );
+            ToastHelper.showWarning(context, 'No active contributions available');
             return;
           }
 
@@ -125,9 +124,7 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to load contributions')),
-          );
+          ToastHelper.showError(context, 'Failed to load contributions');
         }
       }
     } catch (e) {
@@ -135,9 +132,7 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
         setState(() {
           _isLoadingPaymentData = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ToastHelper.showError(context, 'Error: ${e.toString()}');
       }
     }
   }
@@ -163,9 +158,7 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
           final refundMethods = refundMethodsResponse['methods'] ?? [];
 
           if (refundablePayments.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No refundable payments available')),
-            );
+            ToastHelper.showWarning(context, 'No refundable payments available');
             return;
           }
 
@@ -180,9 +173,7 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to load refund data')),
-          );
+          ToastHelper.showError(context, 'Failed to load refund data');
         }
       }
     } catch (e) {
@@ -190,9 +181,7 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
         setState(() {
           _isLoadingRefundData = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ToastHelper.showError(context, 'Error: ${e.toString()}');
       }
     }
   }

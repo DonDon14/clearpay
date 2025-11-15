@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/payment_requests_screen.dart' as payment_screen;
 import '../screens/refund_requests_screen.dart' as refund_screen;
 import '../services/api_service.dart';
+import '../utils/toast_helper.dart';
 
 class ModalService {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -23,9 +24,7 @@ class ModalService {
         final contributions = data['contributions'] ?? [];
         
         if (contributions.isEmpty && preSelectedContribution == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No active contributions available')),
-          );
+          ToastHelper.showWarning(context, 'No active contributions available');
           return;
         }
 
@@ -44,20 +43,10 @@ class ModalService {
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['error'] ?? 'Failed to load contributions'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastHelper.showError(context, response['error'] ?? 'Failed to load contributions');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ToastHelper.showError(context, 'Error: ${e.toString()}');
     }
   }
 
@@ -87,9 +76,7 @@ class ModalService {
       }
 
       if (refundablePayments.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No refundable payments available')),
-        );
+        ToastHelper.showWarning(context, 'No refundable payments available');
         return;
       }
 
@@ -104,12 +91,7 @@ class ModalService {
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ToastHelper.showError(context, 'Error: ${e.toString()}');
     }
   }
 }

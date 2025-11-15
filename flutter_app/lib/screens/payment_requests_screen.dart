@@ -10,6 +10,7 @@ import '../utils/html_stub.dart' if (dart.library.html) 'dart:html' as html show
 import 'package:file_picker/file_picker.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/navigation_drawer.dart';
+import '../utils/toast_helper.dart';
 
 class PaymentRequestsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -82,9 +83,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
 
   void _showPaymentRequestDialog({Map<String, dynamic>? preSelectedContribution}) {
     if (_contributions.isEmpty && preSelectedContribution == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active contributions available')),
-      );
+      ToastHelper.showWarning(context, 'No active contributions available');
       return;
     }
 
@@ -329,9 +328,7 @@ class _PaymentRequestsScreenState extends State<PaymentRequestsScreen> {
                     icon: const Icon(Icons.image, size: 20),
                     onPressed: () {
                       // TODO: Show proof of payment image
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Proof of payment view coming soon')),
-                      );
+                      ToastHelper.showInfo(context, 'Proof of payment view coming soon');
                     },
                     tooltip: 'View Proof of Payment',
                   ),
@@ -666,12 +663,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
             int fileSize = pickedFile.size;
             if (fileSize > 5 * 1024 * 1024) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('File size too large. Maximum 5MB allowed.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ToastHelper.showError(context, 'File size too large. Maximum 5MB allowed.');
               }
               return;
             }
@@ -688,12 +680,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
             final fileSize = pickedFile.bytes!.length;
             if (fileSize > 5 * 1024 * 1024) {
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('File size too large. Maximum 5MB allowed.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                ToastHelper.showError(context, 'File size too large. Maximum 5MB allowed.');
               }
               return;
             }
@@ -707,12 +694,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error selecting file: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          ToastHelper.showError(context, 'Error selecting file: ${e.toString()}');
         }
       }
     }
@@ -739,14 +721,10 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
           _paymentMethods = List<Map<String, dynamic>>.from(response['methods']);
         });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading payment methods: ${response['error'] ?? 'Unknown error'}')),
-        );
+        ToastHelper.showError(context, 'Error loading payment methods: ${response['error'] ?? 'Unknown error'}');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading payment methods: ${e.toString()}')),
-      );
+      ToastHelper.showError(context, 'Error loading payment methods: ${e.toString()}');
     } finally {
       setState(() {
         _isLoadingPaymentMethods = false;
@@ -832,9 +810,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading contribution: ${e.toString()}')),
-      );
+      ToastHelper.showError(context, 'Error loading contribution: ${e.toString()}');
     } finally {
       setState(() {
         _isLoadingContribution = false;
@@ -1013,9 +989,7 @@ class _PaymentRequestDialogState extends State<PaymentRequestDialog> {
   Future<void> _submitPaymentRequest() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedContributionId == null || _selectedPaymentMethod == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields')),
-      );
+      ToastHelper.showWarning(context, 'Please fill in all required fields');
       return;
     }
 

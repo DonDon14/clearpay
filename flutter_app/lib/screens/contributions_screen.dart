@@ -7,6 +7,7 @@ import '../widgets/notion_card.dart';
 import '../widgets/notion_text.dart';
 import '../widgets/payment_receipt_modal.dart';
 import '../widgets/navigation_drawer.dart';
+import '../utils/toast_helper.dart';
 import 'payment_requests_screen.dart';
 import 'payment_history_screen.dart';
 
@@ -103,9 +104,7 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
     final seq = paymentSequence is int ? paymentSequence : int.tryParse(paymentSequence.toString());
     
     if (contribId == null || seq == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid contribution or payment sequence')),
-      );
+      ToastHelper.showError(context, 'Invalid contribution or payment sequence');
       return;
     }
 
@@ -125,17 +124,13 @@ class _ContributionsScreenState extends State<ContributionsScreen> {
         if (response['success'] == true && response['payments'] != null) {
           _showPaymentGroupModal(contribId, seq, groupData, response['payments']);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response['error'] ?? 'Failed to load payment details')),
-          );
+          ToastHelper.showError(context, response['error'] ?? 'Failed to load payment details');
         }
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
+        ToastHelper.showError(context, 'Error: ${e.toString()}');
       }
     }
   }

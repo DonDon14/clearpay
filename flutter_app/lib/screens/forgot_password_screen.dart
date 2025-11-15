@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/logo_helper.dart';
+import '../utils/toast_helper.dart';
 import 'login_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -150,13 +151,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       if (response['success'] == true) {
         // Show success message and navigate to login
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'Password reset successfully!'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        ToastHelper.showSuccess(context, response['message'] ?? 'Password reset successfully!');
         
         // Navigate to login after a delay
         Future.delayed(const Duration(seconds: 1), () {

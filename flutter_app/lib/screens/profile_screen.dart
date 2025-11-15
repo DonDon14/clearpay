@@ -12,6 +12,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notion_app_bar.dart';
 import '../widgets/navigation_drawer.dart';
+import '../utils/toast_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -104,13 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _isLoading = false;
             });
             final errorMessage = uploadResponse['message'] ?? uploadResponse['error'] ?? 'Failed to upload profile picture';
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMessage),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 5),
-              ),
-            );
+            ToastHelper.showError(context, errorMessage);
           }
           return;
         }
@@ -149,13 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // If profile update fails, show error but don't block success message
           if (mounted) {
             final errorMessage = response['message'] ?? response['error'] ?? 'Failed to update profile';
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMessage),
-                backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 4),
-              ),
-            );
+            ToastHelper.showWarning(context, errorMessage);
           }
         }
       }
@@ -163,19 +152,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Show success message if profile picture was uploaded or profile was updated
       if (mounted) {
         if (profilePictureUploaded) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile picture updated successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          ToastHelper.showSuccess(context, 'Profile picture updated successfully');
         } else if (emailAddress != null || contactNumber != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile updated successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          ToastHelper.showSuccess(context, 'Profile updated successfully');
         }
         
         setState(() {
@@ -184,12 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastHelper.showError(context, 'Error: ${e.toString()}');
       }
     } finally {
       if (mounted) {
@@ -217,12 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
         if (!allowedTypes.contains(file.type)) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Invalid file type. Only JPEG, PNG, and GIF are allowed.'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            ToastHelper.showError(context, 'Invalid file type. Only JPEG, PNG, and GIF are allowed.');
           }
           return;
         }
@@ -230,12 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Validate file size (max 2MB)
         if (file.size > 2 * 1024 * 1024) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('File size too large. Maximum 2MB allowed.'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            ToastHelper.showError(context, 'File size too large. Maximum 2MB allowed.');
           }
           return;
         }
@@ -276,23 +240,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _pendingProfilePictureFileName = file.name;
             });
             
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Profile picture selected. Click "Save Changes" to upload.'),
-                backgroundColor: Colors.blue,
-                duration: Duration(seconds: 3),
-              ),
-            );
+            ToastHelper.showInfo(context, 'Profile picture selected. Click "Save Changes" to upload.');
           }
         } catch (e) {
           if (mounted) {
             Navigator.pop(context); // Close loading dialog
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: ${e.toString()}'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            ToastHelper.showError(context, 'Error: ${e.toString()}');
           }
         }
       });
@@ -315,12 +268,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Validate file size (max 2MB)
         if (fileBytes.length > 2 * 1024 * 1024) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('File size too large. Maximum 2MB allowed.'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            ToastHelper.showError(context, 'File size too large. Maximum 2MB allowed.');
           }
           return;
         }
@@ -332,22 +280,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _pendingProfilePictureFileName = image.name;
           });
           
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile picture selected. Click "Save Changes" to upload.'),
-              backgroundColor: Colors.blue,
-              duration: Duration(seconds: 3),
-            ),
-          );
+          ToastHelper.showInfo(context, 'Profile picture selected. Click "Save Changes" to upload.');
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error selecting image: ${e.toString()}'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          ToastHelper.showError(context, 'Error selecting image: ${e.toString()}');
         }
       }
     }

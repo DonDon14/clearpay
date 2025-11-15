@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../utils/logo_helper.dart';
+import '../utils/toast_helper.dart';
 import 'login_screen.dart';
 import 'email_verification_dialog.dart';
 
@@ -94,13 +95,7 @@ class _SignupScreenState extends State<SignupScreen> {
         } else {
           // No email verification needed - show success and navigate to login
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(response['message'] ?? 'Account created successfully!'),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 3),
-              ),
-            );
+            ToastHelper.showSuccess(context, response['message'] ?? 'Account created successfully!');
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const LoginScreen()),
             );
