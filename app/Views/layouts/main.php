@@ -90,10 +90,18 @@
               } else {
                 badge.textContent = count;
                 badge.removeAttribute('data-count');
-                // Restore expanded styles - remove forced styles
+                // Restore expanded styles - remove ALL forced styles from collapsed state
                 badge.style.removeProperty('width');
                 badge.style.removeProperty('height');
+                badge.style.removeProperty('min-width');
                 badge.style.removeProperty('max-width');
+                badge.style.removeProperty('padding');
+                badge.style.removeProperty('margin');
+                badge.style.removeProperty('margin-left');
+                badge.style.removeProperty('margin-right');
+                badge.style.removeProperty('border-radius');
+                badge.style.removeProperty('font-size');
+                badge.style.removeProperty('line-height');
               }
               badge.style.setProperty('display', isCollapsed ? 'block' : 'flex', 'important');
               badge.style.setProperty('opacity', '1', 'important');
@@ -167,10 +175,18 @@
               } else {
                 badge.textContent = count;
                 badge.removeAttribute('data-count');
-                // Restore expanded styles - remove forced styles
+                // Restore expanded styles - remove ALL forced styles from collapsed state
                 badge.style.removeProperty('width');
                 badge.style.removeProperty('height');
+                badge.style.removeProperty('min-width');
                 badge.style.removeProperty('max-width');
+                badge.style.removeProperty('padding');
+                badge.style.removeProperty('margin');
+                badge.style.removeProperty('margin-left');
+                badge.style.removeProperty('margin-right');
+                badge.style.removeProperty('border-radius');
+                badge.style.removeProperty('font-size');
+                badge.style.removeProperty('line-height');
               }
               badge.style.setProperty('display', isCollapsed ? 'block' : 'flex', 'important');
               badge.style.setProperty('opacity', '1', 'important');

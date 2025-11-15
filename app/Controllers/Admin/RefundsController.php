@@ -718,7 +718,8 @@ class RefundsController extends BaseController
         }
 
         $refundModel = new RefundModel();
-        $refund = $refundModel->find($refundId);
+        // Use fresh query to get latest status (avoid stale data)
+        $refund = $refundModel->where('id', $refundId)->first();
 
         if (!$refund) {
             return $this->response->setJSON([
@@ -727,10 +728,18 @@ class RefundsController extends BaseController
             ]);
         }
 
+        // Check current status and provide helpful message
         if ($refund['status'] !== 'pending') {
+            $statusMessages = [
+                'processing' => 'This refund is already being processed',
+                'completed' => 'This refund has already been completed',
+                'rejected' => 'This refund has already been rejected',
+                'cancelled' => 'This refund has been cancelled'
+            ];
+            $message = $statusMessages[$refund['status']] ?? 'Refund request is not in pending status';
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Refund request is not in pending status'
+                'message' => $message . '. Current status: ' . ucfirst($refund['status'])
             ]);
         }
 
@@ -774,27 +783,33 @@ class RefundsController extends BaseController
         // When admin approves, it means they've processed and confirmed the refund
         $refundModel->completeRefund($refundId, $userId, $adminNotes, $refundReference);
 
-        // Log activity with admin name
-        $activityLogger = new ActivityLogger();
-        $userModel = new \App\Models\UserModel();
-        $admin = $userModel->find($userId);
-        $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
-        
-        // Get updated refund data (with processed_at timestamp)
+        // Get updated refund data (with processed_at timestamp) - needed for email
         $updatedRefund = $refundModel->find($refundId);
-        if ($updatedRefund) {
-            $activityLogger->logRefund('completed', $updatedRefund, $adminName);
+        
+        // Log activity with admin name (wrap in try-catch to prevent breaking refund approval)
+        try {
+            $activityLogger = new ActivityLogger();
+            $userModel = new \App\Models\UserModel();
+            $admin = $userModel->find($userId);
+            $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
             
-            // Log to user_activities table for dashboard display
-            // Include refund amount and payer name
-            $refundAmount = number_format($updatedRefund['refund_amount'] ?? 0, 2);
-            $payerName = $refundDetails['payer_name'] ?? 'Unknown Payer';
-            $this->logUserActivity('completed', 'refund', $refundId, "Refund of ₱{$refundAmount} has been processed by {$adminName} for {$payerName}");
-            
-            // Merge updated refund data (especially processed_at) into refund details for email
-            if ($refundDetails) {
-                $refundDetails['processed_at'] = $updatedRefund['processed_at'] ?? date('Y-m-d H:i:s');
+            if ($updatedRefund) {
+                $activityLogger->logRefund('completed', $updatedRefund, $adminName);
+                
+                // Log to user_activities table for dashboard display
+                // Include refund amount and payer name
+                $refundAmount = number_format($updatedRefund['refund_amount'] ?? 0, 2);
+                $payerName = $refundDetails['payer_name'] ?? 'Unknown Payer';
+                $this->logUserActivity('completed', 'refund', $refundId, "Refund of ₱{$refundAmount} has been processed by {$adminName} for {$payerName}");
             }
+        } catch (\Exception $e) {
+            // Log error but don't fail the refund approval
+            log_message('error', 'Failed to log refund activity: ' . $e->getMessage());
+        }
+        
+        // Merge updated refund data (especially processed_at) into refund details for email
+        if ($refundDetails && $updatedRefund) {
+            $refundDetails['processed_at'] = $updatedRefund['processed_at'] ?? date('Y-m-d H:i:s');
         }
 
         // Send email to payer if email address is available
