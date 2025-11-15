@@ -365,7 +365,7 @@ $(document).ready(function() {
                             $('#modal_admin_notes').val('');
                             $('#approveFields').show();
                             $('#approveRejectModalTitle').text('Approve & Complete Refund Request');
-                            $('#modalActionBtn').removeClass('btn-danger').addClass('btn-success').text('Approve & Complete').off('click').on('click', function() {
+                            $('#modalActionBtn').removeClass('btn-danger').addClass('btn-success').text('Approve & Complete').prop('disabled', false).off('click').on('click', function() {
                                 approveRefundRequest(refund.id);
                             });
                             bootstrap.Modal.getInstance(document.getElementById('refundDetailsModal')).hide();
@@ -381,7 +381,7 @@ $(document).ready(function() {
                             $('#modal_admin_notes').val('');
                             $('#approveFields').hide();
                             $('#approveRejectModalTitle').text('Reject Refund Request');
-                            $('#modalActionBtn').removeClass('btn-success').addClass('btn-danger').text('Reject').off('click').on('click', function() {
+                            $('#modalActionBtn').removeClass('btn-success').addClass('btn-danger').text('Reject').prop('disabled', false).off('click').on('click', function() {
                                 rejectRefundRequest(refund.id);
                             });
                             bootstrap.Modal.getInstance(document.getElementById('refundDetailsModal')).hide();
@@ -397,6 +397,13 @@ $(document).ready(function() {
         });
     });
 
+    // Reset button state when modal is shown
+    $('#approveRejectModal').on('show.bs.modal', function() {
+        const actionBtn = $('#modalActionBtn');
+        actionBtn.prop('disabled', false);
+        $('#modal_admin_notes, #modal_refund_reference').prop('disabled', false);
+    });
+
     // Approve request
     $('.approve-request-btn').on('click', function() {
         const refundId = $(this).data('id');
@@ -405,7 +412,7 @@ $(document).ready(function() {
         $('#modal_admin_notes').val('');
         $('#approveRejectModalTitle').text('Approve & Complete Refund Request');
         $('#approveFields').show();
-        $('#modalActionBtn').removeClass('btn-danger').addClass('btn-success').text('Approve & Complete').off('click').on('click', function() {
+        $('#modalActionBtn').removeClass('btn-danger').addClass('btn-success').text('Approve & Complete').prop('disabled', false).off('click').on('click', function() {
             approveRefundRequest(refundId);
         });
         new bootstrap.Modal(document.getElementById('approveRejectModal')).show();
@@ -419,7 +426,7 @@ $(document).ready(function() {
         $('#modal_admin_notes').val('');
         $('#approveRejectModalTitle').text('Reject Refund Request');
         $('#approveFields').hide();
-        $('#modalActionBtn').removeClass('btn-success').addClass('btn-danger').text('Reject').off('click').on('click', function() {
+        $('#modalActionBtn').removeClass('btn-success').addClass('btn-danger').text('Reject').prop('disabled', false).off('click').on('click', function() {
             rejectRefundRequest(refundId);
         });
         new bootstrap.Modal(document.getElementById('approveRejectModal')).show();
@@ -428,6 +435,17 @@ $(document).ready(function() {
     function approveRefundRequest(refundId) {
         const adminNotes = $('#modal_admin_notes').val();
         const refundReference = $('#modal_refund_reference').val();
+        
+        // Get the button and show loading state
+        const actionBtn = $('#modalActionBtn');
+        const originalText = actionBtn.html();
+        const originalDisabled = actionBtn.prop('disabled');
+        
+        // Disable button and show loading
+        actionBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Processing & Sending Email...');
+        
+        // Disable form fields
+        $('#modal_admin_notes, #modal_refund_reference').prop('disabled', true);
         
         $.ajax({
             url: `${window.APP_BASE_URL}/admin/refunds/approve`,
@@ -439,7 +457,7 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    showNotification('Refund request approved and completed successfully', 'success');
+                    showNotification('Refund request approved and completed successfully. Email sent to payer.', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('approveRejectModal')).hide();
                     // Refresh badge immediately
                     if (typeof window.refreshRefundRequestsBadge === 'function') {
@@ -448,13 +466,33 @@ $(document).ready(function() {
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     showNotification(response.message || 'Failed to approve request', 'error');
+                    // Restore button state
+                    actionBtn.prop('disabled', originalDisabled).html(originalText);
+                    $('#modal_admin_notes, #modal_refund_reference').prop('disabled', false);
                 }
+            },
+            error: function(xhr, status, error) {
+                showNotification('An error occurred while processing the refund. Please try again.', 'error');
+                // Restore button state
+                actionBtn.prop('disabled', originalDisabled).html(originalText);
+                $('#modal_admin_notes, #modal_refund_reference').prop('disabled', false);
             }
         });
     }
 
     function rejectRefundRequest(refundId) {
         const adminNotes = $('#modal_admin_notes').val();
+        
+        // Get the button and show loading state
+        const actionBtn = $('#modalActionBtn');
+        const originalText = actionBtn.html();
+        const originalDisabled = actionBtn.prop('disabled');
+        
+        // Disable button and show loading
+        actionBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Processing & Sending Email...');
+        
+        // Disable form fields
+        $('#modal_admin_notes').prop('disabled', true);
         
         $.ajax({
             url: `${window.APP_BASE_URL}/admin/refunds/reject`,
@@ -465,7 +503,7 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    showNotification('Refund request rejected', 'success');
+                    showNotification('Refund request rejected. Email sent to payer.', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('approveRejectModal')).hide();
                     // Refresh badge immediately
                     if (typeof window.refreshRefundRequestsBadge === 'function') {
@@ -474,7 +512,16 @@ $(document).ready(function() {
                     setTimeout(() => location.reload(), 1500);
                 } else {
                     showNotification(response.message || 'Failed to reject request', 'error');
+                    // Restore button state
+                    actionBtn.prop('disabled', originalDisabled).html(originalText);
+                    $('#modal_admin_notes').prop('disabled', false);
                 }
+            },
+            error: function(xhr, status, error) {
+                showNotification('An error occurred while processing the refund. Please try again.', 'error');
+                // Restore button state
+                actionBtn.prop('disabled', originalDisabled).html(originalText);
+                $('#modal_admin_notes').prop('disabled', false);
             }
         });
     }

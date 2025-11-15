@@ -964,20 +964,38 @@ class RefundsController extends BaseController
         $userId = session()->get('user-id');
         $adminNotes = $this->request->getPost('admin_notes');
 
-        $refundModel->rejectRequest($refundId, $userId, $adminNotes);
-
-        // Get refund details for logging (with payer info)
+        // Get refund with full details (including payer email) before rejection
         $refundDetails = $refundModel->select('
             refunds.*,
             payments.amount_paid,
+            payments.payment_method as original_payment_method,
             payments.receipt_number,
+            payments.payment_date,
             payers.payer_name,
-            payers.payer_id as payer_student_id
+            payers.payer_id as payer_student_id,
+            payers.contact_number,
+            payers.email_address,
+            payers.profile_picture,
+            contributions.title as contribution_title,
+            contributions.description as contribution_description
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('payers', 'payers.id = refunds.payer_id', 'left')
+        ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
+        
+        // Normalize profile picture with fallback
+        if ($refundDetails) {
+            $refundDetails['profile_picture'] = $this->normalizeProfilePicturePath(
+                $refundDetails['profile_picture'] ?? null, 
+                $refundDetails['payer_id'] ?? null, 
+                null, 
+                'payer'
+            );
+        }
+
+        $refundModel->rejectRequest($refundId, $userId, $adminNotes);
 
         // Log activity with admin name
         $activityLogger = new ActivityLogger();
@@ -996,6 +1014,16 @@ class RefundsController extends BaseController
                 $refundAmount = number_format($updatedRefund['refund_amount'] ?? 0, 2);
                 $payerName = $refundDetails['payer_name'] ?? 'Unknown Payer';
                 $this->logUserActivity('rejected', 'refund', $refundId, "Refund of ₱{$refundAmount} rejected by {$adminName} for {$payerName}" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
+            }
+        }
+
+        // Send email to payer if email address is available
+        if ($refundDetails && !empty($refundDetails['email_address'])) {
+            try {
+                $this->sendRefundRejectionEmail($refundDetails, $adminNotes);
+            } catch (\Exception $e) {
+                log_message('error', 'Failed to send refund rejection email: ' . $e->getMessage());
+                // Don't fail the refund rejection if email fails
             }
         }
 
@@ -1170,6 +1198,112 @@ class RefundsController extends BaseController
             return false;
         } catch (\Error $e) {
             log_message('error', 'Failed to send refund approval email (Error): ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        }
+    }
+    
+    /**
+     * Send refund rejection email to payer
+     */
+    private function sendRefundRejectionEmail($refundDetails, $adminNotes = null)
+    {
+        try {
+            // Check if payer has an email address
+            if (empty($refundDetails['email_address'])) {
+                log_message('info', 'No email address for payer, skipping refund rejection email');
+                return false;
+            }
+
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for refund rejection email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
+            $emailService = \Config\Services::email();
+            
+            // Clear any previous configuration
+            $emailService->clear();
+            
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for refund rejection - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
+            $emailService->setTo($refundDetails['email_address']);
+            $emailService->setSubject('Refund Request Rejected - ClearPay');
+            
+            // Format dates
+            $paymentDate = $refundDetails['payment_date'] ?? date('Y-m-d H:i:s');
+            $formattedPaymentDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
+            
+            $rejectedDate = date('Y-m-d H:i:s');
+            $formattedRejectedDate = date('F j, Y \a\t g:i A', strtotime($rejectedDate));
+            
+            // Build email message
+            $message = view('emails/refund_rejected', [
+                'payerName' => $refundDetails['payer_name'] ?? 'Valued Payer',
+                'refundId' => $refundDetails['id'] ?? 'N/A',
+                'refundAmount' => $refundDetails['refund_amount'] ?? 0,
+                'refundReason' => $refundDetails['refund_reason'] ?? null,
+                'adminNotes' => $adminNotes ?? $refundDetails['admin_notes'] ?? null,
+                'receiptNumber' => $refundDetails['receipt_number'] ?? 'N/A',
+                'paymentDate' => $formattedPaymentDate,
+                'rejectedDate' => $formattedRejectedDate,
+                'contributionTitle' => $refundDetails['contribution_title'] ?? 'N/A',
+                'amountPaid' => $refundDetails['amount_paid'] ?? 0
+            ]);
+            
+            $emailService->setMessage($message);
+            
+            // Log email attempt
+            log_message('info', "Attempting to send refund rejection email to: {$refundDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
+            
+            // Send email
+            $result = $emailService->send();
+            
+            if ($result) {
+                log_message('info', "Refund rejection email sent successfully to: {$refundDetails['email_address']}");
+                return true;
+            } else {
+                $error = $emailService->printDebugger(['headers', 'subject']);
+                log_message('error', "Failed to send refund rejection email: {$error}");
+                return false;
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the refund rejection
+            log_message('error', 'Failed to send refund rejection email: ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        } catch (\Error $e) {
+            log_message('error', 'Failed to send refund rejection email (Error): ' . $e->getMessage());
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
