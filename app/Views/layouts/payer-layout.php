@@ -37,61 +37,87 @@
         $payerId = session('payer_id');
         $profilePicture = session('payer_profile_picture');
         
-        // If no profile picture in session, try to get from database
-        if (($profilePicture === null || $payerData['student_id'] === null) && $payerId) {
+        // Always sync profile picture from database to ensure we have the latest value
+        // This is especially important after Flutter app uploads
+        if ($payerId) {
             $payerModel = new \App\Models\PayerModel();
             $payer = $payerModel->find($payerId);
-            if ($payer && !empty($payer['profile_picture'])) {
-                // Normalize profile picture path from database with fallback
-                $path = $payer['profile_picture'];
-                // Remove any base_url or http prefixes
-                $path = preg_replace('#^https?://[^/]+/#', '', $path);
-                $path = preg_replace('#^uploads/profile/#', '', $path);
-                $path = preg_replace('#^profile/#', '', $path);
-                $filename = basename($path);
-                
-                // Verify file exists
-                $filePath = FCPATH . 'uploads/profile/' . $filename;
-                if (file_exists($filePath)) {
-                    $normalizedPath = 'uploads/profile/' . $filename;
-                    $payerData['profile_picture'] = $normalizedPath;
-                    // Update session for future requests
-                    session()->set('payer_profile_picture', $normalizedPath);
-                } else {
-                    log_message('warning', 'Profile picture not found in layout: ' . $filePath);
-                    
-                    // Try to find a similar file for this payer (fallback)
-                    $uploadDir = FCPATH . 'uploads/profile/';
-                    $pattern = 'payer_' . $payerId . '_*';
-                    $files = glob($uploadDir . $pattern);
-                    if (!empty($files)) {
-                        // Use the most recent file for this payer
-                        usort($files, function($a, $b) {
-                            return filemtime($b) - filemtime($a);
-                        });
-                        $foundFile = basename($files[0]);
-                        log_message('info', 'Found fallback profile picture in layout: ' . $foundFile . ' for payer ID: ' . $payerId);
-                        $normalizedPath = 'uploads/profile/' . $foundFile;
-                        $payerData['profile_picture'] = $normalizedPath;
-                        // Update session for future requests
-                        session()->set('payer_profile_picture', $normalizedPath);
-                        
-                        // Update database with correct path
-                        try {
-                            $payerModel->update($payerId, ['profile_picture' => $normalizedPath]);
-                            log_message('info', 'Updated database with correct profile picture path in layout for payer ID: ' . $payerId);
-                        } catch (\Exception $e) {
-                            log_message('error', 'Failed to update database with correct profile picture path in layout: ' . $e->getMessage());
-                        }
-                    } else {
-                        $payerData['profile_picture'] = null;
-                    }
-                }
-            }
+            
+            // Update student_id from database if needed
             if ($payer && !empty($payer['payer_id'])) {
                 $payerData['student_id'] = $payer['payer_id'];
                 // Ensure session has public-facing ID for easy access
                 session()->set('payer_student_id', $payer['payer_id']);
+            }
+            
+            // Sync profile picture from database (always check to ensure latest value)
+            if ($payer && !empty($payer['profile_picture'])) {
+                $path = $payer['profile_picture'];
+                
+                // Check if it's a Cloudinary URL first
+                $cloudinaryService = new \App\Services\CloudinaryService();
+                if ($cloudinaryService->isCloudinaryUrl($path)) {
+                    // It's a Cloudinary URL - use it directly
+                    $payerData['profile_picture'] = $path;
+                    // Update session for future requests (only if different from current session)
+                    if ($profilePicture !== $path) {
+                        session()->set('payer_profile_picture', $path);
+                        log_message('info', 'Synced Cloudinary profile picture URL from database for payer ID: ' . $payerId);
+                    }
+                } else {
+                    // It's a local file path - normalize and verify it exists
+                    // Remove any base_url or http prefixes
+                    $normalizedPath = preg_replace('#^https?://[^/]+/#', '', $path);
+                    $normalizedPath = preg_replace('#^uploads/profile/#', '', $normalizedPath);
+                    $normalizedPath = preg_replace('#^profile/#', '', $normalizedPath);
+                    $filename = basename($normalizedPath);
+                    
+                    // Verify file exists
+                    $filePath = FCPATH . 'uploads/profile/' . $filename;
+                    if (file_exists($filePath)) {
+                        $finalPath = 'uploads/profile/' . $filename;
+                        $payerData['profile_picture'] = $finalPath;
+                        // Update session for future requests (only if different from current session)
+                        if ($profilePicture !== $finalPath) {
+                            session()->set('payer_profile_picture', $finalPath);
+                        }
+                    } else {
+                        log_message('warning', 'Profile picture not found in layout: ' . $filePath);
+                        
+                        // Try to find a similar file for this payer (fallback)
+                        $uploadDir = FCPATH . 'uploads/profile/';
+                        $pattern = 'payer_' . $payerId . '_*';
+                        $files = glob($uploadDir . $pattern);
+                        if (!empty($files)) {
+                            // Use the most recent file for this payer
+                            usort($files, function($a, $b) {
+                                return filemtime($b) - filemtime($a);
+                            });
+                            $foundFile = basename($files[0]);
+                            log_message('info', 'Found fallback profile picture in layout: ' . $foundFile . ' for payer ID: ' . $payerId);
+                            $finalPath = 'uploads/profile/' . $foundFile;
+                            $payerData['profile_picture'] = $finalPath;
+                            // Update session for future requests
+                            session()->set('payer_profile_picture', $finalPath);
+                            
+                            // Update database with correct path
+                            try {
+                                $payerModel->update($payerId, ['profile_picture' => $finalPath]);
+                                log_message('info', 'Updated database with correct profile picture path in layout for payer ID: ' . $payerId);
+                            } catch (\Exception $e) {
+                                log_message('error', 'Failed to update database with correct profile picture path in layout: ' . $e->getMessage());
+                            }
+                        } else {
+                            $payerData['profile_picture'] = null;
+                        }
+                    }
+                }
+            } else if ($payer && empty($payer['profile_picture'])) {
+                // No profile picture in database - clear session if it exists
+                if ($profilePicture !== null) {
+                    $payerData['profile_picture'] = null;
+                    session()->remove('payer_profile_picture');
+                }
             }
         }
         
