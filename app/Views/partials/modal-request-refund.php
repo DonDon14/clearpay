@@ -186,18 +186,43 @@ function submitRefundRequest() {
         body: data,
         headers: {'X-Requested-With':'XMLHttpRequest'},
     })
-    .then(resp => resp.json ? resp.json() : resp)
+    .then(response => {
+        return response.text().then(text => {
+            // Log the FULL response for debugging
+            console.log('=== FULL SERVER RESPONSE ===');
+            console.log('Response length:', text.length);
+            console.log('Response (first 1000 chars):', text.substring(0, 1000));
+            console.log('Response (last 500 chars):', text.substring(Math.max(0, text.length - 500)));
+            console.log('Response headers:', response.headers);
+            console.log('Response status:', response.status);
+            console.log('Response statusText:', response.statusText);
+            console.log('=== END SERVER RESPONSE ===');
+            
+            // Try to parse as JSON
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                // If parsing fails, show what we got
+                console.error('JSON Parse Error:', e);
+                console.error('Server response (not JSON):', text);
+                alert('Server returned invalid JSON. Check console for full response.');
+                throw new Error('Server returned invalid JSON. Check browser console (F12) for full response.');
+            }
+        });
+    })
     .then(result => {
         if (result && result.success) {
             alert('Refund request submitted successfully!');
             const modal = bootstrap.Modal.getInstance(document.getElementById('requestRefundModal'));
             if (modal) modal.hide();
+            window.location.reload();
         } else {
             alert((result && result.message) || 'An error occurred while submitting.');
         }
     })
     .catch(e => {
-        alert('An unexpected error occurred when submitting the refund request.');
+        console.error('Refund request error:', e);
+        alert('Error: ' + (e.message || 'An unexpected error occurred when submitting the refund request.'));
     })
     .finally(() => {
         if (btn) {

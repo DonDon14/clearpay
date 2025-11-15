@@ -1541,6 +1541,11 @@ class DashboardController extends BaseController
      */
     public function submitRefundRequest()
     {
+        // Ensure no output before JSON response
+        if (ob_get_level() > 0) {
+            ob_clean();
+        }
+        
         // Check if this is an API request
         $isApiEndpoint = strpos($this->request->getUri()->getPath(), '/api/') !== false;
         
@@ -1555,39 +1560,49 @@ class DashboardController extends BaseController
 
         // For web requests, check if it's AJAX
         if (!$isApiEndpoint && !$this->request->isAJAX()) {
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Invalid request method'
-            ]);
+            return $this->response
+                ->setContentType('application/json')
+                ->setJSON([
+                    'success' => false,
+                    'message' => 'Invalid request method'
+                ]);
         }
 
         // Get payer_id from query parameter for API requests, or from session for web requests
         if ($isApiEndpoint) {
             $payerId = $this->request->getPost('payer_id') ?? $this->request->getGet('payer_id');
             
-            // If not in POST/GET, try to get from JSON body
+            // If not in POST/GET, try to get from JSON body (only for API endpoints)
             if (!$payerId) {
-                $jsonBody = $this->request->getJSON(true);
-                if ($jsonBody && isset($jsonBody['payer_id'])) {
-                    $payerId = $jsonBody['payer_id'];
+                try {
+                    $jsonBody = $this->request->getJSON(true);
+                    if ($jsonBody && isset($jsonBody['payer_id'])) {
+                        $payerId = $jsonBody['payer_id'];
+                    }
+                } catch (\Exception $e) {
+                    // JSON parsing failed, will be caught by validation below
                 }
             }
             
             // Validate payer_id for API requests
             if (!$payerId) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Payer ID is required'
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Payer ID is required'
+                    ]);
             }
         } else {
             $payerId = session('payer_id');
             
             if (!$payerId) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Please log in to submit refund requests'
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Please log in to submit refund requests'
+                    ]);
             }
         }
 
@@ -1608,40 +1623,71 @@ class DashboardController extends BaseController
 
         // For API requests with JSON body, validate against JSON data
         if ($isApiEndpoint) {
-            $jsonBody = $this->request->getJSON(true);
-            if (!$jsonBody) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Invalid JSON data'
-                ]);
+            try {
+                $jsonBody = $this->request->getJSON(true);
+                if (!$jsonBody) {
+                    return $this->response
+                        ->setContentType('application/json')
+                        ->setJSON([
+                            'success' => false,
+                            'message' => 'Invalid JSON data'
+                        ]);
+                }
+            } catch (\Exception $e) {
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Failed to parse JSON: ' . $e->getMessage()
+                    ]);
             }
             if (!$validation->run($jsonBody)) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validation->getErrors()
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Validation failed',
+                        'errors' => $validation->getErrors()
+                    ]);
             }
         } else {
             // For web requests, validate against request
             if (!$validation->withRequest($this->request)->run()) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validation->getErrors()
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Validation failed',
+                        'errors' => $validation->getErrors()
+                    ]);
             }
         }
 
         try {
             // Get data from POST or JSON body (for API requests)
-            $jsonBody = $this->request->getJSON(true);
+            $jsonBody = null;
+            if ($isApiEndpoint) {
+                // Only try to get JSON for API endpoints
+                try {
+                    $jsonBody = $this->request->getJSON(true);
+                } catch (\Exception $e) {
+                    // If JSON parsing fails, return error
+                    return $this->response
+                        ->setContentType('application/json')
+                        ->setJSON([
+                            'success' => false,
+                            'message' => 'Invalid JSON format: ' . $e->getMessage()
+                        ]);
+                }
+            }
+            
             if ($isApiEndpoint && $jsonBody) {
                 $paymentId = $jsonBody['payment_id'] ?? null;
                 $refundAmount = isset($jsonBody['refund_amount']) ? (float)$jsonBody['refund_amount'] : null;
                 $refundMethod = $jsonBody['refund_method'] ?? null;
                 $refundReason = $jsonBody['refund_reason'] ?? '';
             } else {
+                // For web requests, always use POST data
                 $paymentId = $this->request->getPost('payment_id');
                 $refundAmount = (float)$this->request->getPost('refund_amount');
                 $refundMethod = $this->request->getPost('refund_method');
@@ -1650,10 +1696,12 @@ class DashboardController extends BaseController
             
             // Validate refund method
             if (!in_array($refundMethod, $validRefundMethodCodes)) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Invalid refund method selected'
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Invalid refund method selected'
+                    ]);
             }
 
             // Get payment details
@@ -1666,20 +1714,24 @@ class DashboardController extends BaseController
                 ->first();
 
             if (!$payment) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Payment not found'
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Payment not found'
+                    ]);
             }
 
             // Check available refund amount
             $availableAmount = $this->getAvailableRefundAmount($paymentId);
             
             if ($refundAmount > $availableAmount) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => "Refund amount cannot exceed available amount (₱" . number_format($availableAmount, 2) . ")"
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => "Refund amount cannot exceed available amount (₱" . number_format($availableAmount, 2) . ")"
+                    ]);
             }
 
             // Check for existing pending or processing refunds
@@ -1689,10 +1741,12 @@ class DashboardController extends BaseController
                 ->first();
 
             if ($existingRefund) {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'This payment already has a pending or processing refund request'
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'This payment already has a pending or processing refund request'
+                    ]);
             }
 
             // Determine final refund method
@@ -1728,29 +1782,40 @@ class DashboardController extends BaseController
             $refundId = $this->refundModel->insert($refundData);
 
             if ($refundId) {
-                // Log activity
-                $activityLogger = new \App\Services\ActivityLogger();
-                $refundData['id'] = $refundId;
-                $activityLogger->logRefund('requested', $refundData);
+                // Log activity (wrap in try-catch to prevent breaking JSON response)
+                try {
+                    $activityLogger = new \App\Services\ActivityLogger();
+                    $refundData['id'] = $refundId;
+                    $activityLogger->logRefund('requested', $refundData);
+                } catch (\Exception $logError) {
+                    // Log the error but don't break the refund submission
+                    log_message('error', 'Failed to log refund activity: ' . $logError->getMessage());
+                }
 
-                return $this->response->setJSON([
-                    'success' => true,
-                    'message' => 'Refund request submitted successfully! Reference: ' . ($refundData['refund_reference'] ?? 'REF-' . date('Ymd') . '-' . strtoupper(substr(md5($refundId), 0, 12))),
-                    'refund_id' => $refundId
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => true,
+                        'message' => 'Refund request submitted successfully! Reference: ' . ($refundData['refund_reference'] ?? 'REF-' . date('Ymd') . '-' . strtoupper(substr(md5($refundId), 0, 12))),
+                        'refund_id' => $refundId
+                    ]);
             } else {
-                return $this->response->setJSON([
-                    'success' => false,
-                    'message' => 'Failed to submit refund request. Please try again.'
-                ]);
+                return $this->response
+                    ->setContentType('application/json')
+                    ->setJSON([
+                        'success' => false,
+                        'message' => 'Failed to submit refund request. Please try again.'
+                    ]);
             }
 
         } catch (\Exception $e) {
             log_message('error', 'Refund request error: ' . $e->getMessage());
-            return $this->response->setJSON([
-                'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
-            ]);
+            return $this->response
+                ->setContentType('application/json')
+                ->setJSON([
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage()
+                ]);
         }
     }
 

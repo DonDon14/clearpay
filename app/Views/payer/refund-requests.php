@@ -183,51 +183,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function submitRefundRequest() {
-    const form = document.getElementById('refundRequestForm');
-    
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-    
-    const formData = new FormData(form);
-    
-    // Show loading state
-    const submitBtn = event.target;
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Submitting...';
-    
-    fetch('<?= base_url('payer/submit-refund-request') ?>', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Show success message
-            alert(data.message);
-            // Close modal and reload page
-            const modal = bootstrap.Modal.getInstance(document.getElementById('requestRefundModal'));
-            modal.hide();
-            window.location.reload();
-        } else {
-            alert('Error: ' + data.message);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while submitting the refund request. Please try again.');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    });
-}
+// Note: submitRefundRequest() is defined in modal-request-refund.php
+// This function is not used - kept for backward compatibility only
 
 function viewRefundDetails(refundId) {
     // Show loading state

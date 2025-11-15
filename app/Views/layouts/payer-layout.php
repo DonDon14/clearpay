@@ -153,176 +153,31 @@
     // Define base URL globally for all pages
     window.APP_BASE_URL = '<?= base_url() ?>';
     
-    // Function to update payment requests notification badge
+    // Function to update payment requests notification badge (disabled for payer side)
     window.updatePaymentRequestsBadge = function() {
-      fetch(`${window.APP_BASE_URL}payer/payment-requests/count`, {
-        method: 'GET',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        const badge = document.getElementById('paymentRequestsBadge');
-        if (badge) {
-          // Check if sidebar is collapsed
-          const sidebar = document.querySelector('.sidebar');
-          const isCollapsed = sidebar && sidebar.classList.contains('collapsed');
-          
-          if (data.success) {
-            const count = data.count || 0;
-            if (count > 0) {
-              // If collapsed, show as dot (empty text), otherwise show number
-              if (isCollapsed) {
-                badge.textContent = '';
-                badge.setAttribute('data-count', count); // Store count for when expanded
-                // Override inline styles for collapsed state - force small dot
-                badge.style.setProperty('width', '10px', 'important');
-                badge.style.setProperty('height', '10px', 'important');
-                badge.style.setProperty('min-width', '10px', 'important');
-                badge.style.setProperty('max-width', '10px', 'important');
-                badge.style.setProperty('padding', '0', 'important');
-                badge.style.setProperty('margin', '0', 'important');
-                badge.style.setProperty('margin-left', '0', 'important');
-                badge.style.setProperty('margin-right', '0', 'important');
-                badge.style.setProperty('border-radius', '50%', 'important');
-                badge.style.setProperty('font-size', '0', 'important');
-                badge.style.setProperty('line-height', '0', 'important');
-                badge.style.setProperty('display', 'block', 'important');
-              } else {
-                badge.textContent = count;
-                badge.removeAttribute('data-count');
-                // Restore expanded styles - remove forced styles
-                badge.style.removeProperty('width');
-                badge.style.removeProperty('height');
-                badge.style.removeProperty('max-width');
-              }
-              badge.style.setProperty('display', isCollapsed ? 'block' : 'flex', 'important');
-              badge.style.setProperty('opacity', '1', 'important');
-              badge.style.setProperty('visibility', 'visible', 'important');
-            } else {
-              badge.textContent = '';
-              badge.removeAttribute('data-count');
-              badge.style.setProperty('display', 'none', 'important');
-              badge.style.setProperty('opacity', '0', 'important');
-              badge.style.setProperty('visibility', 'hidden', 'important');
-            }
-          } else {
-            badge.textContent = '';
-            badge.removeAttribute('data-count');
-            badge.style.setProperty('display', 'none', 'important');
-            badge.style.setProperty('opacity', '0', 'important');
-            badge.style.setProperty('visibility', 'hidden', 'important');
-          }
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching payment requests count:', error);
-        const badge = document.getElementById('paymentRequestsBadge');
-        if (badge) {
-          badge.textContent = '';
-          badge.removeAttribute('data-count');
-          badge.style.setProperty('display', 'none', 'important');
-          badge.style.setProperty('opacity', '0', 'important');
-          badge.style.setProperty('visibility', 'hidden', 'important');
-        }
-      });
+      // Badges are not shown on payer side, so do nothing
+      return;
     };
     
-    // Function to update refund requests notification badge
+    // Function to update refund requests notification badge (disabled for payer side)
     window.updateRefundRequestsBadge = function() {
-      fetch(`${window.APP_BASE_URL}payer/refund-requests/count`, {
-        method: 'GET',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        const badge = document.getElementById('refundRequestsBadge');
-        if (badge) {
-          // Check if sidebar is collapsed
-          const sidebar = document.querySelector('.sidebar');
-          const isCollapsed = sidebar && sidebar.classList.contains('collapsed');
-          
-          if (data.success) {
-            const count = data.count || 0;
-            if (count > 0) {
-              // If collapsed, show as dot (empty text), otherwise show number
-              if (isCollapsed) {
-                badge.textContent = '';
-                badge.setAttribute('data-count', count); // Store count for when expanded
-                // Override inline styles for collapsed state - force small dot
-                badge.style.setProperty('width', '10px', 'important');
-                badge.style.setProperty('height', '10px', 'important');
-                badge.style.setProperty('min-width', '10px', 'important');
-                badge.style.setProperty('max-width', '10px', 'important');
-                badge.style.setProperty('padding', '0', 'important');
-                badge.style.setProperty('margin', '0', 'important');
-                badge.style.setProperty('margin-left', '0', 'important');
-                badge.style.setProperty('margin-right', '0', 'important');
-                badge.style.setProperty('border-radius', '50%', 'important');
-                badge.style.setProperty('font-size', '0', 'important');
-                badge.style.setProperty('line-height', '0', 'important');
-                badge.style.setProperty('display', 'block', 'important');
-              } else {
-                badge.textContent = count;
-                badge.removeAttribute('data-count');
-                // Restore expanded styles - remove forced styles
-                badge.style.removeProperty('width');
-                badge.style.removeProperty('height');
-                badge.style.removeProperty('max-width');
-              }
-              badge.style.setProperty('display', isCollapsed ? 'block' : 'flex', 'important');
-              badge.style.setProperty('opacity', '1', 'important');
-              badge.style.setProperty('visibility', 'visible', 'important');
-            } else {
-              badge.textContent = '';
-              badge.removeAttribute('data-count');
-              badge.style.setProperty('display', 'none', 'important');
-              badge.style.setProperty('opacity', '0', 'important');
-              badge.style.setProperty('visibility', 'hidden', 'important');
-            }
-          } else {
-            badge.textContent = '';
-            badge.removeAttribute('data-count');
-            badge.style.setProperty('display', 'none', 'important');
-            badge.style.setProperty('opacity', '0', 'important');
-            badge.style.setProperty('visibility', 'hidden', 'important');
-          }
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching refund requests count:', error);
-        const badge = document.getElementById('refundRequestsBadge');
-        if (badge) {
-          badge.textContent = '';
-          badge.removeAttribute('data-count');
-          badge.style.setProperty('display', 'none', 'important');
-          badge.style.setProperty('opacity', '0', 'important');
-          badge.style.setProperty('visibility', 'hidden', 'important');
-        }
-      });
+      // Badges are not shown on payer side, so do nothing
+      return;
     };
     
-    // Global function to refresh badges
+    // Global function to refresh badges (disabled for payer side)
     window.refreshPaymentRequestsBadge = function() {
-      updatePaymentRequestsBadge();
+      // Badges are not shown on payer side
+      return;
     };
     
     window.refreshRefundRequestsBadge = function() {
-      updateRefundRequestsBadge();
+      // Badges are not shown on payer side
+      return;
     };
     
-    // Update badges on page load and set up auto-refresh
-    document.addEventListener('DOMContentLoaded', function() {
-      updatePaymentRequestsBadge();
-      updateRefundRequestsBadge();
-      
-      // Auto-refresh badges every 30 seconds
-      setInterval(updatePaymentRequestsBadge, 30000);
-      setInterval(updateRefundRequestsBadge, 30000);
-    });
+    // Badge updates disabled for payer side - badges are not shown
+    // No need to update badges on payer side
     
     // Sidebar Toggle Script with State Persistence
     document.addEventListener('DOMContentLoaded', function() {
@@ -352,13 +207,7 @@
           saveSidebarState(false);
           updateMainContentMargin(false);
           
-          // Update badges to show numbers when expanded
-          if (typeof updatePaymentRequestsBadge === 'function') {
-            updatePaymentRequestsBadge();
-          }
-          if (typeof updateRefundRequestsBadge === 'function') {
-            updateRefundRequestsBadge();
-          }
+          // Badge updates disabled for payer side
         }
       }
 
@@ -369,13 +218,7 @@
           saveSidebarState(true);
           updateMainContentMargin(true);
           
-          // Update badges to show dots when collapsed
-          if (typeof updatePaymentRequestsBadge === 'function') {
-            updatePaymentRequestsBadge();
-          }
-          if (typeof updateRefundRequestsBadge === 'function') {
-            updateRefundRequestsBadge();
-          }
+          // Badge updates disabled for payer side
         }
       }
 
@@ -396,15 +239,7 @@
       // Restore sidebar state on page load
       restoreSidebarState();
       
-      // Update badges after restoring state
-      setTimeout(() => {
-        if (typeof updatePaymentRequestsBadge === 'function') {
-          updatePaymentRequestsBadge();
-        }
-        if (typeof updateRefundRequestsBadge === 'function') {
-          updateRefundRequestsBadge();
-        }
-      }, 100);
+      // Badge updates disabled for payer side
 
       // Toggle button (collapse/expand)
       if (toggleBtn && sidebar) {
@@ -415,15 +250,7 @@
           saveSidebarState(isCollapsed);
           updateMainContentMargin(isCollapsed);
           
-          // Update badges to show dots when collapsed, numbers when expanded
-          setTimeout(() => {
-            if (typeof updatePaymentRequestsBadge === 'function') {
-              updatePaymentRequestsBadge();
-            }
-            if (typeof updateRefundRequestsBadge === 'function') {
-              updateRefundRequestsBadge();
-            }
-          }, 50);
+          // Badge updates disabled for payer side
         });
       }
 

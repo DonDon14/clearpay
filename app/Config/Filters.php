@@ -60,7 +60,7 @@ class Filters extends BaseFilters
         'after' => [
             'pagecache',   // Web Page Caching
             'performance', // Performance Metrics
-            'toolbar',     // Debug Toolbar
+            // 'toolbar',     // Debug Toolbar - moved to globals to allow exceptions
         ],
     ];
 
@@ -85,6 +85,15 @@ class Filters extends BaseFilters
         ],
         'after' => [
             'cors', // Enable CORS for all responses (needed for mobile/web API)
+            'toolbar' => [
+                'except' => [
+                    '/api/*',
+                    'payer/submit-refund-request',
+                    'payer/submit-payment-request',
+                    '*/submit-refund-request',
+                    '*/submit-payment-request',
+                ]
+            ], // Debug Toolbar - exclude from AJAX/API endpoints to prevent HTML injection into JSON
             // 'honeypot',
             // 'secureheaders',
         ],
