@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/announcements_screen.dart';
 
 class AnnouncementModal extends StatelessWidget {
@@ -318,12 +319,53 @@ class AnnouncementModal extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () async {
+                      // Mark announcement as shown when user closes the modal
+                      final announcementId = announcementData['id'] ?? announcementData['announcement_id'];
+                      if (announcementId != null) {
+                        try {
+                          final prefs = await SharedPreferences.getInstance();
+                          final shownIdsString = prefs.getString('shownAnnouncementIds') ?? '';
+                          final shownIdsList = shownIdsString.split(',').map((id) => int.tryParse(id)).whereType<int>().toList();
+                          final shownIds = Set<int>.from(shownIdsList);
+                          
+                          final id = announcementId is int ? announcementId : int.tryParse(announcementId.toString());
+                          if (id != null) {
+                            shownIds.add(id);
+                            await prefs.setString('shownAnnouncementIds', shownIds.join(','));
+                            print('Marked announcement as shown when closing: $id');
+                          }
+                        } catch (e) {
+                          print('Error marking announcement as shown: $e');
+                        }
+                      }
+                      Navigator.of(context).pop();
+                    },
                     child: const Text('Close'),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      // Mark announcement as shown when user clicks "View All Announcements"
+                      final announcementId = announcementData['id'] ?? announcementData['announcement_id'];
+                      if (announcementId != null) {
+                        try {
+                          final prefs = await SharedPreferences.getInstance();
+                          final shownIdsString = prefs.getString('shownAnnouncementIds') ?? '';
+                          final shownIdsList = shownIdsString.split(',').map((id) => int.tryParse(id)).whereType<int>().toList();
+                          final shownIds = Set<int>.from(shownIdsList);
+                          
+                          final id = announcementId is int ? announcementId : int.tryParse(announcementId.toString());
+                          if (id != null) {
+                            shownIds.add(id);
+                            await prefs.setString('shownAnnouncementIds', shownIds.join(','));
+                            print('Marked announcement as shown when clicking View All: $id');
+                          }
+                        } catch (e) {
+                          print('Error marking announcement as shown: $e');
+                        }
+                      }
+                      
                       Navigator.of(context).pop();
                       Navigator.of(context).push(
                         MaterialPageRoute(

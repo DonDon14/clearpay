@@ -232,10 +232,60 @@
 <script>
 // Global variable to store current announcement data
 let currentAnnouncementData = null;
+let shownAnnouncementIds = new Set(); // Track which announcement IDs have been shown
+
+// Load shown announcement IDs from localStorage on page load
+function loadShownAnnouncementIds() {
+    try {
+        const stored = localStorage.getItem('shownAnnouncementIds');
+        if (stored) {
+            const ids = JSON.parse(stored);
+            shownAnnouncementIds = new Set(ids);
+            console.log('Loaded shown announcement IDs:', Array.from(shownAnnouncementIds));
+        }
+    } catch (e) {
+        console.error('Error loading shown announcement IDs:', e);
+        shownAnnouncementIds = new Set();
+    }
+}
+
+// Save shown announcement IDs to localStorage
+function saveShownAnnouncementIds() {
+    try {
+        localStorage.setItem('shownAnnouncementIds', JSON.stringify(Array.from(shownAnnouncementIds)));
+    } catch (e) {
+        console.error('Error saving shown announcement IDs:', e);
+    }
+}
+
+// Check if an announcement has already been shown
+function hasAnnouncementBeenShown(announcementId) {
+    return shownAnnouncementIds.has(String(announcementId));
+}
+
+// Mark an announcement as shown
+function markAnnouncementAsShown(announcementId) {
+    shownAnnouncementIds.add(String(announcementId));
+    saveShownAnnouncementIds();
+    console.log('Marked announcement as shown:', announcementId);
+}
 
 // Function to show announcement notification
 function showAnnouncementNotification(announcementData) {
     console.log('Showing announcement notification:', announcementData);
+    
+    // Check if this announcement has already been shown
+    const announcementId = announcementData.id || announcementData.announcement_id;
+    if (announcementId && hasAnnouncementBeenShown(announcementId)) {
+        console.log('Announcement already shown, skipping:', announcementId);
+        return;
+    }
+    
+    // Mark as shown before displaying
+    if (announcementId) {
+        markAnnouncementAsShown(announcementId);
+    }
+    
     currentAnnouncementData = announcementData;
     
     // Show notification badge
@@ -321,17 +371,27 @@ function showAnnouncementNotification(announcementData) {
     const modal = new bootstrap.Modal(document.getElementById('announcementNotificationModal'));
     modal.show();
     
-    // Add event listener for modal close
-    document.getElementById('announcementNotificationModal').addEventListener('hidden.bs.modal', function() {
-        // Check if user clicked "View All Announcements" button
-        const clickedViewAll = localStorage.getItem('announcementViewed');
-        if (clickedViewAll === 'true') {
-            // User read the announcement, hide the badge
-            hideNotificationBadge();
-            localStorage.removeItem('announcementViewed');
-        }
-        // If user just closed without reading, badge stays visible
-    });
+    // Add event listener for modal close (use once to prevent duplicates)
+    const modalElement = document.getElementById('announcementNotificationModal');
+    if (modalElement) {
+        // Remove existing listener if any, then add new one
+        const closeHandler = function() {
+            // Check if user clicked "View All Announcements" button
+            const clickedViewAll = localStorage.getItem('announcementViewed');
+            if (clickedViewAll === 'true') {
+                // User read the announcement, hide the badge
+                hideNotificationBadge();
+                localStorage.removeItem('announcementViewed');
+            }
+            // If user just closed without reading, badge stays visible
+            // But the announcement is still marked as shown, so it won't pop up again
+            
+            // Remove this listener after it fires
+            modalElement.removeEventListener('hidden.bs.modal', closeHandler);
+        };
+        
+        modalElement.addEventListener('hidden.bs.modal', closeHandler, { once: true });
+    }
     
     // Play notification sound (optional)
     playNotificationSound();
@@ -457,7 +517,15 @@ function playNotificationSound() {
 
 // Function to view all announcements
 function viewAllAnnouncements() {
-    // Mark announcement as viewed
+    // Mark current announcement as viewed (if we have one)
+    if (currentAnnouncementData) {
+        const announcementId = currentAnnouncementData.id || currentAnnouncementData.announcement_id;
+        if (announcementId) {
+            markAnnouncementAsShown(announcementId);
+        }
+    }
+    
+    // Mark announcement as viewed (for backward compatibility)
     localStorage.setItem('announcementViewed', 'true');
     
     // Close the notification modal
@@ -620,36 +688,74 @@ function checkForNewActivities() {
                         );
                         
                         if (!isModalOpen) {
-                            // Get the most recent announcement activity
-                            const latestAnnouncement = announcementActivities.sort((a, b) => 
-                                new Date(b.created_at) - new Date(a.created_at)
-                            )[0];
+                            // Filter out announcements that have already been shown
+                            const unshownAnnouncements = announcementActivities.filter(activity => {
+                                // Try to get announcement ID from new_values or entity_id
+                                let announcementId = null;
+                                if (activity.new_values) {
+                                    try {
+                                        const newValues = typeof activity.new_values === 'string' 
+                                            ? JSON.parse(activity.new_values) 
+                                            : activity.new_values;
+                                        announcementId = newValues.id || newValues.announcement_id;
+                                    } catch (e) {
+                                        console.error('Error parsing new_values:', e);
+                                    }
+                                }
+                                
+                                // Fallback to entity_id if available
+                                if (!announcementId && activity.entity_id) {
+                                    announcementId = activity.entity_id;
+                                }
+                                
+                                // If we have an ID, check if it's been shown
+                                if (announcementId) {
+                                    return !hasAnnouncementBeenShown(announcementId);
+                                }
+                                
+                                // If no ID, show it (shouldn't happen, but be safe)
+                                return true;
+                            });
                             
-                            // Parse the full announcement data from new_values
-                            let announcementData = null;
-                            if (latestAnnouncement.new_values) {
-                                try {
-                                    announcementData = typeof latestAnnouncement.new_values === 'string' 
-                                        ? JSON.parse(latestAnnouncement.new_values) 
-                                        : latestAnnouncement.new_values;
-                                    
-                                    // Merge with activity metadata for complete data
-                                    announcementData.created_at = latestAnnouncement.created_at;
-                                    announcementData.created_at_date = latestAnnouncement.created_at_date;
-                                    announcementData.created_at_time = latestAnnouncement.created_at_time;
-                                    
-                                    // Show the announcement modal
-                                    console.log('Showing announcement modal for:', announcementData.title);
-                                    showAnnouncementNotification(announcementData);
-                                } catch (e) {
-                                    console.error('Error parsing announcement data:', e);
-                                    // Fallback: use activity data
+                            if (unshownAnnouncements.length > 0) {
+                                // Get the most recent unshown announcement
+                                const latestAnnouncement = unshownAnnouncements.sort((a, b) => 
+                                    new Date(b.created_at) - new Date(a.created_at)
+                                )[0];
+                                
+                                // Parse the full announcement data from new_values
+                                let announcementData = null;
+                                if (latestAnnouncement.new_values) {
+                                    try {
+                                        announcementData = typeof latestAnnouncement.new_values === 'string' 
+                                            ? JSON.parse(latestAnnouncement.new_values) 
+                                            : latestAnnouncement.new_values;
+                                        
+                                        // Merge with activity metadata for complete data
+                                        announcementData.created_at = latestAnnouncement.created_at;
+                                        announcementData.created_at_date = latestAnnouncement.created_at_date;
+                                        announcementData.created_at_time = latestAnnouncement.created_at_time;
+                                        
+                                        // Ensure we have the announcement ID
+                                        if (!announcementData.id && !announcementData.announcement_id) {
+                                            announcementData.id = latestAnnouncement.entity_id;
+                                        }
+                                        
+                                        // Show the announcement modal
+                                        console.log('Showing announcement modal for:', announcementData.title);
+                                        showAnnouncementNotification(announcementData);
+                                    } catch (e) {
+                                        console.error('Error parsing announcement data:', e);
+                                        // Fallback: use activity data
+                                        showActivityNotification(latestAnnouncement);
+                                    }
+                                } else {
+                                    // Fallback: use activity data directly
+                                    console.log('No new_values found, using activity data');
                                     showActivityNotification(latestAnnouncement);
                                 }
                             } else {
-                                // Fallback: use activity data directly
-                                console.log('No new_values found, using activity data');
-                                showActivityNotification(latestAnnouncement);
+                                console.log('All announcements have already been shown');
                             }
                         } else {
                             console.log('Announcement modal is already open, skipping auto-popup');
@@ -808,17 +914,27 @@ function showActivityNotification(activityData) {
     const modal = new bootstrap.Modal(document.getElementById('announcementNotificationModal'));
     modal.show();
     
-    // Add event listener for modal close
-    document.getElementById('announcementNotificationModal').addEventListener('hidden.bs.modal', function() {
-        // Check if user clicked "View All Notifications" button
-        const clickedViewAll = localStorage.getItem('announcementViewed');
-        if (clickedViewAll === 'true') {
-            // User read the activity, hide the badge
-            hideNotificationBadge();
-            localStorage.removeItem('announcementViewed');
-        }
-        // If user just closed without reading, badge stays visible
-    });
+    // Add event listener for modal close (use once to prevent duplicates)
+    const modalElement = document.getElementById('announcementNotificationModal');
+    if (modalElement) {
+        // Remove existing listener if any, then add new one
+        const closeHandler = function() {
+            // Check if user clicked "View All Notifications" button
+            const clickedViewAll = localStorage.getItem('announcementViewed');
+            if (clickedViewAll === 'true') {
+                // User read the activity, hide the badge
+                hideNotificationBadge();
+                localStorage.removeItem('announcementViewed');
+            }
+            // If user just closed without reading, badge stays visible
+            // But the announcement is still marked as shown, so it won't pop up again
+            
+            // Remove this listener after it fires
+            modalElement.removeEventListener('hidden.bs.modal', closeHandler);
+        };
+        
+        modalElement.addEventListener('hidden.bs.modal', closeHandler, { once: true });
+    }
     
     // Play notification sound (optional)
     playNotificationSound();
@@ -1225,6 +1341,9 @@ function closeNotificationDropdown() {
 // Start checking for new activities every 30 seconds
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Notification system initialized');
+    
+    // Load shown announcement IDs from localStorage
+    loadShownAnnouncementIds();
     
     // Initialize notification system
     initializeNotificationSystem();

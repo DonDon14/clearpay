@@ -213,7 +213,7 @@ class _NotionAppBarState extends State<NotionAppBar> {
         _shownAnnouncementIds = Set<int>.from(shownIdsList);
       }
       
-      // Filter for new announcement activities
+      // Filter for new announcement activities that haven't been shown
       final announcementActivities = activities.where((activity) {
         final activityType = (activity['activity_type'] ?? '').toString().toLowerCase();
         final action = (activity['action'] ?? '').toString().toLowerCase();
@@ -221,10 +221,48 @@ class _NotionAppBarState extends State<NotionAppBar> {
             ? activity['id'] 
             : int.tryParse(activity['id'].toString()) ?? 0;
         
-        return activityType == 'announcement' &&
-               (action == 'created' || action == 'published') &&
-               activityId > lastShownId &&
-               !_shownAnnouncementIds.contains(activityId);
+        // Check if activity is an announcement
+        if (activityType != 'announcement' || 
+            (action != 'created' && action != 'published') ||
+            activityId <= lastShownId) {
+          return false;
+        }
+        
+        // Try to get announcement ID from new_values or entity_id
+        int? announcementId;
+        if (activity['new_values'] != null) {
+          try {
+            final newValues = activity['new_values'];
+            Map<String, dynamic> parsedValues;
+            if (newValues is String) {
+              parsedValues = Map<String, dynamic>.from(jsonDecode(newValues) as Map);
+            } else if (newValues is Map) {
+              parsedValues = Map<String, dynamic>.from(newValues);
+            } else {
+              parsedValues = {};
+            }
+            
+            final id = parsedValues['id'] ?? parsedValues['announcement_id'];
+            if (id != null) {
+              announcementId = id is int ? id : int.tryParse(id.toString());
+            }
+          } catch (e) {
+            print('Error parsing new_values: $e');
+          }
+        }
+        
+        // Fallback to entity_id
+        if (announcementId == null && activity['entity_id'] != null) {
+          final entityId = activity['entity_id'];
+          announcementId = entityId is int ? entityId : int.tryParse(entityId.toString());
+        }
+        
+        // Check if this announcement has been shown
+        if (announcementId != null && _shownAnnouncementIds.contains(announcementId)) {
+          return false; // Already shown, skip it
+        }
+        
+        return true; // New announcement, show it
       }).toList();
       
       if (announcementActivities.isNotEmpty) {
@@ -270,10 +308,33 @@ class _NotionAppBarState extends State<NotionAppBar> {
         }
         
         if (announcementData != null && mounted) {
-          // Mark as shown
-          _shownAnnouncementIds.add(activityId);
-          await prefs.setInt('lastShownAnnouncementId', activityId);
-          await prefs.setString('shownAnnouncementIds', _shownAnnouncementIds.join(','));
+          // Get the actual announcement ID from the announcement data
+          final announcementId = announcementData['id'] ?? 
+                                 announcementData['announcement_id'] ?? 
+                                 latestAnnouncement['entity_id'];
+          
+          // Check if this specific announcement has already been shown
+          if (announcementId != null) {
+            final announcementIdInt = announcementId is int 
+                ? announcementId 
+                : int.tryParse(announcementId.toString());
+            
+            if (announcementIdInt != null && _shownAnnouncementIds.contains(announcementIdInt)) {
+              print('Announcement already shown, skipping: $announcementIdInt');
+              return;
+            }
+            
+            // Mark announcement as shown (using announcement ID, not activity ID)
+            _shownAnnouncementIds.add(announcementIdInt!);
+            await prefs.setInt('lastShownAnnouncementId', activityId);
+            await prefs.setString('shownAnnouncementIds', _shownAnnouncementIds.join(','));
+            print('Marked announcement as shown: $announcementIdInt');
+          } else {
+            // Fallback: use activity ID if announcement ID not available
+            _shownAnnouncementIds.add(activityId);
+            await prefs.setInt('lastShownAnnouncementId', activityId);
+            await prefs.setString('shownAnnouncementIds', _shownAnnouncementIds.join(','));
+          }
           
           // Show modal after a short delay
           Future.delayed(const Duration(milliseconds: 500), () {

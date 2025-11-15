@@ -44,6 +44,10 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/health\.php$ [NC]
     RewriteRule ^ - [L]
     
+    # Allow favicon files to be accessed directly (bypasses CodeIgniter)
+    RewriteCond %{REQUEST_URI} ^/favicon\.(ico|png)$ [NC]
+    RewriteRule ^ - [L]
+    
     # Route ALL uploads requests through CodeIgniter for CORS headers (Flutter Web compatibility)
     # This MUST come before the file existence check to force images through CodeIgniter
     # This ensures images are served with proper CORS headers even if files exist
