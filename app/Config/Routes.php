@@ -193,6 +193,7 @@ $routes->options('api/payer/login', 'Payer\LoginController::handleOptions'); // 
 $routes->post('api/payer/login', 'Payer\LoginController::mobileLogin'); // Mobile API endpoint
 $routes->get('payer/forgotPassword', 'Payer\LoginController::forgotPassword');
 $routes->post('payer/forgotPasswordPost', 'Payer\LoginController::forgotPasswordPost');
+$routes->post('payer/sendResetCode', 'Payer\LoginController::sendResetCode');
 $routes->post('payer/verifyResetCode', 'Payer\LoginController::verifyResetCode');
 $routes->post('payer/resetPassword', 'Payer\LoginController::resetPassword');
 // Mobile API endpoints for forgot password

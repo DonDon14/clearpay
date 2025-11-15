@@ -206,6 +206,9 @@ class LoginController extends BaseController
             ]);
         }
 
+        // Normalize profile picture URL (handle Cloudinary URLs correctly)
+        $profilePicture = $this->normalizeProfilePictureUrl($payer['profile_picture'] ?? null);
+        
         // Return user data for mobile app (don't use session for mobile)
         return $this->response->setJSON([
             'success' => true,
@@ -218,7 +221,7 @@ class LoginController extends BaseController
                 'email_address' => $payer['email_address'] ?? '', // For compatibility
                 'contact_number' => $payer['contact_number'] ?? '',
                 'phone_number' => $payer['contact_number'] ?? '', // For compatibility
-                'profile_picture' => $payer['profile_picture'] ?? null,
+                'profile_picture' => $profilePicture,
             ],
             // For mobile, you might want to use JWT tokens instead
             // For now, return a simple token (you should implement proper JWT)
@@ -261,8 +264,55 @@ class LoginController extends BaseController
         if (!$payer || empty($payer['email_address'])) {
             // Don't reveal that payer doesn't exist for security
             return $this->response->setJSON([
-                'success' => true,
-                'message' => 'If an account with that email exists, you will receive a password reset verification code.'
+                'success' => false,
+                'error' => 'If an account with that email exists, you will receive a password reset verification code.',
+                'account_found' => false
+            ]);
+        }
+
+        // Return account information for confirmation (masked email for security)
+        $maskedEmail = $this->maskEmail($payer['email_address']);
+        
+        // Normalize profile picture URL (handle Cloudinary URLs correctly)
+        $profilePicture = $this->normalizeProfilePictureUrl($payer['profile_picture'] ?? null);
+        
+        return $this->response->setJSON([
+            'success' => true,
+            'account_found' => true,
+            'account_info' => [
+                'masked_email' => $maskedEmail,
+                'name' => $payer['payer_name'] ?? 'User',
+                'profile_picture' => $profilePicture
+            ]
+        ]);
+    }
+
+    public function sendResetCode()
+    {
+        $email = $this->request->getPost('email');
+
+        if (!$email) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Email is required.'
+            ]);
+        }
+
+        // Find payer by email_address
+        $payers = $this->payerModel->findAll();
+        $payer = null;
+        
+        foreach ($payers as $p) {
+            if (!empty($p['email_address']) && strtolower($p['email_address']) === strtolower($email)) {
+                $payer = $p;
+                break;
+            }
+        }
+
+        if (!$payer || empty($payer['email_address'])) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Account not found.'
             ]);
         }
 
@@ -283,10 +333,65 @@ class LoginController extends BaseController
 
         return $this->response->setJSON([
             'success' => true,
-            'message' => 'If an account with that email exists, you will receive a password reset verification code.',
+            'message' => 'Verification code has been sent to your email.',
             'email_sent' => $emailSent,
             'reset_code' => $resetCode // For testing purposes - remove in production
         ]);
+    }
+
+    /**
+     * Mask email address for security (e.g., j***@example.com)
+     */
+    private function maskEmail($email)
+    {
+        if (empty($email)) {
+            return '';
+        }
+
+        $parts = explode('@', $email);
+        if (count($parts) !== 2) {
+            return $email; // Return as-is if invalid format
+        }
+
+        $localPart = $parts[0];
+        $domain = $parts[1];
+
+        // Mask local part: show first character, mask the rest
+        if (strlen($localPart) <= 1) {
+            $maskedLocal = $localPart;
+        } else {
+            $maskedLocal = substr($localPart, 0, 1) . str_repeat('*', min(strlen($localPart) - 1, 3));
+        }
+
+        return $maskedLocal . '@' . $domain;
+    }
+
+    /**
+     * Normalize profile picture URL to ensure Cloudinary URLs are returned correctly
+     * 
+     * @param string|null $profilePicture The profile picture path/URL from database
+     * @return string|null Normalized profile picture URL
+     */
+    private function normalizeProfilePictureUrl($profilePicture)
+    {
+        if (empty($profilePicture)) {
+            return null;
+        }
+
+        // Check if it's already a Cloudinary URL
+        $cloudinaryService = new \App\Services\CloudinaryService();
+        if ($cloudinaryService->isCloudinaryUrl($profilePicture)) {
+            // Return Cloudinary URL as-is
+            return $profilePicture;
+        }
+
+        // Check if it's already a full URL (http/https)
+        if (strpos($profilePicture, 'http://') === 0 || strpos($profilePicture, 'https://') === 0) {
+            return $profilePicture;
+        }
+
+        // It's a local path - prepend base_url
+        return base_url($profilePicture);
     }
 
     private function sendPasswordResetEmail($email, $name, $code)

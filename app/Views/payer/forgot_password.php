@@ -56,7 +56,7 @@
 
             <button type="submit" class="btn-login" id="sendCodeBtn">
               <i class="fas fa-paper-plane"></i>
-              Send Verification Code
+              Continue
             </button>
 
             <div class="signup-link">
@@ -64,6 +64,31 @@
               <a href="<?= base_url('payer/login') ?>" class="signup-btn">Back to Login</a>
             </div>
           </form>
+        </div>
+
+        <!-- Step 1.5: Account Confirmation -->
+        <div id="step1-5-container" style="display: none;">
+          <div class="account-confirmation">
+            <div class="confirmation-icon" id="confirmationIcon">
+              <img id="accountProfilePicture" src="" alt="Profile Picture" style="display: none; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              <i class="fas fa-user" id="accountIconFallback"></i>
+            </div>
+            <h3 class="confirmation-title">Is this your account?</h3>
+            <div class="account-info">
+              <div class="account-name" id="accountName"></div>
+              <div class="account-email" id="accountEmail"></div>
+            </div>
+            <div class="confirmation-actions">
+              <button type="button" class="btn-login" id="confirmAccountBtn">
+                <i class="fas fa-check"></i>
+                Yes, Send Code
+              </button>
+              <button type="button" class="btn-link" id="notMyAccountBtn">
+                <i class="fas fa-arrow-left"></i>
+                No, This Isn't Me
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Step 2: Verify Code -->
@@ -198,6 +223,7 @@
 
     function showStep(step) {
       document.getElementById('step1-container').style.display = step === 1 ? 'block' : 'none';
+      document.getElementById('step1-5-container').style.display = step === 1.5 ? 'block' : 'none';
       document.getElementById('step2-container').style.display = step === 2 ? 'block' : 'none';
       document.getElementById('step3-container').style.display = step === 3 ? 'block' : 'none';
     }
@@ -218,7 +244,7 @@
       }
     }
 
-    // Step 1: Send verification code
+    // Step 1: Check email and show account confirmation
     document.getElementById('forgotPasswordForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       
@@ -227,7 +253,7 @@
       const originalText = sendBtn.innerHTML;
       
       sendBtn.disabled = true;
-      sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+      sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
       
       try {
         const response = await fetch('<?= base_url('payer/forgotPasswordPost') ?>', {
@@ -240,15 +266,35 @@
         
         const data = await response.json();
         
-        if (data.success) {
+        if (data.success && data.account_found) {
           userEmail = email;
-          showAlert(data.message, 'success');
-          showStep(2);
+          // Show account confirmation
+          document.getElementById('accountName').textContent = data.account_info.name;
+          document.getElementById('accountEmail').textContent = data.account_info.masked_email;
           
-          // Clear email field
-          document.getElementById('email').disabled = true;
+          // Display profile picture if available
+          const profilePicture = data.account_info.profile_picture;
+          const profileImg = document.getElementById('accountProfilePicture');
+          const iconFallback = document.getElementById('accountIconFallback');
+          
+          if (profilePicture) {
+            profileImg.src = profilePicture;
+            profileImg.style.display = 'block';
+            iconFallback.style.display = 'none';
+            profileImg.onerror = function() {
+              // If image fails to load, show icon fallback
+              profileImg.style.display = 'none';
+              iconFallback.style.display = 'block';
+            };
+          } else {
+            profileImg.style.display = 'none';
+            iconFallback.style.display = 'block';
+          }
+          
+          showStep(1.5);
         } else {
-          showAlert(data.error || 'An error occurred. Please try again.', 'danger');
+          // Account not found - show generic message for security
+          showAlert(data.error || 'If an account with that email exists, you will receive a password reset verification code.', 'success');
         }
       } catch (error) {
         showAlert('Network error. Please try again.', 'danger');
@@ -256,6 +302,48 @@
         sendBtn.disabled = false;
         sendBtn.innerHTML = originalText;
       }
+    });
+
+    // Step 1.5: Confirm account and send verification code
+    document.getElementById('confirmAccountBtn').addEventListener('click', async function() {
+      const confirmBtn = document.getElementById('confirmAccountBtn');
+      const originalText = confirmBtn.innerHTML;
+      
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Code...';
+      
+      try {
+        const response = await fetch('<?= base_url('payer/sendResetCode') ?>', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `email=${encodeURIComponent(userEmail)}`
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          showAlert(data.message, 'success');
+          showStep(2);
+          // Disable email field
+          document.getElementById('email').disabled = true;
+        } else {
+          showAlert(data.error || 'Failed to send verification code. Please try again.', 'danger');
+        }
+      } catch (error) {
+        showAlert('Network error. Please try again.', 'danger');
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = originalText;
+      }
+    });
+
+    // Not my account - go back to email entry
+    document.getElementById('notMyAccountBtn').addEventListener('click', function() {
+      document.getElementById('email').value = '';
+      document.getElementById('email').disabled = false;
+      showStep(1);
     });
 
     // Step 2: Verify code
