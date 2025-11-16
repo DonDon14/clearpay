@@ -638,22 +638,22 @@ class PaymentsController extends BaseController
             }
 
             $payerModel = new \App\Models\PayerModel();
+            $db = \Config\Database::connect();
             
-            // Search payers in the payers table
-            $payers = $payerModel->select('
-                id,
-                payer_id,
-                payer_name,
-                contact_number,
-                email_address
-            ')
-            ->groupStart()
-                ->like('payer_name', $term)
-                ->orLike('payer_id', $term)
-            ->groupEnd()
-            ->orderBy('payer_name', 'ASC')
-            ->limit(10)
-            ->findAll();
+            // Make search case-insensitive using LOWER() in raw SQL
+            // Since database collation is utf8mb4_general_ci (case-insensitive),
+            // but to be safe, we'll use LOWER() for explicit case-insensitive matching
+            $lowerTerm = strtolower($term);
+            $escapedTerm = $db->escapeLikeString($lowerTerm);
+            
+            // Use raw SQL query for case-insensitive search
+            $sql = "SELECT id, payer_id, payer_name, contact_number, email_address 
+                    FROM payers 
+                    WHERE LOWER(payer_name) LIKE ? OR LOWER(payer_id) LIKE ? 
+                    ORDER BY payer_name ASC 
+                    LIMIT 10";
+            
+            $payers = $db->query($sql, ["%{$lowerTerm}%", "%{$lowerTerm}%"])->getResultArray();
 
             return $this->response->setJSON([
                 'success' => true,

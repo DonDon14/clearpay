@@ -433,6 +433,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Payer Search Functionality - Extract as reusable function
   function searchPayers(query, inputElement, dropdownElement) {
+    // Trigger search after 2 characters (changed from requiring 2+)
     if (!query || query.trim().length < 2) {
       if (dropdownElement) {
         dropdownElement.style.display = 'none';
