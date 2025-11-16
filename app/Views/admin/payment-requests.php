@@ -614,6 +614,11 @@ $(document).ready(function() {
             return;
         }
 
+        // Get button and show loading state
+        const actionBtn = $('#confirmActionBtn');
+        const originalText = actionBtn.html();
+        actionBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Processing...');
+
         fetch(url, {
             method: 'POST',
             headers: {
@@ -628,6 +633,9 @@ $(document).ready(function() {
         })
         .then(response => response.json())
         .then(data => {
+            // Restore button state
+            actionBtn.prop('disabled', false).html(originalText);
+            
             if (data.success) {
                 alert(successMessage);
                 $('#actionModal').modal('hide');
@@ -641,7 +649,8 @@ $(document).ready(function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            // Restore button state on error
+            actionBtn.prop('disabled', false).html(originalText);
             alert('An error occurred while processing the request.');
         });
     }
@@ -683,6 +692,11 @@ $(document).ready(function() {
     }
 
     function deletePaymentRequest(requestId) {
+        // Get button and show loading state
+        const deleteBtn = $('#confirmDeleteBtn');
+        const originalText = deleteBtn.html();
+        deleteBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Deleting...');
+        
         fetch('<?= base_url('admin/delete-payment-request') ?>', {
             method: 'POST',
             headers: {
@@ -696,6 +710,9 @@ $(document).ready(function() {
         })
         .then(response => response.json())
         .then(data => {
+            // Restore button state
+            deleteBtn.prop('disabled', false).html(originalText);
+            
             if (data.success) {
                 alert('Payment request deleted successfully!');
                 $('#deleteModal').modal('hide');
@@ -705,7 +722,8 @@ $(document).ready(function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            // Restore button state on error
+            deleteBtn.prop('disabled', false).html(originalText);
             alert('An error occurred while deleting the request.');
         });
     }

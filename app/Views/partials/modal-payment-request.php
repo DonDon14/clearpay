@@ -95,16 +95,21 @@ let paymentInstructionsContent = null;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Payment Request Modal initialized');
-    
     // Get DOM elements
     paymentInstructions = document.getElementById('payment_method_instructions');
     paymentInstructionsContent = document.getElementById('payment_instructions_content');
     
-    console.log('Payment instructions elements:', {
-        container: paymentInstructions,
-        content: paymentInstructionsContent
-    });
+    // Reset button state when modal is hidden (safety measure)
+    const paymentRequestModal = document.getElementById('paymentRequestModal');
+    if (paymentRequestModal) {
+        paymentRequestModal.addEventListener('hidden.bs.modal', function() {
+            const submitBtn = document.querySelector('#paymentRequestModal .btn-primary');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Submit Payment Request';
+            }
+        });
+    }
     
     // Listen for payment method changes
     document.addEventListener('click', function(e) {
@@ -508,6 +513,14 @@ function submitPaymentRequest() {
         return;
     }
     
+    // Get submit button and show loading state
+    const submitBtn = document.querySelector('#paymentRequestModal .btn-primary');
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Submitting...';
+    }
+    
     // Submit the form
     fetch('<?= base_url('payer/submit-payment-request') ?>', {
         method: 'POST',
@@ -518,6 +531,12 @@ function submitPaymentRequest() {
     })
     .then(response => response.json())
     .then(data => {
+        // Restore button state first
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+        }
+        
         if (data.success) {
             showNotification(data.message, 'success');
             // Close modal
@@ -530,7 +549,11 @@ function submitPaymentRequest() {
         }
     })
     .catch(error => {
-        console.error('Error submitting payment request:', error);
+        // Restore button on error
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+        }
         showNotification('An error occurred while submitting the payment request', 'error');
     });
 }

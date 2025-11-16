@@ -1391,6 +1391,14 @@ window.submitPayment = function() {
   const form = document.getElementById('paymentForm');
   const formData = new FormData(form);
   
+  // Get submit button and show loading state early
+  const submitBtn = document.querySelector('#addPaymentModal .btn-primary');
+  const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+  }
+  
   // Check if it's a new payer
   const newPayerRadio = document.getElementById('newPayer');
   const isNewPayer = newPayerRadio && newPayerRadio.checked;
@@ -1404,6 +1412,10 @@ window.submitPayment = function() {
     });
     
     if (missingFields.length > 0) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
       alert('Please fill in all new payer information. Missing: ' + missingFields.join(', '));
       return;
     }
@@ -1412,14 +1424,22 @@ window.submitPayment = function() {
     createNewPayer(formData)
       .then(payerId => {
         if (payerId) {
-          // Set the payer_id and proceed with payment
+          // Set the payer_id and proceed with payment (button state already set)
           formData.set('payer_id', payerId);
           processPayment(formData);
         } else {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+          }
           alert('Failed to create new payer');
         }
       })
       .catch(error => {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnText;
+        }
         alert('An error occurred while creating the payer');
       });
   } else {
@@ -1427,6 +1447,10 @@ window.submitPayment = function() {
     const existingPayerIdField = document.getElementById('existingPayerId');
     const existingPayerValue = existingPayerIdField ? existingPayerIdField.value : null;
     if ((!existingPayerValue || existingPayerValue.trim() === '') && !window.selectedPayerId) {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
       // Helpful hint for users: they must click a suggestion, not just type the name
       alert('Please select an existing payer from the Search Payer suggestions by clicking a result (not just typing).');
       return;
@@ -1475,6 +1499,14 @@ function processPayment(formData) {
   // Get the form element
   const form = document.getElementById('paymentForm');
   
+  // Get submit button and show loading state
+  const submitBtn = document.querySelector('#addPaymentModal .btn-primary');
+  const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+  }
+  
   // Check payment method specifically - lookup by name to cover custom dropdown helper
   const paymentMethodInput = document.querySelector('input[name="payment_method"]');
   
@@ -1493,6 +1525,10 @@ function processPayment(formData) {
   const missingFields = requiredFields.filter(field => !formData.get(field));
 
   if (missingFields.length > 0) {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+    }
     alert('Please fill in all required fields');
     return;
   }
@@ -1661,6 +1697,12 @@ function processPayment(formData) {
       modal.hide();
       location.reload();
     } else {
+      // Restore button state on error
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
+      
       // Show detailed validation errors
       let errorMessage = data.message || 'An error occurred';
       
@@ -1680,7 +1722,7 @@ function processPayment(formData) {
         // Show confirmation dialog instead of error alert
         const confirmed = confirm(data.message);
         if (confirmed) {
-          // Add bypass flag and resubmit
+          // Add bypass flag and resubmit (button state will be set again in processPayment)
           formData.set('bypass_duplicate_check', '1');
           processPayment(formData);
         }
@@ -1691,6 +1733,11 @@ function processPayment(formData) {
     }
   })
   .catch(error => {
+    // Restore button state on error
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = originalBtnText;
+    }
     alert('An error occurred while adding the payment');
   });
 }

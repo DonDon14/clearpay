@@ -238,8 +238,16 @@ function editContribution(contributionId) {
 }
 
 // Delete Contribution Function
-function deleteContribution(contributionId) {
+function deleteContribution(contributionId, buttonElement) {
     if (confirm('Are you sure you want to delete this contribution? This action cannot be undone.')) {
+        // Find the delete button and show loading state
+        const deleteBtn = buttonElement || (typeof event !== 'undefined' ? event.target.closest('button') : null);
+        const originalText = deleteBtn ? deleteBtn.innerHTML : '';
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+        }
+        
         fetch(`<?= base_url('contributions/delete/') ?>${contributionId}`, {
             method: 'DELETE',
             headers: {
@@ -249,6 +257,12 @@ function deleteContribution(contributionId) {
         })
         .then(response => response.json())
         .then(data => {
+            // Restore button state
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = originalText;
+            }
+            
             if (data.success) {
                 alert('Contribution deleted successfully!');
                 // Reload the page to show updated list
@@ -258,6 +272,11 @@ function deleteContribution(contributionId) {
             }
         })
         .catch(error => {
+            // Restore button state on error
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = originalText;
+            }
             alert('An error occurred while deleting the contribution.');
         });
     }

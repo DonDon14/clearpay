@@ -578,6 +578,28 @@ class DashboardController extends BaseController
                 $adminName = $admin['name'] ?? $admin['username'] ?? 'Admin';
                 $this->logUserActivity('rejected', 'payment_request', $requestId, "Payment request rejected by {$adminName} for {$payerName}" . ($adminNotes ? " - Reason: {$adminNotes}" : ""));
                 
+                // Get payment request details with payer email for email sending
+                $requestDetails = $paymentRequestModel->select('
+                    payment_requests.*,
+                    payers.payer_name,
+                    payers.email_address,
+                    contributions.title as contribution_title
+                ')
+                ->join('payers', 'payers.id = payment_requests.payer_id', 'left')
+                ->join('contributions', 'contributions.id = payment_requests.contribution_id', 'left')
+                ->where('payment_requests.id', $requestId)
+                ->first();
+                
+                // Send rejection email to payer if email address is available
+                if ($requestDetails && !empty($requestDetails['email_address'])) {
+                    try {
+                        $this->sendPaymentRequestRejectionEmail($requestDetails, $adminNotes);
+                    } catch (\Exception $e) {
+                        log_message('error', 'Failed to send payment request rejection email: ' . $e->getMessage());
+                        // Don't fail the rejection if email fails
+                    }
+                }
+                
                 return $this->response->setJSON([
                     'success' => true,
                     'message' => 'Payment request rejected'
@@ -1204,6 +1226,113 @@ class DashboardController extends BaseController
             return false;
         } catch (\Error $e) {
             log_message('error', 'Failed to send receipt email (Error): ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        }
+    }
+    
+    /**
+     * Send payment request rejection email to payer
+     */
+    private function sendPaymentRequestRejectionEmail($requestDetails, $adminNotes = null)
+    {
+        try {
+            // Check if payer has an email address
+            if (empty($requestDetails['email_address'])) {
+                log_message('info', 'No email address for payer, skipping payment request rejection email');
+                return false;
+            }
+
+            // Get email settings from database or config
+            $emailConfig = $this->getEmailConfig();
+            
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for payment request rejection email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
+            $emailService = \Config\Services::email();
+            
+            // Clear any previous configuration
+            $emailService->clear();
+            
+            // Manually configure SMTP settings to ensure they're current
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n", // Required for SMTP
+                'CRLF' => "\r\n", // Required for SMTP
+                'wordWrap' => true,
+                'validate' => false, // Don't validate email addresses
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for payment request rejection - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
+            $emailService->setTo($requestDetails['email_address']);
+            $emailService->setSubject('Payment Request Rejected - ClearPay');
+            
+            // Format payment method
+            $paymentMethod = ucwords(str_replace('_', ' ', $requestDetails['payment_method'] ?? 'N/A'));
+            
+            // Format dates
+            $requestDate = $requestDetails['created_at'] ?? date('Y-m-d H:i:s');
+            $formattedRequestDate = date('F j, Y \a\t g:i A', strtotime($requestDate));
+            
+            $rejectedDate = date('Y-m-d H:i:s');
+            $formattedRejectedDate = date('F j, Y \a\t g:i A', strtotime($rejectedDate));
+            
+            // Build email message
+            $message = view('emails/payment_request_rejected', [
+                'payerName' => $requestDetails['payer_name'] ?? 'Valued Payer',
+                'referenceNumber' => $requestDetails['reference_number'] ?? 'N/A',
+                'requestedAmount' => $requestDetails['requested_amount'] ?? 0,
+                'contributionTitle' => $requestDetails['contribution_title'] ?? 'N/A',
+                'paymentMethod' => $paymentMethod,
+                'requestDate' => $formattedRequestDate,
+                'rejectedDate' => $formattedRejectedDate,
+                'adminNotes' => $adminNotes ?? $requestDetails['admin_notes'] ?? null
+            ]);
+            
+            $emailService->setMessage($message);
+            
+            // Log email attempt
+            log_message('info', "Attempting to send payment request rejection email to: {$requestDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
+            
+            // Send email
+            $result = $emailService->send();
+            
+            if ($result) {
+                log_message('info', "Payment request rejection email sent successfully to: {$requestDetails['email_address']}");
+                return true;
+            } else {
+                $error = $emailService->printDebugger(['headers', 'subject']);
+                log_message('error', "Failed to send payment request rejection email: {$error}");
+                return false;
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the payment request rejection
+            log_message('error', 'Failed to send payment request rejection email: ' . $e->getMessage());
+            log_message('error', 'Exception details: ' . $e->getTraceAsString());
+            return false;
+        } catch (\Error $e) {
+            log_message('error', 'Failed to send payment request rejection email (Error): ' . $e->getMessage());
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }

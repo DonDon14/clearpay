@@ -98,7 +98,7 @@
                                         </button>
                                         <button class="btn btn-sm btn-outline-danger" 
                                                 style="width: 36px; height: 36px;"
-                                                onclick="deleteContribution(<?= $contribution['id'] ?>)"
+                                                onclick="deleteContribution(<?= $contribution['id'] ?>, this)"
                                                 title="Delete Contribution">
                                             <i class="fas fa-trash"></i>
                                         </button>
