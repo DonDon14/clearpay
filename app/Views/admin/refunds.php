@@ -20,17 +20,6 @@
         <div class="col-xl-3 col-lg-6 col-md-6">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center">
-                    <div class="text-info mb-2">
-                        <i class="fas fa-spinner fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Processing</h5>
-                    <p class="card-text text-muted"><?= $stats['processing'] ?></p>
-                </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
                     <div class="text-success mb-2">
                         <i class="fas fa-check-circle fa-2x"></i>
                     </div>

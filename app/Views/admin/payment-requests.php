@@ -39,18 +39,6 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-primary mb-2">
-                        <i class="fas fa-check-double fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Processed</h5>
-                    <p class="card-text text-muted"><?= $stats['processed'] ?></p>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Payment Requests Management -->

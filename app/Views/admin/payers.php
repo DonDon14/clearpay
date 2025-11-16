@@ -45,18 +45,20 @@
                 <h5 class="card-title mb-0">Payers</h5>
                 <p class="text-muted mb-0 small">Complete list of all registered payers</p>
             </div>
-            <div class="btn-group">
-                <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-file-export me-1"></i>Export
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="#" onclick="exportPayers('csv'); return false;">
-                        <i class="fas fa-file-csv me-2"></i>Export to CSV
-                    </a></li>
-                    <li><a class="dropdown-item" href="#" onclick="exportPayers('pdf'); return false;">
-                        <i class="fas fa-file-pdf me-2"></i>Export to PDF
-                    </a></li>
-                </ul>
+            <div class="d-flex gap-2">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-file-export me-1"></i>Export
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportPayers('csv'); return false;">
+                            <i class="fas fa-file-csv me-2"></i>Export to CSV
+                        </a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportPayers('pdf'); return false;">
+                            <i class="fas fa-file-pdf me-2"></i>Export to PDF
+                        </a></li>
+                    </ul>
+                </div>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
                     <i class="fas fa-plus"></i> Add New Payer
                 </button>
