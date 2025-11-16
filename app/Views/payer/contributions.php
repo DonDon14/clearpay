@@ -123,7 +123,11 @@
                                                                         <?php endif; ?>
                                                                     </div>
                                                                     <div class="text-end">
-                                                                        <small class="fw-bold text-success">₱<?= number_format($group['total_paid'], 2) ?></small>
+                                                                        <?php 
+                                                                        // Use net_paid if available (after refunds), otherwise use total_paid
+                                                                        $displayPaid = isset($group['net_paid']) ? $group['net_paid'] : $group['total_paid'];
+                                                                        ?>
+                                                                        <small class="fw-bold text-success">₱<?= number_format($displayPaid, 2) ?></small>
                                                                         <?php if ($group['computed_status'] !== 'fully paid'): ?>
                                                                             <br><small class="text-muted">Remaining: ₱<?= number_format($group['remaining_balance'], 2) ?></small>
                                                                         <?php endif; ?>
@@ -131,7 +135,9 @@
                                                                 </div>
                                                                 <?php 
     $groupAmount = isset($group['amount']) ? $group['amount'] : (isset($contribution['amount']) ? $contribution['amount'] : 0);
-    $groupProgress = ($groupAmount > 0 && $group['total_paid'] >= $groupAmount) ? 100 : ($groupAmount > 0 ? round(($group['total_paid'] / $groupAmount) * 100, 1) : 0);
+    // Use net_paid if available (after refunds), otherwise use total_paid
+    $groupNetPaid = isset($group['net_paid']) ? $group['net_paid'] : $group['total_paid'];
+    $groupProgress = ($groupAmount > 0 && $groupNetPaid >= $groupAmount) ? 100 : ($groupAmount > 0 ? round(($groupNetPaid / $groupAmount) * 100, 1) : 0);
 ?>
 <div class="mt-1">
     <div class="d-flex justify-content-between align-items-center">
@@ -684,13 +690,20 @@
             if (data.success && data.payments.length > 0) {
                 const firstPayment = data.payments[0];
                 
+                // Calculate net paid and remaining balance accounting for refunds
+                const totalRefunded = parseFloat(groupData.total_refunded || 0);
+                const grossPaid = parseFloat(groupData.total_paid || 0);
+                const netPaid = parseFloat(groupData.net_paid || (grossPaid - totalRefunded));
+                const contributionAmount = parseFloat(firstPayment.contribution_amount || 0);
+                const remainingBalance = Math.max(0, contributionAmount - netPaid);
+                
                 // Create a contribution object with the correct data
                 const contributionData = {
                     id: contributionId,
                     title: firstPayment.contribution_title || 'Contribution',
-                    amount: parseFloat(firstPayment.contribution_amount || 0),
+                    amount: contributionAmount,
                     description: firstPayment.contribution_description || '',
-                    remaining_balance: groupData.remaining_balance || 0,
+                    remaining_balance: remainingBalance,
                     payment_sequence: paymentSequence
                 };
                 
@@ -761,7 +774,13 @@
                                     </small>
                                 </div>
                                 <div class="text-end">
-                                    <div class="fw-bold text-success">₱${parseFloat(group.total_paid || 0).toFixed(2)}</div>
+                                    ${(() => {
+                                        // Use net_paid if available (after refunds), otherwise calculate from total_paid - total_refunded
+                                        const totalRefunded = parseFloat(group.total_refunded || 0);
+                                        const grossPaid = parseFloat(group.total_paid || 0);
+                                        const netPaid = parseFloat(group.net_paid || (grossPaid - totalRefunded));
+                                        return `<div class="fw-bold text-success">₱${Math.max(0, netPaid).toFixed(2)}</div>`;
+                                    })()}
                                     <small class="text-muted">Paid</small>
                                 </div>
                             </div>
@@ -909,11 +928,18 @@
         }
         
         // Prepare contribution data with payment sequence
+        // Calculate net paid and remaining balance accounting for refunds
+        const totalRefunded = parseFloat(groupData.total_refunded || 0);
+        const grossPaid = parseFloat(groupData.total_paid || 0);
+        const netPaid = parseFloat(groupData.net_paid || (grossPaid - totalRefunded));
+        const contributionAmount = parseFloat(contributionData.amount || 0);
+        const remainingBalance = Math.max(0, contributionAmount - netPaid);
+        
         const modifiedContributionData = {
             ...contributionData,
             payment_sequence: paymentSequence,
-            remaining_balance: groupData.remaining_balance || 0,
-            total_paid: groupData.total_paid || 0
+            remaining_balance: remainingBalance,
+            total_paid: netPaid
         };
         
         // Open payment request modal for this specific group
@@ -1080,7 +1106,11 @@
                 // Get contribution data from the first payment
                 const firstPayment = data.payments[0];
                 const contributionAmount = parseFloat(firstPayment.contribution_amount || 0);
-                const totalPaid = parseFloat(groupData.total_paid || 0);
+                // Use net_paid if available (after refunds), otherwise calculate from total_paid - total_refunded
+                const totalRefunded = parseFloat(groupData.total_refunded || 0);
+                const grossPaid = parseFloat(groupData.total_paid || 0);
+                const netPaid = parseFloat(groupData.net_paid || (grossPaid - totalRefunded));
+                const totalPaid = Math.max(0, netPaid); // Use net paid (after refunds)
                 const remainingBalance = parseFloat(groupData.remaining_balance || 0);
                 const progressPercentage = contributionAmount > 0 ? Math.round((totalPaid / contributionAmount) * 100) : 0;
                 

@@ -640,6 +640,13 @@ class DashboardController extends BaseController
                 
                 $group['total_refunded'] = $totalRefunded;
                 
+                // Calculate net paid for this group (payments minus refunds)
+                $groupNetPaid = max(0, (float)$group['total_paid'] - $totalRefunded);
+                $group['net_paid'] = $groupNetPaid;
+                
+                // Recalculate remaining balance for this group accounting for refunds
+                $group['remaining_balance'] = max(0, $contributionAmount - $groupNetPaid);
+                
                 // Determine refund status for the group
                 if ($totalRefunded >= (float)$group['total_paid']) {
                     $group['refund_status'] = 'fully_refunded';
@@ -654,8 +661,12 @@ class DashboardController extends BaseController
             
             // Calculate overall totals
             $totalPaid = array_sum(array_column($paymentGroups, 'total_paid'));
-            $contribution['total_paid'] = $totalPaid;
-            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $totalPaid);
+            // Calculate total refunded across all payment groups
+            $totalRefunded = array_sum(array_column($paymentGroups, 'total_refunded'));
+            // Net paid amount (payments minus refunds)
+            $netPaid = max(0, $totalPaid - $totalRefunded);
+            $contribution['total_paid'] = $netPaid;
+            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $netPaid);
         }
         
         $data = [
@@ -1417,7 +1428,27 @@ class DashboardController extends BaseController
                 ->first();
 
             $totalPaidAmount = $totalPaid['amount_paid'] ?? 0;
-            $remainingAmount = $contribution['amount'] - $totalPaidAmount;
+            
+            // Calculate total refunded for this contribution
+            $payments = $this->paymentModel->where('payer_id', $payerId)
+                ->where('contribution_id', $contributionId)
+                ->where('deleted_at', null)
+                ->findAll();
+            
+            $totalRefunded = 0;
+            $refundModel = new \App\Models\RefundModel();
+            foreach ($payments as $payment) {
+                $refunds = $refundModel
+                    ->selectSum('refund_amount')
+                    ->where('payment_id', $payment['id'])
+                    ->where('status', 'completed')
+                    ->first();
+                $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
+            }
+            
+            // Net paid amount (payments minus refunds)
+            $netPaid = max(0, $totalPaidAmount - $totalRefunded);
+            $remainingAmount = max(0, $contribution['amount'] - $netPaid);
 
             return $this->response->setJSON([
                 'success' => true,
@@ -1426,7 +1457,7 @@ class DashboardController extends BaseController
                     'title' => $contribution['title'],
                     'description' => $contribution['description'],
                     'amount' => $contribution['amount'],
-                    'total_paid' => $totalPaidAmount,
+                    'total_paid' => $netPaid,
                     'remaining_amount' => $remainingAmount,
                     'remaining_balance' => $remainingAmount, // Add for consistency
                     'is_fully_paid' => $remainingAmount <= 0
@@ -2124,10 +2155,46 @@ class DashboardController extends BaseController
             ->orderBy('payment_sequence', 'ASC')
             ->findAll();
             
+            // Add refund statuses to payment groups and recalculate remaining balance
+            $refundModel = new \App\Models\RefundModel();
+            foreach ($paymentGroups as &$group) {
+                // Get all payments in this group
+                $groupPayments = $this->paymentModel
+                    ->where('payer_id', $payerId)
+                    ->where('contribution_id', $contribution['id'])
+                    ->where('COALESCE(payment_sequence, 1)', $group['payment_sequence'])
+                    ->where('deleted_at', null)
+                    ->findAll();
+                
+                // Calculate total refunded for this group
+                $totalRefunded = 0;
+                foreach ($groupPayments as $payment) {
+                    $refunds = $refundModel
+                        ->selectSum('refund_amount')
+                        ->where('payment_id', $payment['id'])
+                        ->where('status', 'completed')
+                        ->first();
+                    $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
+                }
+                
+                $group['total_refunded'] = $totalRefunded;
+                
+                // Calculate net paid for this group (payments minus refunds)
+                $groupNetPaid = max(0, (float)$group['total_paid'] - $totalRefunded);
+                $group['net_paid'] = $groupNetPaid;
+                
+                // Recalculate remaining balance for this group accounting for refunds
+                $group['remaining_balance'] = max(0, $contributionAmount - $groupNetPaid);
+            }
+            
             $contribution['payment_groups'] = $paymentGroups;
             $totalPaid = array_sum(array_column($paymentGroups, 'total_paid'));
-            $contribution['total_paid'] = $totalPaid;
-            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $totalPaid);
+            // Calculate total refunded across all payment groups
+            $totalRefunded = array_sum(array_column($paymentGroups, 'total_refunded'));
+            // Net paid amount (payments minus refunds)
+            $netPaid = max(0, $totalPaid - $totalRefunded);
+            $contribution['total_paid'] = $netPaid;
+            $contribution['remaining_balance'] = max(0, $contribution['amount'] - $netPaid);
         }
         
         return $this->response->setJSON([

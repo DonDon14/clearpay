@@ -292,46 +292,101 @@ window.showPaymentInstructions = showPaymentInstructions;
 
 // Open payment request modal function
 window.openPaymentRequestModal = function(contribution) {
-    // Populate contribution details
-    document.getElementById('modal_contribution_title').textContent = contribution.title || 'N/A';
-    document.getElementById('modal_contribution_description').textContent = contribution.description || 'N/A';
-    document.getElementById('modal_contribution_amount').textContent = '₱' + (parseFloat(contribution.amount || 0)).toFixed(2);
-    document.getElementById('modal_remaining_balance').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2);
-    document.getElementById('modal_max_amount').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2);
+    const contributionId = contribution.id;
     
-    // Reset form first
-    document.getElementById('paymentRequestForm').reset();
-    
-    // Set hidden fields
-    document.getElementById('modal_contribution_id').value = contribution.id || '';
-    // Only set payment_sequence if explicitly provided (for adding to existing group)
-    // Otherwise leave it empty/null so backend creates a new payment sequence/group
-    if (contribution.payment_sequence !== undefined && contribution.payment_sequence !== null && contribution.payment_sequence !== '') {
-        document.getElementById('modal_payment_sequence').value = contribution.payment_sequence;
-    } else {
-        document.getElementById('modal_payment_sequence').value = '';
-    }
-    
-    // Set max amount for input
-    const amountInput = document.getElementById('modal_requested_amount');
-    if (amountInput) {
-        amountInput.max = contribution.remaining_balance || contribution.amount || 0;
-        amountInput.value = (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2); // Set to remaining balance
-    }
-    
-    // Hide payment instructions initially
-    if (paymentInstructions) {
-        paymentInstructions.style.display = 'none';
-    }
-    
-    // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById('paymentRequestModal'));
-    modal.show();
-    
-    // Trigger payment method change after modal is shown to load instructions
-    setTimeout(() => {
-        handlePaymentMethodChange();
-    }, 500);
+    // Fetch fresh contribution details from server to get accurate remaining balance (accounts for refunds)
+    fetch(`${window.APP_BASE_URL || ''}payer/get-contribution-details?contribution_id=${contributionId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.contribution) {
+                // Use fresh data from server
+                contribution = data.contribution;
+            }
+            // Fallback to passed contribution data if fetch fails
+            
+            // Populate contribution details
+            document.getElementById('modal_contribution_title').textContent = contribution.title || 'N/A';
+            document.getElementById('modal_contribution_description').textContent = contribution.description || 'N/A';
+            document.getElementById('modal_contribution_amount').textContent = '₱' + (parseFloat(contribution.amount || 0)).toFixed(2);
+            document.getElementById('modal_remaining_balance').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.remaining_amount || contribution.amount || 0)).toFixed(2);
+            document.getElementById('modal_max_amount').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.remaining_amount || contribution.amount || 0)).toFixed(2);
+            
+            // Reset form first
+            document.getElementById('paymentRequestForm').reset();
+            
+            // Set hidden fields
+            document.getElementById('modal_contribution_id').value = contribution.id || '';
+            // Only set payment_sequence if explicitly provided (for adding to existing group)
+            // Otherwise leave it empty/null so backend creates a new payment sequence/group
+            if (contribution.payment_sequence !== undefined && contribution.payment_sequence !== null && contribution.payment_sequence !== '') {
+                document.getElementById('modal_payment_sequence').value = contribution.payment_sequence;
+            } else {
+                document.getElementById('modal_payment_sequence').value = '';
+            }
+            
+            // Set max amount for input
+            const amountInput = document.getElementById('modal_requested_amount');
+            if (amountInput) {
+                const remainingBalance = parseFloat(contribution.remaining_balance || contribution.remaining_amount || contribution.amount || 0);
+                amountInput.max = remainingBalance;
+                amountInput.value = remainingBalance.toFixed(2); // Set to remaining balance
+            }
+            
+            // Hide payment instructions initially
+            if (paymentInstructions) {
+                paymentInstructions.style.display = 'none';
+            }
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('paymentRequestModal'));
+            modal.show();
+            
+            // Trigger payment method change after modal is shown to load instructions
+            setTimeout(() => {
+                handlePaymentMethodChange();
+            }, 500);
+        })
+        .catch(error => {
+            // If fetch fails, use the passed contribution data as fallback
+            // Populate contribution details
+            document.getElementById('modal_contribution_title').textContent = contribution.title || 'N/A';
+            document.getElementById('modal_contribution_description').textContent = contribution.description || 'N/A';
+            document.getElementById('modal_contribution_amount').textContent = '₱' + (parseFloat(contribution.amount || 0)).toFixed(2);
+            document.getElementById('modal_remaining_balance').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2);
+            document.getElementById('modal_max_amount').textContent = '₱' + (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2);
+            
+            // Reset form first
+            document.getElementById('paymentRequestForm').reset();
+            
+            // Set hidden fields
+            document.getElementById('modal_contribution_id').value = contribution.id || '';
+            if (contribution.payment_sequence !== undefined && contribution.payment_sequence !== null && contribution.payment_sequence !== '') {
+                document.getElementById('modal_payment_sequence').value = contribution.payment_sequence;
+            } else {
+                document.getElementById('modal_payment_sequence').value = '';
+            }
+            
+            // Set max amount for input
+            const amountInput = document.getElementById('modal_requested_amount');
+            if (amountInput) {
+                amountInput.max = contribution.remaining_balance || contribution.amount || 0;
+                amountInput.value = (parseFloat(contribution.remaining_balance || contribution.amount || 0)).toFixed(2);
+            }
+            
+            // Hide payment instructions initially
+            if (paymentInstructions) {
+                paymentInstructions.style.display = 'none';
+            }
+            
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('paymentRequestModal'));
+            modal.show();
+            
+            // Trigger payment method change after modal is shown to load instructions
+            setTimeout(() => {
+                handlePaymentMethodChange();
+            }, 500);
+        });
 };
 
 // Copy to clipboard function
