@@ -22,12 +22,15 @@ class NotionText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final defaultColor = color ?? theme.colorScheme.onSurface;
+    
     return Text(
       text,
       style: TextStyle(
         fontSize: fontSize ?? 14,
         fontWeight: fontWeight ?? FontWeight.normal,
-        color: color ?? const Color(0xFF37352F),
+        color: defaultColor,
         letterSpacing: -0.2,
         height: 1.5,
       ),

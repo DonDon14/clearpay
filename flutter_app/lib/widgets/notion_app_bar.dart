@@ -814,14 +814,19 @@ class _NotionAppBarState extends State<NotionAppBar> {
       effectiveUser = user;
     }
     
+    final theme = Theme.of(context);
+    
     return AppBar(
       elevation: 0,
-      backgroundColor: Colors.white,
+      backgroundColor: theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface,
       surfaceTintColor: Colors.transparent,
       leading: Builder(
         builder: (BuildContext context) {
           return IconButton(
-            icon: const Icon(Icons.menu, color: Color(0xFF37352F)),
+            icon: Icon(
+              Icons.menu,
+              color: theme.appBarTheme.iconTheme?.color ?? theme.colorScheme.onSurface,
+            ),
             onPressed: () {
               try {
                 Scaffold.of(context).openDrawer();
@@ -853,8 +858,8 @@ class _NotionAppBarState extends State<NotionAppBar> {
                     ),
                     Text(
                       widget.title,
-                      style: const TextStyle(
-                        color: Color(0xFF1F2937),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
                         fontSize: 24,
                         fontWeight: FontWeight.w600,
                         height: 1.2,
@@ -868,8 +873,8 @@ class _NotionAppBarState extends State<NotionAppBar> {
                     padding: const EdgeInsets.only(left: 16),
                     child: Text(
                       widget.subtitle!,
-                      style: const TextStyle(
-                        color: Color(0xFF6B7280),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),
@@ -907,8 +912,11 @@ class _NotionAppBarState extends State<NotionAppBar> {
             clipBehavior: Clip.none,
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined,
-                    color: Color(0xFF37352F), size: 22),
+                icon: Icon(
+                  Icons.notifications_outlined,
+                  color: theme.colorScheme.onSurface,
+                  size: 22,
+                ),
                 onPressed: _toggleDropdown,
               ),
               // Use ValueListenableBuilder for badge - shows unread count (like web portal)

@@ -222,8 +222,10 @@ class _DashboardContentState extends State<DashboardContent> with SingleTickerPr
       payerName = user['payer_name'] ?? user['name'] ?? 'User';
     }
 
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFBFE),
+      backgroundColor: theme.scaffoldBackgroundColor,
       drawer: const AppNavigationDrawer(),
       appBar: NotionAppBar(
         title: 'Dashboard',
@@ -433,7 +435,6 @@ class _DashboardContentWidget extends StatelessWidget {
                 child: NotionText(
                   'See All',
                   fontSize: 14,
-                  color: const Color(0xFF37352F),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -459,7 +460,6 @@ class _DashboardContentWidget extends StatelessWidget {
                 child: NotionText(
                   'See All',
                   fontSize: 14,
-                  color: const Color(0xFF37352F),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -473,6 +473,11 @@ class _DashboardContentWidget extends StatelessWidget {
   }
 
   Widget _buildTotalPaidCard(double totalPaid) {
+    final theme = Theme.of(context);
+    final secondaryTextColor = theme.colorScheme.onSurface.withOpacity(0.6);
+    final iconBackgroundColor = theme.colorScheme.surfaceVariant;
+    final iconColor = theme.colorScheme.onSurface;
+    
     return NotionCard(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -486,14 +491,13 @@ class _DashboardContentWidget extends StatelessWidget {
                 NotionText(
                   'Total Paid',
                   fontSize: 14,
-                  color: const Color(0xFF787774),
+                  color: secondaryTextColor,
                 ),
                 const SizedBox(height: 8),
                 NotionText(
                   '₱${NumberFormat('#,##0.00').format(totalPaid)}',
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF37352F),
                 ),
               ],
             ),
@@ -501,12 +505,12 @@ class _DashboardContentWidget extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F1EF),
+              color: iconBackgroundColor,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.account_balance_wallet,
-              color: Color(0xFF37352F),
+              color: iconColor,
               size: 24,
             ),
           ),
@@ -520,7 +524,6 @@ class _DashboardContentWidget extends StatelessWidget {
       title,
       fontSize: 18,
       fontWeight: FontWeight.w600,
-      color: const Color(0xFF37352F),
     );
   }
 
@@ -612,7 +615,6 @@ class _DashboardContentWidget extends StatelessWidget {
               child: NotionText(
                 label,
                 fontSize: 12,
-                color: const Color(0xFF787774),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -632,12 +634,15 @@ class _DashboardContentWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.receipt_long, size: 48, color: Colors.grey[400]),
+              Icon(
+                Icons.receipt_long,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+              ),
               const SizedBox(height: 16),
               NotionText(
                 'No payments yet',
                 fontSize: 14,
-                color: const Color(0xFF787774),
               ),
             ],
           ),
@@ -651,7 +656,10 @@ class _DashboardContentWidget extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: payments.length > 5 ? 5 : payments.length,
-        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE9E9E7)),
+        separatorBuilder: (context, index) => Divider(
+          height: 1,
+          color: Theme.of(context).dividerColor,
+        ),
         itemBuilder: (context, index) {
           final payment = payments[index];
           final date = payment['payment_date'] ?? payment['created_at'] ?? '';
@@ -697,7 +705,6 @@ class _DashboardContentWidget extends StatelessWidget {
                         NotionText(
                           _formatDate(date),
                           fontSize: 13,
-                          color: const Color(0xFF787774),
                         ),
                       ],
                     ),
@@ -732,12 +739,15 @@ class _DashboardContentWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.notifications_off, size: 48, color: Colors.grey[400]),
+              Icon(
+                Icons.notifications_off,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+              ),
               const SizedBox(height: 16),
               NotionText(
                 'No announcements',
                 fontSize: 14,
-                color: const Color(0xFF787774),
               ),
             ],
           ),
@@ -751,7 +761,10 @@ class _DashboardContentWidget extends StatelessWidget {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: announcements.length > 3 ? 3 : announcements.length,
-        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE9E9E7)),
+        separatorBuilder: (context, index) => Divider(
+          height: 1,
+          color: Theme.of(context).dividerColor,
+        ),
         itemBuilder: (context, index) {
           final announcement = announcements[index];
           final title = announcement['title'] ?? 'No Title';
@@ -797,7 +810,6 @@ class _DashboardContentWidget extends StatelessWidget {
                           NotionText(
                             text.length > 80 ? '${text.substring(0, 80)}...' : text,
                             fontSize: 13,
-                            color: const Color(0xFF787774),
                             maxLines: 2,
                           ),
                         ],
@@ -806,7 +818,6 @@ class _DashboardContentWidget extends StatelessWidget {
                           NotionText(
                             _formatDate(date),
                             fontSize: 12,
-                            color: const Color(0xFF9B9A97),
                           ),
                         ],
                       ],

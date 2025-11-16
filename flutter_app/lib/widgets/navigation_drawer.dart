@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/theme_provider.dart';
 import '../screens/main_navigation_screen.dart';
 import '../screens/contributions_screen.dart';
 import '../screens/payment_requests_screen.dart';
@@ -79,9 +80,12 @@ class AppNavigationDrawer extends StatelessWidget {
     const activeBackground = Color(0xFFEFF6FF);
     const lightGray = Color(0xFFF3F4F6);
     
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return Drawer(
       width: 260, // Matching web portal sidebar width
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       child: SafeArea(
         child: Column(
           children: [
@@ -90,10 +94,23 @@ class AppNavigationDrawer extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               constraints: const BoxConstraints(minHeight: 90),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
+              decoration: BoxDecoration(
+                // Use shadow instead of border for 3D effect
+                boxShadow: isDark
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.4),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -142,10 +159,10 @@ class AppNavigationDrawer extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         // ClearPay Text (always shown, matching web portal)
-                        const Text(
+                        Text(
                           'ClearPay',
                           style: TextStyle(
-                            color: darkGray,
+                            color: theme.colorScheme.onSurface,
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.025,
@@ -156,7 +173,11 @@ class AppNavigationDrawer extends StatelessWidget {
                   ),
                   // Close button (mobile)
                   IconButton(
-                    icon: const Icon(Icons.close, color: mediumGray, size: 20),
+                    icon: Icon(
+                      Icons.close,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      size: 20,
+                    ),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -168,17 +189,30 @@ class AppNavigationDrawer extends StatelessWidget {
           // Profile Section (styled to match web portal design)
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-              ),
+            decoration: BoxDecoration(
+              // Use shadow instead of border for 3D effect
+              boxShadow: isDark
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
             ),
             child: Row(
               children: [
                 // Profile Picture
                 CircleAvatar(
                   radius: 24,
-                  backgroundColor: lightGray,
+                  backgroundColor: theme.colorScheme.surfaceVariant,
                   backgroundImage: profilePicture != null && 
                       profilePicture.toString().trim().isNotEmpty &&
                       profilePicture.toString().trim().toLowerCase() != 'null'
@@ -215,8 +249,8 @@ class AppNavigationDrawer extends StatelessWidget {
                     children: [
                       Text(
                         userName,
-                        style: const TextStyle(
-                          color: darkGray,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -227,7 +261,7 @@ class AppNavigationDrawer extends StatelessWidget {
                       Text(
                         userEmail,
                         style: TextStyle(
-                          color: mediumGray,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                           fontSize: 13,
                         ),
                         maxLines: 1,
@@ -297,13 +331,26 @@ class AppNavigationDrawer extends StatelessWidget {
                     );
                   },
                 ),
-                // Divider (matching web portal)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Divider(
-                    color: Color(0xFFE5E7EB),
-                    height: 1,
-                    thickness: 1,
+                // Spacer with subtle shadow instead of divider
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  height: 1,
+                  decoration: BoxDecoration(
+                    boxShadow: isDark
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                   ),
                 ),
                 _buildDrawerItem(
@@ -345,6 +392,30 @@ class AppNavigationDrawer extends StatelessWidget {
                     );
                   },
                 ),
+                // Spacer with subtle shadow instead of divider
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  height: 1,
+                  decoration: BoxDecoration(
+                    boxShadow: isDark
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                  ),
+                ),
+                // Dark Mode Toggle
+                _buildDarkModeToggle(context),
               ],
             ),
           ),
@@ -352,10 +423,23 @@ class AppNavigationDrawer extends StatelessWidget {
           // Footer with Help & Support (matching web portal)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-              ),
+            decoration: BoxDecoration(
+              // Use shadow instead of border for 3D effect
+              boxShadow: isDark
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, -2),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, -1),
+                      ),
+                    ],
             ),
             child: Column(
               children: [
@@ -373,8 +457,28 @@ class AppNavigationDrawer extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 8),
-                // Divider before logout
-                const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                // Spacer with subtle shadow instead of divider
+                Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    boxShadow: isDark
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                  ),
+                ),
                 const SizedBox(height: 8),
                 // Logout button
                 _buildLogoutItem(context),
@@ -457,9 +561,74 @@ class AppNavigationDrawer extends StatelessWidget {
     return fullUrl;
   }
 
+  Widget _buildDarkModeToggle(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final isDark = themeProvider.isDarkMode;
+        final hoverBackground = theme.colorScheme.surfaceVariant;
+        final iconColor = theme.colorScheme.onSurface.withOpacity(0.7);
+        final textColor = theme.colorScheme.onSurface;
+        
+        return StatefulBuilder(
+          builder: (context, setState) {
+            bool _isHovered = false;
+            return MouseRegion(
+              onEnter: (_) => setState(() => _isHovered = true),
+              onExit: (_) => setState(() => _isHovered = false),
+              child: InkWell(
+                onTap: () {
+                  themeProvider.toggleTheme();
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _isHovered ? hoverBackground : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isDark ? Icons.dark_mode : Icons.light_mode,
+                        color: iconColor,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Dark Mode',
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: isDark,
+                        onChanged: (value) {
+                          themeProvider.toggleTheme();
+                        },
+                        activeColor: theme.colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildLogoutItem(BuildContext context) {
-    const errorRed = Color(0xFFDC2626);
-    const hoverBackground = Color(0xFFF9FAFB);
+    final theme = Theme.of(context);
+    final errorColor = theme.colorScheme.error;
+    final hoverBackground = theme.colorScheme.surfaceVariant;
 
     return StatefulBuilder(
       builder: (context, setState) {
@@ -473,19 +642,19 @@ class AppNavigationDrawer extends StatelessWidget {
               final shouldLogout = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('Logout'),
-                  content: const Text('Are you sure you want to logout?'),
+                  title: Text('Logout'),
+                  content: Text('Are you sure you want to logout?'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(false),
-                      child: const Text('Cancel'),
+                      child: Text('Cancel'),
                     ),
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(true),
                       style: TextButton.styleFrom(
-                        foregroundColor: errorRed,
+                        foregroundColor: errorColor,
                       ),
-                      child: const Text('Logout'),
+                      child: Text('Logout'),
                     ),
                   ],
                 ),
@@ -518,17 +687,17 @@ class AppNavigationDrawer extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.logout,
-                    color: errorRed,
+                    color: errorColor,
                     size: 16,
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Logout',
                       style: TextStyle(
-                        color: errorRed,
+                        color: errorColor,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -631,14 +800,15 @@ class _DrawerItem extends StatefulWidget {
 class _DrawerItemState extends State<_DrawerItem> {
   bool _isHovered = false;
 
-  // Web portal color scheme
-  static const primaryBlue = Color(0xFF3B82F6);
-  static const mediumGray = Color(0xFF6B7280);
-  static const activeBackground = Color(0xFFEFF6FF);
-  static const hoverBackground = Color(0xFFF9FAFB);
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+    final activeBackground = theme.colorScheme.primaryContainer.withOpacity(0.3);
+    final hoverBackground = theme.colorScheme.surfaceVariant;
+    final inactiveColor = theme.colorScheme.onSurface.withOpacity(0.6);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -655,20 +825,29 @@ class _DrawerItemState extends State<_DrawerItem> {
                     ? hoverBackground
                     : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            border: widget.isActive
-                ? const Border(
-                    left: BorderSide(
-                      color: primaryBlue,
-                      width: 3,
+            // Use shadow instead of border for active state (3D effect)
+            boxShadow: widget.isActive
+                ? [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(2, 0),
+                      spreadRadius: 0,
                     ),
-                  )
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(1, 0),
+                      spreadRadius: 0,
+                    ),
+                  ]
                 : null,
           ),
           child: Row(
             children: [
               Icon(
                 widget.icon,
-                color: widget.isActive ? primaryBlue : mediumGray,
+                color: widget.isActive ? primaryColor : inactiveColor,
                 size: 16,
               ),
               const SizedBox(width: 12),
@@ -676,7 +855,7 @@ class _DrawerItemState extends State<_DrawerItem> {
                 child: Text(
                   widget.title,
                   style: TextStyle(
-                    color: widget.isActive ? primaryBlue : mediumGray,
+                    color: widget.isActive ? primaryColor : inactiveColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
