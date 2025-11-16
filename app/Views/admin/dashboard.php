@@ -131,9 +131,6 @@
                             'modalTarget' => null,
                             'colClass' => 'col-6'
                         ]) ?>
-                        <script>
-                        console.log('DEBUG: Announcements URL:', <?= json_encode(base_url('announcements') . '?open_modal=true') ?>);
-                        </script>
                         <?php 
                         unset($modalTarget, $link); // Clear variables
                         ?>

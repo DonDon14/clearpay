@@ -366,25 +366,10 @@ $(document).ready(function() {
             payment_sequence: $(this).data('payment-sequence') || 1
         };
         
-        // Debug: Log the data being passed
-        console.log('=== BUTTON CLICK DEBUG ===');
-        console.log('Raw button data attributes:', {
-            'data-payer-id': $(this).data('payer-id'),
-            'data-payer-name': $(this).data('payer-name'),
-            'data-contribution-id': $(this).data('contribution-id'),
-            'data-contribution-title': $(this).data('contribution-title'),
-            'data-contribution-amount': $(this).data('contribution-amount'),
-            'data-total-paid': $(this).data('total-paid'),
-            'data-remaining-balance': $(this).data('remaining-balance')
-        });
-        console.log('Constructed paymentData:', paymentData);
-        
         // Use the dedicated additional payment modal
         if (typeof openAddPaymentToPartialModal === 'function') {
-            console.log('Calling openAddPaymentToPartialModal with:', paymentData);
             openAddPaymentToPartialModal(paymentData);
         } else {
-            console.error('openAddPaymentToPartialModal function not found');
             alert('Additional payment modal is not available');
         }
     });
@@ -407,22 +392,18 @@ $(document).ready(function() {
             }
         })
         .then(response => {
-            console.log('Response status:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.text().then(text => {
-                console.log('Response text:', text);
                 try {
                     return JSON.parse(text);
                 } catch (e) {
-                    console.error('JSON parse error:', e);
                     throw new Error('Invalid JSON response: ' + text.substring(0, 100));
                 }
             });
         })
         .then(data => {
-            console.log('Payment data received:', data);
             if (data.success) {
                 if (typeof showQRReceipt === 'function') {
                     showQRReceipt(data.payment);
@@ -434,7 +415,6 @@ $(document).ready(function() {
             }
         })
         .catch(error => {
-            console.error('Fetch error:', error);
             alert('An error occurred while fetching payment details: ' + error.message);
         });
     });
@@ -499,7 +479,6 @@ $(document).ready(function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             alert('An error occurred while fetching payment history.');
         });
     }
@@ -761,12 +740,9 @@ $(document).ready(function() {
         .then(data => {
             if (data.success) {
                 displayPayerResults(data.results);
-            } else {
-                console.error('Search failed:', data.message);
             }
         })
         .catch(error => {
-            console.error('Error:', error);
         });
     }
 
@@ -943,14 +919,12 @@ $(document).ready(function() {
     }
 
     window.confirmDuplicatePayment = function() {
-        console.log('confirmDuplicatePayment called'); // Debug log
         
         if (!window.pendingPaymentData) {
             alert('No payment data found');
                             return;
         }
         
-        console.log('Pending payment data:', window.pendingPaymentData); // Debug log
         
         const formData = window.pendingPaymentData;
         
@@ -966,8 +940,6 @@ $(document).ready(function() {
             formData.remaining_balance = remainingBalance;
         }
         
-        console.log('Form data being sent:', formData); // Debug log
-
         fetch('<?= base_url('payments/save-with-confirmation') ?>', {
             method: 'POST',
             headers: {
@@ -978,11 +950,9 @@ $(document).ready(function() {
             body: new URLSearchParams(formData)
         })
         .then(response => {
-            console.log('Response status:', response.status); // Debug log
             return response.json();
         })
         .then(data => {
-            console.log('Response data:', data); // Debug log
             if (data.success) {
                 alert('Payment added successfully!');
                 $('#duplicatePaymentModal').modal('hide');
@@ -993,7 +963,6 @@ $(document).ready(function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             alert('An error occurred while adding the payment.');
         });
         
@@ -1035,7 +1004,6 @@ $(document).ready(function() {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
                 alert('Error loading payment details');
             });
     });
@@ -1131,7 +1099,6 @@ $(document).ready(function() {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
             alert('An error occurred while deleting the payment.');
         })
         .finally(() => {
@@ -1193,8 +1160,6 @@ $(document).ready(function() {
         // Disable button to prevent double-click
         $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-2"></i>Deleting...');
 
-        // Debug logging
-        console.log('Delete Group Data:', currentDeleteGroupData);
         
         // Send delete request
         fetch('<?= base_url('payments/delete-group') ?>', {
@@ -1226,7 +1191,6 @@ $(document).ready(function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             alert('An error occurred while deleting the payment group.');
         })
         .finally(() => {
@@ -1357,7 +1321,6 @@ $(document).ready(function() {
                 modalEl.removeEventListener('hidden.bs.modal', onHide);
             }, { once: true });
         } catch (error) {
-            console.error('Payments ID scanner error:', error);
             const msg = (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError'))
                 ? 'Camera permission denied. Allow camera in site permissions.'
                 : (error && error.name === 'NotReadableError')

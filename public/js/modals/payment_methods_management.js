@@ -590,8 +590,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize user-friendly interface
     initializeUserFriendlyInterface();
-    
-    console.log('Payment Methods Management initialized');
 });
 
 // Initialize user-friendly interface

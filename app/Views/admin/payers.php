@@ -443,8 +443,6 @@
 })();
 
 function viewPayerDetails(payerId) {
-    console.log('View payer details:', payerId);
-    
     // Fetch payer details and payment history
     fetch(`<?= base_url('payers/get-details/') ?>${payerId}`)
         .then(response => response.json())
@@ -533,14 +531,11 @@ function viewPayerDetails(payerId) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('Error loading payer details', 'error');
         });
 }
 
 function editPayer(payerId) {
-    console.log('Edit payer:', payerId);
-    
     // Fetch payer details
     fetch(`<?= base_url('payers/get/') ?>${payerId}`)
         .then(response => response.json())
@@ -568,10 +563,9 @@ function editPayer(payerId) {
                 showNotification(data.message || 'Error loading payer information', 'error');
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error loading payer information', 'error');
-        });
+            .catch(error => {
+                showNotification('Error loading payer information', 'error');
+            });
 }
 
 function saveEditedPayer(event) {
@@ -598,14 +592,11 @@ function saveEditedPayer(event) {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         showNotification('Error updating payer', 'error');
     });
 }
 
 function exportPayerPDF(payerId) {
-    console.log('Export payer PDF:', payerId);
-    
     // Show loading notification
     showNotification('Generating PDF...', 'info');
     
@@ -614,8 +605,6 @@ function exportPayerPDF(payerId) {
 }
 
 function viewPaymentReceiptFromPayer(paymentId) {
-    console.log('View payment receipt from payer:', paymentId);
-    
     // Check if viewPaymentReceipt function exists (from payments page or modal)
     if (typeof window.viewPaymentReceipt !== 'undefined') {
         // Call the existing function if available
@@ -637,7 +626,6 @@ function viewPaymentReceiptFromPayer(paymentId) {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
                 showNotification('Error loading payment details', 'error');
             });
     }
@@ -765,7 +753,6 @@ function deletePayer() {
         }
     })
     .catch(error => {
-        console.error('Error deleting payer:', error);
         if (typeof window.showNotification === 'function') {
             window.showNotification('An error occurred while deleting the payer', 'error');
         } else {

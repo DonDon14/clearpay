@@ -10,17 +10,13 @@ if (typeof window.APP_BASE_URL === 'undefined') {
 
 // Load contribution categories function - must be defined globally
 window.loadContributionCategories = function() {
-    console.log('loadContributionCategories() called');
-    
     if (typeof jQuery === 'undefined') {
-        console.error('jQuery not available for loadContributionCategories!');
         return;
     }
     
     const tbody = $('#contributionCategoriesTableBody');
     
     if (!tbody.length) {
-        console.error('Table body not found!');
         return;
     }
     
@@ -28,7 +24,6 @@ window.loadContributionCategories = function() {
     tbody.html('<tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>Loading categories...</td></tr>');
     
     const url = window.APP_BASE_URL + 'admin/settings/contribution-categories/data';
-    console.log('Fetching from URL:', url);
     
     $.ajax({
         url: url,
@@ -38,20 +33,16 @@ window.loadContributionCategories = function() {
             'X-Requested-With': 'XMLHttpRequest'
         },
         success: function(response) {
-            console.log('Categories response:', response);
             tbody.empty();
             
             // Check if we got valid data
             if (!response || !response.success) {
-                console.error('Invalid response:', response);
                 tbody.html('<tr><td colspan="6" class="text-center text-warning py-4"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>Invalid response from server. Please refresh the page.</td></tr>');
                 return;
             }
             
             if (response.data && response.data.length > 0) {
-                console.log('Found', response.data.length, 'categories');
                 response.data.forEach(function(category) {
-                    console.log('Processing category:', category);
                     const statusBadge = category.status === 'active' ? 
                         '<span class="badge bg-success">Active</span>' : 
                         '<span class="badge bg-secondary">Inactive</span>';
@@ -95,18 +86,10 @@ window.loadContributionCategories = function() {
                     tbody.append(row);
                 });
             } else {
-                console.log('No categories found');
                 tbody.html('<tr><td colspan="6" class="text-center text-muted py-4"><i class="fas fa-folder-open fa-2x mb-2"></i><br>No categories found. Add your first category to get started.</td></tr>');
             }
         },
         error: function(xhr, status, error) {
-            console.error('Failed to load categories:', {
-                xhr: xhr,
-                status: status,
-                error: error,
-                responseText: xhr.responseText,
-                statusCode: xhr.status
-            });
             tbody.html('<tr><td colspan="6" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>Failed to load categories. Please refresh and try again.<br><small>' + error + ' (Status: ' + xhr.status + ')</small></td></tr>');
         }
     });
@@ -114,7 +97,6 @@ window.loadContributionCategories = function() {
 
 // Edit category - make it globally available
 window.editContributionCategory = window.editContributionCategory || function(id) {
-    console.log('editContributionCategory called with id:', id);
     $.ajax({
         url: window.APP_BASE_URL + 'admin/settings/contribution-categories/data',
         type: 'GET',
@@ -139,7 +121,6 @@ window.editContributionCategory = window.editContributionCategory || function(id
             }
         },
         error: function(xhr) {
-            console.error('Failed to load category:', xhr);
             if (typeof showNotification === 'function') {
                 showNotification('Failed to load category details', 'error');
             } else {
@@ -155,7 +136,6 @@ window.toggleContributionCategoryStatus = window.toggleContributionCategoryStatu
         return;
     }
     
-    console.log('toggleContributionCategoryStatus called with id:', id);
     $.ajax({
         url: window.APP_BASE_URL + 'admin/settings/contribution-categories/toggle-status/' + id,
         type: 'POST',
@@ -176,7 +156,6 @@ window.toggleContributionCategoryStatus = window.toggleContributionCategoryStatu
             }
         },
         error: function(xhr) {
-            console.error('Failed to toggle status:', xhr);
             if (typeof showNotification === 'function') {
                 showNotification('An error occurred while updating the category status', 'error');
             } else {
@@ -192,7 +171,6 @@ window.deleteContributionCategory = window.deleteContributionCategory || functio
         return;
     }
     
-    console.log('deleteContributionCategory called with id:', id);
     $.ajax({
         url: window.APP_BASE_URL + 'admin/settings/contribution-categories/delete/' + id,
         type: 'POST',
@@ -213,7 +191,6 @@ window.deleteContributionCategory = window.deleteContributionCategory || functio
             }
         },
         error: function(xhr) {
-            console.error('Failed to delete:', xhr);
             if (typeof showNotification === 'function') {
                 showNotification('An error occurred while deleting the category', 'error');
             } else {
@@ -252,7 +229,6 @@ function setupContributionCategoryForms() {
             processData: false,
             contentType: false,
             success: function(response) {
-                console.log('Create response:', response);
                 if (response.success) {
                     // Close only the add modal, keep the main modal open
                     $('#addContributionCategoryModal').modal('hide');
@@ -261,10 +237,7 @@ function setupContributionCategoryForms() {
                     // Wait a moment for modal to close, then refresh
                     setTimeout(function() {
                         if (typeof window.loadContributionCategories === 'function') {
-                            console.log('Refreshing categories table after create...');
                             window.loadContributionCategories();
-                        } else {
-                            console.error('loadContributionCategories function not available!');
                         }
                     }, 300);
                     
@@ -285,7 +258,6 @@ function setupContributionCategoryForms() {
                 }
             },
             error: function(xhr) {
-                console.error('Create error:', xhr);
                 if (typeof showNotification === 'function') {
                     showNotification('An error occurred while creating the category', 'error');
                 } else {
@@ -316,7 +288,6 @@ function setupContributionCategoryForms() {
             processData: false,
             contentType: false,
             success: function(response) {
-                console.log('Update response:', response);
                 if (response.success) {
                     // Close only the edit modal, keep the main modal open
                     $('#editContributionCategoryModal').modal('hide');
@@ -324,10 +295,7 @@ function setupContributionCategoryForms() {
                     // Wait a moment for modal to close, then refresh
                     setTimeout(function() {
                         if (typeof window.loadContributionCategories === 'function') {
-                            console.log('Refreshing categories table after update...');
                             window.loadContributionCategories();
-                        } else {
-                            console.error('loadContributionCategories function not available!');
                         }
                     }, 300);
                     
@@ -348,7 +316,6 @@ function setupContributionCategoryForms() {
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Update error:', {xhr: xhr, status: status, error: error, responseText: xhr.responseText});
                 if (typeof showNotification === 'function') {
                     showNotification('An error occurred while updating the category', 'error');
                 } else {
@@ -399,14 +366,11 @@ function displayValidationErrors(formSelector, errors) {
 // Initialize when jQuery and DOM are ready
 if (typeof jQuery !== 'undefined') {
     $(document).ready(function() {
-        console.log('Contribution categories script initialized (jQuery ready)');
-        
         // Set up form handlers
         setupContributionCategoryForms();
         
         // Load categories when modal is shown
         $('#contributionCategoriesModal').off('shown.bs.modal').on('shown.bs.modal', function() {
-            console.log('Categories modal opened, loading data...');
             if (typeof window.loadContributionCategories === 'function') {
                 window.loadContributionCategories();
             }
@@ -414,19 +378,13 @@ if (typeof jQuery !== 'undefined') {
         
         // Prevent the main modal from closing when child modals close
         $('#addContributionCategoryModal, #editContributionCategoryModal').on('hidden.bs.modal', function() {
-            console.log('Child modal closed, ensuring main modal stays open');
             // Ensure the main modal backdrop is still there
-            if ($('#contributionCategoriesModal').hasClass('show')) {
-                console.log('Main categories modal is still open - good!');
-            }
         });
         
         // Also trigger on button click as backup
         $('button[data-bs-target="#contributionCategoriesModal"]').on('click', function() {
-            console.log('Categories modal button clicked');
             setTimeout(function() {
                 if ($('#contributionCategoriesModal').hasClass('show')) {
-                    console.log('Modal is now shown, loading data...');
                     if (typeof window.loadContributionCategories === 'function') {
                         window.loadContributionCategories();
                     }
@@ -437,7 +395,6 @@ if (typeof jQuery !== 'undefined') {
 } else {
     // Wait for jQuery
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('Contribution categories script loaded, waiting for jQuery...');
         var checkJQuery = setInterval(function() {
             if (typeof jQuery !== 'undefined') {
                 clearInterval(checkJQuery);
@@ -454,6 +411,4 @@ if (typeof jQuery !== 'undefined') {
         setTimeout(function() { clearInterval(checkJQuery); }, 5000);
     });
 }
-
-console.log('Contribution categories script loaded');
 

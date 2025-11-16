@@ -18,7 +18,6 @@ let groupedPaymentsCache = [];
  */
 function loadGroupedPayments() {
     if (typeof jQuery === 'undefined') {
-        console.error('jQuery is required for refund transaction modal');
         return;
     }
 
@@ -31,12 +30,10 @@ function loadGroupedPayments() {
                 groupedPaymentsCache = response.data;
                 renderGroupedPayments();
             } else {
-                console.error('Failed to load payment groups:', response.message);
                 $('#groupsList, #sequencesList').html('<tr><td colspan="6" class="text-center text-danger py-4">Failed to load payment groups</td></tr>');
             }
         },
         error: function(xhr) {
-            console.error('Error loading payment groups:', xhr);
             $('#groupsList, #sequencesList').html('<tr><td colspan="6" class="text-center text-danger py-4">Error loading payment groups</td></tr>');
         }
     });
@@ -105,7 +102,6 @@ function renderGroupedPayments() {
  */
 function initRefundTransactionModal() {
     if (typeof jQuery === 'undefined') {
-        console.error('jQuery is required for refund transaction modal');
         return;
     }
 
@@ -313,7 +309,6 @@ function initRefundTransactionModal() {
                         // Update selected payments when checkboxes change
                         updateSequencePaymentSelection();
                     }).catch(function(error) {
-                        console.error('Error loading payment details:', error);
                         // Fallback: show all payments as available
                         group.payments.forEach(function(payment) {
                             paymentsHtml += `
@@ -460,7 +455,6 @@ function initRefundTransactionModal() {
                 } else if (xhr.status >= 500) {
                     message = 'Server error. Please try again later.';
                 }
-                console.error('Refund processing error:', xhr);
                 showNotification(message, 'error');
             }
         });
@@ -523,7 +517,6 @@ if (typeof jQuery !== 'undefined') {
     });
 }
 
-console.log('Refund transaction script loaded');
 
 // --- Global Functions for Opening Refund Modal with Pre-filled Data ---
 
@@ -560,7 +553,6 @@ window.openRefundModalForGroup = function(payerId, contributionId, sequence) {
                 setTimeout(trySelectGroup, 300); // Retry after 300ms
             } else {
                 // If we still can't find it, directly call the select group handler with the data
-                console.log('Button not found, directly selecting group:', {payerId, contributionId, sequence});
                 // Trigger the AJAX call directly
                 $.ajax({
                     url: window.APP_BASE_URL + 'admin/refunds/get-payment-group-details',
@@ -655,7 +647,6 @@ window.openRefundModalForPayment = function(paymentId, payerId, contributionId, 
                 setTimeout(trySelectSequence, 300); // Retry after 300ms
             } else {
                 // If button still not found, directly call the AJAX to load group details
-                console.log('Button not found, directly loading sequence:', {paymentId, payerId, contributionId, sequence});
                 loadSequenceAndSelectPayment(payerId, contributionId, sequence, paymentId);
             }
         };

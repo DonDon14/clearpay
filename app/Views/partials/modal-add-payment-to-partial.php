@@ -35,10 +35,10 @@ $action = $action ?? base_url('payments/save');
 
                 <form id="addPaymentToPartialForm" action="<?= $action ?>" method="POST">
                     <!-- Hidden fields -->
-                    <input type="hidden" id="payerId" name="payer_id">
-                    <input type="hidden" id="payerName" name="payer_name">
-          <input type="hidden" id="contributionId" name="contribution_id">
-                    <input type="hidden" id="paymentDate" name="payment_date" value="<?= get_current_datetime('Y-m-d H:i:s') ?>">
+                    <input type="hidden" id="partialPayerId" name="payer_id">
+                    <input type="hidden" id="partialPayerName" name="payer_name">
+          <input type="hidden" id="partialContributionId" name="contribution_id">
+                    <input type="hidden" id="partialPaymentDate" name="payment_date" value="<?= get_current_datetime('Y-m-d H:i:s') ?>">
           
           <!-- Amount to Pay -->
           <div class="mb-3">
@@ -82,22 +82,13 @@ let currentPartialPaymentData = null;
 
 // Function to open additional payment modal
 function openAddPaymentToPartialModal(payment) {
-    console.log('=== OPENADD PAYMENT TO PARTIAL MODAL CALLED ===');
-    console.log('Opening additional payment modal for:', payment);
-    
     // Validate payment data
     if (!payment) {
-        console.error('No payment data provided');
         alert('No payment data provided');
         return;
     }
     
     if (!payment.id || !payment.contribution_id || !payment.payer_name) {
-        console.error('Missing required payment data:', {
-            id: payment.id,
-            contribution_id: payment.contribution_id,
-            payer_name: payment.payer_name
-        });
         alert('Missing required payment data');
         return;
     }
@@ -110,8 +101,6 @@ function openAddPaymentToPartialModal(payment) {
     
     // Wait for modal to be shown before populating
     modal._element.addEventListener('shown.bs.modal', function() {
-        console.log('=== MODAL SHOWN - STARTING POPULATION ===');
-        
         // Update modal title with payer name and contribution group
         const groupText = payment.payment_sequence ? ` - Group ${payment.payment_sequence}` : '';
         const titleElement = document.getElementById('addPaymentToPartialModalLabel');
@@ -148,69 +137,41 @@ function openAddPaymentToPartialModal(payment) {
         }
         
         // CRITICAL: Populate hidden fields with multiple attempts
-        console.log('=== POPULATING HIDDEN FIELDS ===');
-        
         // Try multiple times to ensure elements exist
         setTimeout(() => {
-            const payerIdElement = document.getElementById('payerId');
-            const payerNameElement = document.getElementById('payerName');
-            const contributionIdElement = document.getElementById('contributionId');
-            
-            console.log('Hidden field elements found:', {
-                payerId: payerIdElement,
-                payerName: payerNameElement,
-                contributionId: contributionIdElement
-            });
+            const payerIdElement = document.getElementById('partialPayerId');
+            const payerNameElement = document.getElementById('partialPayerName');
+            const contributionIdElement = document.getElementById('partialContributionId');
             
             if (payerIdElement) {
                 payerIdElement.value = payment.id || '';
-                console.log('Set payerId to:', payerIdElement.value);
-            } else {
-                console.error('payerId element not found!');
             }
             
             if (payerNameElement) {
                 payerNameElement.value = payment.payer_name || '';
-                console.log('Set payerName to:', payerNameElement.value);
-            } else {
-                console.error('payerName element not found!');
             }
             
             if (contributionIdElement) {
                 contributionIdElement.value = payment.contribution_id || '';
-                console.log('Set contributionId to:', contributionIdElement.value);
-    } else {
-                console.error('contributionId element not found!');
             }
-            
-            // Verify values were set
-            console.log('Final hidden field values:', {
-                payerId: payerIdElement ? payerIdElement.value : 'NOT FOUND',
-                payerName: payerNameElement ? payerNameElement.value : 'NOT FOUND',
-                contributionId: contributionIdElement ? contributionIdElement.value : 'NOT FOUND'
-            });
         }, 100);
         
         // Backup population attempt after longer delay
         setTimeout(() => {
-            console.log('=== BACKUP POPULATION ATTEMPT ===');
-            const payerIdElement = document.getElementById('payerId');
-            const payerNameElement = document.getElementById('payerName');
-            const contributionIdElement = document.getElementById('contributionId');
+            const payerIdElement = document.getElementById('partialPayerId');
+            const payerNameElement = document.getElementById('partialPayerName');
+            const contributionIdElement = document.getElementById('partialContributionId');
             
             if (payerIdElement && !payerIdElement.value) {
                 payerIdElement.value = payment.id || '';
-                console.log('Backup: Set payerId to:', payerIdElement.value);
             }
             
             if (payerNameElement && !payerNameElement.value) {
                 payerNameElement.value = payment.payer_name || '';
-                console.log('Backup: Set payerName to:', payerNameElement.value);
             }
             
             if (contributionIdElement && !contributionIdElement.value) {
                 contributionIdElement.value = payment.contribution_id || '';
-                console.log('Backup: Set contributionId to:', contributionIdElement.value);
             }
         }, 500);
         
@@ -219,34 +180,27 @@ function openAddPaymentToPartialModal(payment) {
         
         const paymentMethodElement = document.getElementById('partialPaymentMethod');
         if (paymentMethodElement) paymentMethodElement.value = '';
-        
-        console.log('Modal populated successfully');
     }, { once: true });
 }
 
 // Function to submit additional payment (isolated from main modal)
 function submitPartialPayment() {
     // CRITICAL: Ensure hidden fields are populated before form submission
-    console.log('=== PRE-SUBMIT FIELD POPULATION ===');
-    
     if (currentPartialPaymentData) {
-        const payerIdElement = document.getElementById('payerId');
-        const payerNameElement = document.getElementById('payerName');
-        const contributionIdElement = document.getElementById('contributionId');
+        const payerIdElement = document.getElementById('partialPayerId');
+        const payerNameElement = document.getElementById('partialPayerName');
+        const contributionIdElement = document.getElementById('partialContributionId');
         
         if (payerIdElement) {
             payerIdElement.value = currentPartialPaymentData.id || '';
-            console.log('Pre-submit: Set payerId to:', payerIdElement.value);
         }
         
         if (payerNameElement) {
             payerNameElement.value = currentPartialPaymentData.payer_name || '';
-            console.log('Pre-submit: Set payerName to:', payerNameElement.value);
         }
         
         if (contributionIdElement) {
             contributionIdElement.value = currentPartialPaymentData.contribution_id || '';
-            console.log('Pre-submit: Set contributionId to:', contributionIdElement.value);
         }
         
         // Force DOM update
@@ -264,55 +218,26 @@ function submitPartialPayment() {
         formData.set('payer_id', currentPartialPaymentData.id || '');
         formData.set('payer_name', currentPartialPaymentData.payer_name || '');
         formData.set('contribution_id', currentPartialPaymentData.contribution_id || '');
-        console.log('Manually added to FormData:', {
-            payer_id: currentPartialPaymentData.id,
-            payer_name: currentPartialPaymentData.payer_name,
-            contribution_id: currentPartialPaymentData.contribution_id
-        });
-    }
-    
-    // Debug: Log all form data
-    console.log('=== FORM DATA DEBUG ===');
-    for (let [key, value] of formData.entries()) {
-        console.log(`${key}: ${value}`);
     }
     
     // Validate required fields
     const amountPaid = parseFloat(formData.get('amount_paid')) || 0;
     let paymentMethod = formData.get('payment_method');
     
-    console.log('Amount paid:', amountPaid);
-    console.log('Payment method from form:', paymentMethod);
-    
     // Additional validation for payment method helper
     const paymentMethodInput = document.getElementById('partialPaymentMethod_input');
     if (paymentMethodInput && paymentMethodInput.value) {
         paymentMethod = paymentMethodInput.value;
         formData.set('payment_method', paymentMethod);
-        console.log('Payment method from helper:', paymentMethod);
     } else {
-        console.log('Payment method input not found or empty');
-        console.log('Available payment method elements:', {
-            input: document.getElementById('partialPaymentMethod_input'),
-            button: document.getElementById('partialPaymentMethod_button'),
-            container: document.getElementById('partialPaymentMethod')
-        });
-        
         // Try alternative IDs that the helper might be using
         const altInput = document.querySelector('input[name="payment_method"]');
         const altButton = document.querySelector('button[id*="paymentMethod"]');
-        console.log('Alternative elements found:', {
-            altInput: altInput,
-            altButton: altButton,
-            altInputValue: altInput ? altInput.value : 'N/A'
-        });
         
         if (altInput && altInput.value) {
             paymentMethod = altInput.value;
             formData.set('payment_method', paymentMethod);
-            console.log('Using alternative payment method:', paymentMethod);
         } else {
-            console.log('Alternative payment method input also empty');
             // Try to get the selected text from the button
             const altButton = document.querySelector('button[id*="paymentMethod"]');
             if (altButton && altButton.textContent && altButton.textContent !== 'Select Payment Method') {
@@ -321,14 +246,12 @@ function submitPartialPayment() {
                 const paymentMethodName = buttonText.split(' ')[0]; // Get first word (e.g., "BPI" from "BPI Bank")
                 paymentMethod = paymentMethodName;
                 formData.set('payment_method', paymentMethod);
-                console.log('Using payment method from button text:', paymentMethod);
             }
         }
     }
     
     if (!amountPaid || !paymentMethod) {
         alert('Please fill in all required fields');
-        console.log('Validation failed - missing fields');
         return;
     }
     
@@ -340,9 +263,11 @@ function submitPartialPayment() {
     formData.set('remaining_balance', Math.max(0, newRemaining).toString());
     
     // Disable button and show loading
-    const saveBtn = event.target;
-    saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+    const saveBtn = document.querySelector('#addPaymentToPartialModal .btn-primary');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+    }
     
     fetch(form.action, {
         method: 'POST',
@@ -353,25 +278,24 @@ function submitPartialPayment() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Server response:', data);
         if (data.success) {
             alert('Payment added successfully!');
             const modal = bootstrap.Modal.getInstance(document.getElementById('addPaymentToPartialModal'));
             modal.hide();
             location.reload();
         } else {
-            console.log('Validation errors:', data.errors);
             alert('Error: ' + (data.message || 'Failed to add payment'));
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         alert('An error occurred while adding the payment');
     })
     .finally(() => {
         // Re-enable button
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Payment';
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Payment';
+        }
     });
 }
 
@@ -383,7 +307,6 @@ document.addEventListener('DOMContentLoaded', function() {
         amountInput.addEventListener('input', function() {
             const remainingBalanceElement = document.getElementById('summaryRemainingBalance');
             if (!remainingBalanceElement) {
-                console.error('summaryRemainingBalance element not found');
                 return;
             }
             
@@ -425,7 +348,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const amountPaidElement = document.getElementById('partialAmountPaid');
             
             if (!remainingBalanceElement || !amountPaidElement) {
-                console.error('Required elements not found for fully paid button');
                 return;
             }
             

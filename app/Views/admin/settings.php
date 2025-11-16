@@ -338,7 +338,6 @@ document.addEventListener('change', function(e) {
             }
         })
         .catch(error => {
-            console.error('Toggle notifications error:', error);
             showNotification('An error occurred while updating email notifications', 'error');
             // Revert checkbox
             e.target.checked = !enabled;
@@ -386,7 +385,6 @@ function configureEmail() {
         }
     })
     .catch(error => {
-        console.error('Email config load error:', error);
         showNotification('An error occurred while loading email configuration', 'error');
     });
 }
@@ -431,7 +429,6 @@ function saveSmtpConfig() {
         }
     })
     .catch(error => {
-        console.error('Save config error:', error);
         showNotification('An error occurred while saving configuration', 'error');
     })
     .finally(() => {
@@ -478,7 +475,6 @@ function manageTemplates() {
         }
     })
     .catch(error => {
-        console.error('Templates load error:', error);
         showNotification('An error occurred while loading email templates', 'error');
     });
 }
@@ -555,7 +551,6 @@ function testEmail() {
                     `- SMTP Crypto: ${diag.smtp_crypto || 'NOT SET'}\n` +
                     `- From Email: ${diag.from_email || 'NOT SET'}`;
                 errorMsg += diagMsg;
-                console.error('📊 Email Configuration Diagnostics:', data.diagnostics);
                 
                 // Add specific hint if password is empty
                 if (!diag.smtp_pass_set || diag.smtp_pass_length === 0) {
@@ -564,16 +559,9 @@ function testEmail() {
             }
             
             showNotification(errorMsg, 'error');
-            if (data.debug) {
-                console.error('Email debug info:', data.debug);
-            }
-            if (data.phpError) {
-                console.error('PHP Error:', data.phpError);
-            }
         }
     })
     .catch(error => {
-        console.error('Test email error:', error);
         showNotification('An error occurred while sending test email', 'error');
     })
     .finally(() => {
@@ -631,7 +619,6 @@ function downloadLogs() {
         }
     })
     .catch(error => {
-        console.error('Logs download error:', error);
         showNotification('An error occurred while downloading logs', 'error');
     })
     .finally(() => {
@@ -714,7 +701,6 @@ function createBackup() {
         }
     })
     .catch(error => {
-        console.error('Backup error:', error);
         showNotification('An error occurred while creating the backup', 'error');
     })
     .finally(() => {
@@ -754,7 +740,6 @@ function clearCache() {
         }
     })
     .catch(error => {
-        console.error('Cache clear error:', error);
         showNotification('An error occurred while clearing cache', 'error');
     })
     .finally(() => {
@@ -818,7 +803,6 @@ function editSystemVersion() {
             }
         })
         .catch(error => {
-            console.error('Version update error:', error);
             showNotification('An error occurred while updating version', 'error');
         });
     }
@@ -826,8 +810,6 @@ function editSystemVersion() {
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('System Settings page loaded');
-    
     // Load email notifications status
     fetch('/admin/email-settings/notifications-status', {
         method: 'GET',
@@ -846,7 +828,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     })
     .catch(error => {
-        console.error('Failed to load email notifications status:', error);
+        // Silently fail - notifications status is optional
     });
 });
 

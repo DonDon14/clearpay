@@ -233,7 +233,6 @@ function editContribution(contributionId) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             alert('An error occurred while loading contribution data.');
         });
 }
@@ -259,7 +258,6 @@ function deleteContribution(contributionId) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             alert('An error occurred while deleting the contribution.');
         });
     }
@@ -288,7 +286,6 @@ function toggleContributionStatus(contributionId, currentStatus) {
         }
     })
     .catch(error => {
-        console.error('Error:', error);
         alert('An error occurred while updating the contribution status.');
     });
 }

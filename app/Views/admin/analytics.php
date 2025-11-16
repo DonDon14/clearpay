@@ -139,9 +139,6 @@ $trends = $trends ?? [];
 const chartData = <?= json_encode($charts ?? []) ?>;
 const paymentData = <?= json_encode($payments ?? []) ?>;
 
-console.log('Chart Data:', chartData);
-console.log('Payment Data:', paymentData);
-
 // Initialize charts when page loads
 document.addEventListener('DOMContentLoaded', function() {
     initializeCharts();

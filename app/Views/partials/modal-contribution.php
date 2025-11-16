@@ -9,7 +9,7 @@
                 </div>
 
                 <div class="modal-body">
-                    <input type="hidden" name="id" id="contributionId" value="<?= isset($contribution['id']) ? $contribution['id'] : '' ?>">
+                    <input type="hidden" name="id" id="contributionEditId" value="<?= isset($contribution['id']) ? $contribution['id'] : '' ?>">
 
                     <div class="mb-3">
                         <label for="contributionTitle" class="form-label">Title</label>

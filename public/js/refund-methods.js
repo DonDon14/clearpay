@@ -448,7 +448,6 @@ if (typeof jQuery !== 'undefined') {
 } else {
     // Wait for jQuery
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('Refund methods script loaded, waiting for jQuery...');
         var checkJQuery = setInterval(function() {
             if (typeof jQuery !== 'undefined') {
                 clearInterval(checkJQuery);
@@ -465,6 +464,4 @@ if (typeof jQuery !== 'undefined') {
         setTimeout(function() { clearInterval(checkJQuery); }, 5000);
     });
 }
-
-console.log('Refund methods script loaded');
 

@@ -241,10 +241,8 @@ function loadShownAnnouncementIds() {
         if (stored) {
             const ids = JSON.parse(stored);
             shownAnnouncementIds = new Set(ids);
-            console.log('Loaded shown announcement IDs:', Array.from(shownAnnouncementIds));
         }
     } catch (e) {
-        console.error('Error loading shown announcement IDs:', e);
         shownAnnouncementIds = new Set();
     }
 }
@@ -254,7 +252,6 @@ function saveShownAnnouncementIds() {
     try {
         localStorage.setItem('shownAnnouncementIds', JSON.stringify(Array.from(shownAnnouncementIds)));
     } catch (e) {
-        console.error('Error saving shown announcement IDs:', e);
     }
 }
 
@@ -267,17 +264,13 @@ function hasAnnouncementBeenShown(announcementId) {
 function markAnnouncementAsShown(announcementId) {
     shownAnnouncementIds.add(String(announcementId));
     saveShownAnnouncementIds();
-    console.log('Marked announcement as shown:', announcementId);
 }
 
 // Function to show announcement notification
 function showAnnouncementNotification(announcementData) {
-    console.log('Showing announcement notification:', announcementData);
-    
     // Check if this announcement has already been shown
     const announcementId = announcementData.id || announcementData.announcement_id;
     if (announcementId && hasAnnouncementBeenShown(announcementId)) {
-        console.log('Announcement already shown, skipping:', announcementId);
         return;
     }
     
@@ -568,15 +561,12 @@ let lastDataFetch = 0; // Track last fetch time for caching
 
 // Function to check for new activities
 function checkForNewActivities() {
-    console.log('Checking for new activities...');
-    
     // Check if we should skip this request due to caching
     const now = Date.now();
     const timeSinceLastFetch = now - lastDataFetch;
     
     // If data was fetched less than 10 seconds ago and we have data, skip
     if (timeSinceLastFetch < 10000 && notificationDataLoaded && currentActivities.length > 0) {
-        console.log('Skipping fetch - data is fresh (cached)');
         return;
     }
     
@@ -584,11 +574,8 @@ function checkForNewActivities() {
     const storedLastShownId = localStorage.getItem('lastShownActivityId');
     lastShownActivityId = storedLastShownId ? parseInt(storedLastShownId) : 0;
     
-    console.log('Last shown activity ID:', lastShownActivityId);
-    
     // Build URL with last shown ID
     const url = `${window.APP_BASE_URL}payer/check-new-activities?last_shown_id=${lastShownActivityId}`;
-    console.log('Checking URL:', url);
     
     // Update last fetch time
     lastDataFetch = now;
@@ -596,38 +583,24 @@ function checkForNewActivities() {
     // Add timeout to prevent long loading
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-        console.log('Request timeout - aborting');
         controller.abort();
     }, 10000); // 10 second timeout
     
     fetch(url, { signal: controller.signal })
         .then(response => {
             clearTimeout(timeoutId);
-            console.log('Response status:', response.status);
             return response.json();
         })
         .then(data => {
-            console.log('Activity check response:', data);
-            console.log('Response success:', data.success);
-            console.log('Activities count:', data.activities ? data.activities.length : 0);
-            console.log('New activities count:', data.newActivities ? data.newActivities.length : 0);
-            
             if (data.success && data.activities) {
                 currentActivities = data.activities;
                 
                 // DON'T clear the unread set - preserve user's read status
                 // Only add new activities that are truly unread
                 
-                console.log('Checking condition: data.activities exists:', !!data.activities);
-                console.log('Checking condition: data.activities.length:', data.activities ? data.activities.length : 'undefined');
-                console.log('Condition result:', data.activities && data.activities.length > 0);
-                
                 if (data.activities && data.activities.length > 0) {
-                    console.log('About to process activities in forEach loop. Count:', data.activities.length);
                     // Process activities for Facebook-like logic
                     data.activities.forEach(activity => {
-                        console.log('=== INSIDE forEach loop ===');
-                        console.log('Processing activity:', activity.id, 'Title:', activity.title);
                         const activityIdStr = String(activity.id);
                         
                         // Add to unseen set if it's a NEW activity (not already processed)
@@ -636,35 +609,17 @@ function checkForNewActivities() {
                         
                         if (isNewActivity && !unseenActivityIds.has(activityIdStr)) {
                             unseenActivityIds.add(activityIdStr);
-                            console.log('Added new unseen activity:', activityIdStr);
                         }
                         
                         // Add to unread set if not individually read
-                        console.log('Processing activity:', activityIdStr, 'is_read_by_payer:', activity.is_read_by_payer, 'type:', typeof activity.is_read_by_payer);
-                        
                         // Convert to number for proper comparison
                         const isReadByPayer = parseInt(activity.is_read_by_payer) || 0;
-                        console.log('Converted is_read_by_payer to number:', isReadByPayer);
                         
                         if (isReadByPayer === 0 && !unreadActivityIds.has(activityIdStr)) {
                             unreadActivityIds.add(activityIdStr);
-                            console.log('Added new unread activity:', activityIdStr);
-                        } else if (isReadByPayer === 1) {
-                            console.log('Activity already read by payer:', activityIdStr);
                         }
                     });
-                    
-                    console.log('Current unseen activities:', unseenActivityIds.size);
-                    console.log('Current unread activities:', unreadActivityIds.size);
-                    console.log('unreadActivityIds contents:', Array.from(unreadActivityIds));
-                } else {
-                    console.log('CONDITION FAILED: Not processing activities');
-                    console.log('data.activities:', data.activities);
-                    console.log('data.activities.length:', data.activities ? data.activities.length : 'undefined');
                 }
-                
-                console.log('After processing - unreadActivityIds:', unreadActivityIds.size);
-                console.log('After processing - unseenActivityIds:', unseenActivityIds.size);
                 
                 // Update unread activities set with new activities (if any)
                 if (data.newActivities && data.newActivities.length > 0) {

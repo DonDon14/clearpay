@@ -215,7 +215,6 @@ let currentReceiptData = null;
 
 // Make function globally available and log for debugging
 window.showQRReceipt = function(paymentData) {
-    console.log('showQRReceipt called with data:', paymentData);
     currentReceiptData = paymentData;
     
     // Populate receipt data
@@ -308,8 +307,6 @@ function generateQRCode(paymentData) {
     // Generate QR code using external API with error correction
     const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=H&data=${encodeURIComponent(qrText)}`;
     
-    console.log('Generating QR code for:', paymentData);
-    console.log('QR API URL:', qrApiUrl);
     
     // Show loading state
     qrContainer.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm text-primary mb-2" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0 small">Generating QR code...</p></div>';
@@ -324,17 +321,13 @@ function generateQRCode(paymentData) {
     let triedFallback = false;
     
     qrImage.onload = function() {
-        console.log('QR code loaded successfully from:', qrImage.src);
         qrContainer.innerHTML = '';
         qrContainer.appendChild(qrImage);
     };
     
     qrImage.onerror = function() {
-        console.error('Primary QR API failed');
-        
         if (!triedFallback) {
             triedFallback = true;
-            console.log('Trying Google Charts API fallback...');
             
             // Fallback: use Google Charts API with smaller size
             const fallbackUrl = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(qrText)}&choe=UTF-8`;
@@ -342,7 +335,6 @@ function generateQRCode(paymentData) {
             qrImage.src = '';
             qrImage.src = fallbackUrl;
         } else {
-            console.error('Both QR APIs failed');
             // Both failed - show receipt number
             qrContainer.innerHTML = `
                 <div class="text-center">
@@ -533,7 +525,6 @@ function downloadQRReceipt() {
         qrImg.src = qrImage.src;
         
     } catch (error) {
-        console.error('Download error:', error);
         alert('An error occurred while downloading the QR code. Please try again.');
     }
 }
@@ -735,8 +726,7 @@ function buildReceiptHTML(paymentData) {
                 <h3>🔲 QR Receipt Code</h3>
                 <div class="qr-code">
                     <img src="${qrUrl}" alt="QR Code for Receipt ${paymentData.receipt_number || paymentData.id}" 
-                         onerror="console.error('QR image failed to load:', this.src); 
-                                  this.onerror=null; 
+                         onerror="this.onerror=null; 
                                   this.src='https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(qrText)}&choe=UTF-8';"
                          crossorigin="anonymous" />
                 </div>
@@ -754,15 +744,8 @@ function buildReceiptHTML(paymentData) {
 </html>`;
 }
 
-// Reset modal when closed and verify function is loaded
+// Reset modal when closed
 document.addEventListener('DOMContentLoaded', function() {
-    // Verify showQRReceipt function is available
-    if (typeof window.showQRReceipt === 'function') {
-        console.log('✓ showQRReceipt function is loaded and available');
-    } else {
-        console.error('✗ showQRReceipt function is NOT available');
-    }
-    
     const qrReceiptModal = document.getElementById('qrReceiptModal');
     if (qrReceiptModal) {
         qrReceiptModal.addEventListener('hidden.bs.modal', function() {
@@ -770,13 +753,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
-
-// Also verify immediately (in case DOM is already loaded)
-if (typeof window.showQRReceipt === 'function') {
-    console.log('✓ showQRReceipt function is available (immediate check)');
-} else {
-    console.error('✗ showQRReceipt function is NOT available (immediate check)');
-}
 </script>
 
 <style>

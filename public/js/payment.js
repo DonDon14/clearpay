@@ -320,11 +320,6 @@ window.submitPayment = function() {
         formData.set('payer_id', selectedPayer.id);
     }
     
-    // Debug: Log form data
-    console.log('Form data being sent:');
-    for (let [key, value] of formData.entries()) {
-        console.log(key + ': ' + value);
-    }
 
     const submitBtn = document.querySelector('#addPaymentModal .btn-primary');
     const originalText = submitBtn.innerHTML;

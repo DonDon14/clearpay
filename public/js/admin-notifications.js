@@ -33,15 +33,12 @@ function closeAdminNotificationDropdown() {
 
 // Function to check for new admin activities
 function checkForNewAdminActivities() {
-    console.log('Checking for new admin activities...');
-    
     // Check if we should skip this request due to caching
     const now = Date.now();
     const timeSinceLastFetch = now - lastAdminDataFetch;
     
     // If data was fetched less than 10 seconds ago and we have data, skip
     if (timeSinceLastFetch < 10000 && adminNotificationDataLoaded && currentAdminActivities.length > 0) {
-        console.log('Skipping fetch - data is fresh (cached)');
         return;
     }
     
@@ -50,11 +47,8 @@ function checkForNewAdminActivities() {
     const storedLastShownId = localStorage.getItem(lastShownKey);
     lastShownAdminActivityId = storedLastShownId ? parseInt(storedLastShownId) : 0;
     
-    console.log('Last shown admin activity ID:', lastShownAdminActivityId);
-    
     // Build URL with last shown ID
     const url = `${window.APP_BASE_URL}admin/check-new-activities?last_shown_id=${lastShownAdminActivityId}`;
-    console.log('Checking URL:', url);
     
     // Update last fetch time
     lastAdminDataFetch = now;
@@ -62,18 +56,15 @@ function checkForNewAdminActivities() {
     // Add timeout to prevent long loading
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-        console.log('Request timeout - aborting');
         controller.abort();
     }, 10000); // 10 second timeout
     
     fetch(url, { signal: controller.signal })
         .then(response => {
             clearTimeout(timeoutId);
-            console.log('Response status:', response.status);
             return response.json();
         })
         .then(data => {
-            console.log('Admin activity check response:', data);
             
             if (data.success && data.activities) {
                 currentAdminActivities = data.activities;
@@ -91,7 +82,6 @@ function checkForNewAdminActivities() {
                         
                         if ((isNewActivity || isUnreadOnFirstLoad) && !unseenAdminActivityIds.has(activityIdStr)) {
                             unseenAdminActivityIds.add(activityIdStr);
-                            console.log('Added new unseen admin activity:', activityIdStr, 'isNew:', isNewActivity, 'isUnreadOnFirstLoad:', isUnreadOnFirstLoad);
                         }
                         
                         // Add to unread set if not individually read (for dots/indicators)
@@ -100,11 +90,9 @@ function checkForNewAdminActivities() {
                         
                         if (isReadByAdmin === 0 && !unreadAdminActivityIds.has(activityIdStr)) {
                             unreadAdminActivityIds.add(activityIdStr);
-                            console.log('Added new unread admin activity:', activityIdStr);
                         } else if (isReadByAdmin === 1 && unreadAdminActivityIds.has(activityIdStr)) {
                             // Remove from unread if it's been read
                             unreadAdminActivityIds.delete(activityIdStr);
-                            console.log('Removed read admin activity from unread set:', activityIdStr);
                         }
                     });
                     
@@ -131,7 +119,6 @@ function checkForNewAdminActivities() {
                     lastShownAdminActivityId = maxId;
                 }
             } else {
-                console.log('No admin activities found:', data.message);
                 hideAdminNotificationBadge();
                 adminNotificationDataLoaded = true;
                 updateAdminNotificationDropdown([]);
@@ -139,7 +126,6 @@ function checkForNewAdminActivities() {
         })
         .catch(error => {
             clearTimeout(timeoutId);
-            console.error('Error checking for new admin activities:', error);
             
             adminNotificationDataLoaded = true;
             
@@ -191,22 +177,11 @@ function updateAdminNotificationDropdown(activities) {
         const activityIdStr = String(activity.id);
         const isUnread = unreadAdminActivityIds.has(activityIdStr);
         
-        // Debug: Log activity object to see what fields are available
-        console.log('Processing activity:', {
-            id: activity.id,
-            activity_type: activity.activity_type,
-            entity_type: activity.entity_type,
-            action: activity.action,
-            allKeys: Object.keys(activity)
-        });
-        
         // Handle null/undefined entity_id safely
         const entityId = activity.entity_id || activity.entity_id === 0 ? activity.entity_id : 'null';
         const activityId = activity.id || 0;
         // Try multiple ways to get activity_type - it might be stored differently
         const activityType = activity.activity_type || activity.entity_type || activity.type || 'unknown';
-        
-        console.log('Extracted activity type:', activityType, 'from activity:', activity);
         
         // Build click handler URL based on activity type
         let clickUrl = `${window.APP_BASE_URL || ''}dashboard`;
@@ -283,34 +258,24 @@ function updateAdminNotificationDropdown(activities) {
 
 // Function to handle admin notification click
 function handleAdminNotificationClick(activityId, activityType, entityId) {
-    console.log('Admin notification clicked:', { activityId, activityType, entityId });
-    console.log('Activity Type:', activityType, 'Type:', typeof activityType);
-    console.log('Current activities array:', currentAdminActivities);
-    
     // Validate inputs
     if (!activityId) {
-        console.error('Invalid notification click - missing activityId');
         return;
     }
     
     // Try multiple ways to get activity_type if not provided
     if (!activityType || activityType === 'unknown' || activityType === 'null' || activityType === 'undefined') {
-        console.warn('Activity type not provided or invalid:', activityType, '- attempting to find from current activities');
-        
         // Try to get activity type from current activities
         if (currentAdminActivities && currentAdminActivities.length > 0) {
             const activity = currentAdminActivities.find(a => a.id == activityId || a.id === activityId);
-            console.log('Found activity in current activities:', activity);
             
             if (activity) {
                 // Try multiple field names
                 activityType = activity.activity_type || activity.entity_type || activity.type || null;
-                console.log('Extracted activity type from activity object:', activityType);
                 
                 if (!activityType && activity.entity_type) {
                     // Fallback: use entity_type if activity_type is not available
                     activityType = activity.entity_type;
-                    console.log('Using entity_type as fallback:', activityType);
                 }
             }
         }
@@ -322,14 +287,11 @@ function handleAdminNotificationClick(activityId, activityType, entityId) {
                 const attrType = clickedElement.getAttribute('data-activity-type');
                 if (attrType && attrType !== 'null' && attrType !== 'unknown') {
                     activityType = attrType;
-                    console.log('Found activity type from data attribute:', activityType);
                 }
             }
         }
         
         if (!activityType || activityType === 'unknown' || activityType === 'null') {
-            console.error('Could not determine activity type from any source, defaulting to dashboard');
-            console.error('Available activities:', currentAdminActivities);
             activityType = 'unknown';
         }
     }
@@ -346,7 +308,6 @@ function handleAdminNotificationClick(activityId, activityType, entityId) {
     
     // Mark as read on server (don't wait for it to complete - do it async)
     markAdminActivityAsRead(activityId).catch(error => {
-        console.error('Failed to mark activity as read (non-blocking):', error);
         // Don't block redirect if this fails
     });
     
@@ -369,7 +330,6 @@ function handleAdminNotificationClick(activityId, activityType, entityId) {
     
     // Normalize activity type (remove underscores, handle variations)
     const normalizedActivityType = String(activityType).toLowerCase().trim();
-    console.log('Normalized activity type:', normalizedActivityType, 'Original:', activityType);
     
     // Ensure base URL has trailing slash for proper URL construction
     const baseUrl = (window.APP_BASE_URL || '').replace(/\/$/, '') + '/';
@@ -407,11 +367,8 @@ function handleAdminNotificationClick(activityId, activityType, entityId) {
             redirectUrl = `${baseUrl}settings/users`;
             break;
         default:
-            console.warn('Unknown activity type, defaulting to dashboard:', normalizedActivityType);
             redirectUrl = `${baseUrl}dashboard`;
     }
-    
-    console.log('Redirecting to:', redirectUrl, 'for activity type:', normalizedActivityType, 'action:', action);
     
     // Redirect immediately
     window.location.href = redirectUrl;
@@ -421,13 +378,9 @@ function handleAdminNotificationClick(activityId, activityType, entityId) {
 // Note: UI updates are handled by handleAdminNotificationClick
 // Returns a promise so it can be awaited if needed
 function markAdminActivityAsRead(activityId) {
-    console.log('Marking admin activity as read on server:', activityId);
-    
     // Normalize base URL - ensure it has a trailing slash
     const baseUrl = (window.APP_BASE_URL || '').replace(/\/$/, '') + '/';
     const url = `${baseUrl}admin/mark-activity-read/${activityId}`;
-    
-    console.log('Mark as read URL:', url);
     
     // Send to server to mark as read
     return fetch(url, {
@@ -438,7 +391,6 @@ function markAdminActivityAsRead(activityId) {
         },
         credentials: 'same-origin' // Include cookies for authentication
     }).then(response => {
-        console.log('Mark as read response status:', response.status, response.statusText);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
         }
@@ -446,7 +398,6 @@ function markAdminActivityAsRead(activityId) {
     })
     .then(data => {
         if (data.success) {
-            console.log('Activity marked as read on server:', activityId);
             
             // Update the unread set if server confirms it's read
             const activityIdStr = String(activityId);
@@ -465,7 +416,7 @@ function markAdminActivityAsRead(activityId) {
         }
         return data;
     }).catch(error => {
-        console.error('Error marking admin activity as read (non-fatal):', error);
+        // Error marking activity as read (non-fatal)
         // Return a resolved promise so the caller doesn't fail
         return { success: false, error: error.message };
     });
@@ -507,8 +458,6 @@ function hideAdminNotificationBadge() {
 // Function to mark all admin notifications as seen (Facebook-like bell click behavior)
 // This clears the badge but keeps the unread dots on individual items
 function markAllAdminAsSeen() {
-    console.log('=== MARKING ALL ADMIN AS SEEN ===');
-    console.log('Unseen activities before:', Array.from(unseenAdminActivityIds));
     
     // Clear unseen set (this will hide the badge)
     unseenAdminActivityIds.clear();
@@ -518,8 +467,6 @@ function markAllAdminAsSeen() {
     // Update badge (should disappear now)
     updateAdminUnreadCount();
     
-    console.log('All notifications marked as seen (badge cleared, dots remain)');
-    console.log('=== END MARKING ALL AS SEEN ===');
 }
 
 // Function to show all admin notifications modal
@@ -653,7 +600,6 @@ function showAllAdminNotificationsModal() {
                                 const activityType = notificationItem.getAttribute('data-activity-type');
                                 const entityId = notificationItem.getAttribute('data-entity-id');
                                 
-                                console.log('Modal notification item clicked:', activityId, activityType, entityId);
                                 
                                 // Close modal first
                                 const bsModal = bootstrap.Modal.getInstance(document.getElementById('allAdminNotificationsModal'));
@@ -674,7 +620,7 @@ function showAllAdminNotificationsModal() {
             }
         })
         .catch(error => {
-            console.error('Error fetching all admin activities:', error);
+            // Error fetching all admin activities
             alert('Failed to load notifications. Please try again.');
         });
 }
@@ -714,7 +660,7 @@ function markAllAdminActivitiesAsRead() {
         }
     })
     .catch(error => {
-        console.error('Error marking all admin activities as read:', error);
+        // Error marking all admin activities as read
         alert('Failed to mark all as read. Please try again.');
     });
 }

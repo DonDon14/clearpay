@@ -54,7 +54,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error loading contribution history:', error);
             contentDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error loading contribution history. Please try again.</div>';
         });
     }
