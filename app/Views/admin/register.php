@@ -226,10 +226,10 @@
         <div class="modal-body">
           <div class="text-center mb-4">
             <div class="mb-3">
-              <i class="fas fa-envelope-open-text fa-3x text-primary"></i>
+              <i class="fas fa-envelope-circle-check fa-3x text-primary"></i>
             </div>
-            <p class="mb-2">We've sent a verification code to:</p>
-            <p class="fw-bold text-primary" id="pendingEmail"></p>
+            <p class="mb-2 text-muted">We've sent a verification code to:</p>
+            <p class="fw-bold text-primary fs-5" id="pendingEmail">your email address</p>
           </div>
           
           <div class="alert alert-info d-none" id="emailSentAlert">

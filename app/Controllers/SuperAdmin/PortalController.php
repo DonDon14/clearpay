@@ -16,9 +16,11 @@ class PortalController extends BaseController
 
         $userModel = new UserModel();
         
-        // Get all pending officer signups
+        // Get all pending officer signups (only verified users can be pending)
+        // Note: Users are only created in database after email verification
         $pendingOfficers = $userModel->where('role', 'officer')
             ->where('status', 'pending')
+            ->where('email_verified', true) // Safety check: only show verified users
             ->orderBy('created_at', 'DESC')
             ->findAll();
         
