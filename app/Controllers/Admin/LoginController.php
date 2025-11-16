@@ -358,9 +358,58 @@ class LoginController extends Controller
     private function sendVerificationEmail($email, $name, $code)
     {
         try {
-            // Get email settings from database or config
+            // Check if user has email
+            if (empty($email)) {
+                log_message('info', 'No email address provided, skipping verification email');
+                return false;
+            }
+
+            // Get email config
             $emailConfig = $this->getEmailConfig();
+
+            // Get email template
+            $htmlMessage = view('emails/verification', [
+                'name' => $name,
+                'code' => $code
+            ]);
+
+            // Extract text version from HTML
+            $textMessage = strip_tags($htmlMessage);
+            $subject = 'Email Verification - ClearPay';
             
+            // Try Brevo API first (works on Render, bypasses port blocking)
+            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            
+            if (!empty($brevoApiKey)) {
+                try {
+                    log_message('info', 'Attempting to send verification email via Brevo API to: ' . $email);
+                    
+                    if (!class_exists('\App\Services\BrevoEmailService')) {
+                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
+                    } else {
+                        $brevoService = new \App\Services\BrevoEmailService(
+                            $brevoApiKey,
+                            $emailConfig['fromEmail'],
+                            $emailConfig['fromName'] ?? 'ClearPay'
+                        );
+                        
+                        $result = $brevoService->send($email, $subject, $htmlMessage, $textMessage);
+                        
+                        if ($result['success']) {
+                            log_message('info', 'Verification email sent successfully via Brevo API to: ' . $email);
+                            return true;
+                        } else {
+                            log_message('error', 'Brevo API failed to send verification email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
+                            // Fall through to SMTP attempt
+                        }
+                    }
+                } catch (\Exception $apiException) {
+                    log_message('error', 'Brevo API exception while sending verification email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
+                    // Fall through to SMTP attempt
+                }
+            }
+            
+            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
             // Validate SMTP credentials
             if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
                 log_message('error', 'SMTP configuration incomplete for admin verification email');
@@ -401,26 +450,19 @@ class LoginController extends Controller
             
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($email);
-            $emailService->setSubject('Email Verification - ClearPay');
+            $emailService->setSubject($subject);
+            $emailService->setMessage($htmlMessage);
             
-            $message = view('emails/verification', [
-                'name' => $name,
-                'code' => $code
-            ]);
-            
-            $emailService->setMessage($message);
-            
-            // Log SMTP settings for debugging (without password)
             log_message('info', "Attempting to send verification email to: {$email} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
             
+            // Send email
             $result = $emailService->send();
             
             if ($result) {
-                log_message('info', "Verification email sent successfully to: {$email}");
+                log_message('info', 'Verification email sent successfully via SMTP to: ' . $email);
                 return true;
             } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
-                log_message('error', "Failed to send verification email: {$error}");
+                log_message('error', 'Failed to send verification email via SMTP: ' . $emailService->printDebugger(['headers', 'subject', 'body']));
                 return false;
             }
         } catch (\Exception $e) {
@@ -471,20 +513,20 @@ class LoginController extends Controller
             log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
         }
         
-        // Fallback to config
-        $config = config('Email');
+        // Fallback to config or environment variables
+        $emailConfig = config('Email');
         return [
-            'fromEmail' => $config->fromEmail,
-            'fromName' => $config->fromName,
-            'protocol' => $config->protocol,
-            'SMTPHost' => $config->SMTPHost,
-            'SMTPUser' => $config->SMTPUser,
-            'SMTPPass' => $config->SMTPPass,
-            'SMTPPort' => $config->SMTPPort,
-            'SMTPCrypto' => $config->SMTPCrypto,
-            'SMTPTimeout' => $config->SMTPTimeout,
-            'mailType' => $config->mailType,
-            'charset' => $config->charset,
+            'fromEmail' => $_ENV['email.fromEmail'] ?? getenv('email.fromEmail') ?: ($emailConfig->fromEmail ?? ''),
+            'fromName' => $_ENV['email.fromName'] ?? getenv('email.fromName') ?: ($emailConfig->fromName ?? 'ClearPay'),
+            'protocol' => $_ENV['email.protocol'] ?? getenv('email.protocol') ?: ($emailConfig->protocol ?? 'smtp'),
+            'SMTPHost' => $_ENV['email.SMTPHost'] ?? getenv('email.SMTPHost') ?: ($emailConfig->SMTPHost ?? ''),
+            'SMTPUser' => $_ENV['email.SMTPUser'] ?? getenv('email.SMTPUser') ?: ($emailConfig->SMTPUser ?? ''),
+            'SMTPPass' => $_ENV['email.SMTPPass'] ?? getenv('email.SMTPPass') ?: ($emailConfig->SMTPPass ?? ''),
+            'SMTPPort' => (int)($_ENV['email.SMTPPort'] ?? getenv('email.SMTPPort') ?: ($emailConfig->SMTPPort ?? 587)),
+            'SMTPCrypto' => $_ENV['email.SMTPCrypto'] ?? getenv('email.SMTPCrypto') ?: ($emailConfig->SMTPCrypto ?? 'tls'),
+            'SMTPTimeout' => (int)($_ENV['email.SMTPTimeout'] ?? getenv('email.SMTPTimeout') ?: ($emailConfig->SMTPTimeout ?? 30)),
+            'mailType' => $_ENV['email.mailType'] ?? getenv('email.mailType') ?: ($emailConfig->mailType ?? 'html'),
+            'charset' => $_ENV['email.charset'] ?? getenv('email.charset') ?: ($emailConfig->charset ?? 'UTF-8'),
         ];
     }
 
@@ -778,17 +820,14 @@ class LoginController extends Controller
     private function sendPasswordResetEmail($email, $name, $code)
     {
         try {
-            // Get email settings from database or config
-            $emailConfig = $this->getEmailConfig();
-            
-            // Use Brevo API for password reset emails (bypasses Render port blocking)
-            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
-            
-            if (empty($brevoApiKey)) {
-                log_message('error', 'BREVO_API_KEY not found. Password reset emails require Brevo API key. Set BREVO_API_KEY environment variable.');
-                log_message('info', 'Get API key from Brevo → Settings → SMTP & API → API Keys');
+            // Check if user has email
+            if (empty($email)) {
+                log_message('info', 'No email address provided, skipping password reset email');
                 return false;
             }
+
+            // Get email config
+            $emailConfig = $this->getEmailConfig();
             
             // Get email template
             $htmlMessage = view('emails/password_reset', [
@@ -798,35 +837,94 @@ class LoginController extends Controller
             
             // Extract text version from HTML
             $textMessage = strip_tags($htmlMessage);
+            $subject = 'Password Reset Request - ClearPay';
             
-            // Use Brevo API only (no SMTP fallback for password reset emails)
-            try {
-                log_message('info', 'Attempting to send password reset email via Brevo API to admin: ' . $email);
-                
-                // Check if BrevoEmailService class exists
-                if (!class_exists('\App\Services\BrevoEmailService')) {
-                    log_message('error', 'BrevoEmailService class not found. Code may not be deployed yet.');
-                    return false;
+            // Try Brevo API first (works on Render, bypasses port blocking)
+            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            
+            if (!empty($brevoApiKey)) {
+                try {
+                    log_message('info', 'Attempting to send password reset email via Brevo API to admin: ' . $email);
+                    
+                    if (!class_exists('\App\Services\BrevoEmailService')) {
+                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
+                    } else {
+                        $brevoService = new \App\Services\BrevoEmailService(
+                            $brevoApiKey,
+                            $emailConfig['fromEmail'],
+                            $emailConfig['fromName'] ?? 'ClearPay'
+                        );
+                        
+                        $result = $brevoService->send($email, $subject, $htmlMessage, $textMessage);
+                        
+                        if ($result['success']) {
+                            log_message('info', 'Password reset email sent successfully via Brevo API to admin: ' . $email);
+                            return true;
+                        } else {
+                            log_message('error', 'Brevo API failed to send password reset email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
+                            // Fall through to SMTP attempt
+                        }
+                    }
+                } catch (\Exception $apiException) {
+                    log_message('error', 'Brevo API exception while sending password reset email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
+                    // Fall through to SMTP attempt
                 }
-                
-                $brevoService = new \App\Services\BrevoEmailService(
-                    $brevoApiKey,
-                    $emailConfig['fromEmail'],
-                    $emailConfig['fromName'] ?? 'ClearPay'
-                );
-                
-                $result = $brevoService->send($email, 'Password Reset Request - ClearPay', $htmlMessage, $textMessage);
-                
-                if ($result['success']) {
-                    log_message('info', 'Password reset email sent successfully via Brevo API to admin: ' . $email);
-                    return true;
-                } else {
-                    log_message('error', 'Brevo API failed to send password reset email: ' . ($result['error'] ?? 'Unknown error'));
-                    return false;
-                }
-            } catch (\Exception $apiException) {
-                log_message('error', 'Brevo API exception while sending password reset email: ' . $apiException->getMessage());
-                log_message('error', 'Exception trace: ' . $apiException->getTraceAsString());
+            }
+            
+            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
+            // Validate SMTP credentials
+            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
+                log_message('error', 'SMTP configuration incomplete for password reset email');
+                return false;
+            }
+            
+            // Get a fresh email service instance
+            $emailService = \Config\Services::email();
+            
+            // Clear any previous configuration
+            $emailService->clear();
+            
+            // Manually configure SMTP settings
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '',
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html',
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "\r\n",
+                'CRLF' => "\r\n",
+                'wordWrap' => true,
+                'validate' => false,
+            ];
+            
+            // Validate configuration before initializing
+            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
+                log_message('error', 'SMTP configuration validation failed for password reset email');
+                return false;
+            }
+            
+            $emailService->initialize($smtpConfig);
+            
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
+            $emailService->setTo($email);
+            $emailService->setSubject($subject);
+            $emailService->setMessage($htmlMessage);
+            
+            log_message('info', "Attempting to send password reset email to: {$email} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
+            
+            // Send email
+            $result = $emailService->send();
+            
+            if ($result) {
+                log_message('info', 'Password reset email sent successfully via SMTP to admin: ' . $email);
+                return true;
+            } else {
+                log_message('error', 'Failed to send password reset email via SMTP: ' . $emailService->printDebugger(['headers', 'subject', 'body']));
                 return false;
             }
         } catch (\Exception $e) {
