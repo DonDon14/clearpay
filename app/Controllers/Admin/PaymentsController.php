@@ -2555,6 +2555,80 @@ class PaymentsController extends BaseController
             // Get email settings from database or config
             $emailConfig = $this->getEmailConfig();
             
+            // Format payment method
+            $paymentMethod = ucwords(str_replace('_', ' ', $paymentData['payment_method']));
+            
+            // Format status
+            $status = $paymentData['computed_status'] ?? $paymentData['payment_status'] ?? 'pending';
+            $statusText = 'COMPLETED';
+            $statusBadgeClass = 'badge-success';
+            
+            if ($status === 'partial') {
+                $statusText = 'PARTIAL PAYMENT';
+                $statusBadgeClass = 'badge-warning';
+            } elseif ($status === 'fully paid') {
+                $statusText = 'COMPLETED';
+                $statusBadgeClass = 'badge-success';
+            }
+            
+            // Format date
+            $paymentDate = $paymentData['payment_date'] ?? date('Y-m-d H:i:s');
+            $formattedDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
+            
+            // Build email message
+            $htmlMessage = view('emails/receipt', [
+                'payerName' => $paymentData['payer_name'] ?? 'Valued Payer',
+                'receiptNumber' => $paymentData['receipt_number'] ?? 'N/A',
+                'referenceNumber' => $paymentData['reference_number'] ?? 'N/A',
+                'paymentDate' => $formattedDate,
+                'payerId' => $paymentData['payer_id'] ?? 'N/A',
+                'contactNumber' => $paymentData['contact_number'] ?? '',
+                'contributionTitle' => $paymentData['contribution_title'] ?? 'N/A',
+                'contributionCode' => $paymentData['contribution_code'] ?? null,
+                'paymentMethod' => $paymentMethod,
+                'amountPaid' => $paymentData['amount_paid'] ?? 0,
+                'remainingBalance' => $paymentData['remaining_balance'] ?? null,
+                'statusText' => $statusText,
+                'statusBadgeClass' => $statusBadgeClass
+            ]);
+            
+            $textMessage = strip_tags($htmlMessage);
+            $subject = 'Payment Receipt - ' . ($paymentData['receipt_number'] ?? 'ClearPay');
+            
+            // Try Brevo API first (works on Render, bypasses port blocking)
+            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            
+            if (!empty($brevoApiKey)) {
+                try {
+                    log_message('info', 'Attempting to send receipt email via Brevo API to: ' . $paymentData['email_address']);
+                    
+                    // Check if BrevoEmailService class exists
+                    if (!class_exists('\App\Services\BrevoEmailService')) {
+                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
+                    } else {
+                        $brevoService = new \App\Services\BrevoEmailService(
+                            $brevoApiKey,
+                            $emailConfig['fromEmail'],
+                            $emailConfig['fromName'] ?? 'ClearPay'
+                        );
+                        
+                        $result = $brevoService->send($paymentData['email_address'], $subject, $htmlMessage, $textMessage);
+                        
+                        if ($result['success']) {
+                            log_message('info', 'Receipt email sent successfully via Brevo API to: ' . $paymentData['email_address']);
+                            return true;
+                        } else {
+                            log_message('error', 'Brevo API failed to send receipt email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
+                            // Fall through to SMTP attempt
+                        }
+                    }
+                } catch (\Exception $apiException) {
+                    log_message('error', 'Brevo API exception while sending receipt email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
+                    // Fall through to SMTP attempt
+                }
+            }
+            
+            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
             // Validate SMTP credentials
             if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
                 log_message('error', 'SMTP configuration incomplete for receipt email');
@@ -2595,46 +2669,8 @@ class PaymentsController extends BaseController
             
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($paymentData['email_address']);
-            $emailService->setSubject('Payment Receipt - ' . ($paymentData['receipt_number'] ?? 'ClearPay'));
-            
-            // Format payment method
-            $paymentMethod = ucwords(str_replace('_', ' ', $paymentData['payment_method']));
-            
-            // Format status
-            $status = $paymentData['computed_status'] ?? $paymentData['payment_status'] ?? 'pending';
-            $statusText = 'COMPLETED';
-            $statusBadgeClass = 'badge-success';
-            
-            if ($status === 'partial') {
-                $statusText = 'PARTIAL PAYMENT';
-                $statusBadgeClass = 'badge-warning';
-            } elseif ($status === 'fully paid') {
-                $statusText = 'COMPLETED';
-                $statusBadgeClass = 'badge-success';
-            }
-            
-            // Format date
-            $paymentDate = $paymentData['payment_date'] ?? date('Y-m-d H:i:s');
-            $formattedDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
-            
-            // Build email message
-            $message = view('emails/receipt', [
-                'payerName' => $paymentData['payer_name'] ?? 'Valued Payer',
-                'receiptNumber' => $paymentData['receipt_number'] ?? 'N/A',
-                'referenceNumber' => $paymentData['reference_number'] ?? 'N/A',
-                'paymentDate' => $formattedDate,
-                'payerId' => $paymentData['payer_id'] ?? 'N/A',
-                'contactNumber' => $paymentData['contact_number'] ?? '',
-                'contributionTitle' => $paymentData['contribution_title'] ?? 'N/A',
-                'contributionCode' => $paymentData['contribution_code'] ?? null,
-                'paymentMethod' => $paymentMethod,
-                'amountPaid' => $paymentData['amount_paid'] ?? 0,
-                'remainingBalance' => $paymentData['remaining_balance'] ?? null,
-                'statusText' => $statusText,
-                'statusBadgeClass' => $statusBadgeClass
-            ]);
-            
-            $emailService->setMessage($message);
+            $emailService->setSubject($subject);
+            $emailService->setMessage($htmlMessage);
             
             // Log email attempt
             log_message('info', "Attempting to send receipt email to: {$paymentData['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");

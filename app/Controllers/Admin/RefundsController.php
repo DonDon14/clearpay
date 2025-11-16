@@ -1122,6 +1122,69 @@ class RefundsController extends BaseController
             // Get email settings from database or config
             $emailConfig = $this->getEmailConfig();
             
+            // Format refund method
+            $refundMethod = ucwords(str_replace('_', ' ', $refundDetails['refund_method'] ?? 'N/A'));
+            
+            // Format dates
+            $paymentDate = $refundDetails['payment_date'] ?? date('Y-m-d H:i:s');
+            $formattedPaymentDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
+            
+            $processedDate = $refundDetails['processed_at'] ?? date('Y-m-d H:i:s');
+            $formattedProcessedDate = date('F j, Y \a\t g:i A', strtotime($processedDate));
+            
+            // Build email message
+            $htmlMessage = view('emails/refund_approved', [
+                'payerName' => $refundDetails['payer_name'] ?? 'Valued Payer',
+                'refundId' => $refundDetails['id'] ?? 'N/A',
+                'refundAmount' => $refundDetails['refund_amount'] ?? 0,
+                'refundMethod' => $refundMethod,
+                'refundReference' => $refundReference ?? $refundDetails['refund_reference'] ?? null,
+                'refundReason' => $refundDetails['refund_reason'] ?? null,
+                'adminNotes' => $adminNotes ?? $refundDetails['admin_notes'] ?? null,
+                'receiptNumber' => $refundDetails['receipt_number'] ?? 'N/A',
+                'paymentDate' => $formattedPaymentDate,
+                'processedDate' => $formattedProcessedDate,
+                'contributionTitle' => $refundDetails['contribution_title'] ?? 'N/A',
+                'amountPaid' => $refundDetails['amount_paid'] ?? 0
+            ]);
+            
+            $textMessage = strip_tags($htmlMessage);
+            $subject = 'Refund Approved - ClearPay';
+            
+            // Try Brevo API first (works on Render, bypasses port blocking)
+            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            
+            if (!empty($brevoApiKey)) {
+                try {
+                    log_message('info', 'Attempting to send refund approval email via Brevo API to: ' . $refundDetails['email_address']);
+                    
+                    // Check if BrevoEmailService class exists
+                    if (!class_exists('\App\Services\BrevoEmailService')) {
+                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
+                    } else {
+                        $brevoService = new \App\Services\BrevoEmailService(
+                            $brevoApiKey,
+                            $emailConfig['fromEmail'],
+                            $emailConfig['fromName'] ?? 'ClearPay'
+                        );
+                        
+                        $result = $brevoService->send($refundDetails['email_address'], $subject, $htmlMessage, $textMessage);
+                        
+                        if ($result['success']) {
+                            log_message('info', 'Refund approval email sent successfully via Brevo API to: ' . $refundDetails['email_address']);
+                            return true;
+                        } else {
+                            log_message('error', 'Brevo API failed to send refund approval email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
+                            // Fall through to SMTP attempt
+                        }
+                    }
+                } catch (\Exception $apiException) {
+                    log_message('error', 'Brevo API exception while sending refund approval email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
+                    // Fall through to SMTP attempt
+                }
+            }
+            
+            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
             // Validate SMTP credentials
             if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
                 log_message('error', 'SMTP configuration incomplete for refund approval email');
@@ -1162,35 +1225,8 @@ class RefundsController extends BaseController
             
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($refundDetails['email_address']);
-            $emailService->setSubject('Refund Approved - ClearPay');
-            
-            // Format refund method
-            $refundMethod = ucwords(str_replace('_', ' ', $refundDetails['refund_method'] ?? 'N/A'));
-            
-            // Format dates
-            $paymentDate = $refundDetails['payment_date'] ?? date('Y-m-d H:i:s');
-            $formattedPaymentDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
-            
-            $processedDate = $refundDetails['processed_at'] ?? date('Y-m-d H:i:s');
-            $formattedProcessedDate = date('F j, Y \a\t g:i A', strtotime($processedDate));
-            
-            // Build email message
-            $message = view('emails/refund_approved', [
-                'payerName' => $refundDetails['payer_name'] ?? 'Valued Payer',
-                'refundId' => $refundDetails['id'] ?? 'N/A',
-                'refundAmount' => $refundDetails['refund_amount'] ?? 0,
-                'refundMethod' => $refundMethod,
-                'refundReference' => $refundReference ?? $refundDetails['refund_reference'] ?? null,
-                'refundReason' => $refundDetails['refund_reason'] ?? null,
-                'adminNotes' => $adminNotes ?? $refundDetails['admin_notes'] ?? null,
-                'receiptNumber' => $refundDetails['receipt_number'] ?? 'N/A',
-                'paymentDate' => $formattedPaymentDate,
-                'processedDate' => $formattedProcessedDate,
-                'contributionTitle' => $refundDetails['contribution_title'] ?? 'N/A',
-                'amountPaid' => $refundDetails['amount_paid'] ?? 0
-            ]);
-            
-            $emailService->setMessage($message);
+            $emailService->setSubject($subject);
+            $emailService->setMessage($htmlMessage);
             
             // Log email attempt
             log_message('info', "Attempting to send refund approval email to: {$refundDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
@@ -1233,6 +1269,64 @@ class RefundsController extends BaseController
             // Get email settings from database or config
             $emailConfig = $this->getEmailConfig();
             
+            // Format dates
+            $paymentDate = $refundDetails['payment_date'] ?? date('Y-m-d H:i:s');
+            $formattedPaymentDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
+            
+            $rejectedDate = date('Y-m-d H:i:s');
+            $formattedRejectedDate = date('F j, Y \a\t g:i A', strtotime($rejectedDate));
+            
+            // Build email message
+            $htmlMessage = view('emails/refund_rejected', [
+                'payerName' => $refundDetails['payer_name'] ?? 'Valued Payer',
+                'refundId' => $refundDetails['id'] ?? 'N/A',
+                'refundAmount' => $refundDetails['refund_amount'] ?? 0,
+                'refundReason' => $refundDetails['refund_reason'] ?? null,
+                'adminNotes' => $adminNotes ?? $refundDetails['admin_notes'] ?? null,
+                'receiptNumber' => $refundDetails['receipt_number'] ?? 'N/A',
+                'paymentDate' => $formattedPaymentDate,
+                'rejectedDate' => $formattedRejectedDate,
+                'contributionTitle' => $refundDetails['contribution_title'] ?? 'N/A',
+                'amountPaid' => $refundDetails['amount_paid'] ?? 0
+            ]);
+            
+            $textMessage = strip_tags($htmlMessage);
+            $subject = 'Refund Request Rejected - ClearPay';
+            
+            // Try Brevo API first (works on Render, bypasses port blocking)
+            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            
+            if (!empty($brevoApiKey)) {
+                try {
+                    log_message('info', 'Attempting to send refund rejection email via Brevo API to: ' . $refundDetails['email_address']);
+                    
+                    // Check if BrevoEmailService class exists
+                    if (!class_exists('\App\Services\BrevoEmailService')) {
+                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
+                    } else {
+                        $brevoService = new \App\Services\BrevoEmailService(
+                            $brevoApiKey,
+                            $emailConfig['fromEmail'],
+                            $emailConfig['fromName'] ?? 'ClearPay'
+                        );
+                        
+                        $result = $brevoService->send($refundDetails['email_address'], $subject, $htmlMessage, $textMessage);
+                        
+                        if ($result['success']) {
+                            log_message('info', 'Refund rejection email sent successfully via Brevo API to: ' . $refundDetails['email_address']);
+                            return true;
+                        } else {
+                            log_message('error', 'Brevo API failed to send refund rejection email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
+                            // Fall through to SMTP attempt
+                        }
+                    }
+                } catch (\Exception $apiException) {
+                    log_message('error', 'Brevo API exception while sending refund rejection email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
+                    // Fall through to SMTP attempt
+                }
+            }
+            
+            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
             // Validate SMTP credentials
             if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
                 log_message('error', 'SMTP configuration incomplete for refund rejection email');
@@ -1273,30 +1367,8 @@ class RefundsController extends BaseController
             
             $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
             $emailService->setTo($refundDetails['email_address']);
-            $emailService->setSubject('Refund Request Rejected - ClearPay');
-            
-            // Format dates
-            $paymentDate = $refundDetails['payment_date'] ?? date('Y-m-d H:i:s');
-            $formattedPaymentDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
-            
-            $rejectedDate = date('Y-m-d H:i:s');
-            $formattedRejectedDate = date('F j, Y \a\t g:i A', strtotime($rejectedDate));
-            
-            // Build email message
-            $message = view('emails/refund_rejected', [
-                'payerName' => $refundDetails['payer_name'] ?? 'Valued Payer',
-                'refundId' => $refundDetails['id'] ?? 'N/A',
-                'refundAmount' => $refundDetails['refund_amount'] ?? 0,
-                'refundReason' => $refundDetails['refund_reason'] ?? null,
-                'adminNotes' => $adminNotes ?? $refundDetails['admin_notes'] ?? null,
-                'receiptNumber' => $refundDetails['receipt_number'] ?? 'N/A',
-                'paymentDate' => $formattedPaymentDate,
-                'rejectedDate' => $formattedRejectedDate,
-                'contributionTitle' => $refundDetails['contribution_title'] ?? 'N/A',
-                'amountPaid' => $refundDetails['amount_paid'] ?? 0
-            ]);
-            
-            $emailService->setMessage($message);
+            $emailService->setSubject($subject);
+            $emailService->setMessage($htmlMessage);
             
             // Log email attempt
             log_message('info', "Attempting to send refund rejection email to: {$refundDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
