@@ -555,8 +555,6 @@
 
             // Show verification code in console for debugging
             if (result.verification_code) {
-              console.log('🔑 Verification Code (for testing only):', result.verification_code);
-              console.log('📧 Email sent status:', result.email_sent);
 
               // Show code in alert if email was not sent (for development)
               if (!result.email_sent) {
@@ -588,7 +586,6 @@
           alert(result.error || 'Registration failed. Please try again.');
         }
       } catch (error) {
-        console.error('Error:', error);
         alert('An error occurred. Please try again.');
       } finally {
         submitBtn.disabled = false;
@@ -630,7 +627,6 @@
           document.getElementById('verificationError').textContent = result.error;
         }
       } catch (error) {
-        console.error('Error:', error);
         alert('An error occurred. Please try again.');
       } finally {
         submitBtn.disabled = false;
@@ -661,13 +657,11 @@
           
           // Show code in console if email not sent
           if (result.verification_code && !result.email_sent) {
-            console.log('🔑 New Verification Code (for testing only):', result.verification_code);
           }
         } else {
           alert(result.error || 'Failed to resend verification code.');
         }
       } catch (error) {
-        console.error('Error:', error);
         alert('An error occurred. Please try again.');
       } finally {
         this.disabled = false;

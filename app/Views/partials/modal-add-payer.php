@@ -305,7 +305,6 @@
                     }
                 }
             } catch (error) {
-                console.error('Error:', error);
                 showNotification('Error adding payer. Please try again.', 'error');
             } finally {
                 // Re-enable submit button

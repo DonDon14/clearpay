@@ -280,15 +280,11 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                 const tbody = document.getElementById('contributionPaymentsTableBody');
                 tbody.innerHTML = '';
                 
-                console.log('Aggregated payerMap:', payerMap);
-                
                 Object.values(payerMap).forEach(payerData => {
                     const row = document.createElement('tr');
                     row.className = 'contribution-payment-row';
                     row.setAttribute('data-payer-id', payerData.payer_id);
                     row.setAttribute('data-payer-data', JSON.stringify(payerData));
-                    
-                    console.log('Payer data for row:', payerData);
                     
                     // Format last payment date
                     let lastPaymentDate = 'N/A';
@@ -366,7 +362,6 @@ function showContributionPayments(contributionId, contributionTitle, contributio
             }
         })
         .catch(error => {
-            console.error('Error fetching contribution payments:', error);
             document.getElementById('contributionPaymentsLoading').style.display = 'none';
             document.getElementById('contributionPaymentsEmpty').style.display = 'block';
             showNotification('Error loading payments', 'danger');
@@ -375,11 +370,9 @@ function showContributionPayments(contributionId, contributionTitle, contributio
 
 // Function to show payment history for a specific payer (make it global)
 window.showPayerPaymentHistory = function(payerData) {
-    console.log('showPayerPaymentHistory called with:', payerData);
     
     // Update modal title with payer name and contribution name
     const contributionName = payerData.contribution_title || window.currentContributionData?.title || 'N/A';
-    console.log('Contribution name for title:', contributionName);
     document.getElementById('payerHistoryTitle').textContent = `Payment History - ${payerData.payer_name} - ${contributionName}`;
     
     // Show modal
@@ -464,7 +457,6 @@ window.showPayerPaymentHistory = function(payerData) {
                             email_address: payment.email_address || payerData.email_address || 'N/A',
                             contribution_title: payment.contribution_title || payerData.contribution_title || 'N/A'
                         };
-                        console.log('Complete payment data for QR receipt:', completePaymentData);
                         showQRReceipt(completePaymentData);
                     } else {
                         showNotification('QR Receipt modal is loading', 'warning');

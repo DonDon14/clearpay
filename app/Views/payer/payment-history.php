@@ -173,13 +173,11 @@ document.addEventListener('DOMContentLoaded', function() {
     paymentRows.forEach(row => {
         row.addEventListener('click', function() {
             const paymentData = JSON.parse(this.getAttribute('data-payment'));
-            console.log('Payment clicked:', paymentData);
             
             // Show QR receipt modal
             if (typeof window.showQRReceipt === 'function') {
                 window.showQRReceipt(paymentData);
             } else {
-                console.error('showQRReceipt function not available');
                 alert('QR receipt functionality not available. Please refresh the page.');
             }
         });
@@ -188,12 +186,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to show payment QR receipt (called from button click)
 function showPaymentQRReceipt(paymentData) {
-    console.log('showPaymentQRReceipt called with data:', paymentData);
-    
     if (typeof window.showQRReceipt === 'function') {
         window.showQRReceipt(paymentData);
     } else {
-        console.error('showQRReceipt function not available');
         alert('QR receipt functionality not available. Please refresh the page.');
     }
 }

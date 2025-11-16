@@ -189,7 +189,6 @@
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
                 alert('An error occurred while updating the payment.');
                 confirmBtn.disabled = false;
                 confirmBtn.innerHTML = originalText;
@@ -361,7 +360,6 @@ async function updateEditRemainingBalanceFromServer() {
             }
         }
     } catch (error) {
-        console.error('Error fetching payment group data:', error);
         // Fallback to simple calculation if server call fails
         updateEditRemainingBalance();
     }

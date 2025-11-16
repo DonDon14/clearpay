@@ -255,8 +255,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (payment) {
                                 if (typeof showQRReceipt === 'function') {
                                     showQRReceipt(payment);
-                                } else {
-                                    console.error('showQRReceipt function not found');
                                 }
                             } else {
                                 showNotification('Payment not found', 'warning');
@@ -266,7 +264,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     })
                     .catch(error => {
-                        console.error('Error:', error);
                         showNotification('Error loading payment', 'danger');
                     });
             }
@@ -363,8 +360,6 @@ async function scanIDInAllPayments() {
                         const code = jsQR(imageData.data, imageData.width, imageData.height);
                         
                         if (code) {
-                            console.log('ID QR Code detected:', code.data);
-                            
                             // Stop scanner
                             if (idScannerStream) {
                                 idScannerStream.getTracks().forEach(track => track.stop());
@@ -391,7 +386,6 @@ async function scanIDInAllPayments() {
         };
         
     } catch (error) {
-        console.error('Error accessing camera:', error);
         // Provide clearer guidance if permissions were previously denied or device busy
         const message = (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError'))
             ? 'Camera permission denied. Click the lock icon in the address bar to allow camera.'
@@ -413,7 +407,6 @@ function processScannedIDForSearch(idText) {
     }
     
     const idNumber = match[1];
-    console.log('Scanned ID number:', idNumber);
     
     // Set the search input and filter
     const searchInput = document.getElementById('searchStudent');
@@ -432,7 +425,6 @@ function processScannedIDForSearch(idText) {
 // Function to view payment receipt in all payments modal
 function viewPaymentReceiptInAllPayments(paymentId) {
     if (!paymentId) {
-        console.error('No payment ID provided');
         return;
     }
     
@@ -445,7 +437,6 @@ function viewPaymentReceiptInAllPayments(paymentId) {
                     if (typeof showQRReceipt === 'function') {
                         showQRReceipt(payment);
                     } else {
-                        console.error('showQRReceipt function not found');
                         if (typeof showNotification === 'function') {
                             showNotification('QR Receipt modal not available', 'danger');
                         }
@@ -462,7 +453,6 @@ function viewPaymentReceiptInAllPayments(paymentId) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             if (typeof showNotification === 'function') {
                 showNotification('Error loading payment', 'danger');
             }
@@ -472,7 +462,6 @@ function viewPaymentReceiptInAllPayments(paymentId) {
 // Function to edit payment in all payments modal
 function editPaymentInAllPayments(paymentId) {
     if (!paymentId) {
-        console.error('No payment ID provided');
         return;
     }
     
@@ -494,7 +483,6 @@ function editPaymentInAllPayments(paymentId) {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             if (typeof showNotification === 'function') {
                 showNotification('Error loading payment', 'danger');
             } else {

@@ -115,13 +115,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
         // Check if a payment method item was clicked
         if (e.target.closest('[data-value]') && e.target.closest('[id*="modal_payment_method"]')) {
-            console.log('Payment method item clicked:', e.target.textContent);
             setTimeout(handlePaymentMethodChange, 500); // Longer delay to ensure modal is fully rendered
         }
         
         // Also check for button clicks within the payment method dropdown
         if (e.target.closest('[id*="modal_payment_method"]') && e.target.tagName === 'BUTTON') {
-            console.log('Payment method button clicked:', e.target.textContent);
             setTimeout(handlePaymentMethodChange, 500);
         }
     });
@@ -141,12 +139,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to handle payment method changes
 function handlePaymentMethodChange() {
-    console.log('=== HANDLING PAYMENT METHOD CHANGE ===');
-    
     // Check if modal is visible and elements are ready
     const modal = document.getElementById('paymentRequestModal');
     if (!modal || !modal.classList.contains('show')) {
-        console.log('Modal not visible, skipping payment method change');
         return;
     }
     
@@ -155,42 +150,26 @@ function handlePaymentMethodChange() {
     const paymentMethodInput = document.querySelector('[id*="modal_payment_method"][id*="input"]');
     const requestedAmount = document.getElementById('modal_requested_amount').value;
     
-    console.log('Elements found:', {
-        button: paymentMethodButton,
-        input: paymentMethodInput,
-        requestedAmount: requestedAmount
-    });
-    
     let selectedMethod = '';
     
     if (paymentMethodInput && paymentMethodInput.value) {
         selectedMethod = paymentMethodInput.value;
-        console.log('Using input value:', selectedMethod);
     } else if (paymentMethodButton && paymentMethodButton.textContent) {
         // Extract method name from button text
         const buttonText = paymentMethodButton.textContent.trim();
-        console.log('Button text:', buttonText);
         
         // Check if it's a placeholder/default text
         if (buttonText === 'Select Payment Method' || buttonText === 'Choose Payment Method' || buttonText === '') {
-            console.log('No payment method selected (placeholder text)');
             selectedMethod = '';
         } else {
             // For now, just use the button text as the method name
             selectedMethod = buttonText;
-            console.log('Using button text as method:', selectedMethod);
         }
-    } else {
-        console.log('No payment method elements found or no text content');
     }
     
-    console.log('Final selected method:', selectedMethod);
-    
     if (selectedMethod && requestedAmount) {
-        console.log('Calling showPaymentInstructions with:', selectedMethod, requestedAmount);
         showPaymentInstructions(selectedMethod, requestedAmount);
     } else {
-        console.log('Hiding payment instructions');
         if (paymentInstructions) {
             paymentInstructions.style.display = 'none';
         }
@@ -199,19 +178,13 @@ function handlePaymentMethodChange() {
 
 // Function to show payment method specific instructions (FULLY DYNAMIC)
 function showPaymentInstructions(method, amount) {
-    console.log('=== SHOWING PAYMENT INSTRUCTIONS ===');
-    console.log('Method:', method);
-    console.log('Amount:', amount);
-    
     // Check if elements exist
     if (!paymentInstructions || !paymentInstructionsContent) {
-        console.error('Payment instructions elements not found');
         return;
     }
     
     // First, try to get custom instructions from the database
     const apiUrl = `${window.APP_BASE_URL || ''}/admin/settings/payment-methods/instructions/${encodeURIComponent(method)}`;
-    console.log('Fetching custom instructions from:', apiUrl);
     
     fetch(apiUrl, {
         method: 'GET',
@@ -220,61 +193,37 @@ function showPaymentInstructions(method, amount) {
         }
     })
     .then(response => {
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
         return response.json();
     })
     .then(data => {
-        console.log('Response data:', data);
         if (data.success && data.method && data.method.custom_instructions) {
-            console.log('Using custom instructions from database');
             displayCustomInstructions(data.method, amount);
         } else {
-            console.log('❌ No custom instructions found, using generic fallback');
-            console.log('Reason:', {
-                success: data.success,
-                hasMethod: !!data.method,
-                hasInstructions: !!(data.method && data.method.custom_instructions)
-            });
             displayGenericInstructions(method, amount);
         }
     })
     .catch(error => {
-        console.error('❌ Error fetching custom instructions:', error);
-        console.log('Falling back to generic instructions due to fetch error');
         displayGenericInstructions(method, amount);
     });
 }
 
 // Function to display custom instructions from database
 function displayCustomInstructions(method, amount) {
-    console.log('=== DISPLAYING CUSTOM INSTRUCTIONS ===');
-    console.log('Method object:', method);
-    console.log('Method QR code path:', method.qr_code_path);
-    console.log('Amount:', amount);
-    
     let instructions = method.processed_instructions || method.custom_instructions;
-    console.log('Raw instructions:', instructions);
-    console.log('Raw instructions length:', instructions ? instructions.length : 0);
     
     // Replace amount placeholder with actual amount
     if (instructions) {
         instructions = instructions.replace(/{amount}/g, (parseFloat(amount) || 0).toFixed(2));
-        console.log('Final processed instructions:', instructions);
-        console.log('Processed instructions length:', instructions.length);
     }
     
     // Check if QR code should be displayed and add it if not present
     if (method.qr_code_path) {
-        console.log('QR code path found:', method.qr_code_path);
         const hasQRCodeInInstructions = instructions.includes('<img') || 
                                        instructions.includes('qr_code') || 
                                        instructions.includes('QR') ||
                                        instructions.includes('qr-code');
         
         if (!hasQRCodeInInstructions) {
-            console.log('Adding QR code to instructions');
-            
             // Ensure QR code path is properly formatted
             let qrCodeSrc = method.qr_code_path;
             if (!qrCodeSrc.startsWith('http') && !qrCodeSrc.startsWith('/')) {
@@ -284,45 +233,29 @@ function displayCustomInstructions(method, amount) {
             const qrCodeHtml = `
                 <div class="text-center mb-3">
                     <h6><i class="fas fa-qrcode me-2"></i>QR Code</h6>
-                    <img src="${qrCodeSrc}" alt="QR Code" class="img-fluid" style="max-width: 200px; max-height: 200px;" onerror="console.error('QR code image failed to load:', this.src)">
+                    <img src="${qrCodeSrc}" alt="QR Code" class="img-fluid" style="max-width: 200px; max-height: 200px;">
                     <p class="small text-muted mt-2">Scan this QR code to make payment</p>
                 </div>
             `;
             instructions = qrCodeHtml + instructions;
-        } else {
-            console.log('QR code already present in instructions');
         }
-    } else {
-        console.log('No QR code path found in method');
     }
     
     if (!instructions || instructions.length === 0) {
-        console.error('❌ No custom instructions found');
-        console.log('Method name:', method.name);
         displayGenericInstructions(method.name, amount);
         return;
     }
     
-    console.log('✅ Instructions found, displaying...');
-    console.log('paymentInstructions element:', paymentInstructions);
-    console.log('paymentInstructionsContent element:', paymentInstructionsContent);
-    
     try {
         paymentInstructionsContent.innerHTML = instructions;
         paymentInstructions.style.display = 'block';
-        console.log('✅ Custom payment instructions displayed successfully');
     } catch (error) {
-        console.error('❌ Error displaying custom payment instructions:', error);
         displayGenericInstructions(method.name, amount);
     }
 }
 
 // Function to display generic instructions (fallback for ANY payment method)
 function displayGenericInstructions(method, amount) {
-    console.log('=== DISPLAYING GENERIC INSTRUCTIONS ===');
-    console.log('Method:', method);
-    console.log('Amount:', amount);
-    
     const instructions = `
         <div class="alert alert-info">
             <h6><i class="fas fa-info-circle me-2"></i>${method} Payment Instructions</h6>
@@ -346,14 +279,11 @@ function displayGenericInstructions(method, amount) {
         </div>
     `;
     
-    console.log('Generic instructions HTML length:', instructions.length);
-    
     try {
         paymentInstructionsContent.innerHTML = instructions;
         paymentInstructions.style.display = 'block';
-        console.log('Generic payment instructions displayed successfully');
     } catch (error) {
-        console.error('Error displaying generic payment instructions:', error);
+        // Silently fail - instructions will not be displayed
     }
 }
 
@@ -362,9 +292,6 @@ window.showPaymentInstructions = showPaymentInstructions;
 
 // Open payment request modal function
 window.openPaymentRequestModal = function(contribution) {
-    console.log('=== OPENING PAYMENT REQUEST MODAL ===');
-    console.log('Contribution data:', contribution);
-    
     // Populate contribution details
     document.getElementById('modal_contribution_title').textContent = contribution.title || 'N/A';
     document.getElementById('modal_contribution_description').textContent = contribution.description || 'N/A';
@@ -405,8 +332,6 @@ window.openPaymentRequestModal = function(contribution) {
     setTimeout(() => {
         handlePaymentMethodChange();
     }, 500);
-    
-    console.log('Payment request modal opened successfully');
 };
 
 // Copy to clipboard function

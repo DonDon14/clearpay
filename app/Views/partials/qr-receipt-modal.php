@@ -371,7 +371,6 @@
 <script>
 // Global function to show QR receipt - moved to contributions page for better timing
 window.showQRReceipt = function(payment) {
-    console.log('showQRReceipt called with payment:', payment);
     // This function is now defined in the contributions page for better timing
 };
 

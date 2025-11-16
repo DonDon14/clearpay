@@ -440,16 +440,9 @@ function formatAnnouncementDate(dateString) {
     const date = new Date(dateString);
     const now = new Date();
     
-    // Debug logging
-    console.log('Original date string:', dateString);
-    console.log('Parsed date:', date);
-    console.log('Current time:', now);
-    
     // Calculate difference in milliseconds
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
-    
-    console.log('Time difference in minutes:', diffMins);
     
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
@@ -504,7 +497,7 @@ function playNotificationSound() {
         oscillator.start(audioContext.currentTime);
         oscillator.stop(audioContext.currentTime + 0.2);
     } catch (error) {
-        console.log('Could not play notification sound:', error);
+        // Silently handle sound playback error
     }
 }
 
@@ -623,8 +616,6 @@ function checkForNewActivities() {
                 
                 // Update unread activities set with new activities (if any)
                 if (data.newActivities && data.newActivities.length > 0) {
-                    console.log('New activities found:', data.newActivities.length);
-                    
                     // Show notification badge
                     showNotificationBadge();
                     
@@ -654,7 +645,7 @@ function checkForNewActivities() {
                                             : activity.new_values;
                                         announcementId = newValues.id || newValues.announcement_id;
                                     } catch (e) {
-                                        console.error('Error parsing new_values:', e);
+                                        // Silently handle parsing error
                                     }
                                 }
                                 
@@ -697,27 +688,19 @@ function checkForNewActivities() {
                                         }
                                         
                                         // Show the announcement modal
-                                        console.log('Showing announcement modal for:', announcementData.title);
                                         showAnnouncementNotification(announcementData);
                                     } catch (e) {
-                                        console.error('Error parsing announcement data:', e);
                                         // Fallback: use activity data
                                         showActivityNotification(latestAnnouncement);
                                     }
                                 } else {
                                     // Fallback: use activity data directly
-                                    console.log('No new_values found, using activity data');
                                     showActivityNotification(latestAnnouncement);
                                 }
-                            } else {
-                                console.log('All announcements have already been shown');
                             }
-                        } else {
-                            console.log('Announcement modal is already open, skipping auto-popup');
                         }
                     }
                 } else {
-                    console.log('No new activities found');
                     // Still show badge if there are unseen activities (Facebook-like)
                     if (unseenActivityIds.size > 0) {
                         showNotificationBadge();
@@ -726,9 +709,6 @@ function checkForNewActivities() {
                 
                 // Mark data as loaded BEFORE updating dropdown
                 notificationDataLoaded = true;
-                console.log('Data loaded successfully, updating dropdown');
-                console.log('unreadActivityIds before processing:', unreadActivityIds.size);
-                console.log('unseenActivityIds before processing:', unseenActivityIds.size);
                 
                 // Update dropdown with all activities
                 updateNotificationDropdown(data.activities);
@@ -743,7 +723,6 @@ function checkForNewActivities() {
                 // Mark data as loaded
                 notificationDataLoaded = true;
             } else {
-                console.log('No activities found:', data.message);
                 hideNotificationBadge();
                 // Still mark as loaded even if no activities
                 notificationDataLoaded = true;
@@ -751,19 +730,14 @@ function checkForNewActivities() {
         })
         .catch(error => {
             clearTimeout(timeoutId);
-            console.error('Error checking for new activities:', error);
-            console.error('Error name:', error.name);
-            console.error('Error message:', error.message);
             
             // If timeout or error, mark as loaded to prevent infinite loading
             notificationDataLoaded = true;
             
             // Show cached data if available, otherwise show no notifications
             if (currentActivities && currentActivities.length > 0) {
-                console.log('Showing cached data due to error');
                 updateNotificationDropdown(currentActivities);
             } else {
-                console.log('No cached data, showing empty state');
                 updateNotificationDropdown([]);
             }
         });
@@ -771,7 +745,6 @@ function checkForNewActivities() {
 
 // Function to show activity notification (popup)
 function showActivityNotification(activityData) {
-    console.log('Showing activity notification:', activityData);
     
     // Populate modal content
     document.getElementById('announcementTitle').textContent = activityData.title || 'New Activity';
@@ -897,16 +870,11 @@ function showActivityNotification(activityData) {
 
 // Function to update notification dropdown with multiple activities - Facebook-like logic
 function updateNotificationDropdown(activities) {
-    console.log('=== updateNotificationDropdown called ===');
-    console.log('Activities:', activities);
-    console.log('notificationDataLoaded:', notificationDataLoaded);
-    
     const noNotifications = document.getElementById('noNotifications');
     const dropdownContent = document.getElementById('notificationContent');
     
     // Show loading state if data isn't loaded yet
     if (!notificationDataLoaded) {
-        console.log('Data not loaded yet, showing loading state');
         if (dropdownContent) {
             dropdownContent.innerHTML = `
                 <div class="notification-item loading-state" style="text-align: center; padding: 1.5rem;">
@@ -922,10 +890,7 @@ function updateNotificationDropdown(activities) {
         return;
     }
     
-    console.log('Data loaded, processing activities');
-    
     if (!activities || activities.length === 0) {
-        console.log('No activities, showing no notifications message');
         if (noNotifications) noNotifications.style.display = 'block';
         return;
     }
@@ -942,14 +907,12 @@ function updateNotificationDropdown(activities) {
         const activityIdStr = String(activity.id);
         const isUnread = unreadActivityIds.has(activityIdStr);
         
-        console.log('Generating HTML for activity:', activityIdStr, 'isUnread:', isUnread, 'unreadActivityIds has:', unreadActivityIds.has(activityIdStr));
-        
         html += `
             <div class="notification-item ${isUnread ? 'unread-notification' : ''}" 
                  data-activity-id="${activity.id}"
                  data-activity-type="${activity.activity_type}"
                  data-entity-id="${activity.entity_id}"
-                 onclick="console.log('Click on activity ${activity.id}'); handleNotificationClick(${activity.id}, '${activity.activity_type}', ${activity.entity_id});"
+                 onclick="handleNotificationClick(${activity.id}, '${activity.activity_type}', ${activity.entity_id});"
                  style="cursor: pointer;">
                 <div class="notification-icon">
                     <i class="${activity.activity_icon} text-${activity.activity_color}"></i>
@@ -979,34 +942,25 @@ function updateNotificationDropdown(activities) {
     }
     
     dropdownContent.innerHTML = html;
-    
-    console.log('Dropdown updated with', recentActivities.length, 'recent activities');
-    console.log('Unread count:', unreadActivityIds.size);
-    console.log('=== updateNotificationDropdown completed ===');
 }
 
 // Function to add event listeners to notification items
 function addNotificationEventListeners() {
     const notificationItems = document.querySelectorAll('.notification-item[data-activity-id]');
-    console.log('Adding event listeners to', notificationItems.length, 'notification items');
     
     notificationItems.forEach(item => {
         const activityId = parseInt(item.getAttribute('data-activity-id'));
         const activityType = item.getAttribute('data-activity-type');
         const entityId = parseInt(item.getAttribute('data-entity-id'));
         
-        console.log('Setting up events for activity:', activityId);
-        
         // Add hover event listener
         item.addEventListener('mouseenter', function() {
-            console.log('Hover detected on activity:', activityId);
             markActivityAsRead(activityId);
         });
         
         // Add click event listener
         item.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('Click detected on activity:', activityId);
             handleNotificationClick(activityId, activityType, entityId);
         });
         
@@ -1023,7 +977,6 @@ function addNotificationEventListeners() {
 
 // Function to handle notification click
 function handleNotificationClick(activityId, activityType, entityId) {
-    console.log('Notification clicked:', activityId, activityType, entityId);
     
     // Mark as read immediately and wait for UI update
     markActivityAsRead(activityId);
@@ -1055,43 +1008,29 @@ function handleNotificationClick(activityId, activityType, entityId) {
 
 // Function to mark activity as read
 function markActivityAsRead(activityId) {
-    console.log('=== MARKING ACTIVITY AS READ ===');
-    console.log('Activity ID:', activityId);
-    console.log('Type of activityId:', typeof activityId);
-    console.log('Current unread activities:', Array.from(unreadActivityIds));
-    
     // Convert activityId to string to match the set's data type
     const activityIdStr = String(activityId);
-    console.log('Activity ID as string:', activityIdStr);
-    console.log('Is activity in unread set?', unreadActivityIds.has(activityIdStr));
     
     if (unreadActivityIds.has(activityIdStr)) {
         unreadActivityIds.delete(activityIdStr);
-        console.log('Activity marked as read. Remaining unread:', unreadActivityIds.size);
         
         // DON'T update badge here - badge shows unseen count, not unread count
         // updateNotificationBadge();
         
         // Update UI immediately - remove unread styling and red dot
         const notificationItem = document.querySelector(`[data-activity-id="${activityId}"]`);
-        console.log('Found notification item:', notificationItem);
         
         if (notificationItem) {
             notificationItem.classList.remove('unread-notification');
             const unreadIndicator = notificationItem.querySelector('.unread-indicator');
-            console.log('Found unread indicator:', unreadIndicator);
             
             if (unreadIndicator) {
                 unreadIndicator.remove();
-                console.log('Unread indicator removed');
             }
-            console.log('UI updated for activity:', activityId);
             
             // Add a visual feedback that it was read
             notificationItem.style.opacity = '0.6';
             notificationItem.style.transition = 'opacity 0.3s ease';
-        } else {
-            console.log('Notification item not found for activity:', activityId);
         }
         
         // Refresh the dropdown to hide the read notification
@@ -1104,15 +1043,11 @@ function markActivityAsRead(activityId) {
                 'Content-Type': 'application/json',
             }
         }).then(response => {
-            console.log('Server response for marking as read:', response.status);
+            // Silently handle response
         }).catch(error => {
-            console.error('Error marking activity as read:', error);
+            // Silently handle error
         });
-    } else {
-        console.log('Activity not found in unread set:', activityId);
-        console.log('Available unread activities:', Array.from(unreadActivityIds));
     }
-    console.log('=== END MARKING ACTIVITY AS READ ===');
 }
 
 // Function to update notification badge
@@ -1120,16 +1055,11 @@ function updateNotificationBadge() {
     const badge = document.getElementById('notificationBadge');
     const count = unseenActivityIds.size; // Show unseen count (Facebook-like)
     
-    console.log('Updating notification badge. Unseen count:', count);
-    console.log('Unseen activity IDs:', Array.from(unseenActivityIds));
-    
     if (count > 0) {
         badge.textContent = count;
         badge.style.display = 'inline-block';
-        console.log('Badge shown with unseen count:', count);
     } else {
         badge.style.display = 'none';
-        console.log('Badge hidden - no unseen activities');
     }
 }
 
@@ -1140,17 +1070,11 @@ function showNotificationBadge() {
 
 // Function to mark all notifications as seen (Facebook-like bell click behavior)
 function markAllAsSeen() {
-    console.log('=== MARKING ALL AS SEEN ===');
-    console.log('Unseen activities before:', Array.from(unseenActivityIds));
-    
     // Clear unseen set (Facebook-like behavior)
     unseenActivityIds.clear();
     
     // Update badge (should disappear)
     updateNotificationBadge();
-    
-    console.log('All notifications marked as seen');
-    console.log('=== END MARKING ALL AS SEEN ===');
 }
 
 // Function to hide notification badge
@@ -1229,19 +1153,16 @@ function showAllNotificationsModal() {
             }
         })
         .catch(error => {
-            console.error('Error fetching all activities:', error);
+            // Silently handle error
         });
 }
 
 // Function to mark all notifications as read
 function markAllAsRead() {
-    console.log('Marking all notifications as read');
-    
     // Get all current unread activity IDs
     const unreadIds = Array.from(unreadActivityIds);
     
     if (unreadIds.length === 0) {
-        console.log('No unread notifications to mark');
         return;
     }
     
@@ -1266,10 +1187,10 @@ function markAllAsRead() {
     
     Promise.all(promises)
         .then(responses => {
-            console.log('All notifications marked as read on server');
+            // Silently handle success
         })
         .catch(error => {
-            console.error('Error marking all notifications as read:', error);
+            // Silently handle error
         });
     
     // Close modal
@@ -1295,8 +1216,6 @@ function closeNotificationDropdown() {
 
 // Start checking for new activities every 30 seconds
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Notification system initialized');
-    
     // Load shown announcement IDs from localStorage
     loadShownAnnouncementIds();
     
@@ -1313,18 +1232,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Function to initialize notification system
 function initializeNotificationSystem() {
-    console.log('Initializing notification system...');
-    
     // Clear both sets to start fresh
     unseenActivityIds.clear();
     unreadActivityIds.clear();
-    
-    console.log('Notification system initialized with empty sets');
 }
 
 // Function to show activity notification (replaces announcement notification)
 function showActivityNotification(activityData) {
-    console.log('Showing activity notification:', activityData);
     
     // Show notification badge
     showNotificationBadge();

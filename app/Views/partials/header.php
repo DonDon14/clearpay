@@ -211,7 +211,6 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Ensure data is loaded before opening dropdown
       if (typeof adminNotificationDataLoaded !== 'undefined' && !adminNotificationDataLoaded) {
-        console.log('Data not loaded yet, loading...');
         if (typeof checkForNewAdminActivities === 'function') {
           checkForNewAdminActivities();
         }
@@ -219,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // If data still not loaded after 1 second, open dropdown anyway
         setTimeout(() => {
           if (typeof adminNotificationDataLoaded !== 'undefined' && !adminNotificationDataLoaded) {
-            console.log('Data still loading, opening dropdown anyway');
             adminNotificationDataLoaded = true; // Force open
             if (typeof updateAdminNotificationDropdown === 'function') {
               updateAdminNotificationDropdown([]);
@@ -273,26 +271,13 @@ document.addEventListener('DOMContentLoaded', function() {
           let activityType = notificationItem.getAttribute('data-activity-type');
           const entityId = notificationItem.getAttribute('data-entity-id');
           
-          console.log('Notification item clicked via delegation in header:', {
-            activityId: activityId,
-            activityType: activityType,
-            entityId: entityId,
-            rawActivityId: notificationItem.getAttribute('data-activity-id'),
-            rawActivityType: notificationItem.getAttribute('data-activity-type'),
-            rawEntityId: notificationItem.getAttribute('data-entity-id'),
-            allDataAttributes: Array.from(notificationItem.attributes).map(attr => ({ name: attr.name, value: attr.value }))
-          });
-          
           // If activityType is missing or invalid, try to get from click-url or current activities
           if (!activityType || activityType === 'null' || activityType === 'unknown' || activityType === 'undefined') {
-            console.warn('Activity type missing or invalid, attempting to recover');
-            
             // Try to get from current activities if available
             if (typeof currentAdminActivities !== 'undefined' && currentAdminActivities && currentAdminActivities.length > 0) {
               const activity = currentAdminActivities.find(a => a.id == activityId || a.id === activityId);
               if (activity) {
                 activityType = activity.activity_type || activity.entity_type || activity.type || null;
-                console.log('Recovered activity type from current activities:', activityType);
               }
             }
             
@@ -317,8 +302,6 @@ document.addEventListener('DOMContentLoaded', function() {
               } else if (path.includes('users')) {
                 activityType = 'user';
               }
-              
-              console.log('Inferred activity type from click URL:', activityType);
             }
           }
           
@@ -326,11 +309,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof handleAdminNotificationClick === 'function') {
               handleAdminNotificationClick(activityId, activityType, entityId && entityId !== 'null' && entityId !== 'undefined' ? parseInt(entityId) : null);
             } else {
-              console.error('handleAdminNotificationClick function not found');
               // Fallback: redirect based on activity type or click URL
               const clickUrl = notificationItem.getAttribute('data-click-url');
               if (clickUrl && clickUrl !== 'null' && clickUrl !== 'undefined') {
-                console.log('Fallback redirect using click URL:', clickUrl);
                 window.location.href = clickUrl;
               } else if (activityType && activityType !== 'null' && activityType !== 'unknown') {
                 const normalizedType = activityType.toLowerCase().trim();
@@ -342,14 +323,9 @@ document.addEventListener('DOMContentLoaded', function() {
                   redirectUrl = `${window.APP_BASE_URL || ''}refunds#history`;
                 }
                 
-                console.log('Fallback redirect to:', redirectUrl);
                 window.location.href = redirectUrl;
-              } else {
-                console.error('Cannot determine redirect URL - missing both activity type and click URL');
               }
             }
-          } else {
-            console.error('Invalid notification click - missing activityId:', activityId, 'activityType:', activityType);
           }
         }
       });

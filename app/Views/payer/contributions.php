@@ -390,7 +390,7 @@
                            // Show payment progress modal when clicking on a group
                            showPaymentProgressModal(contributionId, paymentSequence, groupData);
                        } catch (error) {
-                           console.error('Error parsing group data:', error);
+                           // Silently handle parsing error
                        }
                    }
                }
@@ -555,8 +555,6 @@
                 // Open payment request modal with contribution data
                 if (typeof window.openPaymentRequestModal === 'function') {
                     window.openPaymentRequestModal(contribution);
-                } else {
-                    console.error('openPaymentRequestModal function not available');
                 }
             };
         } else {
@@ -583,7 +581,6 @@
                 }
             })
             .catch(error => {
-                console.error('Error fetching payment history:', error);
                 document.getElementById('paymentHistoryContent').innerHTML = `
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-circle me-2"></i>
@@ -658,14 +655,12 @@
         document.querySelectorAll('.view-receipt-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const paymentData = JSON.parse(this.getAttribute('data-payment'));
-                console.log('Payment data being passed to showQRReceipt:', paymentData);
                 
                 // Don't hide payment history modal - keep it open
                 // Use the global showQRReceipt function from modal-qr-receipt.php
                 if (typeof window.showQRReceipt === 'function') {
                     window.showQRReceipt(paymentData);
                 } else {
-                    console.error('showQRReceipt function not available');
                     alert('QR receipt functionality not available. Please refresh the page.');
                 }
             });
@@ -703,7 +698,6 @@
                 if (typeof window.openPaymentRequestModal === 'function') {
                     window.openPaymentRequestModal(contributionData);
                 } else {
-                    console.error('openPaymentRequestModal function not available');
                     alert('Payment request functionality not available. Please refresh the page.');
                 }
             } else {
@@ -711,7 +705,6 @@
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             alert('An error occurred while loading contribution details.');
         });
     }    
@@ -731,7 +724,6 @@
             if (typeof window.openPaymentRequestModal === 'function') {
                 window.openPaymentRequestModal(contributionData);
             } else {
-                console.error('openPaymentRequestModal function not available');
                 alert('Payment request functionality not available. Please refresh the page.');
             }
         }
@@ -928,7 +920,6 @@
         if (typeof window.openPaymentRequestModal === 'function') {
             window.openPaymentRequestModal(modifiedContributionData);
         } else {
-            console.error('openPaymentRequestModal function not available');
             alert('Payment request functionality not available. Please refresh the page.');
         }
     };
@@ -953,7 +944,6 @@
         if (typeof window.openPaymentRequestModal === 'function') {
             window.openPaymentRequestModal(modifiedContributionData);
         } else {
-            console.error('openPaymentRequestModal function not available');
             alert('Payment request functionality not available. Please refresh the page.');
         }
     };
@@ -972,7 +962,6 @@
             if (typeof window.openPaymentRequestModal === 'function') {
                 window.openPaymentRequestModal(contributionData);
             } else {
-                console.error('openPaymentRequestModal function not available');
                 alert('Payment request functionality not available. Please refresh the page.');
             }
         }
@@ -980,13 +969,9 @@
     
     // Function to show duplicate payment confirmation modal
     function showDuplicatePaymentConfirmation(contributionData) {
-        console.log('showDuplicatePaymentConfirmation called with:', contributionData);
-        
         // Ensure we have valid data
         const amount = parseFloat(contributionData.amount) || 0;
         const totalPaid = parseFloat(contributionData.total_paid) || 0;
-        
-        console.log('Parsed values:', { amount, totalPaid });
         
         const modalHtml = `
             <div class="modal fade" id="duplicatePaymentModal" tabindex="-1" aria-labelledby="duplicatePaymentModalLabel" aria-hidden="true">
@@ -1067,7 +1052,6 @@
                     contributionData.remaining_balance = contributionData.amount;
                     window.openPaymentRequestModal(contributionData);
                 } else {
-                    console.error('openPaymentRequestModal function not available');
                     alert('Payment request functionality not available. Please refresh the page.');
                 }
             }
@@ -1271,7 +1255,6 @@
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             alert('An error occurred while loading payment details.');
         });
     }

@@ -418,7 +418,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('An error occurred while updating profile.', 'error');
         })
         .finally(() => {
@@ -447,7 +446,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
             showNotification('An error occurred while uploading profile picture.', 'error');
         });
     }

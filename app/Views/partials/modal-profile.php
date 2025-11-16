@@ -269,7 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
                 showNotification('Error updating profile', 'danger');
             })
             .finally(() => {

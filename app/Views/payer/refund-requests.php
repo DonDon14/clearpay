@@ -295,7 +295,6 @@ function viewRefundDetails(refundId) {
         }
     })
     .catch(error => {
-        console.error('Error fetching refund details:', error);
         const content = document.getElementById('refundDetailsContent');
         if (content) {
             content.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>An error occurred while loading refund details. Please try again.</div>';
