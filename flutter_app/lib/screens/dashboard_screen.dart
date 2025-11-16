@@ -564,35 +564,56 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   }
 
   Widget _buildStatsCards(DashboardData data) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.receipt_long,
-            value: '${data.totalPayments}',
-            label: 'Payments',
-            color: const Color(0xFF2196F3),
-          ),
+    return SizedBox(
+      height: 140,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(left: 4, right: 4),
+        child: Row(
+          children: [
+            _buildStatCard(
+              icon: Icons.receipt_long,
+              value: '${data.totalPayments}',
+              label: 'Total Payments',
+              color: const Color(0xFF2196F3),
+              width: 170,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.notifications,
+              value: '${data.announcements.length}',
+              label: 'Announcements',
+              color: const Color(0xFFFF9800),
+              width: 170,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.pending_actions,
+              value: '${data.pendingRequests}',
+              label: 'Pending Requests',
+              color: const Color(0xFFFF5722),
+              width: 170,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.account_balance_wallet,
+              value: '₱${NumberFormat('#,##0').format(data.totalPaid)}',
+              label: 'Total Paid',
+              color: const Color(0xFF4CAF50),
+              width: 170,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.history,
+              value: '${data.recentPayments.length}',
+              label: 'Recent Payments',
+              color: const Color(0xFF9C27B0),
+              width: 170,
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.notifications,
-            value: '${data.announcements.length}',
-            label: 'Announcements',
-            color: const Color(0xFFFF9800),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.pending_actions,
-            value: '${data.pendingRequests}',
-            label: 'Pending',
-            color: const Color(0xFFFF5722),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -601,8 +622,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     required String value,
     required String label,
     required Color color,
+    double? width,
   }) {
     return Container(
+      width: width ?? double.infinity,
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -616,25 +639,35 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: color,
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF757575),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF757575),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),

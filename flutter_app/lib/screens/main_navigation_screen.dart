@@ -526,35 +526,56 @@ class _DashboardContentWidget extends StatelessWidget {
 
 
   Widget _buildStatsCards(dynamic data) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.receipt_long,
-            value: '${data.totalPayments}',
-            label: 'Payments',
-            color: const Color(0xFF2196F3),
-          ),
+    return SizedBox(
+      height: 140,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(left: 4, right: 4),
+        child: Row(
+          children: [
+            _buildStatCard(
+              icon: Icons.receipt_long,
+              value: '${data.totalPayments}',
+              label: 'Total Payments',
+              color: const Color(0xFF2196F3),
+              width: 160,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.notifications,
+              value: '${data.announcements.length}',
+              label: 'Announcements',
+              color: const Color(0xFFFF9800),
+              width: 160,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.pending_actions,
+              value: '${data.pendingRequests}',
+              label: 'Pending Requests',
+              color: const Color(0xFFFF5722),
+              width: 160,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.account_balance_wallet,
+              value: '₱${NumberFormat('#,##0').format(data.totalPaid)}',
+              label: 'Total Paid',
+              color: const Color(0xFF4CAF50),
+              width: 160,
+            ),
+            const SizedBox(width: 12),
+            _buildStatCard(
+              icon: Icons.history,
+              value: '${data.recentPayments.length}',
+              label: 'Recent Payments',
+              color: const Color(0xFF9C27B0),
+              width: 160,
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.notifications,
-            value: '${data.announcements.length}',
-            label: 'Announcements',
-            color: const Color(0xFFFF9800),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.pending_actions,
-            value: '${data.pendingRequests}',
-            label: 'Pending',
-            color: const Color(0xFFFF5722),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -563,28 +584,42 @@ class _DashboardContentWidget extends StatelessWidget {
     required String value,
     required String label,
     required Color color,
+    double? width,
   }) {
-    return NotionCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 12),
-          NotionText(
-            value,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: color,
-          ),
-          const SizedBox(height: 4),
-          NotionText(
-            label,
-            fontSize: 13,
-            color: const Color(0xFF787774),
-            textAlign: TextAlign.center,
-          ),
-        ],
+    return SizedBox(
+      width: width ?? double.infinity,
+      child: NotionCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 12),
+            Flexible(
+              child: NotionText(
+                value,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: color,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Flexible(
+              child: NotionText(
+                label,
+                fontSize: 12,
+                color: const Color(0xFF787774),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
