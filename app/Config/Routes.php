@@ -32,6 +32,9 @@ $routes->get('/super-admin/logout', 'SuperAdmin\LoginController::logout');
 $routes->get('/super-admin/portal', 'SuperAdmin\PortalController::index', ['filter' => 'superAdminAuth']);
 $routes->post('/super-admin/portal/approve', 'SuperAdmin\PortalController::approve', ['filter' => 'superAdminAuth']);
 $routes->post('/super-admin/portal/reject', 'SuperAdmin\PortalController::reject', ['filter' => 'superAdminAuth']);
+$routes->post('/super-admin/portal/deactivate', 'SuperAdmin\PortalController::deactivate', ['filter' => 'superAdminAuth']);
+$routes->post('/super-admin/portal/reactivate', 'SuperAdmin\PortalController::reactivate', ['filter' => 'superAdminAuth']);
+$routes->get('/super-admin/user-activity-history', 'SuperAdmin\UserActivityHistoryController::index', ['filter' => 'superAdminAuth']);
 
 // Admin Routes
 $routes->get('/', 'Admin\LoginController::index');

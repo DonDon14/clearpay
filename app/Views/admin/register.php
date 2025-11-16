@@ -237,6 +237,11 @@
             <span id="emailSentMessage">Email sent successfully!</span>
           </div>
           
+          <div class="alert alert-warning">
+            <i class="fas fa-info-circle"></i>
+            <strong>Important:</strong> After email verification, your account will be reviewed by a Super Admin. You will receive an email notification when your account is <strong>approved</strong> or <strong>declined</strong>.
+          </div>
+          
           <div class="alert alert-danger d-none" id="verificationError"></div>
           
           <form id="verificationForm">
@@ -334,7 +339,19 @@
             emailSentAlert.className = 'alert alert-warning';
           }
         } else {
-          alert(result.error || 'Registration failed. Please try again.');
+          // Show detailed error message
+          let errorMsg = result.error || 'Registration failed. Please try again.';
+          
+          // If there are validation errors, show them
+          if (result.errors) {
+            const errorList = Object.values(result.errors).join('\n');
+            errorMsg = errorMsg + '\n\nDetails:\n' + errorList;
+          }
+          
+          // Log full error for debugging
+          console.error('Registration error:', result);
+          
+          alert(errorMsg);
         }
       } catch (error) {
         console.error('Error:', error);

@@ -552,10 +552,20 @@ class ActivityLogger
         switch ($action) {
             case 'created':
                 return "New Admin User Added: {$userName}";
+            case 're_registered':
+                return "User Re-registration: {$userName}";
             case 'updated':
                 return "Admin User Updated: {$userName}";
             case 'deleted':
                 return "Admin User Removed: {$userName}";
+            case 'approved':
+                return "Officer Approved: {$userName}";
+            case 'rejected':
+                return "Officer Rejected: {$userName}";
+            case 'deactivated':
+                return "Officer Deactivated: {$userName}";
+            case 'reactivated':
+                return "Officer Reactivated: {$userName}";
             default:
                 return "Admin User {$action}: {$userName}";
         }
@@ -571,6 +581,8 @@ class ActivityLogger
         switch ($action) {
             case 'created':
                 return "A new admin user '{$userName}' has been added to the system.";
+            case 're_registered':
+                return "User '{$userName}' has re-registered after previous rejection. Their account is now pending approval again.";
             case 'updated':
                 if ($oldData) {
                     $changes = [];
@@ -594,6 +606,16 @@ class ActivityLogger
                 return "Admin user '{$userName}' has been updated.";
             case 'deleted':
                 return "Admin user '{$userName}' has been removed from the system.";
+            case 'approved':
+                return "Officer '{$userName}' has been approved and can now access the system.";
+            case 'rejected':
+                $reason = $user['reason'] ?? 'No reason provided';
+                return "Officer '{$userName}' has been rejected. Reason: {$reason}";
+            case 'deactivated':
+                $reason = $user['reason'] ?? 'No reason provided';
+                return "Officer '{$userName}' has been deactivated and cannot access the system. Reason: {$reason}";
+            case 'reactivated':
+                return "Officer '{$userName}' has been reactivated and can now access the system again.";
             default:
                 return "Admin user '{$userName}' has been {$action}.";
         }

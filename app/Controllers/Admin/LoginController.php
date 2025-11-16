@@ -50,6 +50,25 @@ class LoginController extends Controller
                     return redirect()->back()->with('error', 'Your account has been rejected. Please contact the system administrator.');
                 }
             }
+            
+            // Check if user is active (deactivated users cannot login)
+            // Normalize is_active boolean (PostgreSQL may return 't'/'f' or 1/0)
+            $isActiveRaw = $user['is_active'] ?? true;
+            $isActive = true; // Default to active
+            
+            if ($isActiveRaw !== null) {
+                if (is_string($isActiveRaw)) {
+                    $isActive = in_array(strtolower($isActiveRaw), ['t', 'true', '1', 'yes'], true);
+                } elseif (is_numeric($isActiveRaw)) {
+                    $isActive = (bool)(int)$isActiveRaw;
+                } else {
+                    $isActive = (bool)$isActiveRaw;
+                }
+            }
+            
+            if (!$isActive) {
+                return redirect()->back()->with('error', 'Your account has been deactivated. Please contact the system administrator for assistance.');
+            }
             // Normalize profile picture path
             $normalizedProfilePicture = null;
             if (!empty($user['profile_picture'])) {
@@ -159,24 +178,6 @@ class LoginController extends Controller
         $session = session();
         $userModel = new UserModel();
 
-        // Validation
-        $rules = [
-            'name' => 'required|min_length[3]|max_length[100]',
-            'username' => 'required|min_length[3]|max_length[50]|is_unique[users.username]',
-            'email' => 'required|valid_email|max_length[100]|is_unique[users.email]',
-            'phone' => 'permit_empty|max_length[20]',
-            'password' => 'required|min_length[6]',
-            'confirm_password' => 'required|matches[password]',
-            'role' => 'required|in_list[officer]' // Only allow officer role for signups
-        ];
-
-        if (!$this->validate($rules)) {
-            return $this->response->setJSON([
-                'success' => false,
-                'errors' => $this->validator->getErrors()
-            ]);
-        }
-
         // Get role from form (should only be 'officer')
         $role = $this->request->getPost('role') ?? 'officer';
         
@@ -188,61 +189,237 @@ class LoginController extends Controller
             ]);
         }
 
-        // Generate verification code
-        $verificationCode = rand(100000, 999999);
+        // Check if user with same email/username already exists
+        $existingUser = null;
+        $email = $this->request->getPost('email');
+        $username = $this->request->getPost('username');
+        
+        // Check by email first
+        if (!empty($email)) {
+            $existingUser = $userModel->where('email', $email)->first();
+        }
+        
+        // If not found by email, check by username
+        if (!$existingUser && !empty($username)) {
+            $existingUser = $userModel->where('username', $username)->first();
+        }
+        
+        // If user exists, check if they can re-register (only if rejected)
+        $isReRegistration = false;
+        if ($existingUser) {
+            $existingStatus = $existingUser['status'] ?? 'approved';
+            
+            // Only allow re-registration if the existing user is rejected
+            if ($existingStatus === 'rejected') {
+                $isReRegistration = true;
+            } else {
+                // User exists and is not rejected - show appropriate error
+                if ($existingUser['email'] === $email) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'An account with this email address already exists. Please use a different email or contact support if you believe this is an error.'
+                    ]);
+                }
+                if ($existingUser['username'] === $username) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => 'This username is already taken. Please choose a different username.'
+                    ]);
+                }
+            }
+        }
+
+        // Validation rules - adjust based on whether it's re-registration
+        $rules = [
+            'name' => 'required|min_length[3]|max_length[100]',
+            'phone' => 'permit_empty|max_length[20]',
+            'password' => 'required|min_length[6]',
+            'confirm_password' => 'required|matches[password]',
+            'role' => 'required|in_list[officer]'
+        ];
+        
+        // Only check uniqueness if it's not a re-registration
+        if (!$isReRegistration) {
+            $rules['username'] = 'required|min_length[3]|max_length[50]|is_unique[users.username]';
+            $rules['email'] = 'required|valid_email|max_length[100]|is_unique[users.email]';
+        } else {
+            $rules['username'] = 'required|min_length[3]|max_length[50]';
+            $rules['email'] = 'required|valid_email|max_length[100]';
+        }
+
+        if (!$this->validate($rules)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'errors' => $this->validator->getErrors()
+            ]);
+        }
+
+        // Generate verification code (as string for database)
+        $verificationCode = (string)rand(100000, 999999);
 
         // Get form data
+        // Note: For PostgreSQL, we need to ensure proper boolean handling
         $data = [
             'name' => $this->request->getPost('name'),
             'username' => $this->request->getPost('username'),
             'email' => $this->request->getPost('email'),
-            'phone' => $this->request->getPost('phone'),
+            'phone' => $this->request->getPost('phone') ?: null, // Convert empty string to null
             'password' => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
             'role' => $role,
             'status' => 'pending', // Officers require approval
+            'is_active' => true, // New officers are active by default (can be deactivated later)
             'email_verified' => false,
             'verification_token' => $verificationCode
         ];
 
-        // Save user
-        if ($userModel->insert($data)) {
-            $userId = $userModel->insertID();
-            
-            // Store user ID in session for verification
-            $session->set('pending_verification_user_id', $userId);
-            $session->set('pending_verification_email', $data['email']);
-            
-            // Send verification email - wrap in try-catch to prevent registration failure
-            $emailSent = false;
-            try {
-                $emailSent = $this->sendVerificationEmail($data['email'], $data['name'], $verificationCode);
-            } catch (\Exception $e) {
-                log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
-            } catch (\Error $e) {
-                log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
+        // Save user - update if re-registration, insert if new
+        try {
+            if ($isReRegistration) {
+                // Update existing rejected user record
+                $userId = $existingUser['id'];
+                if ($userModel->update($userId, $data)) {
+                    log_message('info', "Re-registration: Updated existing rejected user ID {$userId} with new registration data");
+                } else {
+                    $errors = $userModel->errors();
+                    $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Failed to update registration. Please try again.';
+                    
+                    log_message('error', 'Re-registration update failed: ' . json_encode($errors));
+                    
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => $errorMessage,
+                        'errors' => $errors
+                    ]);
+                }
+            } else {
+                // Insert new user
+                if ($userModel->insert($data)) {
+                    $userId = $userModel->insertID();
+                } else {
+                    // Get model errors
+                    $errors = $userModel->errors();
+                    $dbError = $userModel->db->error();
+                    
+                    // Build detailed error message
+                    $errorMessages = [];
+                    if (!empty($errors)) {
+                        $errorMessages = array_values($errors);
+                    }
+                    
+                    if (!empty($dbError['message'])) {
+                        $errorMessages[] = 'Database error: ' . $dbError['message'];
+                    }
+                    
+                    $errorMessage = !empty($errorMessages) 
+                        ? implode(' ', $errorMessages) 
+                        : 'Registration failed. Please try again.';
+                    
+                    log_message('error', 'User registration failed');
+                    log_message('error', 'Model errors: ' . json_encode($errors));
+                    log_message('error', 'Database error: ' . json_encode($dbError));
+                    log_message('error', 'Registration data: ' . json_encode($data));
+                    
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'error' => $errorMessage,
+                        'errors' => $errors,
+                        'db_error' => $dbError
+                    ]);
+                }
             }
             
-            // Log admin user registration activity for other admins
-            try {
-                $activityLogger = new \App\Services\ActivityLogger();
-                $userData = array_merge($data, ['id' => $userId]);
-                $activityLogger->logUser('created', $userData);
-            } catch (\Exception $e) {
-                log_message('error', 'Failed to log admin user registration activity: ' . $e->getMessage());
+            if ($userId) {
+                
+                // Store user ID in session for verification
+                $session->set('pending_verification_user_id', $userId);
+                $session->set('pending_verification_email', $data['email']);
+                
+                // Send verification email - wrap in try-catch to prevent registration failure
+                $emailSent = false;
+                try {
+                    $emailSent = $this->sendVerificationEmail($data['email'], $data['name'], $verificationCode);
+                } catch (\Exception $e) {
+                    log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
+                } catch (\Error $e) {
+                    log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
+                }
+                
+                // Log admin user registration activity for other admins
+                try {
+                    $activityLogger = new \App\Services\ActivityLogger();
+                    $userData = array_merge($data, ['id' => $userId]);
+                    if ($isReRegistration) {
+                        // Log as re-registration for previously rejected users
+                        $activityLogger->logUser('re_registered', $userData);
+                    } else {
+                        $activityLogger->logUser('created', $userData);
+                    }
+                } catch (\Exception $e) {
+                    log_message('error', 'Failed to log admin user registration activity: ' . $e->getMessage());
+                }
+                
+                $message = $isReRegistration 
+                    ? 'Re-registration successful! Your new registration has been submitted. Please verify your email. Your account will be reviewed by a Super Admin before you can access the system. You will receive an email notification when your account is approved or declined.'
+                    : 'Registration successful! Please verify your email. Your account will be reviewed by a Super Admin before you can access the system. You will receive an email notification when your account is approved or declined.';
+                
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => $message,
+                    'email_sent' => $emailSent,
+                    'email' => $data['email'],
+                    'verification_code' => $verificationCode, // For testing purposes
+                    'requires_approval' => true,
+                    'is_re_registration' => $isReRegistration
+                ]);
+            } else {
+                // Get model errors
+                $errors = $userModel->errors();
+                $dbError = $userModel->db->error();
+                
+                // Build detailed error message
+                $errorMessages = [];
+                if (!empty($errors)) {
+                    $errorMessages = array_values($errors);
+                }
+                
+                if (!empty($dbError['message'])) {
+                    $errorMessages[] = 'Database error: ' . $dbError['message'];
+                }
+                
+                $errorMessage = !empty($errorMessages) 
+                    ? implode(' ', $errorMessages) 
+                    : 'Registration failed. Please try again.';
+                
+                log_message('error', 'User registration failed');
+                log_message('error', 'Model errors: ' . json_encode($errors));
+                log_message('error', 'Database error: ' . json_encode($dbError));
+                log_message('error', 'Registration data: ' . json_encode($data));
+                
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => $errorMessage,
+                    'errors' => $errors,
+                    'db_error' => $dbError
+                ]);
             }
+        } catch (\Exception $e) {
+            log_message('error', 'Exception during user registration: ' . $e->getMessage());
+            log_message('error', 'Exception trace: ' . $e->getTraceAsString());
+            log_message('error', 'Registration data: ' . json_encode($data ?? []));
             
-            return $this->response->setJSON([
-                'success' => true,
-                'message' => 'Registration successful! Please verify your email. Your account will be reviewed by a Super Admin before you can access the system.',
-                'email_sent' => $emailSent,
-                'email' => $data['email'],
-                'verification_code' => $verificationCode, // For testing purposes
-                'requires_approval' => true
-            ]);
-        } else {
             return $this->response->setJSON([
                 'success' => false,
-                'error' => 'Registration failed. Please try again.'
+                'error' => 'Registration failed: ' . $e->getMessage(),
+                'exception' => get_class($e)
+            ]);
+        } catch (\Error $e) {
+            log_message('error', 'Fatal error during user registration: ' . $e->getMessage());
+            log_message('error', 'Error trace: ' . $e->getTraceAsString());
+            
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Registration failed: ' . $e->getMessage(),
+                'error_type' => 'Fatal Error'
             ]);
         }
     }

@@ -6,6 +6,7 @@ use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use App\Models\RememberTokenModel;
+use App\Models\UserModel;
 
 class RememberMe implements FilterInterface
 {
@@ -35,21 +36,49 @@ class RememberMe implements FilterInterface
                     $user = $rememberTokenModel->findUserByToken($rememberToken);
                     
                     if ($user) {
-                        // Token is valid, auto-login the user
-                        session()->set([
-                            'user-id'         => $user['id'],
-                            'username'        => $user['username'],
-                            'email'           => $user['email'],
-                            'name'            => $user['name'],
-                            'role'            => $user['role'],
-                            'profile_picture' => $user['profile_picture'] ?? null,
-                            'isLoggedIn'      => true,
-                        ]);
+                        // Check if user is active (deactivated users cannot auto-login)
+                        $isActiveRaw = $user['is_active'] ?? true;
+                        $isActive = true; // Default to active
                         
-                        // Set session flag to force sidebar expanded on first load
-                        session()->set('forceSidebarExpanded', true);
+                        if ($isActiveRaw !== null) {
+                            if (is_string($isActiveRaw)) {
+                                $isActive = in_array(strtolower($isActiveRaw), ['t', 'true', '1', 'yes'], true);
+                            } elseif (is_numeric($isActiveRaw)) {
+                                $isActive = (bool)(int)$isActiveRaw;
+                            } else {
+                                $isActive = (bool)$isActiveRaw;
+                            }
+                        }
                         
-                        log_message('info', "Auto-login successful via Remember Me for user: {$user['username']}");
+                        // Also check if officer status is approved
+                        $canLogin = true;
+                        if ($user['role'] === 'officer') {
+                            $status = $user['status'] ?? 'approved';
+                            $canLogin = ($status === 'approved');
+                        }
+                        
+                        if ($isActive && $canLogin) {
+                            // Token is valid and user is active, auto-login the user
+                            session()->set([
+                                'user-id'         => $user['id'],
+                                'username'        => $user['username'],
+                                'email'           => $user['email'],
+                                'name'            => $user['name'],
+                                'role'            => $user['role'],
+                                'profile_picture' => $user['profile_picture'] ?? null,
+                                'isLoggedIn'      => true,
+                            ]);
+                            
+                            // Set session flag to force sidebar expanded on first load
+                            session()->set('forceSidebarExpanded', true);
+                            
+                            log_message('info', "Auto-login successful via Remember Me for user: {$user['username']}");
+                        } else {
+                            // User is deactivated or not approved, clear token and cookie
+                            $rememberTokenModel->deleteToken($user['id']);
+                            $this->clearRememberMeCookie();
+                            log_message('info', "Auto-login blocked - user deactivated or not approved: {$user['username']}");
+                        }
                     } else {
                         // Invalid token, clear the cookie
                         $this->clearRememberMeCookie();
