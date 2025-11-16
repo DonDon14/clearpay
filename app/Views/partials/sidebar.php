@@ -59,6 +59,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= base_url('admins') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Admins') ? 'active' : '' ?>" data-tooltip="Admins">
+                        <i class="fas fa-user-shield"></i> 
+                        <span class="menu-text">Admins</span>
+                    </a>
+                </li>
+                <li>
                     <a href="<?= base_url('announcements') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Announcements') ? 'active' : '' ?>" data-tooltip="Announcements">
                         <i class="fas fa-bullhorn"></i> 
                         <span class="menu-text">Announcements</span>

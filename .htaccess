@@ -1,0 +1,5 @@
+# Redirect all requests to the public folder
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/ClearPay/public/
+RewriteRule ^(.*)$ /ClearPay/public/$1 [L]
+

@@ -114,6 +114,20 @@
           </div>
 
           <div class="form-group">
+            <label for="role">Role</label>
+            <select 
+              name="role" 
+              id="role" 
+              class="form-control" 
+              required
+            >
+              <option value="officer" <?= old('role') === 'officer' ? 'selected' : '' ?>>Officer</option>
+            </select>
+            <i class="fas fa-user-tag input-icon"></i>
+            <small class="form-text text-muted">Officers require approval from Super Admin before they can access the system.</small>
+          </div>
+
+          <div class="form-group">
             <label for="password">Password</label>
             <input 
               type="password" 

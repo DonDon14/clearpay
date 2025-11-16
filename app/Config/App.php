@@ -72,6 +72,15 @@ class App extends BaseConfig
                 }
             }
             
+            // Additional check: if SCRIPT_NAME contains /public/, ensure baseURL includes it
+            if (!empty($_SERVER['SCRIPT_NAME']) && strpos($_SERVER['SCRIPT_NAME'], '/public/') !== false) {
+                // Extract the path up to /public/
+                $scriptPath = $_SERVER['SCRIPT_NAME'];
+                if (preg_match('#^/([^/]+/public)/#', $scriptPath, $scriptMatches)) {
+                    $path = '/' . $scriptMatches[1] . '/';
+                }
+            }
+            
             $this->baseURL = $protocol . '://' . $host . $path;
         }
     }

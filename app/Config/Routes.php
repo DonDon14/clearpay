@@ -25,6 +25,14 @@ $routes->get('uploads/(:segment)', 'ImageController::serve/$1');
 
 // Default route - redirect to admin login
 
+// Super Admin Routes (must be before admin routes to avoid conflicts)
+$routes->get('/super-admin/login', 'SuperAdmin\LoginController::index');
+$routes->post('/super-admin/loginPost', 'SuperAdmin\LoginController::loginPost');
+$routes->get('/super-admin/logout', 'SuperAdmin\LoginController::logout');
+$routes->get('/super-admin/portal', 'SuperAdmin\PortalController::index', ['filter' => 'superAdminAuth']);
+$routes->post('/super-admin/portal/approve', 'SuperAdmin\PortalController::approve', ['filter' => 'superAdminAuth']);
+$routes->post('/super-admin/portal/reject', 'SuperAdmin\PortalController::reject', ['filter' => 'superAdminAuth']);
+
 // Admin Routes
 $routes->get('/', 'Admin\LoginController::index');
 $routes->post('/loginPost', 'Admin\LoginController::loginPost');
@@ -55,6 +63,7 @@ $routes->get('/help/api-documentation', 'Admin\ApiDocumentationController::index
 $routes->get('/contributions', 'Admin\SidebarController::contributions', ['filter' => 'auth']);
 $routes->get('/payers', 'Admin\SidebarController::payers', ['filter' => 'auth']);
 $routes->post('/payers/save', 'Admin\SidebarController::savePayer', ['filter' => 'auth']);
+$routes->get('/admins', 'Admin\AdminsController::index', ['filter' => 'auth']);
 $routes->get('/payers/get/(:num)', 'Admin\SidebarController::getPayer/$1', ['filter' => 'auth']);
 $routes->get('/payers/get-details/(:num)', 'Admin\SidebarController::getPayerDetails/$1', ['filter' => 'auth']);
 $routes->post('/payers/update/(:num)', 'Admin\SidebarController::updatePayer/$1', ['filter' => 'auth']);

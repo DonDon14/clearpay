@@ -15,10 +15,12 @@ class UserModel extends Model
         'phone',
         'password',
         'role',
+        'status',
         'profile_picture',
         'verification_token',
         'email_verified',
         'reset_token',
         'reset_expires',
+        'last_activity',
     ];
 }

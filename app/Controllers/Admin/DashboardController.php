@@ -20,9 +20,16 @@ class DashboardController extends BaseController
             return redirect()->to('/admin/login');
         }
 
-        // Refresh session profile picture from database to ensure it's up-to-date
+        // Update last_activity timestamp to track online status
         $userModel = new UserModel();
         $userId = session()->get('user-id');
+        if ($userId) {
+            $userModel->update($userId, [
+                'last_activity' => date('Y-m-d H:i:s')
+            ]);
+        }
+
+        // Refresh session profile picture from database to ensure it's up-to-date
         if ($userId) {
             $currentUser = $userModel->find($userId);
             if ($currentUser && !empty($currentUser['profile_picture'])) {

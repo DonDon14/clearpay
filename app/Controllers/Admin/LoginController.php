@@ -41,6 +41,15 @@ class LoginController extends Controller
         // Make username check case-sensitive (SQL might be case-insensitive)
         $user = $userModel->where('username', $username)->first();
         if ($user && $user['username'] === $username && password_verify($password, $user['password'])) {
+            // Check if user is approved (officers need approval, admins are auto-approved)
+            $status = $user['status'] ?? 'approved'; // Default to approved for existing users without status
+            if ($user['role'] === 'officer' && $status !== 'approved') {
+                if ($status === 'pending') {
+                    return redirect()->back()->with('error', 'Your account is pending approval from a Super Admin. Please wait for approval before logging in.');
+                } elseif ($status === 'rejected') {
+                    return redirect()->back()->with('error', 'Your account has been rejected. Please contact the system administrator.');
+                }
+            }
             // Normalize profile picture path
             $normalizedProfilePicture = null;
             if (!empty($user['profile_picture'])) {
@@ -86,6 +95,11 @@ class LoginController extends Controller
                     }
                 }
             }
+            
+            // Update last_activity timestamp to track online status
+            $userModel->update($user['id'], [
+                'last_activity' => date('Y-m-d H:i:s')
+            ]);
             
             $session->set([
                 'user-id'         => $user['id'],
@@ -153,13 +167,24 @@ class LoginController extends Controller
             'phone' => 'permit_empty|max_length[20]',
             'password' => 'required|min_length[6]',
             'confirm_password' => 'required|matches[password]',
-            'role' => 'permit_empty|in_list[admin,officer]'
+            'role' => 'required|in_list[officer]' // Only allow officer role for signups
         ];
 
         if (!$this->validate($rules)) {
             return $this->response->setJSON([
                 'success' => false,
                 'errors' => $this->validator->getErrors()
+            ]);
+        }
+
+        // Get role from form (should only be 'officer')
+        $role = $this->request->getPost('role') ?? 'officer';
+        
+        // Prevent admin role selection during signup
+        if ($role === 'admin') {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Admin role cannot be selected during signup. Please contact system administrator.'
             ]);
         }
 
@@ -173,7 +198,8 @@ class LoginController extends Controller
             'email' => $this->request->getPost('email'),
             'phone' => $this->request->getPost('phone'),
             'password' => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
-            'role' => $this->request->getPost('role') ?? 'officer',
+            'role' => $role,
+            'status' => 'pending', // Officers require approval
             'email_verified' => false,
             'verification_token' => $verificationCode
         ];
@@ -207,10 +233,11 @@ class LoginController extends Controller
             
             return $this->response->setJSON([
                 'success' => true,
-                'message' => 'Registration successful! Please verify your email.',
+                'message' => 'Registration successful! Please verify your email. Your account will be reviewed by a Super Admin before you can access the system.',
                 'email_sent' => $emailSent,
                 'email' => $data['email'],
-                'verification_code' => $verificationCode // For testing purposes
+                'verification_code' => $verificationCode, // For testing purposes
+                'requires_approval' => true
             ]);
         } else {
             return $this->response->setJSON([
