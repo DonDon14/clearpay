@@ -83,8 +83,7 @@
                             'title' => 'View History',
                             'subtitle' => 'View contribution history',
                             'bgColor' => 'bg-warning',
-                            'link' => $tempLink,
-                            'modalTarget' => $tempModalTarget,
+                            'modalTarget' => 'contributionHistoryModal',
                             'colClass' => 'col-lg-4 col-md-4 col-sm-6'
                         ]) ?>
                     </div>
@@ -450,5 +449,8 @@ function clearFilters() {
     document.getElementById('resultsCount').textContent = `Showing ${items.length} of ${items.length} contributions`;
 }
 </script>
+
+<!-- Contribution History Modal -->
+<?= $this->include('partials/modal-contribution-history') ?>
 
 <?= $this->endSection() ?>

@@ -744,6 +744,56 @@ class PaymentsController extends BaseController
     }
 
     /**
+     * Get contribution history (all contributions with their payments)
+     */
+    public function contributionHistory()
+    {
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized access'
+            ])->setStatusCode(401);
+        }
+
+        try {
+            $contributionModel = new ContributionModel();
+            $paymentModel = new PaymentModel();
+            
+            // Get all contributions
+            $contributions = $contributionModel->orderBy('created_at', 'DESC')->findAll();
+            
+            // Get payments for each contribution
+            foreach ($contributions as &$contribution) {
+                $payments = $paymentModel->select('
+                    payments.*,
+                    payers.payer_name,
+                    payers.payer_id as payer_student_id,
+                    payers.email_address,
+                    payers.contact_number
+                ')
+                ->join('payers', 'payers.id = payments.payer_id', 'left')
+                ->where('payments.contribution_id', $contribution['id'])
+                ->where('payments.deleted_at', null)
+                ->orderBy('payments.payment_date', 'DESC')
+                ->findAll();
+                
+                $contribution['payments'] = $payments;
+            }
+            
+            return $this->response->setJSON([
+                'success' => true,
+                'contributions' => $contributions
+            ]);
+            
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error loading contribution history: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
      * Get payments by contribution ID
      */
     public function byContribution($contributionId)

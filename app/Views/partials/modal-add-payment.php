@@ -326,6 +326,18 @@ body:has(#schoolIDScannerModal.show) #addPaymentModal {
 <script>
 // Single comprehensive DOMContentLoaded listener for all modal functionality
 document.addEventListener("DOMContentLoaded", function() {
+  // CRITICAL: Fix form action immediately on page load (fix for contributions page issue)
+  const paymentForm = document.getElementById('paymentForm');
+  if (paymentForm) {
+    const correctAction = '<?= base_url('payments/save') ?>';
+    // Check if action is incorrect (points to contributions/save or doesn't include payments/save)
+    if (!paymentForm.action.includes('payments/save')) {
+      console.warn('Fixing incorrect form action on page load:', paymentForm.action, '->', correctAction);
+      paymentForm.action = correctAction;
+    }
+    console.log('Form action on page load:', paymentForm.action);
+  }
+  
   // Get all modal elements
   const addPaymentModal = document.getElementById('addPaymentModal');
   const modalDialog = addPaymentModal ? addPaymentModal.querySelector('.modal-dialog') : null;
@@ -419,9 +431,83 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   }
 
-  // Payer Search Functionality
+  // Payer Search Functionality - Extract as reusable function
+  function searchPayers(query, inputElement, dropdownElement) {
+    if (!query || query.trim().length < 2) {
+      if (dropdownElement) {
+        dropdownElement.style.display = 'none';
+      }
+      return;
+    }
+
+    const searchTerm = query.trim();
+    
+    // Fetch payers from database
+    fetch(`${window.APP_BASE_URL || ''}/payments/search-payers?term=${encodeURIComponent(searchTerm)}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.results && data.results.length > 0) {
+          if (dropdownElement) {
+            dropdownElement.innerHTML = '';
+            data.results.forEach(payer => {
+              const item = document.createElement('a');
+              item.className = 'list-group-item list-group-item-action';
+              item.href = '#';
+              item.innerHTML = `<strong>${payer.payer_name}</strong> (ID: ${payer.payer_id})<br><small class="text-muted">${payer.contact_number || 'N/A'} | ${payer.email_address || 'N/A'}</small>`;
+              item.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (inputElement) {
+                  inputElement.value = `${payer.payer_name} (${payer.payer_id})`;
+                }
+                
+                const existingPayerIdEl = document.getElementById('existingPayerId');
+                if (existingPayerIdEl) {
+                  existingPayerIdEl.value = payer.id;
+                }
+                
+                if (dropdownElement) {
+                  dropdownElement.style.display = 'none';
+                }
+                
+                // Store payer ID for later use when contribution is selected
+                window.selectedPayerId = payer.id;
+                
+                // Clear any existing warnings
+                const existingAlert = document.getElementById('unpaidContributionsAlert');
+                if (existingAlert) {
+                  existingAlert.remove();
+                }
+                
+                console.log('Payer selected:', payer.payer_name, 'ID:', payer.id);
+              });
+              dropdownElement.appendChild(item);
+            });
+            dropdownElement.style.display = 'block';
+          }
+        } else {
+          if (dropdownElement) {
+            dropdownElement.innerHTML = '<div class="list-group-item text-muted">No payers found</div>';
+            dropdownElement.style.display = 'block';
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error searching payers:', error);
+        if (dropdownElement) {
+          dropdownElement.innerHTML = '<div class="list-group-item text-danger">Error searching payers</div>';
+          dropdownElement.style.display = 'block';
+        }
+      });
+  }
+  
+  // Make searchPayers globally available
+  window.searchPayers = searchPayers;
+  
+  // Attach payer search functionality
   let searchTimeout;
-  if (payerSelectInput) {
+  if (payerSelectInput && payerDropdown) {
     payerSelectInput.addEventListener('input', function() {
       const searchTerm = this.value.trim();
       
@@ -433,45 +519,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }
 
       searchTimeout = setTimeout(function() {
-        // Fetch payers from database
-        fetch(`${window.APP_BASE_URL || ''}/payments/search-payers?term=${encodeURIComponent(searchTerm)}`)
-          .then(response => response.json())
-          .then(data => {
-            if (data.success && data.results && data.results.length > 0) {
-              payerDropdown.innerHTML = '';
-              data.results.forEach(payer => {
-                const item = document.createElement('a');
-                item.className = 'list-group-item list-group-item-action';
-                item.href = '#';
-                item.innerHTML = `<strong>${payer.payer_name}</strong> (ID: ${payer.payer_id})<br><small class="text-muted">${payer.contact_number || 'N/A'} | ${payer.email_address || 'N/A'}</small>`;
-                item.addEventListener('click', function(e) {
-                  e.preventDefault();
-                  payerSelectInput.value = `${payer.payer_name} (${payer.payer_id})`;
-                  document.getElementById('existingPayerId').value = payer.id;
-                  payerDropdown.style.display = 'none';
-                  
-                  // Store payer ID for later use when contribution is selected
-                  window.selectedPayerId = payer.id;
-                  
-                  // Clear any existing warnings
-                  const existingAlert = document.getElementById('unpaidContributionsAlert');
-                  if (existingAlert) {
-                    existingAlert.remove();
-                  }
-                });
-                payerDropdown.appendChild(item);
-              });
-              payerDropdown.style.display = 'block';
-            } else {
-              payerDropdown.innerHTML = '<div class="list-group-item text-muted">No payers found</div>';
-              payerDropdown.style.display = 'block';
-            }
-          })
-          .catch(error => {
-            console.error('Error searching payers:', error);
-            payerDropdown.innerHTML = '<div class="list-group-item text-danger">Error searching payers</div>';
-            payerDropdown.style.display = 'block';
-          });
+        searchPayers(searchTerm, payerSelectInput, payerDropdown);
       }, 300);
     });
   }
@@ -488,19 +536,366 @@ document.addEventListener("DOMContentLoaded", function() {
     amountPaidEl.addEventListener('input', updatePaymentStatus);
   }
   
-  // Fully Paid button event listener
-  const fullyPaidBtn = document.getElementById('fullyPaidBtn');
-  if (fullyPaidBtn) {
-    fullyPaidBtn.addEventListener('click', function() {
-      const remainingBalanceEl = document.getElementById('remainingBalance');
-      if (remainingBalanceEl && remainingBalanceEl.value) {
-        const remainingBalance = parseFloat(remainingBalanceEl.value);
-        if (remainingBalance > 0) {
-          amountPaidEl.value = remainingBalance.toFixed(2);
-          updatePaymentStatus();
+  // Fully Paid button handler function - reusable
+  function handleFullyPaidClick(e) {
+    // CRITICAL: Stop all event propagation FIRST before anything else
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }
+    
+    console.log('=== FULLY PAID BUTTON CLICKED ==='); // Debug log
+    
+    const remainingBalanceEl = document.getElementById('remainingBalance');
+    const amountPaidEl = document.getElementById('amountPaid');
+    
+    // Find contribution field - could be select or input, and there might be multiple elements with same ID
+    // Search for the visible contribution field by finding the label first
+    let contributionSelect = null;
+    const modal = document.getElementById('addPaymentModal');
+    
+    if (modal) {
+      // Find the "Contribution" label
+      const contributionLabel = Array.from(modal.querySelectorAll('label')).find(
+        label => label.textContent.trim().toLowerCase().includes('contribution') && 
+                 label.getAttribute('for') === 'contributionId'
+      );
+      
+      if (contributionLabel) {
+        // Find the associated field (could be select or input)
+        const fieldId = contributionLabel.getAttribute('for');
+        const selectField = modal.querySelector(`select#${fieldId}`);
+        const inputField = modal.querySelector(`input#${fieldId}:not([type="hidden"])`);
+        contributionSelect = selectField || inputField;
+        console.log('Found contribution field via label:', contributionSelect);
+      }
+      
+      // Fallback: search for any visible select or input with id="contributionId"
+      if (!contributionSelect) {
+        contributionSelect = modal.querySelector('select#contributionId') || 
+                           modal.querySelector('input#contributionId:not([type="hidden"])');
+        console.log('Found contribution field via fallback search:', contributionSelect);
+      }
+    }
+    
+    // Final fallback: use getElementById (might return hidden element)
+    if (!contributionSelect) {
+      contributionSelect = document.getElementById('contributionId');
+      console.log('Found contribution field via getElementById:', contributionSelect);
+    }
+    
+    if (!amountPaidEl) {
+      console.error('Amount paid element not found');
+      alert('Error: Amount paid field not found. Please refresh the page.');
+      return false;
+    }
+    
+    console.log('Amount paid element found:', amountPaidEl);
+    console.log('Remaining balance element:', remainingBalanceEl);
+    console.log('Contribution select element:', contributionSelect);
+    
+    // Get contribution amount - try multiple methods
+    let contributionAmount = 0;
+    let remainingBalance = 0;
+    
+    // Method 1: Try to get from remaining balance field
+    if (remainingBalanceEl && remainingBalanceEl.value) {
+      remainingBalance = parseFloat(remainingBalanceEl.value);
+      console.log('Got remaining balance from field:', remainingBalance);
+    }
+    
+    // Method 2: Get from contribution field (could be select dropdown OR read-only input)
+    if (contributionSelect) {
+      console.log('Contribution element found:', contributionSelect);
+      console.log('Contribution element tagName:', contributionSelect.tagName);
+      console.log('Contribution element type:', contributionSelect.type);
+      
+      // Check if it's a SELECT dropdown
+      if (contributionSelect.tagName === 'SELECT') {
+        console.log('Contribution is a SELECT dropdown');
+        console.log('Contribution select value:', contributionSelect.value);
+        console.log('Contribution select selectedIndex:', contributionSelect.selectedIndex);
+        
+        if (contributionSelect.value && contributionSelect.selectedIndex >= 0) {
+          const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+          console.log('Selected option:', selectedOption);
+          console.log('Selected option dataset:', selectedOption.dataset);
+          console.log('Selected option data-amount:', selectedOption.dataset.amount);
+          
+          contributionAmount = parseFloat(selectedOption.dataset.amount || 0);
+          console.log('Contribution amount from select:', contributionAmount);
+          
+          // If we don't have remaining balance, calculate it
+          if (!remainingBalance && contributionAmount > 0) {
+            const currentAmountPaid = parseFloat(amountPaidEl.value || 0);
+            remainingBalance = contributionAmount - currentAmountPaid;
+            console.log('Calculated remaining balance:', remainingBalance, '(contribution:', contributionAmount, '- paid:', currentAmountPaid, ')');
+          }
+        } else {
+          console.warn('No contribution selected in dropdown');
+        }
+      } 
+      // Check if it's an INPUT field (read-only)
+      else if (contributionSelect.tagName === 'INPUT') {
+        console.log('Contribution is a read-only INPUT field');
+        const contributionText = contributionSelect.value || contributionSelect.textContent || '';
+        console.log('Contribution input value/text:', contributionText);
+        console.log('Contribution input value length:', contributionText.length);
+        console.log('Contribution input value charCodes:', Array.from(contributionText).map(c => c.charCodeAt(0)));
+        
+        // Parse amount from text like "Monthly Fee - ₱1,000.00"
+        // Try multiple regex patterns to handle different formats
+        let amountMatch = null;
+        
+        // Pattern 1: Match "₱" followed by number (handles "₱1,000.00" or " - ₱1,000.00")
+        amountMatch = contributionText.match(/₱\s*([\d,]+(?:\.\d{2})?)/);
+        console.log('Pattern 1 (₱...) match:', amountMatch);
+        
+        // Pattern 2: Match "- ₱" followed by number (handles " - ₱1,000.00")
+        if (!amountMatch) {
+          amountMatch = contributionText.match(/-\s*₱\s*([\d,]+(?:\.\d{2})?)/);
+          console.log('Pattern 2 (- ₱...) match:', amountMatch);
+        }
+        
+        // Pattern 3: Match any number with commas and decimals (fallback)
+        if (!amountMatch) {
+          amountMatch = contributionText.match(/([\d,]+\.\d{2})/);
+          console.log('Pattern 3 (number with decimals) match:', amountMatch);
+        }
+        
+        // Pattern 4: Match any number with commas (no decimals)
+        if (!amountMatch) {
+          amountMatch = contributionText.match(/([\d,]+)/);
+          console.log('Pattern 4 (number only) match:', amountMatch);
+        }
+        
+        if (amountMatch && amountMatch[1]) {
+          // Remove commas and parse
+          const amountStr = amountMatch[1].replace(/,/g, '');
+          contributionAmount = parseFloat(amountStr);
+          console.log('Extracted amount string:', amountStr);
+          console.log('Parsed contribution amount from input text:', contributionAmount);
+          
+          // Validate the parsed amount
+          if (isNaN(contributionAmount) || contributionAmount <= 0) {
+            console.error('Parsed amount is invalid:', contributionAmount);
+            contributionAmount = 0;
+          } else {
+            // If we don't have remaining balance, calculate it
+            if (!remainingBalance && contributionAmount > 0) {
+              const currentAmountPaid = parseFloat(amountPaidEl.value || 0);
+              remainingBalance = contributionAmount - currentAmountPaid;
+              console.log('Calculated remaining balance:', remainingBalance, '(contribution:', contributionAmount, '- paid:', currentAmountPaid, ')');
+            }
+          }
+        } else {
+          console.error('Could not parse amount from contribution input text:', contributionText);
+          console.error('Tried all regex patterns but none matched');
+        }
+      } else {
+        console.warn('Contribution element is neither SELECT nor INPUT:', contributionSelect.tagName);
+      }
+    } else {
+      console.warn('Contribution element not found');
+    }
+    
+    // Determine what amount to set
+    let amountToSet = 0;
+    
+    if (remainingBalance > 0) {
+      amountToSet = remainingBalance;
+      console.log('Using remaining balance:', amountToSet);
+    } else if (contributionAmount > 0) {
+      amountToSet = contributionAmount;
+      console.log('Using full contribution amount:', amountToSet);
+    } else {
+      console.error('Cannot determine amount - no contribution selected or amount available');
+      alert('Please select a contribution first, or the contribution amount could not be determined.');
+      return false;
+    }
+    
+    // Set the amount
+    if (amountToSet > 0) {
+      amountPaidEl.value = amountToSet.toFixed(2);
+      console.log('Set amountPaid value to:', amountPaidEl.value);
+      
+      // Force update the input (some frameworks need this)
+      amountPaidEl.setAttribute('value', amountToSet.toFixed(2));
+      
+      // Trigger multiple events to ensure all listeners fire
+      amountPaidEl.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+      amountPaidEl.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+      
+      // Also trigger focus/blur to ensure validation
+      amountPaidEl.focus();
+      setTimeout(() => amountPaidEl.blur(), 10);
+      
+      // Call updatePaymentStatus if available
+      if (typeof updatePaymentStatus === 'function') {
+        console.log('Calling updatePaymentStatus function');
+        updatePaymentStatus();
+      } else {
+        console.warn('updatePaymentStatus function not available');
+      }
+      
+      console.log('=== SUCCESS: Amount set to', amountToSet.toFixed(2), '===');
+    } else {
+      console.error('Amount to set is 0 or invalid');
+      alert('Unable to determine the amount to set. Please check that a contribution is selected.');
+    }
+    
+    return false; // Prevent any form submission
+  }
+  
+  // CRITICAL: Attach handler with HIGHEST priority using capture phase on window
+  // This must run BEFORE any other handlers
+  window.addEventListener('click', function(e) {
+    const fullyPaidBtn = e.target.closest('#fullyPaidBtn');
+    if (fullyPaidBtn) {
+      const modal = document.getElementById('addPaymentModal');
+      if (modal && modal.classList.contains('show')) {
+        handleFullyPaidClick(e);
+      }
+    }
+  }, { capture: true, passive: false });
+  
+  // Also attach directly to button when modal is shown
+  if (addPaymentModal) {
+    addPaymentModal.addEventListener('shown.bs.modal', function() {
+      console.log('=== MODAL SHOWN - RE-ATTACHING ALL EVENT LISTENERS ===');
+      
+      // CRITICAL: Ensure form action is always correct (fix for contributions page issue)
+      const paymentForm = document.getElementById('paymentForm');
+      if (paymentForm) {
+        const correctAction = '<?= base_url('payments/save') ?>';
+        if (paymentForm.action !== correctAction && !paymentForm.action.includes('payments/save')) {
+          console.warn('Fixing incorrect form action:', paymentForm.action, '->', correctAction);
+          paymentForm.action = correctAction;
+        }
+        console.log('Form action verified:', paymentForm.action);
+      }
+      
+      // Re-get elements from the modal (they might be recreated)
+      const modalAmountPaidEl = document.getElementById('amountPaid');
+      const modalContributionSelect = document.getElementById('contributionId');
+      const modalPayerSelectInput = document.getElementById('payerSelect');
+      const modalPayerDropdown = document.getElementById('payerDropdown');
+      
+      // Re-attach amount paid input listener (CRITICAL for contributions page)
+      if (modalAmountPaidEl) {
+        // Remove any existing listeners by cloning
+        const newAmountInput = modalAmountPaidEl.cloneNode(true);
+        modalAmountPaidEl.parentNode.replaceChild(newAmountInput, modalAmountPaidEl);
+        
+        // Re-attach the input event listener
+        newAmountInput.addEventListener('input', function() {
+          console.log('Amount paid input changed:', newAmountInput.value);
+          if (typeof updatePaymentStatus === 'function') {
+            updatePaymentStatus();
+          }
+        });
+        console.log('Re-attached amount paid input listener');
+      }
+      
+      // Re-attach contribution change listener
+      if (modalContributionSelect) {
+        // Remove any existing listeners by cloning if it's a select
+        if (modalContributionSelect.tagName === 'SELECT') {
+          const newContributionSelect = modalContributionSelect.cloneNode(true);
+          modalContributionSelect.parentNode.replaceChild(newContributionSelect, modalContributionSelect);
+          
+          newContributionSelect.addEventListener('change', function() {
+            console.log('Contribution changed:', newContributionSelect.value);
+            if (typeof updatePaymentStatus === 'function') {
+              updatePaymentStatus();
+            }
+            
+            // Check contribution status if payer is selected
+            if (window.selectedPayerId && this.value) {
+              if (typeof checkSpecificContribution === 'function') {
+                checkSpecificContribution(window.selectedPayerId, this.value);
+              }
+            }
+          });
+          console.log('Re-attached contribution select change listener');
+        }
+        
+        // Trigger update if contribution is already selected/pre-filled
+        if (modalContributionSelect.value || (modalContributionSelect.tagName === 'INPUT' && modalContributionSelect.value)) {
+          console.log('Contribution already selected/pre-filled:', modalContributionSelect.value);
+          if (typeof updatePaymentStatus === 'function') {
+            setTimeout(() => updatePaymentStatus(), 100);
+          }
         }
       }
-    });
+      
+      // Re-attach payer search functionality
+      if (modalPayerSelectInput && modalPayerDropdown) {
+        // Remove any existing listeners by cloning
+        const newPayerInput = modalPayerSelectInput.cloneNode(true);
+        modalPayerSelectInput.parentNode.replaceChild(newPayerInput, modalPayerSelectInput);
+        
+        let searchTimeout;
+        newPayerInput.addEventListener('input', function() {
+          const query = this.value.trim();
+          clearTimeout(searchTimeout);
+          
+          if (query.length >= 2) {
+            searchTimeout = setTimeout(() => {
+              if (typeof window.searchPayers === 'function') {
+                window.searchPayers(query, newPayerInput, modalPayerDropdown);
+              } else {
+                console.error('searchPayers function not available');
+              }
+            }, 300);
+          } else {
+            modalPayerDropdown.style.display = 'none';
+          }
+        });
+        console.log('Re-attached payer search input listener');
+      }
+      
+      // Re-attach Fully Paid button handlers
+      const fullyPaidBtn = document.getElementById('fullyPaidBtn');
+      if (fullyPaidBtn) {
+        console.log('Fully Paid button found, attaching handlers');
+        
+        // Remove any existing handlers by cloning
+        const newBtn = fullyPaidBtn.cloneNode(true);
+        fullyPaidBtn.parentNode.replaceChild(newBtn, fullyPaidBtn);
+        
+        // Attach multiple event types with highest priority
+        newBtn.onclick = handleFullyPaidClick;
+        newBtn.onmousedown = function(e) { 
+          console.log('Fully Paid button mousedown event');
+          handleFullyPaidClick(e); 
+          return false; 
+        };
+        newBtn.addEventListener('click', function(e) {
+          console.log('Fully Paid button click event (addEventListener)');
+          handleFullyPaidClick(e);
+        }, { capture: true, once: false });
+        newBtn.addEventListener('mousedown', function(e) {
+          console.log('Fully Paid button mousedown event (addEventListener)');
+          handleFullyPaidClick(e);
+        }, { capture: true, once: false });
+        
+        console.log('Fully Paid button handlers attached on modal show');
+      } else {
+        console.error('Fully Paid button NOT found when modal shown!');
+      }
+    }, { once: false });
+  }
+  
+  // Also attach on DOMContentLoaded as fallback
+  const fullyPaidBtn = document.getElementById('fullyPaidBtn');
+  if (fullyPaidBtn) {
+    fullyPaidBtn.onclick = handleFullyPaidClick;
+    fullyPaidBtn.onmousedown = function(e) { handleFullyPaidClick(e); return false; };
+    fullyPaidBtn.addEventListener('click', handleFullyPaidClick, { capture: true });
+    fullyPaidBtn.addEventListener('mousedown', handleFullyPaidClick, { capture: true });
+    console.log('Fully Paid button handlers attached on DOMContentLoaded'); // Debug log
   }
   
   if (contributionSelect) {
@@ -533,8 +928,17 @@ document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener('mouseup', dragEnd);
     
     function dragStart(e) {
-      if (e.target.classList.contains('btn-close')) {
-        return; // Don't drag when clicking close button
+      // Don't drag when clicking buttons or input elements
+      if (e.target.classList.contains('btn-close') || 
+          e.target.tagName === 'BUTTON' || 
+          e.target.tagName === 'INPUT' || 
+          e.target.tagName === 'SELECT' ||
+          e.target.tagName === 'TEXTAREA' ||
+          e.target.closest('button') ||
+          e.target.closest('input') ||
+          e.target.closest('select') ||
+          e.target.closest('textarea')) {
+        return;
       }
       
       initialX = e.clientX - xOffset;
@@ -684,17 +1088,90 @@ function resetPaymentModal() {
 // Update payment status function
 function updatePaymentStatus() {
   const amountPaidEl = document.getElementById('amountPaid');
-  const contributionSelect = document.getElementById('contributionId');
   const remainingBalanceEl = document.getElementById('remainingBalance');
   const paymentStatusEl = document.getElementById('paymentStatus');
   
+  // Find contribution field - could be select or input
+  let contributionSelect = null;
+  const modal = document.getElementById('addPaymentModal');
+  
+  if (modal) {
+    // Find the "Contribution" label
+    const contributionLabel = Array.from(modal.querySelectorAll('label')).find(
+      label => label.textContent.trim().toLowerCase().includes('contribution') && 
+               label.getAttribute('for') === 'contributionId'
+    );
+    
+    if (contributionLabel) {
+      // Find the associated field (could be select or input)
+      const fieldId = contributionLabel.getAttribute('for');
+      const selectField = modal.querySelector(`select#${fieldId}`);
+      const inputField = modal.querySelector(`input#${fieldId}:not([type="hidden"])`);
+      contributionSelect = selectField || inputField;
+    }
+    
+    // Fallback: search for any visible select or input with id="contributionId"
+    if (!contributionSelect) {
+      contributionSelect = modal.querySelector('select#contributionId') || 
+                         modal.querySelector('input#contributionId:not([type="hidden"])');
+    }
+  }
+  
+  // Final fallback: use getElementById
+  if (!contributionSelect) {
+    contributionSelect = document.getElementById('contributionId');
+  }
+  
   if (amountPaidEl && contributionSelect && remainingBalanceEl && paymentStatusEl) {
     const amountPaid = parseFloat(amountPaidEl.value) || 0;
-    const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+    let contributionAmount = 0;
     
-    // Don't update status if no contribution is selected
-    if (!selectedOption || selectedOption.value === '' || selectedOption.textContent.includes('Select a contribution')) {
-      // Clear status and styling when no contribution is selected
+    // Handle SELECT dropdown
+    if (contributionSelect.tagName === 'SELECT') {
+      const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+      
+      // Don't update status if no contribution is selected
+      if (!selectedOption || selectedOption.value === '' || selectedOption.textContent.includes('Select a contribution')) {
+        // Clear status and styling when no contribution is selected
+        paymentStatusEl.value = '';
+        paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
+        remainingBalanceEl.value = '0.00';
+        return;
+      }
+      
+      // Get contribution amount from data-amount attribute
+      contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+    }
+    // Handle INPUT field (read-only)
+    else if (contributionSelect.tagName === 'INPUT') {
+      const contributionText = contributionSelect.value || '';
+      
+      // Parse amount from text like "Monthly Fee - ₱1,000.00"
+      let amountMatch = contributionText.match(/₱\s*([\d,]+(?:\.\d{2})?)/);
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/-\s*₱\s*([\d,]+(?:\.\d{2})?)/);
+      }
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/([\d,]+\.\d{2})/);
+      }
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/([\d,]+)/);
+      }
+      
+      if (amountMatch && amountMatch[1]) {
+        const amountStr = amountMatch[1].replace(/,/g, '');
+        contributionAmount = parseFloat(amountStr);
+      }
+      
+      // If no contribution amount found, clear and return
+      if (!contributionAmount || contributionAmount <= 0) {
+        paymentStatusEl.value = '';
+        paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
+        remainingBalanceEl.value = '0.00';
+        return;
+      }
+    } else {
+      // Unknown element type
       paymentStatusEl.value = '';
       paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
       remainingBalanceEl.value = '0.00';
@@ -702,7 +1179,6 @@ function updatePaymentStatus() {
     }
     
     // Don't update status if contribution amount is 0 or invalid
-    const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
     if (contributionAmount <= 0) {
       paymentStatusEl.value = '';
       paymentStatusEl.classList.remove('text-success', 'border-success', 'text-warning', 'border-warning');
@@ -754,11 +1230,65 @@ function updatePaymentStatus() {
 // Validate amount paid doesn't exceed remaining balance
 function validateAmountPaid(amountPaid, remainingBalance) {
   const amountPaidEl = document.getElementById('amountPaid');
-  const contributionSelect = document.getElementById('contributionId');
+  
+  // Find contribution field - could be select or input
+  let contributionSelect = null;
+  const modal = document.getElementById('addPaymentModal');
+  
+  if (modal) {
+    const contributionLabel = Array.from(modal.querySelectorAll('label')).find(
+      label => label.textContent.trim().toLowerCase().includes('contribution') && 
+               label.getAttribute('for') === 'contributionId'
+    );
+    
+    if (contributionLabel) {
+      const fieldId = contributionLabel.getAttribute('for');
+      const selectField = modal.querySelector(`select#${fieldId}`);
+      const inputField = modal.querySelector(`input#${fieldId}:not([type="hidden"])`);
+      contributionSelect = selectField || inputField;
+    }
+    
+    if (!contributionSelect) {
+      contributionSelect = modal.querySelector('select#contributionId') || 
+                         modal.querySelector('input#contributionId:not([type="hidden"])');
+    }
+  }
+  
+  if (!contributionSelect) {
+    contributionSelect = document.getElementById('contributionId');
+  }
   
   if (amountPaidEl && contributionSelect) {
-    const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
-    const contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+    let contributionAmount = 0;
+    
+    // Handle SELECT dropdown
+    if (contributionSelect.tagName === 'SELECT') {
+      const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+      if (selectedOption) {
+        contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+      }
+    }
+    // Handle INPUT field (read-only)
+    else if (contributionSelect.tagName === 'INPUT') {
+      const contributionText = contributionSelect.value || '';
+      
+      // Parse amount from text
+      let amountMatch = contributionText.match(/₱\s*([\d,]+(?:\.\d{2})?)/);
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/-\s*₱\s*([\d,]+(?:\.\d{2})?)/);
+      }
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/([\d,]+\.\d{2})/);
+      }
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/([\d,]+)/);
+      }
+      
+      if (amountMatch && amountMatch[1]) {
+        const amountStr = amountMatch[1].replace(/,/g, '');
+        contributionAmount = parseFloat(amountStr);
+      }
+    }
     
     let maxAllowedAmount;
     
@@ -1081,9 +1611,97 @@ function processPayment(formData) {
     return;
   }
 
-  // Calculate remaining balance
-  const contributionSelect = document.getElementById('contributionId');
-  const contributionAmount = parseFloat(contributionSelect.options[contributionSelect.selectedIndex].dataset.amount) || 0;
+  // Calculate remaining balance - handle both SELECT and INPUT contribution fields
+  let contributionAmount = 0;
+  const modal = document.getElementById('addPaymentModal');
+  let contributionSelect = null;
+  
+  if (modal) {
+    // Find the visible contribution field
+    const contributionLabel = Array.from(modal.querySelectorAll('label')).find(
+      label => label.textContent.trim().toLowerCase().includes('contribution') && 
+               label.getAttribute('for') === 'contributionId'
+    );
+    
+    if (contributionLabel) {
+      const fieldId = contributionLabel.getAttribute('for');
+      const selectField = modal.querySelector(`select#${fieldId}`);
+      const inputField = modal.querySelector(`input#${fieldId}:not([type="hidden"])`);
+      contributionSelect = selectField || inputField;
+    }
+    
+    if (!contributionSelect) {
+      contributionSelect = modal.querySelector('select#contributionId') || 
+                         modal.querySelector('input#contributionId:not([type="hidden"])');
+    }
+  }
+  
+  if (!contributionSelect) {
+    contributionSelect = document.getElementById('contributionId');
+  }
+  
+  if (contributionSelect) {
+    // Handle SELECT dropdown
+    if (contributionSelect.tagName === 'SELECT') {
+      const selectedOption = contributionSelect.options[contributionSelect.selectedIndex];
+      if (selectedOption) {
+        contributionAmount = parseFloat(selectedOption.dataset.amount) || 0;
+      }
+    }
+    // Handle INPUT field (read-only)
+    else if (contributionSelect.tagName === 'INPUT') {
+      const contributionText = contributionSelect.value || '';
+      
+      // Parse amount from text like "Monthly Fee - ₱1,000.00"
+      let amountMatch = contributionText.match(/₱\s*([\d,]+(?:\.\d{2})?)/);
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/-\s*₱\s*([\d,]+(?:\.\d{2})?)/);
+      }
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/([\d,]+\.\d{2})/);
+      }
+      if (!amountMatch) {
+        amountMatch = contributionText.match(/([\d,]+)/);
+      }
+      
+      if (amountMatch && amountMatch[1]) {
+        const amountStr = amountMatch[1].replace(/,/g, '');
+        contributionAmount = parseFloat(amountStr);
+      }
+    }
+  }
+  
+  // Also try to get contribution_id from form or contribution field
+  let contributionId = formData.get('contribution_id');
+  if (!contributionId && contributionSelect) {
+    if (contributionSelect.tagName === 'SELECT') {
+      contributionId = contributionSelect.value;
+    } else if (contributionSelect.tagName === 'INPUT') {
+      // For input fields, we might need to get the ID from a hidden field or data attribute
+      const hiddenContributionId = document.querySelector('input[name="contribution_id"]');
+      if (hiddenContributionId) {
+        contributionId = hiddenContributionId.value;
+      }
+    }
+  }
+  
+  // If contribution_id is still missing, try to extract from contribution field value
+  if (!contributionId && contributionSelect && contributionSelect.value) {
+    // Try to parse ID from the value (might be in format "id" or "title - amount")
+    const valueParts = contributionSelect.value.split(' - ');
+    if (valueParts.length > 0 && !isNaN(valueParts[0])) {
+      contributionId = valueParts[0];
+    } else {
+      contributionId = contributionSelect.value;
+    }
+  }
+  
+  // Set contribution_id in formData if we found it
+  if (contributionId) {
+    formData.set('contribution_id', contributionId);
+    console.log('Set contribution_id to:', contributionId);
+  }
+  
   const amountPaid = parseFloat(formData.get('amount_paid')) || 0;
   const remainingBalance = contributionAmount - amountPaid;
 
@@ -1099,17 +1717,87 @@ function processPayment(formData) {
     formData.set('payer_id', payerIdValue);
     console.log('Setting payer_id to:', payerIdValue);
   } else {
-    console.warn('Warning: payer_id is not set! Make sure you selected an existing payer.');
+    console.error('ERROR: payer_id is not set! Make sure you selected an existing payer.');
+    alert('Please select a payer from the search suggestions by clicking on a result.');
+    return; // Stop submission if payer_id is missing
   }
+  
+  // Final validation: Ensure contribution_id is set
+  if (!contributionId || contributionId === '' || contributionId === '0') {
+    console.error('ERROR: contribution_id is missing or invalid:', contributionId);
+    alert('Please select a contribution. If the contribution field is pre-filled, try refreshing the page.');
+    return; // Stop submission if contribution_id is missing
+  }
+  
+  // Log all form data entries for debugging
+  console.log('=== FINAL FORM DATA BEFORE SUBMISSION ===');
+  console.log('contribution_id:', contributionId);
+  console.log('payer_id:', payerIdValue);
+  console.log('amount_paid:', formData.get('amount_paid'));
+  console.log('payment_method:', formData.get('payment_method'));
+  console.log('payment_date:', formData.get('payment_date'));
+  console.log('is_partial_payment:', formData.get('is_partial_payment'));
+  console.log('remaining_balance:', formData.get('remaining_balance'));
+  
+  // Log ALL form data entries
+  console.log('=== ALL FORM DATA ENTRIES ===');
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: ${value} (type: ${typeof value})`);
+  }
+  
+  // Log the form action URL
+  console.log('=== FORM ACTION URL ===');
+  console.log('Form action:', form.action);
+  console.log('Full URL will be:', window.location.origin + form.action);
+  
+  // Verify the action is correct and make it absolute
+  let submitUrl = form.action;
+  if (!submitUrl.includes('payments/save')) {
+    console.error('ERROR: Form action is not pointing to payments/save!');
+    console.error('Current action:', submitUrl);
+    alert('ERROR: Form is configured incorrectly. Action should be payments/save but is: ' + submitUrl);
+    return;
+  }
+  
+  // Ensure URL is absolute
+  if (!submitUrl.startsWith('http://') && !submitUrl.startsWith('https://')) {
+    if (submitUrl.startsWith('/')) {
+      submitUrl = window.location.origin + submitUrl;
+    } else {
+      submitUrl = window.location.origin + '/' + submitUrl;
+    }
+  }
+  
+  console.log('=== SUBMITTING TO URL ===');
+  console.log('Final URL:', submitUrl);
 
-  fetch(form.action, {
+  fetch(submitUrl, {
     method: 'POST',
     body: formData,
     headers: {
       'X-Requested-With': 'XMLHttpRequest'
     }
   })
-  .then(response => response.json())
+  .then(response => {
+    // Check if response is OK
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    // Check content type
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    } else {
+      // If not JSON, get text and try to parse
+      return response.text().then(text => {
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+        }
+      });
+    }
+  })
   .then(data => {
     if (data.success) {
       alert('Payment added successfully!');
@@ -1117,6 +1805,23 @@ function processPayment(formData) {
       modal.hide();
       location.reload();
     } else {
+      // Show detailed validation errors
+      let errorMessage = data.message || 'An error occurred';
+      
+      if (data.errors) {
+        const errorDetails = Object.entries(data.errors).map(([field, message]) => {
+          return `${field}: ${message}`;
+        }).join('\n');
+        errorMessage += '\n\nValidation Errors:\n' + errorDetails;
+      }
+      
+      if (data.debug) {
+        console.error('Server debug info:', data.debug);
+        errorMessage += '\n\n(Check console for debug details)';
+      }
+      
+      console.error('Payment submission failed:', data);
+      
       // Check if this is a fully paid contribution confirmation case
       if (data.message && data.message.includes('Already Fully Paid')) {
         // Show confirmation dialog instead of error alert
@@ -1127,7 +1832,8 @@ function processPayment(formData) {
           processPayment(formData);
         }
       } else {
-        alert('Error: ' + (data.message || 'Failed to add payment'));
+        // Show detailed error message (only once)
+        alert(errorMessage);
       }
     }
   })

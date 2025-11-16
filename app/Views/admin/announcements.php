@@ -65,15 +65,7 @@ $status_counts = $stats ?? [
                         <input type="text" class="form-control" id="searchInput" placeholder="Search announcements...">
                     </div>
                 </div>
-                <div class="col-md-2 mb-3">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" id="statusFilter">
-                        <option value="">All Status</option>
-                        <option value="published">Published</option>
-                        <option value="draft">Draft</option>
-                        <option value="archived">Archived</option>
-                    </select>
-                </div>
+                    <!-- Status filter removed - announcements are always published -->
                 <div class="col-md-2 mb-3">
                     <label class="form-label">Priority</label>
                     <select class="form-select" id="priorityFilter">
@@ -223,16 +215,7 @@ $status_counts = $stats ?? [
                         </div>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-12 mb-3">
-                            <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
-                            <select class="form-select" id="status" name="status" required>
-                                <option value="draft">Draft</option>
-                                <option value="published">Published</option>
-                                <option value="archived">Archived</option>
-                            </select>
-                        </div>
-                    </div>
+                    <!-- Status field removed - announcements are always published immediately -->
                     
                     <div class="mb-3">
                         <label for="expires_at" class="form-label">Expiration Date (Optional)</label>
@@ -253,7 +236,7 @@ $status_counts = $stats ?? [
 // Filter functionality
 function filterAnnouncements() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-    const statusFilter = document.getElementById('statusFilter').value;
+    const statusFilter = ''; // Status filter removed - all announcements are published
     const priorityFilter = document.getElementById('priorityFilter').value;
     const audienceFilter = ''; // Always empty since audience is always payers
     
@@ -291,7 +274,7 @@ function filterAnnouncements() {
 
 function clearFilters() {
     document.getElementById('searchInput').value = '';
-    document.getElementById('statusFilter').value = '';
+    // Status filter removed
     document.getElementById('priorityFilter').value = '';
     // audienceFilter is always empty (payers only)
     filterAnnouncements();
@@ -300,7 +283,7 @@ function clearFilters() {
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('searchInput').addEventListener('input', filterAnnouncements);
-    document.getElementById('statusFilter').addEventListener('change', filterAnnouncements);
+    // Status filter removed - no event listener needed
     document.getElementById('priorityFilter').addEventListener('change', filterAnnouncements);
     // audienceFilter removed - always payers
     
@@ -393,7 +376,7 @@ function editAnnouncement(id) {
                 document.getElementById('type').value = announcement.type;
                 document.getElementById('priority').value = announcement.priority;
                 // target_audience is always 'payers', no need to set it
-                document.getElementById('status').value = announcement.status;
+                // Status is always 'published' - no need to set it
                 document.getElementById('expires_at').value = announcement.expires_at ? announcement.expires_at.substring(0, 16) : '';
                 
                 // Update modal title

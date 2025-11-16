@@ -58,17 +58,11 @@ class AnnouncementsController extends BaseController
                 'type' => $this->request->getPost('type'),
                 'priority' => $this->request->getPost('priority'),
                 'target_audience' => 'payers', // Always set to payers
-                'status' => $this->request->getPost('status'),
+                'status' => 'published', // Always publish immediately
                 'created_by' => $userId,
+                'published_at' => date('Y-m-d H:i:s'), // Always set published_at
                 'expires_at' => $this->request->getPost('expires_at') ?: null
             ];
-
-            // Set published_at if status is published
-            if ($data['status'] === 'published') {
-                $data['published_at'] = date('Y-m-d H:i:s');
-            } else {
-                $data['published_at'] = null;
-            }
 
             $id = $this->request->getPost('announcement_id');
 
@@ -77,17 +71,13 @@ class AnnouncementsController extends BaseController
                 $existing = $model->find($id);
                 
                 // Update existing announcement
-                // Don't update published_at if already published
-                if ($data['status'] !== 'published') {
-                    unset($data['published_at']);
-                }
-                
+                // Always keep as published
                 $result = $model->update($id, $data);
                 $message = 'Announcement updated successfully.';
             } else {
                 // Insert new announcement
                 $result = $model->insert($data);
-                $message = 'Announcement created successfully.';
+                $message = 'Announcement created and published successfully.';
             }
 
             if ($result) {
