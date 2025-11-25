@@ -347,22 +347,23 @@ class PaymentsController extends BaseController
                         }
                         $paymentGroups[$sequence][] = $payment;
                     }
-                    
-                    // Check each group to find if there's an active partial group
+
+                    // Find the lowest sequence number for a partial group (to always append to the oldest partial group)
                     $activePartialGroup = null;
                     foreach ($paymentGroups as $sequence => $groupPayments) {
                         $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
                         $contributionAmount = $contribution ? $contribution['amount'] : 0;
-                        
                         // Check if this group is partial (not fully paid)
                         if ($groupTotalPaid < $contributionAmount) {
-                            $activePartialGroup = $sequence;
-                            break; // Found an active partial group
+                            // Always pick the lowest sequence for partial group
+                            if ($activePartialGroup === null || $sequence < $activePartialGroup) {
+                                $activePartialGroup = $sequence;
+                            }
                         }
                     }
-                    
+
                     if ($activePartialGroup !== null) {
-                        // Add to the existing partial group
+                        // Always append to the oldest partial group
                         $paymentSequence = $activePartialGroup;
                     } else {
                         // No active partial group, create new group

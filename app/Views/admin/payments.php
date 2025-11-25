@@ -165,7 +165,7 @@
                                                             title="Refund this payment group">
                                                         <i class="fas fa-undo me-1"></i>Refund
                                             </button>
-                                                    <?php if ($group['computed_status'] === 'partial'): ?>
+                                                    <?php if ($group['computed_status'] === 'partial' && $group['refund_status'] !== 'fully_refunded'): ?>
                                                         <button class="btn btn-sm btn-success add-payment-btn" 
                                                                 data-payer-id="<?= esc($group['payer_id']) ?>" 
                                                                 data-payer-name="<?= esc($group['payer_name']) ?>"
