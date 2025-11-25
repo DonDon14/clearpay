@@ -400,6 +400,7 @@ class PaymentsController extends BaseController
                 'is_partial_payment' => $isPartial ? true : false,
                 'remaining_balance' => $remainingBalance,
                 'parent_payment_id' => $this->request->getPost('parent_payment_id') ?: null,
+                // Always use backend-calculated payment_sequence for grouping
                 'payment_sequence' => $paymentSequence,
                 'reference_number' => $referenceNumber,
                 'receipt_number' => $receiptNumber,
