@@ -1436,6 +1436,7 @@ class DashboardController extends BaseController
                 ->findAll();
             
             $totalRefunded = 0;
+            $groupPaymentData = [];
             $refundModel = new \App\Models\RefundModel();
             foreach ($payments as $payment) {
                 $refunds = $refundModel
@@ -1444,11 +1445,34 @@ class DashboardController extends BaseController
                     ->where('status', 'completed')
                     ->first();
                 $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
+
+                $sequenceKey = $payment['payment_sequence'] ?? 1;
+                if (!isset($groupPaymentData[$sequenceKey])) {
+                    $groupPaymentData[$sequenceKey] = [
+                        'total_paid' => 0,
+                        'total_refunded' => 0
+                    ];
+                }
+                $groupPaymentData[$sequenceKey]['total_paid'] += (float)($payment['amount_paid'] ?? 0);
+                $groupPaymentData[$sequenceKey]['total_refunded'] += (float)($refunds['refund_amount'] ?? 0);
             }
             
             // Net paid amount (payments minus refunds)
             $netPaid = max(0, $totalPaidAmount - $totalRefunded);
             $remainingAmount = max(0, $contribution['amount'] - $netPaid);
+
+            // Identify the active (incomplete) payment sequence if any
+            $activePaymentSequence = null;
+            if ($remainingAmount > 0 && !empty($groupPaymentData)) {
+                foreach ($groupPaymentData as $sequence => $totals) {
+                    $netGroupPaid = max(0, (float)$totals['total_paid'] - (float)$totals['total_refunded']);
+                    if ($netGroupPaid > 0 && $netGroupPaid < $contribution['amount']) {
+                        if ($activePaymentSequence === null || (int)$sequence > $activePaymentSequence) {
+                            $activePaymentSequence = (int)$sequence;
+                        }
+                    }
+                }
+            }
 
             return $this->response->setJSON([
                 'success' => true,
@@ -1460,7 +1484,8 @@ class DashboardController extends BaseController
                     'total_paid' => $netPaid,
                     'remaining_amount' => $remainingAmount,
                     'remaining_balance' => $remainingAmount, // Add for consistency
-                    'is_fully_paid' => $remainingAmount <= 0
+                    'is_fully_paid' => $remainingAmount <= 0,
+                    'payment_sequence' => $activePaymentSequence
                 ]
             ]);
 
