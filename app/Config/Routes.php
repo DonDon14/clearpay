@@ -34,6 +34,7 @@ $routes->post('/super-admin/portal/approve', 'SuperAdmin\PortalController::appro
 $routes->post('/super-admin/portal/reject', 'SuperAdmin\PortalController::reject', ['filter' => 'superAdminAuth']);
 $routes->post('/super-admin/portal/deactivate', 'SuperAdmin\PortalController::deactivate', ['filter' => 'superAdminAuth']);
 $routes->post('/super-admin/portal/reactivate', 'SuperAdmin\PortalController::reactivate', ['filter' => 'superAdminAuth']);
+$routes->post('/super-admin/portal/delete', 'SuperAdmin\PortalController::deleteOfficer', ['filter' => 'superAdminAuth']);
 $routes->get('/super-admin/user-activity-history', 'SuperAdmin\UserActivityHistoryController::index', ['filter' => 'superAdminAuth']);
 
 // Admin Routes

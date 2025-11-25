@@ -392,6 +392,76 @@ class PortalController extends BaseController
         ]);
     }
 
+    public function deleteOfficer()
+    {
+        if (!session()->get('isSuperAdmin')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Access denied. Only Super Admins can delete officers.'
+            ]);
+        }
+
+        $userId = $this->request->getPost('user_id');
+
+        if (!$userId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'User ID is required.'
+            ]);
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->find($userId);
+
+        if (!$user) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'User not found.'
+            ]);
+        }
+
+        if ($user['role'] !== 'officer') {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Only officers can be deleted through this system.'
+            ]);
+        }
+
+        try {
+            $userModel->delete($userId);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to delete officer: ' . $e->getMessage());
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Failed to delete officer. Please try again.'
+            ]);
+        }
+
+        try {
+            $rememberTokenModel = new \App\Models\RememberTokenModel();
+            $rememberTokenModel->deleteToken($userId);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to delete remember tokens for deleted user: ' . $e->getMessage());
+        }
+
+        try {
+            $activityLogger = new \App\Services\ActivityLogger();
+            $activityLogger->logUser('deleted', [
+                'id' => $userId,
+                'name' => $user['name'],
+                'username' => $user['username'],
+                'role' => $user['role']
+            ]);
+        } catch (\Exception $e) {
+            log_message('error', 'Failed to log officer deletion activity: ' . $e->getMessage());
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Officer deleted successfully.'
+        ]);
+    }
+
     /**
      * Send approval email to officer (Brevo API first, SMTP fallback)
      */

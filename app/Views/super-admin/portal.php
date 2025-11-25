@@ -348,6 +348,13 @@
                                                     </button>
                                                 <?php endif; ?>
                                             <?php endif; ?>
+                                            <button type="button"
+                                                    class="btn btn-danger btn-sm mt-2 delete-officer-btn"
+                                                    data-user-id="<?= $officer['id'] ?>"
+                                                    data-user-name="<?= esc($officer['name'] ?? $officer['username']) ?>"
+                                                    title="Permanently delete this officer account">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -615,6 +622,48 @@ document.addEventListener('DOMContentLoaded', function() {
                     location.reload();
                 } else {
                     alert(result.error || 'Failed to reactivate officer.');
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+                this.disabled = false;
+                this.innerHTML = originalText;
+            }
+        });
+    });
+    
+    // Delete officer handler
+    document.querySelectorAll('.delete-officer-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const userId = this.dataset.userId;
+            const userName = this.dataset.userName;
+
+            if (!confirm(`This will permanently delete ${userName}'s account. Continue?`)) {
+                return;
+            }
+
+            const originalText = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+
+            try {
+                const response = await fetch('<?= base_url('super-admin/portal/delete') ?>', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `user_id=${userId}`
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(result.message || 'Officer deleted successfully!');
+                    location.reload();
+                } else {
+                    alert(result.error || 'Failed to delete officer.');
                     this.disabled = false;
                     this.innerHTML = originalText;
                 }
