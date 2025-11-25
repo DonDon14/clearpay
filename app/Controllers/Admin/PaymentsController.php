@@ -326,19 +326,20 @@ class PaymentsController extends BaseController
                 $isPartial = false;
                 $paymentSequence = $this->getNextPaymentSequence($payerDbId, $this->request->getPost('contribution_id'));
             } else {
-                // Calculate cumulative total paid including this new payment
+                // CRITICAL FIX: Auto-detect existing partial payment group
+                $paymentSequence = $this->request->getPost('payment_sequence') ?: null;
+
                 $existingPayments = $paymentModel
                     ->where('payer_id', $this->request->getPost('payer_id'))
                     ->where('contribution_id', $this->request->getPost('contribution_id'))
                     ->where('deleted_at', null)
                     ->findAll();
-                
+
                 $existingTotalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
                 $newTotalPaid = $existingTotalPaid + $amountPaid;
-                
-                // Determine payment sequence - ensure only one active partial group per contribution type
-                if (!empty($existingPayments)) {
-                    // Group payments by sequence to find active partial groups
+
+                // If no payment_sequence provided, check for existing partial group
+                if (empty($paymentSequence) && !empty($existingPayments)) {
                     $paymentGroups = [];
                     foreach ($existingPayments as $payment) {
                         $sequence = $payment['payment_sequence'] ?? 1;
@@ -347,33 +348,25 @@ class PaymentsController extends BaseController
                         }
                         $paymentGroups[$sequence][] = $payment;
                     }
-
-                    // Find the lowest sequence number for a partial group (to always append to the oldest partial group)
                     $activePartialGroup = null;
                     foreach ($paymentGroups as $sequence => $groupPayments) {
                         $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
                         $contributionAmount = $contribution ? $contribution['amount'] : 0;
-                        // Check if this group is partial (not fully paid)
                         if ($groupTotalPaid < $contributionAmount) {
-                            // Always pick the lowest sequence for partial group
                             if ($activePartialGroup === null || $sequence < $activePartialGroup) {
                                 $activePartialGroup = $sequence;
                             }
                         }
                     }
-
                     if ($activePartialGroup !== null) {
-                        // Always append to the oldest partial group
                         $paymentSequence = $activePartialGroup;
                     } else {
-                        // No active partial group, create new group
                         $paymentSequence = $this->getNextPaymentSequence($payerDbId, $this->request->getPost('contribution_id'));
                     }
-                } else {
-                    // No existing payments, start with sequence 1
+                } else if (empty($paymentSequence)) {
                     $paymentSequence = 1;
                 }
-                
+
                 // Calculate status based on cumulative total
                 if ($newTotalPaid >= $contributionAmount) {
                     $paymentStatus = 'fully paid';
