@@ -2,6 +2,14 @@
 
 A comprehensive payment management system built with CodeIgniter 4, designed for managing contributions, payments, and payer information with a modern web interface.
 
+Group Members:
+
+   Floro C. Ocero, Jr.
+   Michelle Miranda
+   Jolina Ramao
+   Tristan Amiel Clemen
+   Mark Tristan Sicalag
+
 ## 🚀 Features
 
 - **User Management**: Admin and officer roles with different permissions
@@ -78,7 +86,7 @@ Make sure these PHP extensions are enabled:
 
 2. **Clone the Repository**
    ```bash
-   git clone https://github.com/yourusername/ClearPay.git
+   git clone https://github.com/DonDon14/ClearPay.git
    ```
 
 3. **Navigate to Project Directory**
