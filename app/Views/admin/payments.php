@@ -1,4 +1,6 @@
 <?= $this->extend('layouts/main') ?>
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
+<?php $peso = '&#8369;'; ?>
 
 <style>
     .header-table {
@@ -11,19 +13,29 @@
 
 <?= $this->section('content') ?>
 
-  <div class="container-fluid">
+  <div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+      <div>
+        <h6>Payments</h6>
+        <p>Manage grouped payments, add new records, review balances, and handle refund-related follow-up from one queue.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+          <i class="fas fa-plus me-2"></i>Add Payment
+        </button>
+      </div>
+    </div>
     <div class="row mb-4">
       <div class="col-12">
-        <div class="card shadow-sm">
+        <div class="card shadow-sm ui-data-shell">
           <div class="card-header d-flex justify-content-between align-items-center">
-             <h5 class="card-title mb-0">All Payments</h5>
-            <button 
-              class="btn btn-primary btn-sm"
-              data-bs-toggle="modal"
-              data-bs-target="#addPaymentModal"
-          >
+             <div>
+               <h5 class="ui-section-title">All Payments</h5>
+               <small class="ui-section-subtitle">Grouped payment records with refund status and remaining balances</small>
+             </div>
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
               <i class="fas fa-plus me-2"></i>Add Payment
-          </button>
+            </button>
           </div>
           <div class="card-body">
              <!-- Search and Filter Row -->
@@ -47,7 +59,7 @@
              </div>
              
                     <!-- Grouped Payments Table -->
-             <div class="table-responsive" style="max-height: 600px; overflow-y: auto; overflow-x: hidden;">
+             <div class="table-responsive ui-table-wrap ui-scroll-frame">
               <table class="table table-hover table-fit">
                  <thead class="header-table">
                   <tr>
@@ -71,8 +83,7 @@
                                             data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
                                             data-payment-status="<?= esc($group['computed_status']) ?>"
                                             data-payer-name="<?= esc($group['payer_name']) ?>"
-                                            data-contribution-title="<?= esc($group['contribution_title']) ?>"
-                                            style="cursor: pointer;">
+                                            data-contribution-title="<?= esc($group['contribution_title']) ?>">
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <?php if (!empty($group['profile_picture'])): ?>
@@ -83,11 +94,9 @@
                                                             : base_url($group['profile_picture']);
                                                         ?>
                                                         <img src="<?= $groupPicUrl ?>" 
-                                                             alt="Profile" class="rounded-circle me-2" 
-                                                             style="width: 32px; height: 32px; object-fit: cover;">
+                                                             alt="Profile" class="rounded-circle me-2 ui-avatar-32">
                                                     <?php else: ?>
-                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
-                                                             style="width: 32px; height: 32px;">
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center ui-avatar-fallback-32">
                                                             <i class="fas fa-user"></i>
                                                         </div>
                                                     <?php endif; ?>

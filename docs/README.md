@@ -13,6 +13,7 @@ All other Markdown files are grouped under `docs/`:
   Brevo, SMTP, sender verification, and delivery troubleshooting
 - `docs/features`
   Feature behavior and implementation notes
+  Includes `docs/features/PYTHON_ANALYTICS_INTEGRATION.md` for the PHP-to-Python analytics flow
 - `docs/reference`
   API and database reference
 - `docs/troubleshooting`

@@ -1,65 +1,125 @@
 <?= $this->extend('layouts/super-admin') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<?php
+$renderOfficerAvatar = static function (array $officer): string {
+    if (!empty($officer['profile_picture']) && trim((string) $officer['profile_picture']) !== '') {
+        $officerPicUrl = (strpos((string) $officer['profile_picture'], 'res.cloudinary.com') !== false)
+            ? $officer['profile_picture']
+            : base_url($officer['profile_picture']);
 
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-lg-3 col-md-6 mb-4">
+        return '<img src="' . esc($officerPicUrl) . '" alt="' . esc($officer['name'] ?? $officer['username']) . '" class="rounded-circle ui-avatar-40">';
+    }
+
+    return '<div class="rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white ui-avatar-fallback-40"><i class="fas fa-user"></i></div>';
+};
+?>
+<div class="container-fluid ui-page-shell">
+
+    <div class="ui-page-intro">
+        <div>
+            <h6>Super Admin Operations</h6>
+            <p>Review officer onboarding, monitor account quality, and manage access from a single control surface.</p>
+        </div>
+        <div class="ui-actions-stack">
+            <a href="<?= base_url('super-admin/user-activity-history') ?>" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-history me-2"></i>Activity History
+            </a>
+            <a href="#pending-approvals" class="btn btn-primary btn-sm">
+                <i class="fas fa-user-check me-2"></i>Review Approvals
+            </a>
+        </div>
+    </div>
+
+    <div class="ui-pill-group mb-4">
+        <span class="ui-inline-pill"><i class="fas fa-users text-primary"></i> Approved <?= number_format((int) ($totalOfficers ?? 0)) ?></span>
+        <span class="ui-inline-pill"><i class="fas fa-user-check text-success"></i> Online <?= number_format((int) ($onlineOfficers ?? 0)) ?></span>
+        <span class="ui-inline-pill"><i class="fas fa-user-clock text-warning"></i> Pending <?= number_format((int) ($totalPending ?? 0)) ?></span>
+        <span class="ui-inline-pill"><i class="fas fa-user-slash text-danger"></i> Inactive <?= number_format((int) ($inactiveOfficers ?? 0)) ?></span>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
             <?= view('partials/card', [
                 'title' => 'Pending Approvals',
                 'text' => number_format($totalPending ?? 0),
-                'icon' => 'clock',
+                'subtitle' => 'Officer accounts awaiting review',
+                'icon' => 'fas fa-user-clock',
                 'iconColor' => 'text-warning'
             ]) ?>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-xl-3 col-md-6">
             <?= view('partials/card', [
-                'title' => 'Total Officers',
+                'title' => 'Approved Officers',
                 'text' => number_format($totalOfficers ?? 0),
-                'icon' => 'users',
+                'subtitle' => 'Currently approved accounts',
+                'icon' => 'fas fa-users',
                 'iconColor' => 'text-primary'
             ]) ?>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-xl-3 col-md-6">
             <?= view('partials/card', [
                 'title' => 'Online Officers',
                 'text' => number_format($onlineOfficers ?? 0),
-                'icon' => 'user-check',
+                'subtitle' => 'Active in the last 15 minutes',
+                'icon' => 'fas fa-user-check',
                 'iconColor' => 'text-success'
             ]) ?>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
-            <?= view('partials/card', [
-                'title' => 'Active Officers',
-                'text' => number_format($activeOfficers ?? 0),
-                'icon' => 'check-circle',
-                'iconColor' => 'text-info'
-            ]) ?>
-        </div>
-    </div>
-
-    <!-- Additional Stats Row -->
-    <div class="row mb-4">
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-xl-3 col-md-6">
             <?= view('partials/card', [
                 'title' => 'Inactive Officers',
                 'text' => number_format($inactiveOfficers ?? 0),
-                'icon' => 'user-slash',
+                'subtitle' => 'Accounts currently disabled',
+                'icon' => 'fas fa-user-slash',
                 'iconColor' => 'text-danger'
             ]) ?>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-xl-4 col-md-6">
             <?= view('partials/card', [
-                'title' => 'Approved',
-                'text' => number_format(($totalOfficers ?? 0) - ($totalPending ?? 0)),
-                'icon' => 'user-check',
+                'title' => 'Stale Pending Reviews',
+                'text' => number_format((int) ($insights['stale_pending_count'] ?? 0)),
+                'subtitle' => 'Waiting for more than 24 hours',
+                'icon' => 'fas fa-hourglass-half',
+                'iconColor' => 'text-warning'
+            ]) ?>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <?= view('partials/card', [
+                'title' => 'Incomplete Profiles',
+                'text' => number_format((int) ($insights['incomplete_profile_count'] ?? 0)),
+                'subtitle' => 'Approved officers missing key details',
+                'icon' => 'fas fa-id-card',
+                'iconColor' => 'text-info'
+            ]) ?>
+        </div>
+        <div class="col-xl-4 col-md-12">
+            <?= view('partials/card', [
+                'title' => 'Recent Joiners',
+                'text' => number_format((int) ($insights['recent_joiners_count'] ?? 0)),
+                'subtitle' => 'Created in the last 7 days',
+                'icon' => 'fas fa-user-plus',
                 'iconColor' => 'text-success'
             ]) ?>
         </div>
     </div>
 
-    <!-- User Requests Section (Pending Officer Signups) -->
+    <?php if (!empty($priorityFlags)): ?>
+        <div class="ui-priority-grid mb-4">
+            <?php foreach ($priorityFlags as $flag): ?>
+                <div class="ui-priority-flag ui-priority-<?= esc($flag['tone']) ?>">
+                    <div class="d-flex align-items-start gap-3">
+                        <i class="<?= esc($flag['icon']) ?> mt-1"></i>
+                        <div>
+                            <h6><?= esc($flag['title']) ?></h6>
+                            <p><?= esc($flag['text']) ?></p>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+
     <?php if (!empty($pendingOfficers)): ?>
     <div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
         <i class="fas fa-exclamation-triangle me-2"></i>
@@ -68,61 +128,62 @@
     </div>
     <?php endif; ?>
     
-    <div class="card shadow-sm mb-4 border-warning">
+    <div class="card shadow-sm ui-data-shell mb-4 border-warning" id="pending-approvals">
         <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="card-title mb-0">
+                <h5 class="ui-section-title mb-0">
                     <i class="fas fa-user-plus text-warning me-2"></i>
                     User Requests (<?= count($pendingOfficers ?? []) ?>)
                 </h5>
-                <p class="text-muted mb-0 small">New officer signups awaiting approval</p>
+                <p class="ui-section-subtitle mb-0">New officer signups awaiting approval</p>
             </div>
+            <span class="badge bg-warning text-dark"><?= number_format((int) ($insights['stale_pending_count'] ?? 0)) ?> stale</span>
         </div>
         <div class="card-body">
             <?php if (!empty($pendingOfficers)): ?>
-            <div class="table-responsive">
-                <table class="table table-hover">
+            <div class="table-responsive ui-table-wrap">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Profile</th>
-                            <th>Name</th>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Phone</th>
+                            <th>Officer</th>
+                            <th>Contact</th>
                             <th>Date Joined</th>
+                            <th>Priority</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($pendingOfficers as $officer): ?>
+                            <?php
+                            $createdAt = !empty($officer['created_at']) ? strtotime($officer['created_at']) : false;
+                            $isStale = $createdAt !== false && $createdAt <= strtotime('-24 hours');
+                            ?>
                             <tr>
                                 <td>
-                                    <?php if (!empty($officer['profile_picture']) && trim($officer['profile_picture']) !== ''): ?>
-                                        <?php 
-                                        $officerPicUrl = (strpos($officer['profile_picture'], 'res.cloudinary.com') !== false) 
-                                            ? $officer['profile_picture'] 
-                                            : base_url($officer['profile_picture']);
-                                        ?>
-                                        <img src="<?= $officerPicUrl ?>" 
-                                             alt="<?= esc($officer['name'] ?? $officer['username']) ?>"
-                                             class="rounded-circle"
-                                             style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
-                                    <?php else: ?>
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white"
-                                             style="width: 40px; height: 40px; flex-shrink: 0;">
-                                            <i class="fas fa-user"></i>
-                                        </div>
-                                    <?php endif; ?>
+                                    <?= $renderOfficerAvatar($officer) ?>
                                 </td>
-                                <td><strong><?= esc($officer['name'] ?? $officer['username']) ?></strong></td>
-                                <td><?= esc($officer['username']) ?></td>
-                                <td><?= esc($officer['email'] ?? 'N/A') ?></td>
-                                <td><?= esc($officer['phone'] ?? 'N/A') ?></td>
                                 <td>
-                                    <?php if (!empty($officer['created_at'])): ?>
-                                        <small><?= date('M d, Y', strtotime($officer['created_at'])) ?></small>
+                                    <div class="fw-semibold"><?= esc($officer['name'] ?? $officer['username']) ?></div>
+                                    <div class="text-muted small">@<?= esc($officer['username']) ?></div>
+                                </td>
+                                <td>
+                                    <div><?= esc($officer['email'] ?? 'No email') ?></div>
+                                    <div class="text-muted small"><?= esc($officer['phone'] ?? 'No phone') ?></div>
+                                </td>
+                                <td>
+                                    <?php if ($createdAt !== false): ?>
+                                        <div><?= date('M d, Y', $createdAt) ?></div>
+                                        <div class="text-muted small"><?= date('g:i A', $createdAt) ?></div>
                                     <?php else: ?>
                                         <small class="text-muted">N/A</small>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($isStale): ?>
+                                        <span class="badge bg-warning text-dark">Over 24h</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-light text-dark">Fresh</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -134,7 +195,7 @@
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                         <button type="button" 
-                                                class="btn btn-sm btn-danger reject-btn" 
+                                                class="btn btn-sm btn-outline-danger reject-btn" 
                                                 data-user-id="<?= $officer['id'] ?>"
                                                 data-user-name="<?= esc($officer['name'] ?? $officer['username']) ?>">
                                             <i class="fas fa-times"></i> Reject
@@ -156,19 +217,17 @@
         </div>
     </div>
 
-    <!-- All Officers List -->
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm ui-data-shell mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="card-title mb-0">
+                <h5 class="ui-section-title mb-0">
                     <i class="fas fa-users me-2"></i>
                     All Officers
                 </h5>
-                <p class="text-muted mb-0 small">Manage approved officers - view account status (Active/Deactivated), online status, and manage access</p>
+                <p class="ui-section-subtitle mb-0">Manage approved officers, review online presence, and control access.</p>
             </div>
         </div>
         <div class="card-body">
-            <!-- Search and Filters -->
             <div class="mb-3">
                 <div class="row mb-3">
                     <div class="col-md-6">
@@ -207,8 +266,8 @@
                 </div>
             </div>
             
-            <div class="table-responsive">
-                <table class="table table-hover">
+            <div class="table-responsive ui-table-wrap">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Account Status</th>
@@ -232,7 +291,8 @@
                                     data-email="<?= esc(strtolower($officer['email'] ?? '')) ?>"
                                     data-status="<?= esc($officer['status'] ?? 'approved') ?>"
                                     data-online="<?= $officer['is_online'] ? 'online' : 'offline' ?>"
-                                    data-active="<?= ($officer['is_active'] === true) ? 'active' : 'inactive' ?>">
+                                    data-active="<?= ($officer['is_active'] === true) ? 'active' : 'inactive' ?>"
+                                    data-created="<?= !empty($officer['created_at']) ? strtotime($officer['created_at']) : 0 ?>">
                                     <td>
                                         <?php 
                                         $status = $officer['status'] ?? 'approved';
@@ -261,11 +321,11 @@
                                         <?php if ($status === 'approved' && $isActive): ?>
                                             <?php if ($officer['is_online'] ?? false): ?>
                                                 <span class="badge bg-success">
-                                                    <i class="fas fa-circle" style="font-size: 0.6rem; margin-right: 4px;"></i>Online
+                                                    <i class="fas fa-circle me-1" style="font-size: 0.55rem;"></i>Online
                                                 </span>
                                             <?php else: ?>
                                                 <span class="badge bg-secondary">
-                                                    <i class="fas fa-circle" style="font-size: 0.6rem; margin-right: 4px; opacity: 0.5;"></i>Offline
+                                                    <i class="fas fa-circle me-1" style="font-size: 0.55rem; opacity: 0.5;"></i>Offline
                                                 </span>
                                             <?php endif; ?>
                                         <?php else: ?>
@@ -273,22 +333,7 @@
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if (!empty($officer['profile_picture']) && trim($officer['profile_picture']) !== ''): ?>
-                                            <?php 
-                                            $officerPicUrl = (strpos($officer['profile_picture'], 'res.cloudinary.com') !== false) 
-                                                ? $officer['profile_picture'] 
-                                                : base_url($officer['profile_picture']);
-                                            ?>
-                                            <img src="<?= $officerPicUrl ?>" 
-                                                 alt="<?= esc($officer['name'] ?? $officer['username']) ?>"
-                                                 class="rounded-circle"
-                                                 style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
-                                        <?php else: ?>
-                                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white"
-                                                 style="width: 40px; height: 40px; flex-shrink: 0;">
-                                                <i class="fas fa-user"></i>
-                                            </div>
-                                        <?php endif; ?>
+                                        <?= $renderOfficerAvatar($officer) ?>
                                     </td>
                                     <td><strong><?= esc($officer['name'] ?? $officer['username']) ?></strong></td>
                                     <td><?= esc($officer['username']) ?></td>
@@ -376,21 +421,20 @@
         </div>
     </div>
 
-    <!-- Declined Requests Section -->
-    <div class="card shadow-sm mb-4 border-danger">
+    <div class="card shadow-sm ui-data-shell mb-4 border-danger">
         <div class="card-header bg-danger bg-opacity-10 d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="card-title mb-0">
+                <h5 class="ui-section-title mb-0">
                     <i class="fas fa-user-times text-danger me-2"></i>
                     Declined Requests (<?= count($rejectedOfficers ?? []) ?>)
                 </h5>
-                <p class="text-muted mb-0 small">Officer signups that have been rejected</p>
+                <p class="ui-section-subtitle mb-0">Officer signups that have been rejected and can still be reconsidered.</p>
             </div>
         </div>
         <div class="card-body">
             <?php if (!empty($rejectedOfficers)): ?>
-            <div class="table-responsive">
-                <table class="table table-hover">
+            <div class="table-responsive ui-table-wrap">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Status</th>
@@ -413,22 +457,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <?php if (!empty($officer['profile_picture']) && trim($officer['profile_picture']) !== ''): ?>
-                                        <?php 
-                                        $officerPicUrl = (strpos($officer['profile_picture'], 'res.cloudinary.com') !== false) 
-                                            ? $officer['profile_picture'] 
-                                            : base_url($officer['profile_picture']);
-                                        ?>
-                                        <img src="<?= $officerPicUrl ?>" 
-                                             alt="<?= esc($officer['name'] ?? $officer['username']) ?>"
-                                             class="rounded-circle"
-                                             style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
-                                    <?php else: ?>
-                                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white"
-                                             style="width: 40px; height: 40px; flex-shrink: 0;">
-                                            <i class="fas fa-user"></i>
-                                        </div>
-                                    <?php endif; ?>
+                                    <?= $renderOfficerAvatar($officer) ?>
                                 </td>
                                 <td><strong><?= esc($officer['name'] ?? $officer['username']) ?></strong></td>
                                 <td><?= esc($officer['username']) ?></td>
@@ -527,6 +556,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let allOfficerRows = Array.from(document.querySelectorAll('.officer-row'));
     let currentRejectUserId = null;
+    let currentDeactivateUserId = null;
+
+    function notify(message, type = 'info') {
+        if (typeof showNotification === 'function') {
+            showNotification(message, type);
+            return;
+        }
+
+        alert(message);
+    }
     
     // Approve button handler
     document.querySelectorAll('.approve-btn').forEach(btn => {
@@ -554,16 +593,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(result.message || 'Officer approved successfully!');
+                    notify(result.message || 'Officer approved successfully!', 'success');
                     location.reload();
                 } else {
-                    alert(result.error || 'Failed to approve officer.');
+                    notify(result.error || 'Failed to approve officer.', 'danger');
                     this.disabled = false;
                     this.innerHTML = originalText;
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred. Please try again.');
+                notify('An error occurred. Please try again.', 'danger');
                 this.disabled = false;
                 this.innerHTML = originalText;
             }
@@ -618,16 +657,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(result.message || 'Officer reactivated successfully!');
+                    notify(result.message || 'Officer reactivated successfully!', 'success');
                     location.reload();
                 } else {
-                    alert(result.error || 'Failed to reactivate officer.');
+                    notify(result.error || 'Failed to reactivate officer.', 'danger');
                     this.disabled = false;
                     this.innerHTML = originalText;
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred. Please try again.');
+                notify('An error occurred. Please try again.', 'danger');
                 this.disabled = false;
                 this.innerHTML = originalText;
             }
@@ -660,23 +699,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
 
                 if (result.success) {
-                    alert(result.message || 'Officer deleted successfully!');
+                    notify(result.message || 'Officer deleted successfully!', 'success');
                     location.reload();
                 } else {
-                    alert(result.error || 'Failed to delete officer.');
+                    notify(result.error || 'Failed to delete officer.', 'danger');
                     this.disabled = false;
                     this.innerHTML = originalText;
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred. Please try again.');
+                notify('An error occurred. Please try again.', 'danger');
                 this.disabled = false;
                 this.innerHTML = originalText;
             }
         });
     });
-    
-    let currentDeactivateUserId = null;
     
     // Confirm reject button
     document.getElementById('confirmRejectBtn').addEventListener('click', async function() {
@@ -700,16 +737,16 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (result.success) {
                 bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
-                alert(result.message || 'Officer rejected successfully!');
+                notify(result.message || 'Officer rejected successfully!', 'success');
                 location.reload();
             } else {
-                alert(result.error || 'Failed to reject officer.');
+                notify(result.error || 'Failed to reject officer.', 'danger');
                 this.disabled = false;
                 this.innerHTML = originalText;
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred. Please try again.');
+            notify('An error occurred. Please try again.', 'danger');
             this.disabled = false;
             this.innerHTML = originalText;
         }
@@ -737,16 +774,16 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (result.success) {
                 bootstrap.Modal.getInstance(document.getElementById('deactivateModal')).hide();
-                alert(result.message || 'Officer deactivated successfully!');
+                notify(result.message || 'Officer deactivated successfully!', 'success');
                 location.reload();
             } else {
-                alert(result.error || 'Failed to deactivate officer.');
+                notify(result.error || 'Failed to deactivate officer.', 'danger');
                 this.disabled = false;
                 this.innerHTML = originalText;
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred. Please try again.');
+            notify('An error occurred. Please try again.', 'danger');
             this.disabled = false;
             this.innerHTML = originalText;
         }
@@ -762,8 +799,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = row.dataset.officerName || '';
             const username = row.dataset.username || '';
             const email = row.dataset.email || '';
-            const status = row.dataset.status || '';
             const online = row.dataset.online || '';
+            const active = row.dataset.active || '';
             
             const matchesSearch = !searchTerm || 
                 name.includes(searchTerm) || 
@@ -771,37 +808,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 email.includes(searchTerm);
             
             let matchesStatus = true;
-            if (statusFilter) {
-                if (statusFilter === 'online' || statusFilter === 'offline') {
-                    // Check online status from the second column (online status badge)
-                    const onlineStatusCell = row.querySelector('td:nth-child(2)');
-                    const onlineStatusText = onlineStatusCell ? onlineStatusCell.textContent.toLowerCase() : '';
-                    if (statusFilter === 'online') {
-                        matchesStatus = onlineStatusText.includes('online');
-                    } else {
-                        matchesStatus = onlineStatusText.includes('offline') || onlineStatusText === '-';
-                    }
-                } else if (statusFilter === 'active' || statusFilter === 'inactive') {
-                    const active = row.dataset.active || 'active';
-                    matchesStatus = active === statusFilter;
-                } else {
-                    matchesStatus = status === statusFilter;
-                }
+            if (statusFilter === 'online' || statusFilter === 'offline') {
+                matchesStatus = online === statusFilter;
+            } else if (statusFilter === 'active' || statusFilter === 'inactive') {
+                matchesStatus = active === statusFilter;
             }
             
             return matchesSearch && matchesStatus;
         });
-        
-        // Hide all rows
-        allOfficerRows.forEach(row => row.style.display = 'none');
-        
-        // Sort
-        if (sortValue === 'date_desc') {
+
+        if (sortValue === 'date_desc' || sortValue === 'date_asc') {
             visibleRows.sort((a, b) => {
-                return 0;
+                const aCreated = parseInt(a.dataset.created || '0', 10);
+                const bCreated = parseInt(b.dataset.created || '0', 10);
+                return sortValue === 'date_desc' ? (bCreated - aCreated) : (aCreated - bCreated);
             });
-        } else if (sortValue === 'date_asc') {
-            visibleRows.reverse();
         } else if (sortValue === 'name_asc') {
             visibleRows.sort((a, b) => {
                 const aName = a.dataset.officerName || '';
@@ -815,11 +836,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 return bName.localeCompare(aName);
             });
         }
-        
-        // Show visible rows
-        visibleRows.forEach(row => row.style.display = '');
-        
-        // Show/hide no results
+
+        const tbody = allOfficerRows[0]?.parentElement;
+        if (!tbody) {
+            return;
+        }
+
+        allOfficerRows.forEach(row => row.style.display = 'none');
+        visibleRows.forEach(row => {
+            row.style.display = '';
+            tbody.appendChild(row);
+        });
+
         noResultsRow.style.display = visibleRows.length === 0 ? '' : 'none';
     }
     
@@ -832,4 +860,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?= $this->endSection() ?>
-

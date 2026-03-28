@@ -2,53 +2,57 @@
 
 <?= $this->section('content') ?>
 <link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
+<?php $peso = '&#8369;'; ?>
 
 <!-- Stats Cards -->
-<div class="container-fluid mb-4">
-    <div class="row g-3">
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Payment Requests</h6>
+            <p>Review incoming payment submissions, inspect proofs, and move requests through approval or rejection consistently.</p>
+        </div>
+    </div>
+    <div class="row g-3 ui-stats-row">
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-warning mb-2">
-                        <i class="fas fa-clock fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Pending Requests</h5>
-                    <p class="card-text text-muted"><?= $stats['pending'] ?></p>
-                </div>
-            </div>
+            <?= view('partials/card', [
+                'icon' => 'fas fa-clock',
+                'iconColor' => 'text-warning',
+                'title' => 'Pending Requests',
+                'text' => $stats['pending'],
+                'textClass' => 'text-muted',
+                'bodyClass' => 'text-center',
+            ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-success mb-2">
-                        <i class="fas fa-check-circle fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Approved</h5>
-                    <p class="card-text text-muted"><?= $stats['approved'] ?></p>
-                </div>
-            </div>
+            <?= view('partials/card', [
+                'icon' => 'fas fa-check-circle',
+                'iconColor' => 'text-success',
+                'title' => 'Approved',
+                'text' => $stats['approved'],
+                'textClass' => 'text-muted',
+                'bodyClass' => 'text-center',
+            ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-danger mb-2">
-                        <i class="fas fa-times-circle fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Rejected</h5>
-                    <p class="card-text text-muted"><?= $stats['rejected'] ?></p>
-                </div>
-            </div>
+            <?= view('partials/card', [
+                'icon' => 'fas fa-times-circle',
+                'iconColor' => 'text-danger',
+                'title' => 'Rejected',
+                'text' => $stats['rejected'],
+                'textClass' => 'text-muted',
+                'bodyClass' => 'text-center',
+            ]) ?>
         </div>
 </div>
 
 <!-- Payment Requests Management -->
-<div class="container-fluid">
+<div>
     <div class="row">
         <div class="col-12">
             <!-- Pending Requests Table -->
-            <div class="card mb-4">
+            <div class="card mb-4 ui-data-shell">
                 <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Pending Payment Requests</h5>
+                    <h5 class="mb-0 ui-section-title"><i class="fas fa-clock me-2"></i>Pending Payment Requests</h5>
                 </div>
                 <div class="card-body">
                     <?php if (empty($pendingRequests)): ?>
@@ -58,7 +62,7 @@
                             <p class="text-muted">Pending payment requests will appear here</p>
                         </div>
                     <?php else: ?>
-                        <div class="table-responsive">
+                        <div class="table-responsive ui-table-wrap">
                             <table class="table table-hover" id="pendingTable">
                                 <thead>
                                     <tr>
@@ -86,8 +90,7 @@
                                                             : base_url($request['profile_picture']);
                                                         ?>
                                                         <img src="<?= $profileUrl ?>" 
-                                                             alt="Profile" class="rounded-circle me-2" 
-                                                             style="width: 32px; height: 32px; object-fit: cover;"
+                                                             alt="Profile" class="rounded-circle me-2 ui-avatar-32" 
                                                              onerror="this.style.display='none';">
                                                     <?php endif; ?>
                                                     <div>
@@ -102,7 +105,7 @@
                                                     <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
                                                 </div>
                                             </td>
-                                            <td>₱<?= number_format($request['requested_amount'], 2) ?></td>
+                                            <td><?= $peso ?><?= number_format($request['requested_amount'], 2) ?></td>
                                             <td><?= esc(ucfirst(str_replace('_', ' ', $request['payment_method']))) ?></td>
                                             <td><?= esc($request['reference_number']) ?></td>
                                             <td>
@@ -123,9 +126,9 @@
             </div>
 
             <!-- Approved Requests Table -->
-            <div class="card mb-4">
+            <div class="card mb-4 ui-data-shell">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Approved Payment Requests</h5>
+                    <h5 class="mb-0 ui-section-title"><i class="fas fa-check-circle me-2"></i>Approved Payment Requests</h5>
                 </div>
                 <div class="card-body">
                     <?php if (empty($approvedRequests)): ?>
@@ -135,7 +138,7 @@
                             <p class="text-muted">Approved payment requests will appear here</p>
                         </div>
                     <?php else: ?>
-                        <div class="table-responsive">
+                        <div class="table-responsive ui-table-wrap">
                             <table class="table table-hover" id="approvedTable">
                                 <thead>
                                     <tr>
@@ -163,12 +166,10 @@
                                                             : base_url($request['profile_picture']);
                                                         ?>
                                                         <img src="<?= $profileUrl ?>" 
-                                                             alt="Profile" class="rounded-circle me-2" 
-                                                             style="width: 32px; height: 32px; object-fit: cover;"
+                                                             alt="Profile" class="rounded-circle me-2 ui-avatar-32" 
                                                              onerror="this.style.display='none';">
                                                     <?php else: ?>
-                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
-                                                             style="width: 32px; height: 32px;">
+                                                        <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center ui-avatar-fallback-32">
                                                             <i class="fas fa-user"></i>
                                                         </div>
                                                     <?php endif; ?>
@@ -184,7 +185,7 @@
                                                     <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
                                                 </div>
                                             </td>
-                                            <td>₱<?= number_format($request['requested_amount'], 2) ?></td>
+                                            <td><?= $peso ?><?= number_format($request['requested_amount'], 2) ?></td>
                                             <td><?= esc(ucfirst(str_replace('_', ' ', $request['payment_method']))) ?></td>
                                             <td><?= esc($request['reference_number']) ?></td>
                                             <td>
@@ -208,9 +209,9 @@
             </div>
 
             <!-- Rejected Requests Table -->
-            <div class="card mb-4">
+            <div class="card mb-4 ui-data-shell">
                 <div class="card-header bg-danger text-white">
-                    <h5 class="mb-0"><i class="fas fa-times-circle me-2"></i>Rejected Payment Requests</h5>
+                    <h5 class="mb-0 ui-section-title"><i class="fas fa-times-circle me-2"></i>Rejected Payment Requests</h5>
                 </div>
                 <div class="card-body">
                     <?php if (empty($rejectedRequests)): ?>
@@ -220,7 +221,7 @@
                             <p class="text-muted">Rejected payment requests will appear here</p>
                         </div>
                     <?php else: ?>
-                        <div class="table-responsive">
+                        <div class="table-responsive ui-table-wrap">
                             <table class="table table-hover" id="rejectedTable">
                                 <thead>
                                     <tr>
@@ -249,8 +250,7 @@
                                                             : base_url($request['profile_picture']);
                                                         ?>
                                                         <img src="<?= $profileUrl ?>" 
-                                                             alt="Profile" class="rounded-circle me-2" 
-                                                             style="width: 32px; height: 32px; object-fit: cover;"
+                                                             alt="Profile" class="rounded-circle me-2 ui-avatar-32" 
                                                              onerror="this.style.display='none';">
                                                     <?php endif; ?>
                                                     <div>
@@ -265,7 +265,7 @@
                                                     <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
                                                 </div>
                                             </td>
-                                            <td>₱<?= number_format($request['requested_amount'], 2) ?></td>
+                                            <td><?= $peso ?><?= number_format($request['requested_amount'], 2) ?></td>
                                             <td><?= esc(ucfirst(str_replace('_', ' ', $request['payment_method']))) ?></td>
                                             <td><?= esc($request['reference_number']) ?></td>
                                             <td>

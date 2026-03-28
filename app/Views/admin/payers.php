@@ -1,9 +1,21 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Payers</h6>
+            <p>Browse registered payers, filter by status or course, and jump into exports or account management quickly.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
+                <i class="fas fa-plus"></i> Add New Payer
+            </button>
+        </div>
+    </div>
     <!-- Statistics Cards -->
-    <div class="row mb-4">
+    <div class="row mb-4 ui-stats-row">
         <div class="col-lg-3 col-md-6 mb-4">
             <?= view('partials/card', [
                 'title' => 'Total Payers',
@@ -39,11 +51,11 @@
     </div>
 
     <!-- Payers List -->
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-4 ui-data-shell">
         <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="card-title mb-0">Payers</h5>
-                <p class="text-muted mb-0 small">Complete list of all registered payers</p>
+                <h5 class="ui-section-title">Payers</h5>
+                <p class="ui-section-subtitle mb-0">Complete list of all registered payers</p>
             </div>
             <div class="d-flex gap-2">
                 <div class="btn-group">
@@ -66,7 +78,7 @@
         </div>
         <div class="card-body">
             <!-- Search Bar -->
-            <div class="mb-3">
+            <div class="mb-3 ui-toolbar-shell p-3">
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="input-group">
@@ -120,7 +132,7 @@
                 </div>
             </div>
             
-            <div class="table-responsive">
+            <div class="table-responsive ui-table-wrap">
                 <table class="table table-hover">
                     <thead>
                         <tr>

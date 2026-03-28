@@ -1,9 +1,16 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Administrators</h6>
+            <p>Monitor admin availability, filter by role or online status, and keep the operator roster easy to audit.</p>
+        </div>
+    </div>
     <!-- Statistics Cards -->
-    <div class="row mb-4">
+    <div class="row mb-4 ui-stats-row">
         <div class="col-lg-4 col-md-6 mb-4">
             <?= view('partials/card', [
                 'title' => 'Total Admins',
@@ -31,16 +38,16 @@
     </div>
 
     <!-- Admins List -->
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-4 ui-data-shell">
         <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="card-title mb-0">Administrators</h5>
-                <p class="text-muted mb-0 small">View all administrators and their online status</p>
+                <h5 class="ui-section-title">Administrators</h5>
+                <p class="ui-section-subtitle mb-0">View all administrators and their online status</p>
             </div>
         </div>
         <div class="card-body">
             <!-- Search Bar -->
-            <div class="mb-3">
+            <div class="mb-3 ui-toolbar-shell p-3">
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <div class="input-group">
@@ -92,7 +99,7 @@
                 </div>
             </div>
             
-            <div class="table-responsive">
+            <div class="table-responsive ui-table-wrap">
                 <table class="table table-hover">
                     <thead>
                         <tr>

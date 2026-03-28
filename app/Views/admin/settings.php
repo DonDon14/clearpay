@@ -1,6 +1,7 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
 <?php
 // Get system info from controller (passed from SidebarController)
 $systemInfo = $systemInfo ?? [
@@ -35,7 +36,13 @@ $settings = [
 ];
 ?>
 
-<div class="container-fluid">
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Settings</h6>
+            <p>Configure payment operations, email delivery, maintenance tools, and core system information from a single admin surface.</p>
+        </div>
+    </div>
     <!-- Page Header -->
     <div class="row mb-4">
         <div class="col-12">

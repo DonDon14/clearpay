@@ -15,7 +15,7 @@
                                 <small class="text-warning-emphasis"><?= esc($item['reason'] ?? 'Flagged by Python analytics') ?></small>
                             </div>
                             <div class="text-end">
-                                <div class="fw-semibold text-warning">PHP <?= number_format($item['amount_paid'] ?? 0, 2) ?></div>
+                                <div class="fw-semibold text-warning">&#8369;<?= number_format($item['amount_paid'] ?? 0, 2) ?></div>
                                 <small class="text-muted"><?= esc($item['payment_day'] ?? '') ?></small>
                             </div>
                         </div>
@@ -46,7 +46,7 @@
                                 <small class="text-danger-emphasis"><?= esc($item['duplicate_reason'] ?? 'Duplicate pattern detected') ?></small>
                             </div>
                             <div class="text-end">
-                                <div class="fw-semibold text-danger">PHP <?= number_format($item['amount_paid'] ?? 0, 2) ?></div>
+                                <div class="fw-semibold text-danger">&#8369;<?= number_format($item['amount_paid'] ?? 0, 2) ?></div>
                                 <small class="text-muted"><?= esc($item['payment_day'] ?? '') ?></small>
                             </div>
                         </div>

@@ -1,8 +1,8 @@
 <?= $this->extend('layouts/payer-layout') ?>
+<?php $peso = '&#8369;'; ?>
 
 <?= $this->section('content') ?>
 <div class="container-fluid">
-    <!-- Welcome Section -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
@@ -13,7 +13,7 @@
                             <p class="text-muted mb-0">Here's your payment summary</p>
                         </div>
                         <div class="text-end">
-                            <div class="display-4 text-primary mb-1">₱<?= number_format($totalPaid, 2) ?></div>
+                            <div class="display-4 text-primary mb-1"><?= $peso ?><?= number_format($totalPaid, 2) ?></div>
                             <small class="text-muted">Total Amount Paid</small>
                         </div>
                     </div>
@@ -22,7 +22,6 @@
         </div>
     </div>
 
-    <!-- Quick Actions Section -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
@@ -32,7 +31,7 @@
                     </h5>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <a href="<?= base_url('payer/payment-requests') ?>" class="btn btn-lg btn-primary w-100 d-flex align-items-center justify-content-center" style="min-height: 100px;">
+                            <a href="<?= base_url('payer/payment-requests') ?>" class="btn btn-lg btn-primary w-100 d-flex align-items-center justify-content-center ui-action-tile">
                                 <div class="text-center">
                                     <i class="fas fa-money-bill-wave fa-3x mb-2 d-block"></i>
                                     <h6 class="mb-1">Payment Request</h6>
@@ -41,7 +40,7 @@
                             </a>
                         </div>
                         <div class="col-md-6">
-                            <a href="<?= base_url('payer/refund-requests') ?>" class="btn btn-lg btn-warning w-100 d-flex align-items-center justify-content-center" style="min-height: 100px;">
+                            <a href="<?= base_url('payer/refund-requests') ?>" class="btn btn-lg btn-warning w-100 d-flex align-items-center justify-content-center ui-action-tile">
                                 <div class="text-center">
                                     <i class="fas fa-undo fa-3x mb-2 d-block"></i>
                                     <h6 class="mb-1">Refund Request</h6>
@@ -55,7 +54,6 @@
         </div>
     </div>
 
-    <!-- Stats Cards -->
     <div class="row mb-4">
         <div class="col-md-6 col-lg-3 mb-3">
             <div class="card text-center">
@@ -85,7 +83,7 @@
                     <div class="mb-2">
                         <i class="fas fa-money-bill-wave fa-2x text-info"></i>
                     </div>
-                    <h3 class="mb-1">₱<?= number_format($totalPaid, 2) ?></h3>
+                    <h3 class="mb-1"><?= $peso ?><?= number_format($totalPaid, 2) ?></h3>
                     <p class="text-muted mb-0">Total Paid</p>
                 </div>
             </div>
@@ -104,7 +102,6 @@
     </div>
 
     <div class="row">
-        <!-- Recent Payments -->
         <div class="col-lg-8 mb-4">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -132,7 +129,7 @@
                                     <?php foreach ($recentPayments as $payment): ?>
                                         <tr>
                                             <td><?= date('M d, Y', strtotime($payment['payment_date'] ?? $payment['created_at'])) ?></td>
-                                            <td>₱<?= number_format($payment['amount_paid'], 2) ?></td>
+                                            <td><?= $peso ?><?= number_format($payment['amount_paid'], 2) ?></td>
                                             <td><code><?= esc($payment['reference_number'] ?? 'N/A') ?></code></td>
                                             <td>
                                                 <span class="badge bg-<?= ($payment['payment_status'] === 'fully paid') ? 'success' : 'warning' ?>">
@@ -149,7 +146,6 @@
             </div>
         </div>
 
-        <!-- Announcements -->
         <div class="col-lg-4 mb-4">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">

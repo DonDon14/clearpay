@@ -230,15 +230,102 @@
     window.refreshRefundRequestsBadge = function() {
       updateRefundRequestsBadge();
     };
+
+    window.updateReviewCenterBadge = function() {
+      fetch(`${window.APP_BASE_URL}/admin/review-center/pending-count`, {
+        method: 'GET',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        const badge = document.getElementById('reviewCenterBadge');
+        if (!badge) {
+          return;
+        }
+
+        const sidebar = document.querySelector('.sidebar');
+        const isCollapsed = sidebar && sidebar.classList.contains('collapsed');
+
+        if (data.success) {
+          const count = data.count || 0;
+          if (count > 0) {
+            if (isCollapsed) {
+              badge.textContent = '';
+              badge.setAttribute('data-count', count);
+              badge.style.setProperty('width', '10px', 'important');
+              badge.style.setProperty('height', '10px', 'important');
+              badge.style.setProperty('min-width', '10px', 'important');
+              badge.style.setProperty('max-width', '10px', 'important');
+              badge.style.setProperty('padding', '0', 'important');
+              badge.style.setProperty('margin', '0', 'important');
+              badge.style.setProperty('margin-left', '0', 'important');
+              badge.style.setProperty('margin-right', '0', 'important');
+              badge.style.setProperty('border-radius', '50%', 'important');
+              badge.style.setProperty('font-size', '0', 'important');
+              badge.style.setProperty('line-height', '0', 'important');
+              badge.style.setProperty('display', 'block', 'important');
+            } else {
+              badge.textContent = count;
+              badge.removeAttribute('data-count');
+              badge.style.removeProperty('width');
+              badge.style.removeProperty('height');
+              badge.style.removeProperty('min-width');
+              badge.style.removeProperty('max-width');
+              badge.style.removeProperty('padding');
+              badge.style.removeProperty('margin');
+              badge.style.removeProperty('margin-left');
+              badge.style.removeProperty('margin-right');
+              badge.style.removeProperty('border-radius');
+              badge.style.removeProperty('font-size');
+              badge.style.removeProperty('line-height');
+            }
+
+            badge.style.setProperty('display', isCollapsed ? 'block' : 'flex', 'important');
+            badge.style.setProperty('opacity', '1', 'important');
+            badge.style.setProperty('visibility', 'visible', 'important');
+            badge.style.background = '#ef4444';
+            badge.style.color = 'white';
+          } else {
+            badge.textContent = '';
+            badge.style.setProperty('display', 'none', 'important');
+            badge.style.setProperty('opacity', '0', 'important');
+            badge.style.setProperty('visibility', 'hidden', 'important');
+          }
+        } else {
+          badge.textContent = '';
+          badge.style.setProperty('display', 'none', 'important');
+          badge.style.setProperty('opacity', '0', 'important');
+          badge.style.setProperty('visibility', 'hidden', 'important');
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching review center count:', error);
+        const badge = document.getElementById('reviewCenterBadge');
+        if (badge) {
+          badge.textContent = '';
+          badge.style.setProperty('display', 'none', 'important');
+          badge.style.setProperty('opacity', '0', 'important');
+          badge.style.setProperty('visibility', 'hidden', 'important');
+        }
+      });
+    };
+    
+    window.refreshReviewCenterBadge = function() {
+      updateReviewCenterBadge();
+    };
     
     // Update badge on page load and set up auto-refresh
     document.addEventListener('DOMContentLoaded', function() {
       updatePaymentRequestsBadge();
       updateRefundRequestsBadge();
+      updateReviewCenterBadge();
       
       // Auto-refresh badge every 30 seconds to keep it in sync
       setInterval(updatePaymentRequestsBadge, 30000);
       setInterval(updateRefundRequestsBadge, 30000);
+      setInterval(updateReviewCenterBadge, 30000);
     });
     
     // Sidebar Toggle Script with State Persistence
@@ -276,6 +363,9 @@
           if (typeof updateRefundRequestsBadge === 'function') {
             updateRefundRequestsBadge();
           }
+          if (typeof updateReviewCenterBadge === 'function') {
+            updateReviewCenterBadge();
+          }
         }
       }
 
@@ -292,6 +382,9 @@
           }
           if (typeof updateRefundRequestsBadge === 'function') {
             updateRefundRequestsBadge();
+          }
+          if (typeof updateReviewCenterBadge === 'function') {
+            updateReviewCenterBadge();
           }
         }
       }
@@ -360,6 +453,9 @@
             }
             if (typeof updateRefundRequestsBadge === 'function') {
               updateRefundRequestsBadge();
+            }
+            if (typeof updateReviewCenterBadge === 'function') {
+              updateReviewCenterBadge();
             }
           }, 50);
         });

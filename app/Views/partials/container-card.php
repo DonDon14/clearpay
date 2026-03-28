@@ -7,13 +7,13 @@ $hasCards = isset($cards) && !empty($cards) && is_array($cards);
 $hasItems = isset($items) && !empty($items) && is_array($items);
 ?>
 
-<div class="card <?= $cardClass ?> mb-3">
+<div class="card border-0 <?= $cardClass ?> mb-3 ui-surface-card">
     <?php if (!empty($title)) : ?>
-        <div class="card-header <?= !empty($headerAction) ? 'd-flex justify-content-between align-items-center' : '' ?>">
+        <div class="card-header ui-surface-card-header <?= !empty($headerAction) ? 'd-flex justify-content-between align-items-center' : '' ?>">
             <div>
-                <h5 class="card-title mb-0"><?= $title ?></h5>
+                <h5 class="card-title mb-1"><?= $title ?></h5>
                 <?php if (!empty($subtitle)) : ?>
-                    <small class="text-muted d-block"><?= $subtitle ?></small>
+                    <small class="text-muted d-block ui-surface-subtitle"><?= $subtitle ?></small>
                 <?php endif; ?>
             </div>
             <?php if (!empty($headerAction)) : ?>
@@ -22,7 +22,7 @@ $hasItems = isset($items) && !empty($items) && is_array($items);
         </div>
     <?php endif; ?>
     
-    <div class="card-body <?= $bodyClass ?>">
+    <div class="card-body <?= $bodyClass ?> ui-surface-card-body">
         <?php if ($hasContent) : ?>
             <!-- Custom content -->
             <?= $content ?>

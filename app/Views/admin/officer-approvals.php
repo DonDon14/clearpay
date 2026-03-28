@@ -1,38 +1,49 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Officer Approvals</h6>
+            <p>Review new officer registrations, monitor officer presence, and manage approvals in the same admin UI system.</p>
+        </div>
+    </div>
     <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-lg-3 col-md-6 mb-4">
+    <div class="row g-3 ui-stats-row mb-4">
+        <div class="col-lg-3 col-md-6">
             <?= view('partials/card', [
                 'title' => 'Pending Approvals',
                 'text' => number_format($totalPending ?? 0),
-                'icon' => 'clock',
+                'subtitle' => 'Officer accounts awaiting review',
+                'icon' => 'fas fa-clock',
                 'iconColor' => 'text-warning'
             ]) ?>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-lg-3 col-md-6">
             <?= view('partials/card', [
                 'title' => 'Total Officers',
                 'text' => number_format($totalOfficers ?? 0),
-                'icon' => 'users',
+                'subtitle' => 'Registered officer accounts',
+                'icon' => 'fas fa-users',
                 'iconColor' => 'text-primary'
             ]) ?>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-lg-3 col-md-6">
             <?= view('partials/card', [
                 'title' => 'Online Officers',
                 'text' => number_format($onlineOfficers ?? 0),
-                'icon' => 'user-check',
+                'subtitle' => 'Recently active officers',
+                'icon' => 'fas fa-user-check',
                 'iconColor' => 'text-success'
             ]) ?>
         </div>
-        <div class="col-lg-3 col-md-6 mb-4">
+        <div class="col-lg-3 col-md-6">
             <?= view('partials/card', [
                 'title' => 'Approved',
                 'text' => number_format(($totalOfficers ?? 0) - ($totalPending ?? 0)),
-                'icon' => 'check-circle',
+                'subtitle' => 'Approved officer accounts',
+                'icon' => 'fas fa-check-circle',
                 'iconColor' => 'text-info'
             ]) ?>
         </div>
@@ -40,19 +51,19 @@
 
     <!-- Pending Approvals Section -->
     <?php if (!empty($pendingOfficers)): ?>
-    <div class="card shadow-sm mb-4 border-warning">
+    <div class="card shadow-sm mb-4 border-warning ui-data-shell">
         <div class="card-header bg-warning bg-opacity-10 d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="card-title mb-0">
+                <h5 class="ui-section-title mb-0">
                     <i class="fas fa-exclamation-triangle text-warning me-2"></i>
                     Pending Approvals (<?= count($pendingOfficers) ?>)
                 </h5>
-                <p class="text-muted mb-0 small">Review and approve officer signups</p>
+                <p class="ui-section-subtitle mb-0">Review and approve officer signups</p>
             </div>
         </div>
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
+            <div class="table-responsive ui-table-wrap">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Profile</th>
@@ -76,11 +87,10 @@
                                         ?>
                                         <img src="<?= $officerPicUrl ?>" 
                                              alt="<?= esc($officer['name'] ?? $officer['username']) ?>"
-                                             class="rounded-circle"
-                                             style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
+                                             class="rounded-circle ui-avatar-40">
                                     <?php else: ?>
                                         <div class="rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white"
-                                             style="width: 40px; height: 40px; flex-shrink: 0;">
+                                             class="ui-avatar-fallback-40">
                                             <i class="fas fa-user"></i>
                                         </div>
                                     <?php endif; ?>
@@ -122,11 +132,11 @@
     <?php endif; ?>
 
     <!-- All Officers List -->
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-4 ui-data-shell">
         <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-                <h5 class="card-title mb-0">All Officers</h5>
-                <p class="text-muted mb-0 small">View all officers and their status</p>
+                <h5 class="ui-section-title mb-0">All Officers</h5>
+                <p class="ui-section-subtitle mb-0">View all officers and their status</p>
             </div>
         </div>
         <div class="card-body">
@@ -170,8 +180,8 @@
                 </div>
             </div>
             
-            <div class="table-responsive">
-                <table class="table table-hover">
+            <div class="table-responsive ui-table-wrap">
+                <table class="table table-hover align-middle">
                     <thead>
                         <tr>
                             <th>Status</th>
@@ -224,11 +234,10 @@
                                             ?>
                                             <img src="<?= $officerPicUrl ?>" 
                                                  alt="<?= esc($officer['name'] ?? $officer['username']) ?>"
-                                                 class="rounded-circle"
-                                                 style="width: 40px; height: 40px; object-fit: cover; border: 2px solid #e9ecef;">
+                                                 class="rounded-circle ui-avatar-40">
                                         <?php else: ?>
                                             <div class="rounded-circle d-flex align-items-center justify-content-center bg-secondary text-white"
-                                                 style="width: 40px; height: 40px; flex-shrink: 0;">
+                                                 class="ui-avatar-fallback-40">
                                                 <i class="fas fa-user"></i>
                                             </div>
                                         <?php endif; ?>

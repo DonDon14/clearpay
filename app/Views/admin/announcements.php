@@ -1,6 +1,7 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
 <?php
 // Use data from controller
 $announcements = $announcements ?? [];
@@ -12,9 +13,18 @@ $status_counts = $stats ?? [
 ];
 ?>
 
-<div class="container-fluid">
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Announcements</h6>
+            <p>Create and manage system announcements with consistent filters, priorities, and publishing controls.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal"><i class="fas fa-plus"></i> Add Announcement</button>
+        </div>
+    </div>
     <!-- Statistics Cards -->
-    <div class="row mb-4">
+    <div class="row mb-4 ui-stats-row">
         <div class="col-lg-3 col-md-6 mb-4">
             <?= view('partials/card', [
                 'title' => 'Total Announcements',

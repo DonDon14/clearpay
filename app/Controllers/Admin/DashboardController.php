@@ -71,30 +71,31 @@ class DashboardController extends BaseController
                           ->where('id', session()->get('user-id'))
                           ->first();
 
-        // --- Fetch Total Collections ---
-        $totalModel = new PaymentModel();
-        $totalCollectionsRow = $totalModel
-            ->selectSum('amount_paid')
-            ->where('payment_status', 'fully paid')
-            ->first();
+        // --- Fetch Dashboard Stats ---
+        // Keep dashboard metrics aligned with the grouped payment logic used in
+        // the payments module, instead of mixing raw row status with computed status.
+        $groupedPayments = $paymentModel->getGroupedPayments();
 
         $totalCollections = 0.0;
-        if (!empty($totalCollectionsRow)) {
-            $totalCollections = isset($totalCollectionsRow['amount_paid'])
-                                ? (float)$totalCollectionsRow['amount_paid']
-                                : (float)array_values($totalCollectionsRow)[0];
+        foreach ($allPayments as $payment) {
+            $totalCollections += (float) ($payment['amount_paid'] ?? 0);
         }
-        $totalCollections = number_format($totalCollections, 2);
 
-        // --- Fetch Other Stats ---
-        $paymentModel = new PaymentModel();
-        $verifiedPayments = $paymentModel->where('payment_status', 'fully paid')->countAllResults();
+        $verifiedPayments = 0;
+        $partialPayments = 0;
+        foreach ($groupedPayments as $group) {
+            $status = strtolower((string) ($group['computed_status'] ?? ''));
+            if ($status === 'fully paid') {
+                $verifiedPayments++;
+            } elseif ($status === 'partial') {
+                $partialPayments++;
+            }
+        }
 
-        $paymentModel = new PaymentModel();
-        $partialPayments  = $paymentModel->where('LOWER(payment_status)', 'partial')->countAllResults();
-
-        $paymentModel = new PaymentModel();
-        $todayPayments    = $paymentModel->where('DATE(payment_date)', date('Y-m-d'))->countAllResults();
+        $todayPayments = $paymentModel
+            ->where('DATE(payment_date)', date('Y-m-d'))
+            ->where('deleted_at', null)
+            ->countAllResults();
 
         // --- Fetch Recent Payments ---
         $recentPayments = $paymentModel

@@ -22,6 +22,8 @@ VALID_PAYMENT_STATUSES = {"fully paid", "partial"}
 
 
 def parse_datetime(value: Any) -> datetime | None:
+    # Accept the timestamp formats that can come from PHP/DB rows and convert
+    # them into one consistent Python datetime object for later calculations.
     if not value:
         return None
     text = str(value).strip()
@@ -70,6 +72,7 @@ def iso(dt: datetime | None) -> str | None:
 
 
 def quantile(values: list[float], fraction: float) -> float:
+    # Lightweight percentile helper used for IQR-based outlier detection.
     if not values:
         return 0.0
     ordered = sorted(values)
@@ -83,6 +86,9 @@ def quantile(values: list[float], fraction: float) -> float:
 
 
 def normalize_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    # The PHP service passes raw database rows as JSON. Normalize the fields here
+    # once so the rest of the analytics pipeline can treat amounts, ids, and
+    # dates as typed values instead of repeatedly coercing them.
     payments: list[dict[str, Any]] = []
     for row in payload.get("payments", []):
         normalized = dict(row)
@@ -111,6 +117,7 @@ def normalize_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], li
 
 
 def profit_summary(contributions: list[dict[str, Any]]) -> dict[str, float]:
+    # Profit analytics are contribution-based, not payment-row-based.
     active = [row for row in contributions if str(row.get("status") or "").lower() == "active"]
     if not active:
         return {"total_profit": 0.0, "avg_profit_margin": 0.0}
@@ -129,6 +136,8 @@ def profit_summary(contributions: list[dict[str, Any]]) -> dict[str, float]:
 
 
 def top_profitable(contributions: list[dict[str, Any]], limit: int = 10) -> list[dict[str, Any]]:
+    # Rank active contributions by absolute profit so the admin UI can show the
+    # highest-value items first.
     active = [row for row in contributions if str(row.get("status") or "").lower() == "active"]
     ranked = []
     for row in active:
@@ -151,6 +160,7 @@ def top_profitable(contributions: list[dict[str, Any]], limit: int = 10) -> list
 
 
 def category_breakdown(contributions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Summarize contribution performance by category for dashboard cards/tables.
     categories: dict[str, dict[str, float | int | str]] = {}
     for row in contributions:
         if str(row.get("status") or "").lower() != "active":
@@ -164,6 +174,12 @@ def category_breakdown(contributions: list[dict[str, Any]]) -> list[dict[str, An
 
 
 def detect_duplicates(payments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Duplicate detection uses two signals:
+    # 1. the exact same receipt number appearing more than once
+    # 2. the same payer/contribution/amount/method/day pattern appearing more than once
+    #
+    # Each payment id only appears once in the final output even if it matches
+    # both rules.
     receipt_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     composite_groups: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
 
@@ -222,6 +238,8 @@ def detect_duplicates(payments: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def detect_suspicious(payments: list[dict[str, Any]], duplicates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Suspicious-record detection is intentionally heuristic. It flags unusual
+    # rows for admin review; it does not try to make final fraud decisions.
     if not payments:
         return []
 
@@ -265,6 +283,8 @@ def detect_suspicious(payments: list[dict[str, Any]], duplicates: list[dict[str,
 
 
 def build_trends(payments: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    # Trend series are split into table-ready rows and Chart.js-ready payloads
+    # so PHP can send them directly to the analytics view with minimal reshaping.
     now = datetime.now()
     daily_cutoff = now - timedelta(days=30)
     monthly_cutoff = now - timedelta(days=365)
@@ -319,6 +339,11 @@ def build_trends(payments: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
 
 
 def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    # This is the main analytics pipeline used by both:
+    # - the admin analytics page
+    # - the review center alert summaries
+    #
+    # The returned structure is the contract expected by the PHP app.
     payments, contributions = normalize_payload(payload)
     valid_payments = [row for row in payments if str(row.get("payment_status") or "").lower() in VALID_PAYMENT_STATUSES]
 
@@ -335,6 +360,8 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
     )
     monthly_growth = ((this_month_sum - last_month_sum) / last_month_sum * 100) if last_month_sum else 0.0
 
+    # Outstanding balances are reconstructed from what was paid per
+    # payer+contribution pair versus the contribution amount.
     contribution_map = {row["id"]: row for row in contributions}
     balances: dict[tuple[int, int], float] = defaultdict(float)
     for row in valid_payments:
@@ -347,6 +374,8 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
             continue
         outstanding_balance += max(contribution["amount"] - total_paid, 0.0)
 
+    # Keep a raw status breakdown so the dashboard can still expose how many
+    # rows fall into each stored payment_status value.
     by_status_counter: dict[str, dict[str, Any]] = defaultdict(lambda: {"count": 0, "total_amount": 0.0})
     for row in payments:
         status = str(row.get("payment_status") or "")
@@ -361,6 +390,8 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         by_method_counter[method]["total_amount"] += row["amount_paid"]
     by_method = [{"payment_method": method, **values} for method, values in by_method_counter.items()]
 
+    # Recent payments are trimmed here so the PHP UI can render a lightweight
+    # "latest activity" section without extra sorting.
     recent_payments = sorted(valid_payments, key=lambda row: row["created_at_dt"] or datetime.min, reverse=True)[:10]
     recent_rows = [
         {
@@ -375,6 +406,8 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         for row in recent_payments
     ]
 
+    # Aggregate payers from payment rows because "top payers" is based on what
+    # has actually been collected, not on payer master data alone.
     top_payer_counter: dict[tuple[Any, ...], dict[str, Any]] = {}
     for row in valid_payments:
         key = (row["payer_db_id"], row.get("payer_name"), row.get("payer_id_number"), row.get("profile_picture"))
@@ -436,6 +469,8 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_report_lines(analysis: dict[str, Any]) -> list[str]:
+    # Build a plain text report representation first; the simple PDF writer
+    # below uses these lines directly.
     overview = analysis["overview"]
     payments = analysis["payments"]
     contributions = analysis["contributions"]
@@ -493,6 +528,8 @@ def build_report_lines(analysis: dict[str, Any]) -> list[str]:
 
 
 def write_delimited_report(analysis: dict[str, Any], output_path: Path, delimiter: str) -> None:
+    # CSV and Excel exports share the same tabular content. The only difference
+    # is the delimiter: comma for CSV, tab for Excel-friendly output.
     rows = [
         ["ClearPay Analytics Report"],
         ["Generated", analysis["generated_at"]],
@@ -537,6 +574,9 @@ def escape_pdf_text(text: str) -> str:
 
 
 def write_simple_pdf(lines: list[str], output_path: Path) -> None:
+    # This PDF writer is intentionally minimal and standard-library-only.
+    # It avoids external dependencies like reportlab so the integration works
+    # on a plain Python install.
     max_lines_per_page = 48
     pages = [lines[index : index + max_lines_per_page] for index in range(0, len(lines), max_lines_per_page)] or [[]]
 
@@ -589,6 +629,7 @@ def write_simple_pdf(lines: list[str], output_path: Path) -> None:
 
 
 def write_report(analysis: dict[str, Any], output_path: Path, report_format: str) -> None:
+    # Dispatch report generation based on the export requested by PHP.
     if report_format == "csv":
         write_delimited_report(analysis, output_path, ",")
         return
@@ -602,11 +643,14 @@ def write_report(analysis: dict[str, Any], output_path: Path, report_format: str
 
 
 def load_payload(path: Path) -> dict[str, Any]:
+    # Input payload is created by App\Services\PythonAnalyticsService and
+    # written as JSON into CodeIgniter's writable cache directory.
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def analyze_command(args: argparse.Namespace) -> int:
+    # CLI mode used when PHP needs analytics JSON for dashboard/review pages.
     payload = load_payload(Path(args.input))
     analysis = analyze_payload(payload)
     Path(args.output).write_text(json.dumps(analysis, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -614,6 +658,7 @@ def analyze_command(args: argparse.Namespace) -> int:
 
 
 def report_command(args: argparse.Namespace) -> int:
+    # CLI mode used when PHP needs an export file instead of JSON.
     payload = load_payload(Path(args.input))
     analysis = analyze_payload(payload)
     write_report(analysis, Path(args.output), args.format)
@@ -621,6 +666,9 @@ def report_command(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    # The worker exposes two subcommands:
+    # - analyze: write analytics JSON
+    # - report: write a report file (pdf/csv/excel)
     parser = argparse.ArgumentParser(description="ClearPay Python analytics worker")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -639,6 +687,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    # Keep the entrypoint thin: parse args, then hand off to the chosen mode.
     parser = build_parser()
     args = parser.parse_args()
     return args.handler(args)

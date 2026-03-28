@@ -32,8 +32,7 @@ $contributions = $passedContributions ?? [];
 
 <!-- Add Payment Quick Action Button -->
 <div class="<?= esc($colClass) ?>">
-    <div class="card <?= esc($bgColor) ?> text-white shadow-sm rounded-3 hover-scale h-100" 
-         style="transition: transform 0.2s, box-shadow 0.2s; min-height: 120px; cursor: pointer;" 
+    <div class="card <?= esc($bgColor) ?> text-white shadow-sm rounded-3 hover-scale h-100 ui-quick-action-card" 
          data-bs-toggle="modal" 
          data-bs-target="#addPaymentModal">
         <div class="card-body d-flex align-items-center gap-3 h-100">
@@ -41,8 +40,8 @@ $contributions = $passedContributions ?? [];
                 <i class="<?= esc($icon) ?> fs-4"></i>
             </div>
             <div class="flex-grow-1">
-                <h6 class="mb-1 fw-semibold"><?= esc($title) ?></h6>
-                <small class="text-white-75"><?= esc($subtitle) ?></small>
+                <p class="ui-quick-action-title mb-1"><?= esc($title) ?></p>
+                <small class="text-white-75 ui-quick-action-subtitle"><?= esc($subtitle) ?></small>
             </div>
         </div>
     </div>
@@ -58,23 +57,3 @@ $contributions = $passedContributions ?? [];
         'contributions' => $contributions,
     ]) ?>
 <?php endif; ?>
-
-<style>
-.icon-circle {
-    width: 45px;
-    height: 45px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 50%;
-    flex-shrink: 0;
-    font-size: 1.25rem;
-}
-
-.hover-scale:hover {
-    transform: translateY(-3px) scale(1.03);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-}
-
-.text-white-75 {
-    opacity: 0.75;
-}
-</style>

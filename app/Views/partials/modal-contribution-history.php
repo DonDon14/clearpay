@@ -28,51 +28,53 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const contributionHistoryModal = document.getElementById('contributionHistoryModal');
-    
+
     if (contributionHistoryModal) {
         contributionHistoryModal.addEventListener('show.bs.modal', function() {
             loadContributionHistory();
         });
     }
-    
+
     function loadContributionHistory() {
         const contentDiv = document.getElementById('contributionHistoryContent');
         contentDiv.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-3 text-muted">Loading contribution history...</p></div>';
-        
+
         fetch('<?= base_url('payments/contribution-history') ?>', {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.contributions) {
-                displayContributionHistory(data.contributions);
-            } else {
-                contentDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>' + (data.message || 'No contribution history found') + '</div>';
-            }
-        })
-        .catch(error => {
-            contentDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error loading contribution history. Please try again.</div>';
-        });
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.contributions) {
+                    displayContributionHistory(data.contributions);
+                } else {
+                    contentDiv.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>' + (data.message || 'No contribution history found') + '</div>';
+                }
+            })
+            .catch(() => {
+                contentDiv.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error loading contribution history. Please try again.</div>';
+            });
     }
-    
+
     function displayContributionHistory(contributions) {
         const contentDiv = document.getElementById('contributionHistoryContent');
-        
+
         if (!contributions || contributions.length === 0) {
             contentDiv.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>No contributions found.</div>';
             return;
         }
-        
+
         let html = '<div class="row">';
-        
+
         contributions.forEach(contribution => {
             const totalPayments = contribution.payments ? contribution.payments.length : 0;
             const totalAmount = contribution.payments ? contribution.payments.reduce((sum, p) => sum + parseFloat(p.amount_paid || 0), 0) : 0;
-            const statusBadge = contribution.status === 'active' ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
-            
+            const statusBadge = contribution.status === 'active'
+                ? '<span class="badge bg-success">Active</span>'
+                : '<span class="badge bg-secondary">Inactive</span>';
+
             html += `
                 <div class="col-md-6 mb-4">
                     <div class="card h-100 shadow-sm">
@@ -92,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     ${contribution.description ? '<li><i class="fas fa-align-left me-2 text-muted"></i><strong>Description:</strong> ' + contribution.description.substring(0, 100) + (contribution.description.length > 100 ? '...' : '') + '</li>' : ''}
                                 </ul>
                             </div>
-                            
+
                             <div class="mb-3">
                                 <strong>Payment Summary:</strong>
                                 <ul class="list-unstyled mt-2">
@@ -100,11 +102,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <li><i class="fas fa-money-bill-wave me-2 text-success"></i><strong>Total Amount Paid:</strong> ₱${totalAmount.toFixed(2)}</li>
                                 </ul>
                             </div>
-                            
+
                             ${contribution.payments && contribution.payments.length > 0 ? `
                                 <div class="mt-3">
                                     <strong>Payment History:</strong>
-                                    <div class="table-responsive mt-2" style="max-height: 300px; overflow-y: auto;">
+                                    <div class="table-responsive ui-scroll-frame-sm mt-2">
                                         <table class="table table-sm table-hover">
                                             <thead class="table-light sticky-top">
                                                 <tr>
@@ -138,10 +140,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         });
-        
+
         html += '</div>';
         contentDiv.innerHTML = html;
     }
 });
 </script>
-

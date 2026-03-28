@@ -2,51 +2,55 @@
 
 <?= $this->section('content') ?>
 <link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
+<?php $peso = '&#8369;'; ?>
 
 <!-- Stats Cards -->
-<div class="container-fluid mb-4">
-    <div class="row g-3">
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Refunds</h6>
+            <p>Process direct refunds, review payer refund requests, and keep completed or rejected refund decisions in one consistent workflow.</p>
+        </div>
+    </div>
+    <div class="row g-3 ui-stats-row">
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-warning mb-2">
-                        <i class="fas fa-clock fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Pending Requests</h5>
-                    <p class="card-text text-muted"><?= $stats['pending'] ?></p>
-                </div>
-            </div>
+            <?= view('partials/card', [
+                'icon' => 'fas fa-clock',
+                'iconColor' => 'text-warning',
+                'title' => 'Pending Requests',
+                'text' => $stats['pending'],
+                'textClass' => 'text-muted',
+                'bodyClass' => 'text-center',
+            ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-success mb-2">
-                        <i class="fas fa-check-circle fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Completed</h5>
-                    <p class="card-text text-muted"><?= $stats['completed'] ?></p>
-                </div>
-            </div>
+            <?= view('partials/card', [
+                'icon' => 'fas fa-check-circle',
+                'iconColor' => 'text-success',
+                'title' => 'Completed',
+                'text' => $stats['completed'],
+                'textClass' => 'text-muted',
+                'bodyClass' => 'text-center',
+            ]) ?>
         </div>
         <div class="col-xl-3 col-lg-6 col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center">
-                    <div class="text-danger mb-2">
-                        <i class="fas fa-times-circle fa-2x"></i>
-                    </div>
-                    <h5 class="card-title">Rejected</h5>
-                    <p class="card-text text-muted"><?= $stats['rejected'] ?></p>
-                </div>
-            </div>
+            <?= view('partials/card', [
+                'icon' => 'fas fa-times-circle',
+                'iconColor' => 'text-danger',
+                'title' => 'Rejected',
+                'text' => $stats['rejected'],
+                'textClass' => 'text-muted',
+                'bodyClass' => 'text-center',
+            ]) ?>
         </div>
     </div>
 </div>
 
 <!-- Refunds Management Tabs -->
-<div class="container-fluid">
+<div>
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm">
+            <div class="card shadow-sm ui-tab-shell">
                 <div class="card-header">
                     <ul class="nav nav-tabs card-header-tabs" id="refundsTab" role="tablist">
                         <li class="nav-item" role="presentation">
@@ -90,7 +94,7 @@
                                     <p class="text-muted">Refund requests from payers will appear here</p>
                                 </div>
                             <?php else: ?>
-                                <div class="table-responsive">
+                                <div class="table-responsive ui-table-wrap">
                                     <table class="table table-hover" id="requestsTable">
                                         <thead>
                                             <tr>
@@ -117,11 +121,9 @@
                                                                     : base_url($request['profile_picture']);
                                                                 ?>
                                                                 <img src="<?= $refundPicUrl ?>" 
-                                                                     alt="Profile" class="rounded-circle me-2" 
-                                                                     style="width: 32px; height: 32px; object-fit: cover;">
+                                                                     alt="Profile" class="rounded-circle me-2 ui-avatar-32">
                                                             <?php else: ?>
-                                                                <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center" 
-                                                                     style="width: 32px; height: 32px;">
+                                                                <div class="bg-primary text-white rounded-circle me-2 d-flex align-items-center justify-content-center ui-avatar-fallback-32">
                                                                     <i class="fas fa-user"></i>
                                                                 </div>
                                                             <?php endif; ?>
@@ -134,11 +136,11 @@
                                                     <td>
                                                         <div>
                                                             <small class="text-muted">Receipt #<?= esc($request['receipt_number']) ?></small><br>
-                                                            <small>₱<?= number_format($request['amount_paid'], 2) ?></small>
+                                                            <small><?= $peso ?><?= number_format($request['amount_paid'], 2) ?></small>
                                                         </div>
                                                     </td>
                                                     <td><?= esc($request['contribution_title']) ?></td>
-                                                    <td class="fw-bold text-danger">₱<?= number_format($request['refund_amount'], 2) ?></td>
+                                                    <td class="fw-bold text-danger"><?= $peso ?><?= number_format($request['refund_amount'], 2) ?></td>
                                                     <td>
                                                         <small><?= esc(substr($request['payer_notes'] ?? $request['refund_reason'] ?? 'No reason provided', 0, 50)) ?>...</small>
                                                     </td>
@@ -164,7 +166,7 @@
                                     <p class="text-muted">Completed, rejected, and cancelled refunds will appear here</p>
                                 </div>
                             <?php else: ?>
-                                <div class="table-responsive">
+                                <div class="table-responsive ui-table-wrap">
                                     <table class="table table-hover" id="historyTable">
                                         <thead>
                                             <tr>
@@ -193,8 +195,7 @@
                                                                     : base_url($refund['profile_picture']);
                                                                 ?>
                                                                 <img src="<?= $refundPicUrl ?>" 
-                                                                     alt="Profile" class="rounded-circle me-2" 
-                                                                     style="width: 32px; height: 32px; object-fit: cover;"
+                                                                     alt="Profile" class="rounded-circle me-2 ui-avatar-32"
                                                                      onerror="this.style.display='none';">
                                                             <?php endif; ?>
                                                             <div>
@@ -206,7 +207,7 @@
                                                         <small class="text-muted">Receipt #<?= esc($refund['receipt_number']) ?></small>
                                                     </td>
                                                     <td><?= esc($refund['contribution_title']) ?></td>
-                                                    <td class="fw-bold">₱<?= number_format($refund['refund_amount'], 2) ?></td>
+                                                    <td class="fw-bold"><?= $peso ?><?= number_format($refund['refund_amount'], 2) ?></td>
                                                     <td><?= esc(ucfirst(str_replace('_', ' ', $refund['refund_method']))) ?></td>
                                                     <td>
                                                         <?php

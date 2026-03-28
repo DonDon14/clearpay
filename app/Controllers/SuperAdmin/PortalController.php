@@ -74,6 +74,67 @@ class PortalController extends BaseController
         $inactiveOfficers = array_filter($allOfficers, function($officer) {
             return $officer['is_active'] === false;
         });
+
+        $stalePendingOfficers = array_filter($pendingOfficers, function ($officer) {
+            if (empty($officer['created_at'])) {
+                return false;
+            }
+
+            $createdAt = strtotime($officer['created_at']);
+            return $createdAt !== false && $createdAt <= strtotime('-24 hours');
+        });
+
+        $offlineActiveOfficers = array_filter($allOfficers, function ($officer) {
+            return ($officer['is_active'] === true) && !($officer['is_online'] ?? false);
+        });
+
+        $incompleteProfiles = array_filter($allOfficers, function ($officer) {
+            return empty($officer['email']) || empty($officer['phone']) || empty($officer['name']);
+        });
+
+        $recentlyJoinedOfficers = array_filter($allOfficers, function ($officer) {
+            if (empty($officer['created_at'])) {
+                return false;
+            }
+
+            $createdAt = strtotime($officer['created_at']);
+            return $createdAt !== false && $createdAt >= strtotime('-7 days');
+        });
+
+        $insights = [
+            'stale_pending_count' => count($stalePendingOfficers),
+            'offline_active_count' => count($offlineActiveOfficers),
+            'incomplete_profile_count' => count($incompleteProfiles),
+            'recent_joiners_count' => count($recentlyJoinedOfficers),
+        ];
+
+        $priorityFlags = [];
+        if ($insights['stale_pending_count'] > 0) {
+            $priorityFlags[] = [
+                'tone' => 'warning',
+                'icon' => 'fas fa-clock',
+                'title' => 'Stale approvals',
+                'text' => $insights['stale_pending_count'] . ' officer request' . ($insights['stale_pending_count'] > 1 ? 's have' : ' has') . ' been waiting for more than 24 hours.',
+            ];
+        }
+
+        if ($insights['incomplete_profile_count'] > 0) {
+            $priorityFlags[] = [
+                'tone' => 'info',
+                'icon' => 'fas fa-id-card',
+                'title' => 'Incomplete profiles',
+                'text' => $insights['incomplete_profile_count'] . ' approved officer account' . ($insights['incomplete_profile_count'] > 1 ? 's are' : ' is') . ' missing email, phone, or display name data.',
+            ];
+        }
+
+        if ($insights['offline_active_count'] > 0) {
+            $priorityFlags[] = [
+                'tone' => 'secondary',
+                'icon' => 'fas fa-user-clock',
+                'title' => 'Offline active officers',
+                'text' => $insights['offline_active_count'] . ' active officer account' . ($insights['offline_active_count'] > 1 ? 's are' : ' is') . ' currently offline.',
+            ];
+        }
         
         // Update last_activity for super admin
         $superAdminId = session()->get('super-admin-id');
@@ -95,7 +156,9 @@ class PortalController extends BaseController
             'totalRejected' => count($rejectedOfficers),
             'activeOfficers' => count($activeOfficers),
             'inactiveOfficers' => count($inactiveOfficers),
-            'onlineOfficers' => count($onlineOfficerIds)
+            'onlineOfficers' => count($onlineOfficerIds),
+            'insights' => $insights,
+            'priorityFlags' => $priorityFlags,
         ];
 
         return view('super-admin/portal', $data);
@@ -742,4 +805,3 @@ class PortalController extends BaseController
         ];
     }
 }
-

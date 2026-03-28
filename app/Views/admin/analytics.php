@@ -2,51 +2,64 @@
 
 <?= $this->section('content') ?>
 <?php
-// Use data from controller
 $overview = $overview ?? [];
 $charts = $charts ?? [];
 $payments = $payments ?? [];
 $contributions = $contributions ?? [];
 $trends = $trends ?? [];
+$peso = '&#8369;';
 ?>
 
 <div class="container-fluid">
-    <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <p class="text-muted mb-0 small">
-                        Python-driven analytics and report generation
-                        <?php if (!empty($generatedAt)): ?>
-                            · Generated <?= esc($generatedAt) ?>
-                        <?php endif; ?>
-                    </p>
-                </div>
-                <div>
-                    <button class="btn btn-outline-primary" onclick="window.location.reload()">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                    <div class="btn-group">
-                        <button class="btn btn-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-download"></i> Export Report
-                        </button>
-                        <ul class="dropdown-menu" aria-labelledby="exportDropdown">
-                            <li><a class="dropdown-item" href="#" onclick="exportAnalytics('pdf'); return false;"><i class="fas fa-file-pdf text-danger"></i> Export as PDF</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="exportAnalytics('csv'); return false;"><i class="fas fa-file-excel text-success"></i> Export as CSV/Excel</a></li>
-                        </ul>
-                    </div>
-                </div>
+    <div class="ui-page-intro">
+        <div>
+            <h6>Financial Analytics</h6>
+            <p>
+                Python-driven summaries, trends, and anomaly flags for admin review
+                <?php if (!empty($generatedAt)): ?>
+                    · Generated <?= esc($generatedAt) ?>
+                <?php endif; ?>
+            </p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary" onclick="window.location.reload()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <div class="btn-group">
+                <button class="btn btn-primary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-download"></i> Export Report
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                    <li><a class="dropdown-item" href="#" onclick="exportAnalytics('pdf'); return false;"><i class="fas fa-file-pdf text-danger"></i> Export as PDF</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="exportAnalytics('csv'); return false;"><i class="fas fa-file-excel text-success"></i> Export as CSV/Excel</a></li>
+                </ul>
             </div>
         </div>
     </div>
 
-    <!-- Overview Statistics -->
+    <div class="ui-analytics-alerts">
+        <div class="ui-analytics-alert">
+            <span class="ui-metric-label">Immediate Attention</span>
+            <strong><?= number_format((int) ($overview['duplicate_records'] ?? 0)) ?> duplicate alerts</strong>
+            <span class="ui-list-meta">Review repeated receipts and near-identical payment patterns first.</span>
+        </div>
+        <div class="ui-analytics-alert">
+            <span class="ui-metric-label">Outstanding Balance</span>
+            <strong><?= $peso . number_format((float) ($overview['total_outstanding_balance'] ?? 0), 2) ?></strong>
+            <span class="ui-list-meta">Remaining unpaid balances across active contributions and payers.</span>
+        </div>
+        <div class="ui-analytics-alert">
+            <span class="ui-metric-label">Suspicious Patterns</span>
+            <strong><?= number_format((int) ($overview['suspicious_records'] ?? 0)) ?> flagged records</strong>
+            <span class="ui-list-meta">Potential anomalies identified by the Python analytics worker.</span>
+        </div>
+    </div>
+
     <div class="row mb-4">
         <div class="col-lg-3 col-md-6 mb-4">
             <?= view('partials/card', [
                 'title' => 'Total Revenue',
-                'text' => '₱' . number_format($overview['total_revenue'] ?? 0, 2),
+                'text' => $peso . number_format($overview['total_revenue'] ?? 0, 2),
                 'icon' => 'money-bill-wave',
                 'iconColor' => 'text-success',
                 'subtitle' => isset($overview['monthly_growth']) ? ($overview['monthly_growth'] >= 0 ? '+' : '') . $overview['monthly_growth'] . '% vs last month' : '0% growth'
@@ -55,10 +68,10 @@ $trends = $trends ?? [];
         <div class="col-lg-3 col-md-6 mb-4">
             <?= view('partials/card', [
                 'title' => 'Total Profit',
-                'text' => '₱' . number_format($overview['total_profit'] ?? 0, 2),
+                'text' => $peso . number_format($overview['total_profit'] ?? 0, 2),
                 'icon' => 'chart-line',
                 'iconColor' => 'text-primary',
-                'subtitle' => isset($overview['avg_profit_margin']) ? ($overview['avg_profit_margin'] ?? 0) . '% avg margin' : 'No profit data'
+                'subtitle' => isset($overview['avg_profit_margin']) ? ($overview['avg_profit_margin'] ?? 0) . '% average margin' : 'No profit data'
             ]) ?>
         </div>
         <div class="col-lg-3 col-md-6 mb-4">
@@ -67,13 +80,13 @@ $trends = $trends ?? [];
                 'text' => number_format($overview['active_contributors'] ?? 0) . ' payers',
                 'icon' => 'users',
                 'iconColor' => 'text-info',
-                'subtitle' => $overview['total_contributions'] ?? 0 . ' contributions'
+                'subtitle' => number_format($overview['total_contributions'] ?? 0) . ' active contributions'
             ]) ?>
         </div>
         <div class="col-lg-3 col-md-6 mb-4">
             <?= view('partials/card', [
                 'title' => 'This Month Revenue',
-                'text' => '₱' . number_format($overview['monthly_revenue'] ?? 0, 2),
+                'text' => $peso . number_format($overview['monthly_revenue'] ?? 0, 2),
                 'icon' => 'calendar-alt',
                 'iconColor' => 'text-warning',
                 'subtitle' => date('F Y')
@@ -85,7 +98,7 @@ $trends = $trends ?? [];
         <div class="col-lg-4 col-md-6 mb-4">
             <?= view('partials/card', [
                 'title' => 'Outstanding Balance',
-                'text' => 'PHP ' . number_format($overview['total_outstanding_balance'] ?? 0, 2),
+                'text' => $peso . number_format($overview['total_outstanding_balance'] ?? 0, 2),
                 'icon' => 'wallet',
                 'iconColor' => 'text-danger',
                 'subtitle' => 'Remaining unpaid balances'
@@ -111,7 +124,6 @@ $trends = $trends ?? [];
         </div>
     </div>
 
-    <!-- Charts Section -->
     <?php if (!empty($charts)): ?>
         <?= view('partials/container-card', [
             'title' => 'Revenue Trends',
@@ -121,10 +133,8 @@ $trends = $trends ?? [];
         ]) ?>
     <?php endif; ?>
 
-    <!-- Payment Analysis -->
     <?php if (!empty($payments)): ?>
         <div class="row mb-4">
-            <!-- Payment Method Breakdown -->
             <?php if (!empty($payments['by_method'])): ?>
                 <div class="col-lg-6 mb-4">
                     <?= view('partials/container-card', [
@@ -140,7 +150,6 @@ $trends = $trends ?? [];
                 </div>
             <?php endif; ?>
 
-            <!-- Payment Status Breakdown -->
             <?php if (!empty($payments['by_status'])): ?>
                 <div class="col-lg-6 mb-4">
                     <?= view('partials/container-card', [
@@ -158,7 +167,6 @@ $trends = $trends ?? [];
         </div>
     <?php endif; ?>
 
-    <!-- Top Performers -->
     <?= view('partials/container-card', [
         'title' => 'Top Performers',
         'subtitle' => 'Top payers and best performing contributions',
@@ -174,22 +182,18 @@ $trends = $trends ?? [];
     ]) ?>
 </div>
 
-<!-- Chart.js CDN for analytics charts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-// Chart data from PHP
 const chartData = <?= json_encode($charts ?? []) ?>;
 const paymentData = <?= json_encode($payments ?? []) ?>;
 
-// Initialize charts when page loads
 document.addEventListener('DOMContentLoaded', function() {
     initializeCharts();
     initializePaymentCharts();
 });
 
 function initializeCharts() {
-    // Daily Revenue Chart
     if (chartData.daily_revenue && document.getElementById('dailyRevenueChart')) {
         new Chart(document.getElementById('dailyRevenueChart'), {
             type: 'line',
@@ -226,8 +230,7 @@ function initializeCharts() {
             }
         });
     }
-    
-    // Monthly Revenue Chart
+
     if (chartData.monthly_revenue && document.getElementById('monthlyRevenueChart')) {
         new Chart(document.getElementById('monthlyRevenueChart'), {
             type: 'bar',
@@ -262,8 +265,7 @@ function initializeCharts() {
             }
         });
     }
-    
-    // Transaction Count Chart
+
     if (chartData.daily_transactions && document.getElementById('transactionChart')) {
         new Chart(document.getElementById('transactionChart'), {
             type: 'line',
@@ -301,7 +303,6 @@ function initializeCharts() {
 }
 
 function initializePaymentCharts() {
-    // Payment Method Chart
     if (paymentData.by_method && document.getElementById('paymentMethodChart')) {
         const methodData = paymentData.by_method;
         new Chart(document.getElementById('paymentMethodChart'), {
@@ -332,7 +333,6 @@ function initializePaymentCharts() {
         });
     }
 
-    // Payment Status Chart
     if (paymentData.by_status && document.getElementById('paymentStatusChart')) {
         const statusData = paymentData.by_status;
         new Chart(document.getElementById('paymentStatusChart'), {
@@ -358,7 +358,6 @@ function initializePaymentCharts() {
 }
 
 function exportAnalytics(type = 'csv') {
-    // Export report based on selected type
     window.location.href = '<?= base_url('admin/analytics/export/') ?>' + type;
 }
 </script>

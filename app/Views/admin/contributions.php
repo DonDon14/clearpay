@@ -1,10 +1,21 @@
 <?= $this->extend('layouts/main') ?>
 
 <?= $this->section('content') ?>
+<link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
 
+<div class="container-fluid ui-page-shell">
+    <div class="ui-page-intro">
+        <div>
+            <h6>Contributions</h6>
+            <p>Manage contribution types, review active and inactive items, and open the most common contribution workflows quickly.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="ui-stat-pill"><i class="fas fa-hand-holding-usd"></i>Total <?= number_format((int)($totalCount ?? 0)) ?></span>
+        </div>
+    </div>
 
 <!-- Stats Cards Row -->
-<div class="container-fluid mb-4">
+<div class="ui-stats-row">
     <div class="row g-3">
         <div class="col-xl-3 col-lg-6 col-md-6">
             <?= view('partials/card', [
@@ -45,10 +56,10 @@
 <div class="row mb-4">
         <!-- Quick Actions -->
         <div class="col-12">
-            <div class="card h-100 shadow-sm">
+            <div class="card h-100 shadow-sm ui-surface-card">
                 <div class="card-header">
-                    <h5 class="card-title mb-0">Quick Actions</h5>
-                    <small class="text-muted">Frequently used operations</small>
+                    <h5 class="ui-section-title">Quick Actions</h5>
+                    <small class="ui-section-subtitle">Frequently used contribution operations</small>
                 </div>
                 <div class="card-body p-2">
                     <div class="row g-2">
@@ -94,7 +105,7 @@
 <!-- Search and Filter Section -->
 <div class="row mb-3">
     <div class="col-12">
-        <div class="card shadow-sm border-0">
+        <div class="card shadow-sm border-0 ui-toolbar-shell">
             <div class="card-body">
                 <div class="row g-2">
                     <div class="col-md-6">
