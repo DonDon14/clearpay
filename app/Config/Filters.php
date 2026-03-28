@@ -125,4 +125,13 @@ class Filters extends BaseFilters
      * @var array<string, array<string, list<string>>>
      */
     public array $filters = [];
+
+    public function __construct()
+    {
+        parent::__construct();
+
+        if (ENVIRONMENT !== 'development') {
+            unset($this->globals['after']['toolbar']);
+        }
+    }
 }

@@ -8,6 +8,48 @@ use Config\Email;
 class EmailSettingsController extends BaseController
 {
     /**
+     * Safely read request payloads from either JSON or form-encoded requests.
+     */
+    private function getRequestData(): array
+    {
+        $contentType = strtolower((string) $this->request->getHeaderLine('Content-Type'));
+
+        if (str_contains($contentType, 'application/json')) {
+            try {
+                $json = $this->request->getJSON(true);
+                if (is_array($json)) {
+                    return $json;
+                }
+            } catch (\Throwable $e) {
+                log_message('warning', 'Invalid JSON payload for email settings request: ' . $e->getMessage());
+                return [];
+            }
+        }
+
+        $post = $this->request->getPost();
+        return is_array($post) ? $post : [];
+    }
+
+    private function getBrevoKeyType(?string $key): string
+    {
+        $key = trim((string) $key);
+
+        if ($key === '') {
+            return 'none';
+        }
+
+        if (str_starts_with($key, 'xkeysib-')) {
+            return 'api';
+        }
+
+        if (str_starts_with($key, 'xsmtpsib-')) {
+            return 'smtp';
+        }
+
+        return 'unknown';
+    }
+
+    /**
      * Get current email configuration
      */
     public function getConfig()
@@ -93,7 +135,7 @@ class EmailSettingsController extends BaseController
         }
 
         try {
-            $data = $this->request->getJSON(true) ?? $this->request->getPost();
+            $data = $this->getRequestData();
             
             // Validate required fields
             $required = ['fromEmail', 'SMTPHost', 'SMTPUser', 'SMTPPort'];
@@ -229,7 +271,7 @@ class EmailSettingsController extends BaseController
                 ])->setStatusCode(500);
             }
 
-            $data = $this->request->getJSON(true) ?? $this->request->getPost();
+            $data = $this->getRequestData();
             $testEmail = $data['email'] ?? session()->get('email') ?? session()->get('username');
             
             if (empty($testEmail) || !filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
@@ -336,16 +378,28 @@ class EmailSettingsController extends BaseController
             $useBrevoApi = false;
             $brevoApiKey = null;
             
-            // Try to get Brevo API key from environment
-            // Brevo API key format: xkeysib-... (different from SMTP key which is xsmtpsib-...)
-            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
+            // Try to get Brevo API key from request, environment, or saved config.
+            // API key format: xkeysib-... (different from SMTP key xsmtpsib-...).
+            $requestBrevoApiKey = trim((string) ($data['BREVO_API_KEY'] ?? ''));
+            $envBrevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: '';
+            $savedBrevoKeyType = $this->getBrevoKeyType($emailConfig['SMTPPass'] ?? '');
+
+            $brevoApiKey = '';
+            if ($this->getBrevoKeyType($requestBrevoApiKey) === 'api') {
+                $brevoApiKey = $requestBrevoApiKey;
+            } elseif ($this->getBrevoKeyType($envBrevoApiKey) === 'api') {
+                $brevoApiKey = $envBrevoApiKey;
+            } elseif ($savedBrevoKeyType === 'api') {
+                $brevoApiKey = (string) ($emailConfig['SMTPPass'] ?? '');
+            }
             
             // If SMTP host is Brevo, try API if available
             if (stripos($emailConfig['SMTPHost'] ?? '', 'brevo') !== false) {
-                // Check if we have API key
                 if (!empty($brevoApiKey)) {
                     $useBrevoApi = true;
                     log_message('info', 'Brevo API key found, will use API instead of SMTP (bypasses Render port blocking)');
+                } elseif ($savedBrevoKeyType === 'smtp') {
+                    log_message('warning', 'Brevo SMTP key detected without API key. SMTP is likely blocked in this environment.');
                 } else {
                     log_message('info', 'Brevo SMTP detected but no API key found. Will try SMTP (may fail on Render due to port blocking).');
                     log_message('info', 'To use Brevo API on Render, set BREVO_API_KEY environment variable. Get API key from Brevo → Settings → SMTP & API → API Keys');
@@ -507,6 +561,8 @@ class EmailSettingsController extends BaseController
                     'smtp_port' => $emailConfig['SMTPPort'] ?? 'NOT SET',
                     'smtp_crypto' => $emailConfig['SMTPCrypto'] ?? 'NOT SET',
                     'from_email' => $emailConfig['fromEmail'] ?? 'NOT SET',
+                    'brevo_key_type' => $savedBrevoKeyType ?? 'none',
+                    'brevo_api_available' => !empty($brevoApiKey),
                 ];
                 
                 // Try to determine config source
@@ -586,6 +642,11 @@ class EmailSettingsController extends BaseController
                 // Include the actual SMTP error if found
                 if (!empty($smtpError)) {
                     $errorMessage .= ' (' . $smtpError . ')';
+                }
+
+                if (stripos($emailConfig['SMTPHost'] ?? '', 'brevo') !== false && ($savedBrevoKeyType ?? 'none') === 'smtp' && empty($brevoApiKey)) {
+                    $hints[] = 'The saved Brevo credential is an SMTP key (`xsmtpsib-...`), not a Brevo API key.';
+                    $hints[] = 'Use a Brevo API key (`xkeysib-...`) via `BREVO_API_KEY` or pass `BREVO_API_KEY` in the test request to send over HTTPS.';
                 }
                 
                 return $this->response->setJSON([
@@ -782,7 +843,7 @@ class EmailSettingsController extends BaseController
         }
 
         try {
-            $data = $this->request->getJSON(true) ?? $this->request->getPost();
+            $data = $this->getRequestData();
             $enabled = isset($data['enabled']) ? (bool)$data['enabled'] : false;
 
             // Store in database or config file

@@ -16,6 +16,12 @@ $trends = $trends ?? [];
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
+                    <p class="text-muted mb-0 small">
+                        Python-driven analytics and report generation
+                        <?php if (!empty($generatedAt)): ?>
+                            · Generated <?= esc($generatedAt) ?>
+                        <?php endif; ?>
+                    </p>
                 </div>
                 <div>
                     <button class="btn btn-outline-primary" onclick="window.location.reload()">
@@ -75,6 +81,36 @@ $trends = $trends ?? [];
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-lg-4 col-md-6 mb-4">
+            <?= view('partials/card', [
+                'title' => 'Outstanding Balance',
+                'text' => 'PHP ' . number_format($overview['total_outstanding_balance'] ?? 0, 2),
+                'icon' => 'wallet',
+                'iconColor' => 'text-danger',
+                'subtitle' => 'Remaining unpaid balances'
+            ]) ?>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <?= view('partials/card', [
+                'title' => 'Duplicate Alerts',
+                'text' => number_format($overview['duplicate_records'] ?? 0),
+                'icon' => 'copy',
+                'iconColor' => 'text-danger',
+                'subtitle' => 'Potential duplicate transactions'
+            ]) ?>
+        </div>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <?= view('partials/card', [
+                'title' => 'Suspicious Alerts',
+                'text' => number_format($overview['suspicious_records'] ?? 0),
+                'icon' => 'shield-alt',
+                'iconColor' => 'text-warning',
+                'subtitle' => 'Python anomaly-detection flags'
+            ]) ?>
+        </div>
+    </div>
+
     <!-- Charts Section -->
     <?php if (!empty($charts)): ?>
         <?= view('partials/container-card', [
@@ -128,6 +164,13 @@ $trends = $trends ?? [];
         'subtitle' => 'Top payers and best performing contributions',
         'bodyClass' => '',
         'content' => view('partials/analytics_summary_content', ['payments' => $payments, 'contributions' => $contributions])
+    ]) ?>
+
+    <?= view('partials/container-card', [
+        'title' => 'Audit Findings',
+        'subtitle' => 'Duplicate and suspicious records detected by the Python analytics worker',
+        'bodyClass' => '',
+        'content' => view('partials/analytics_audit_content', ['payments' => $payments])
     ]) ?>
 </div>
 

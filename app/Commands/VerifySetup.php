@@ -61,7 +61,11 @@ class VerifySetup extends BaseCommand
         CLI::write('3. Checking payment methods (CRITICAL)...', 'cyan');
         try {
             $db = \Config\Database::connect();
-            $result = $db->query('SELECT COUNT(*) as count FROM payment_methods WHERE status = "active"')->getRow();
+            $result = $db->table('payment_methods')
+                ->selectCount('id', 'count')
+                ->where('status', 'active')
+                ->get()
+                ->getRow();
             $count = (int)$result->count;
             
             if ($count >= 4) {
@@ -120,7 +124,7 @@ class VerifySetup extends BaseCommand
         if (file_exists($envPath)) {
             CLI::write('   ✓ .env file exists', 'green');
         } else {
-            $warnings[] = '.env file not found. Create one from .env.example';
+            $warnings[] = '.env file not found. Create one from .env.example or .env.example.postgresql';
             CLI::write('   ⚠ .env file not found', 'yellow');
         }
         CLI::newLine();

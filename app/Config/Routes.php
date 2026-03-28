@@ -9,6 +9,12 @@ use CodeIgniter\Router\RouteCollection;
 // Health check route (must be before default route for Render health checks)
 $routes->get('/health', 'HealthController::index');
 
+// Compatibility redirects for stale localhost URLs when Apache already points to public/
+$routes->addRedirect('ClearPay/public', '/');
+$routes->addRedirect('ClearPay/public/login', '/login');
+$routes->addRedirect('ClearPay/public/register', '/register');
+$routes->addRedirect('ClearPay/public/forgotPassword', '/forgotPassword');
+
 // Test routes for Cloudinary debugging (temporary)
 $routes->get('/test/cloudinary-status', 'TestController::cloudinaryStatus');
 $routes->get('/test/cloudinary-upload', 'TestController::testCloudinaryUpload');
@@ -39,6 +45,8 @@ $routes->get('/super-admin/user-activity-history', 'SuperAdmin\UserActivityHisto
 
 // Admin Routes
 $routes->get('/', 'Admin\LoginController::index');
+$routes->get('/login', 'Admin\LoginController::index');
+$routes->get('/admin/login', 'Admin\LoginController::index');
 $routes->post('/loginPost', 'Admin\LoginController::loginPost');
 $routes->get('/logout', 'Admin\LoginController::logout');
 $routes->get('/register', 'Admin\LoginController::register');
@@ -110,9 +118,7 @@ $routes->get('/admin/settings/payment-methods/create', 'Admin\Settings\PaymentMe
 $routes->post('/admin/settings/payment-methods/store', 'Admin\Settings\PaymentMethodController::store', ['filter' => 'auth']);
 $routes->get('/admin/settings/payment-methods/edit/(:num)', 'Admin\Settings\PaymentMethodController::edit/$1', ['filter' => 'auth']);
 $routes->post('/admin/settings/payment-methods/update/(:num)', 'Admin\Settings\PaymentMethodController::update/$1', ['filter' => 'auth']);
-$routes->get('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\PaymentMethodController::delete/$1', ['filter' => 'auth']);
 $routes->post('/admin/settings/payment-methods/delete/(:num)', 'Admin\Settings\PaymentMethodController::delete/$1', ['filter' => 'auth']);
-$routes->get('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
 $routes->post('/admin/settings/payment-methods/toggle-status/(:num)', 'Admin\Settings\PaymentMethodController::toggleStatus/$1', ['filter' => 'auth']);
 $routes->options('/admin/settings/payment-methods/instructions/(:any)', 'Admin\Settings\PaymentMethodController::handleInstructionsOptions');
 $routes->get('/admin/settings/payment-methods/instructions/(:any)', 'Admin\Settings\PaymentMethodController::getInstructions/$1');
@@ -184,7 +190,6 @@ $routes->get('/payments/get-details/(:num)', 'Admin\PaymentsController::getDetai
 $routes->post('/payers/create', 'Admin\PayersController::create', ['filter' => 'auth']);
 $routes->get('/payers/export/pdf', 'Admin\PayersController::exportPDF', ['filter' => 'auth']);
 $routes->get('/payers/export/csv', 'Admin\PayersController::exportCSV', ['filter' => 'auth']);
-$routes->get('/payment_methods/test', 'Admin\PaymentMethodsController::test', ['filter' => 'auth']);
 
 // Contributions Management Routes
 $routes->post('/contributions/save', 'Admin\ContributionsController::save', ['filter' => 'auth']);
@@ -192,13 +197,6 @@ $routes->get('/contributions/get/(:num)', 'Admin\ContributionsController::get/$1
 $routes->post('/contributions/update/(:num)', 'Admin\ContributionsController::update/$1', ['filter' => 'auth']);
 $routes->delete('/contributions/delete/(:num)', 'Admin\ContributionsController::delete/$1', ['filter' => 'auth']);
 $routes->post('/contributions/toggle-status/(:num)', 'Admin\ContributionsController::toggleStatus/$1', ['filter' => 'auth']);
-
-// QR Receipt Routes
-$routes->post('/qr-receipt/generate/(:num)', 'Admin\QRReceiptController::generate/$1', ['filter' => 'auth']);
-$routes->get('/receipts/qr/(:num)', 'Admin\QRReceiptController::getQRImage/$1');
-$routes->get('/receipts/download/(:num)', 'Admin\QRReceiptController::download/$1', ['filter' => 'auth']);
-$routes->get('/verify/receipt/(:any)', 'Admin\QRReceiptController::verify/$1');
-$routes->get('/qr-receipt/show/(:num)', 'Admin\QRReceiptController::showReceipt/$1', ['filter' => 'auth']);
 
 // Payer Routes
 $routes->get('payer/login', 'Payer\LoginController::index');
@@ -261,14 +259,8 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
         $routes->options('api/payer/get-contribution-details', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/get-contribution-details', 'Payer\\DashboardController::getContributionDetails');
         // Refund API endpoints (no auth filter - will check in controller)
-        $routes->options('api/payer/refund-requests', 'Payer\\DashboardController::handleOptions');
-        $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
-        $routes->options('api/payer/refund-methods', 'Payer\\DashboardController::handleOptions');
-        $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
         $routes->options('api/payer/refund-details', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/refund-details', 'Payer\\DashboardController::getRefundDetails');
-        $routes->options('api/payer/submit-refund-request', 'Payer\\DashboardController::handleOptions');
-        $routes->post('api/payer/submit-refund-request', 'Payer\\DashboardController::submitRefundRequest');
         // Profile picture upload API endpoint (no auth filter - will check in controller)
         $routes->options('api/payer/upload-profile-picture', 'Payer\\DashboardController::handleOptions');
         $routes->post('api/payer/upload-profile-picture', 'Payer\\DashboardController::uploadProfilePicture');

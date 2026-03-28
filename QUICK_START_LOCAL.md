@@ -5,6 +5,7 @@
 - [ ] PostgreSQL installed
 - [ ] PostgreSQL service running
 - [ ] XAMPP installed (for Apache/PHP)
+- [ ] Python 3.11+ installed (for analytics/report generation)
 - [ ] Composer installed
 - [ ] PHP pgsql extension enabled
 
@@ -71,12 +72,22 @@ composer install
 php spark key:generate
 php spark migrate
 php spark db:seed DatabaseSeeder
+php spark setup:verify
 ```
 
 ### 6. Start Application
 1. Start Apache in XAMPP
-2. Open: http://localhost/ClearPay/public/
+2. Open: http://localhost/
 3. Login: `admin` / `admin123`
+
+### Python Analytics Note
+
+The analytics dashboard and analytics exports now use a Python worker.
+If Python is not in a standard location, set:
+
+```cmd
+set PYTHON_ANALYTICS_EXECUTABLE=C:\full\path\to\python.exe
+```
 
 ---
 
@@ -133,5 +144,8 @@ php -r "require 'vendor/autoload.php'; $db = \Config\Database::connect(); echo '
 
 ## Need Detailed Instructions?
 
-See `LOCAL_POSTGRESQL_SETUP.md` for complete step-by-step guide.
+See docs/setup/local/LOCAL_POSTGRESQL_SETUP.md for the complete localhost guide.
+See docs/README.md for the full documentation index.
+
+
 

@@ -4,16 +4,19 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\ContributionModel;
+use App\Services\PythonAnalyticsService;
 
 class Analytics extends BaseController
 {
     protected $contributionModel;
     protected $paymentModel;
+    protected PythonAnalyticsService $pythonAnalyticsService;
 
     public function __construct()
     {
         $this->contributionModel = new ContributionModel();
         $this->paymentModel = new \App\Models\PaymentModel();
+        $this->pythonAnalyticsService = new PythonAnalyticsService();
     }
 
     /**
@@ -38,15 +41,18 @@ class Analytics extends BaseController
             $profilePictureUrl = base_url('test-profile-picture/' . $filename);
         }
 
+        $analysis = $this->pythonAnalyticsService->generateAnalytics();
+
         $data = [
             'pageTitle' => 'Analytics',
             'pageSubtitle' => 'Data insights and performance metrics',
             'title' => 'Analytics Dashboard',
-            'overview' => $this->getOverviewStats(),
-            'contributions' => $this->getContributionAnalytics(),
-            'payments' => $this->getPaymentAnalytics(),
-            'trends' => $this->getTrendAnalytics(),
-            'charts' => $this->getChartData(),
+            'overview' => $analysis['overview'] ?? [],
+            'contributions' => $analysis['contributions'] ?? [],
+            'payments' => $analysis['payments'] ?? [],
+            'trends' => $analysis['trends'] ?? [],
+            'charts' => $analysis['charts'] ?? [],
+            'generatedAt' => $analysis['generated_at'] ?? date('c'),
             'profilePictureUrl' => $profilePictureUrl,
             'name' => $session->get('name'),
             'email' => $session->get('email')
@@ -347,24 +353,13 @@ class Analytics extends BaseController
             return redirect()->to('/admin/login');
         }
 
-        $data = [
-            'overview' => $this->getOverviewStats(),
-            'contributions' => $this->getContributionAnalytics(),
-            'payments' => $this->getPaymentAnalytics(),
-            'trends' => $this->getTrendAnalytics(),
-            'generated_at' => date('Y-m-d H:i:s')
-        ];
-
-        switch ($type) {
-            case 'pdf':
-                return $this->exportPDF($data);
-            case 'csv':
-                return $this->exportCSV($data);
-            case 'excel':
-                return $this->exportExcel($data);
-            default:
-                return redirect()->back()->with('error', 'Invalid export format');
+        if (! in_array($type, ['pdf', 'csv', 'excel'], true)) {
+            return redirect()->back()->with('error', 'Invalid export format');
         }
+
+        $report = $this->pythonAnalyticsService->generateReport($type);
+
+        return $this->response->download($report['path'], null)->setFileName($report['filename']);
     }
 
     /**

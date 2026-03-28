@@ -48,19 +48,7 @@ class PaymentsController extends BaseController
 
     public function history()
     {
-        // Check if user is logged in
-        if (!session()->get('isLoggedIn')) {
-            return redirect()->to('/login');
-        }
-
-        $data = [
-            'title' => 'Payment History',
-            'pageTitle' => 'Payment History',
-            'pageSubtitle' => 'View all payment transactions and records',
-            'username' => session()->get('username'),
-        ];
-
-        return view('admin/payment-history', $data);
+        return redirect()->to('/payments');
     }
 
     /**
@@ -157,9 +145,21 @@ class PaymentsController extends BaseController
             // Debug: Log all incoming data
             log_message('info', 'Payment save request data: ' . json_encode($this->request->getPost()));
             
-            // Determine if this is a new or existing payer
-            $payerId = $this->request->getPost('payer_id');
-            $isExistingPayer = !empty($payerId);
+            // Distinguish between an internal payer DB id and a public payer identifier.
+            $submittedPayerId = trim((string) $this->request->getPost('payer_id'));
+            $submittedPayerName = trim((string) $this->request->getPost('payer_name'));
+            $payerModel = new \App\Models\PayerModel();
+
+            $existingPayer = null;
+            if ($submittedPayerId !== '' && ctype_digit($submittedPayerId)) {
+                $existingPayer = $payerModel->find((int) $submittedPayerId);
+            }
+
+            if (!$existingPayer && $submittedPayerId !== '') {
+                $existingPayer = $payerModel->where('payer_id', $submittedPayerId)->first();
+            }
+
+            $isExistingPayer = $existingPayer !== null;
             
             // Get valid payment method names from database
             $paymentMethodModel = new \App\Models\PaymentMethodModel();
@@ -235,45 +235,28 @@ class PaymentsController extends BaseController
             }
 
             $paymentModel = new PaymentModel();
-            $payerModel = new \App\Models\PayerModel();
             
             // For existing payers, fetch their details from the database
             if ($isExistingPayer) {
-                $existingPayer = $payerModel->where('id', $payerId)->first();
-                
-                if (!$existingPayer) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'message' => 'Payer not found'
-                    ]);
-                }
                 $payerDbId = $existingPayer['id']; // Get the database ID
             } else {
-                // Check if payer with this ID already exists
-                $existingPayer = $payerModel->where('payer_id', $payerId)->first();
+                // Create new payer in payers table (admin-created accounts are auto-verified)
+                $payerData = [
+                    'payer_id' => $submittedPayerId,
+                    'payer_name' => $submittedPayerName,
+                    'contact_number' => $this->request->getPost('contact_number'),
+                    'email_address' => $this->request->getPost('email_address') ?: null,
+                    'password' => password_hash($submittedPayerId, PASSWORD_DEFAULT), // Set password to payer_id for admin-created accounts
+                    'email_verified' => true,
+                    'verification_token' => null,
+                ];
+                $payerDbId = $payerModel->insert($payerData);
                 
-                if ($existingPayer) {
-                    // Use existing payer
-                    $payerDbId = $existingPayer['id'];
-                } else {
-                    // Create new payer in payers table (admin-created accounts are auto-verified)
-                    $payerData = [
-                        'payer_id' => $payerId,
-                        'payer_name' => $this->request->getPost('payer_name'),
-                        'contact_number' => $this->request->getPost('contact_number'),
-                        'email_address' => $this->request->getPost('email_address') ?: null,
-                        'password' => password_hash($payerId, PASSWORD_DEFAULT), // Set password to payer_id for admin-created accounts
-                        'email_verified' => true,
-                        'verification_token' => null,
-                    ];
-                    $payerDbId = $payerModel->insert($payerData);
-                    
-                    if (!$payerDbId) {
-                        return $this->response->setJSON([
-                            'success' => false,
-                            'message' => 'Failed to create payer record'
-                        ]);
-                    }
+                if (!$payerDbId) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Failed to create payer record'
+                    ]);
                 }
             }
 
@@ -330,7 +313,7 @@ class PaymentsController extends BaseController
                 $paymentSequence = $this->request->getPost('payment_sequence') ?: null;
 
                 $existingPayments = $paymentModel
-                    ->where('payer_id', $this->request->getPost('payer_id'))
+                    ->where('payer_id', $payerDbId)
                     ->where('contribution_id', $this->request->getPost('contribution_id'))
                     ->where('deleted_at', null)
                     ->findAll();

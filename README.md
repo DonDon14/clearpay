@@ -14,12 +14,23 @@ A comprehensive payment management system built with CodeIgniter 4, designed for
 - **QR Code Receipts**: Generate QR codes for payment receipts
 - **Responsive Design**: Modern, mobile-friendly interface
 
+## Documentation
+
+For localhost web setup and verification, start with:
+
+- `README.md`
+- `QUICK_START_LOCAL.md`
+- `docs/README.md`
+- `docs/setup/local/LOCAL_POSTGRESQL_SETUP.md`
+
 ## 📋 Prerequisites
 
 Before you begin, ensure you have the following installed on your system:
 
 - **PHP 8.1 or higher** (with required extensions)
-- **XAMPP** (Apache, MySQL, PHP)
+- **XAMPP** (Apache and PHP)
+- **PostgreSQL** 15+ (used by the current local setup)
+- **Python 3.11+** (required for analytics scripting integration and report generation)
 - **Composer** (PHP dependency manager)
 - **Git** (for cloning the repository)
 
@@ -29,7 +40,8 @@ Make sure these PHP extensions are enabled:
 - `intl`
 - `mbstring`
 - `json` (enabled by default)
-- `mysqlnd` (for MySQL support)
+- `pgsql`
+- `pdo_pgsql`
 - `libcurl` (for HTTP requests)
 
 ## 🛠️ Installation Guide
@@ -100,20 +112,16 @@ Make sure these PHP extensions are enabled:
 ### Step 5: Database Setup
 
 1. **Create Database**
-   - Open phpMyAdmin: [http://localhost/phpmyadmin](http://localhost/phpmyadmin)
-   - Click "New" to create a new database
-   - Database name: `clearpaydb`
-   - Collation: `utf8mb4_general_ci`
-   - Click "Create"
+   - Create a PostgreSQL database named `clearpaydb`
 
 2. **Configure Database Connection**
-   - The database configuration is already set in `app/Config/Database.php`
-   - Default settings:
+   - Copy `.env.example.postgresql` to `.env`
+   - Update the PostgreSQL password in `.env`
+   - Default local settings:
      - Host: `localhost`
-     - Username: `root`
-     - Password: (empty)
+     - Username: `postgres`
      - Database: `clearpaydb`
-     - Port: `3306`
+     - Port: `5432`
 
 3. **Run Database Migrations**
    ```bash
@@ -132,12 +140,11 @@ Make sure these PHP extensions are enabled:
    
    **Without this step, payment creation will fail with validation errors!**
 
-5. **Verify Payment Methods Were Seeded**
+5. **Verify Setup**
    ```bash
-   # Check in phpMyAdmin or run:
-   php spark db:table payment_methods
+   php spark setup:verify
    ```
-   You should see at least 4-5 payment methods. If empty, run:
+   If payment methods are still missing, run:
    ```bash
    php spark db:seed PaymentMethodSeeder
    ```
@@ -148,7 +155,7 @@ Make sure these PHP extensions are enabled:
    - Open `app/Config/App.php`
    - Update the `$baseURL` if needed:
    ```php
-   public string $baseURL = 'http://localhost/ClearPay/public/';
+   public string $baseURL = 'http://localhost/';
    ```
 
 2. **Set File Permissions** (if on Linux/Mac)
@@ -159,11 +166,11 @@ Make sure these PHP extensions are enabled:
 
 ### Step 7: Access the Application
 
-1. **Start XAMPP Services**
-   - Ensure Apache and MySQL are running in XAMPP Control Panel
+1. **Start Services**
+   - Ensure Apache and PostgreSQL are running
 
 2. **Open Web Browser**
-   - Navigate to: [http://localhost/ClearPay/public/](http://localhost/ClearPay/public/)
+   - Navigate to: [http://localhost/](http://localhost/)
 
 3. **Default Login Credentials**
    - **Admin Account:**
@@ -194,14 +201,14 @@ The application uses CodeIgniter 4's configuration system. Key configuration fil
 - `app/Config/Database.php` - Database configuration
 - `app/Config/Email.php` - Email settings
 
-### .env Setup (not included in repo)
+### .env Setup
 
-If `.env` is not present, create one in the project root. This minimal configuration works for XAMPP on Windows (adjust if your folder name or DB creds differ):
+Copy `.env.example.postgresql` to `.env`, then update credentials as needed:
 
 ```dotenv
 CI_ENVIRONMENT = production
 
-app.baseURL = 'http://localhost/ClearPay/public/'
+app.baseURL = 'http://localhost/'
 app.appTimezone = 'Asia/Manila'
 
 # Security key (required for encryption/sessions)
@@ -210,10 +217,11 @@ encryption.key = base64:REPLACE_WITH_GENERATED_KEY
 # Database
 database.default.hostname = localhost
 database.default.database = clearpaydb
-database.default.username = root
-database.default.password =
-database.default.DBDriver = MySQLi
+database.default.username = postgres
+database.default.password = CHANGE_ME
+database.default.DBDriver = Postgre
 database.default.DBPrefix =
+database.default.port = 5432
 database.default.DBDebug = true
 
 # Email (optional; needed for password reset/verification)
@@ -227,14 +235,32 @@ database.default.DBDebug = true
 ```
 
 Then:
-- Generate a secure key: run `php spark key:generate` and copy the output into `encryption.key` (or let the command set it if supported).
-- Start MySQL in XAMPP, then run `php spark migrate` and `php spark db:seed`.
+- Generate a secure key: run `php spark key:generate`.
+- Start PostgreSQL, then run `php spark migrate` and `php spark db:seed DatabaseSeeder`.
+- Verify setup with `php spark setup:verify`.
+
+### Python Analytics Integration
+
+The web analytics page and analytics exports are generated through a Python worker:
+
+- Analytics dashboard route: `/analytics`
+- Export route: `/admin/analytics/export/{pdf|csv|excel}`
+
+The PHP app looks for Python in this order:
+
+1. `PYTHON_ANALYTICS_EXECUTABLE` environment variable
+2. `analytics/.venv/Scripts/python.exe`
+3. `analytics/.venv/bin/python`
+4. `C:\Program Files\PostgreSQL\18\pgAdmin 4\python\python.exe`
+5. `python` from `PATH`
+
+If your local Python lives elsewhere, set `PYTHON_ANALYTICS_EXECUTABLE` to its full path.
 
 ### XAMPP directory placement and baseURL
 
 - Place the project at `C:\xampp\htdocs\ClearPay`.
 - Ensure `.env` `app.baseURL` matches your folder name:
-  - If the folder is `C:\xampp\htdocs\ClearPay` → `http://localhost/ClearPay/public/`
+  - If the folder is `C:\xampp\htdocs\ClearPay` → `http://localhost/`
   - If renamed to `ClearPay2` → `http://localhost/ClearPay2/public/`
 
 Optional (cleaner URL): configure an Apache VirtualHost pointing to the `public` directory (e.g., `http://clearpay.local/`) and set `app.baseURL` accordingly. Otherwise, keeping `/public/` in the URL is fine.
@@ -305,11 +331,16 @@ php spark make:model ModelName
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-php spark test
+# Run the available automated tests
+composer test
 
-# Run specific test
-php spark test tests/unit/HealthTest.php
+# Or run PHPUnit directly
+vendor\bin\phpunit --testdox
+```
+
+```bash
+# Verify local setup
+php spark setup:verify
 ```
 
 ## 📁 Project Structure
@@ -396,3 +427,6 @@ For support and questions:
 ---
 
 **Happy Coding! 🎉**
+
+
+
