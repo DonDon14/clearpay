@@ -443,14 +443,20 @@ function downloadQRReceipt() {
         qrImg.crossOrigin = 'anonymous';
         
         let logoLoaded = false;
+        let logoResolved = false;
         let qrLoaded = false;
-        
+        let downloadStarted = false;
+
         function drawCanvas() {
-            if (!qrLoaded) return; // Wait for QR code at minimum
-            
-            // Clear canvas and set white background
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (!qrLoaded || !logoResolved || downloadStarted) {
+                return;
+            }
+
+            downloadStarted = true;
+             
+             // Clear canvas and set white background
+             ctx.fillStyle = '#ffffff';
+             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Add blue border
             ctx.strokeStyle = '#0d6efd';
@@ -502,12 +508,14 @@ function downloadQRReceipt() {
         
         logoImg.onload = function() {
             logoLoaded = true;
+            logoResolved = true;
             drawCanvas();
         };
         
         logoImg.onerror = function() {
             // Logo failed to load, continue without it
             logoLoaded = false;
+            logoResolved = true;
             drawCanvas();
         };
         
@@ -520,6 +528,15 @@ function downloadQRReceipt() {
             alert('Unable to download QR code. Please try again.');
         };
         
+        // Avoid hanging forever on a slow logo request.
+        setTimeout(function() {
+            if (!logoResolved) {
+                logoLoaded = false;
+                logoResolved = true;
+                drawCanvas();
+            }
+        }, 1500);
+
         // Start loading both images
         logoImg.src = logoUrl;
         qrImg.src = qrImage.src;
