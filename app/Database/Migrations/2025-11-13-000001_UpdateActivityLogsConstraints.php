@@ -34,7 +34,7 @@ class UpdateActivityLogsConstraints extends Migration
             }
             
             try {
-                $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_action_check CHECK (action IN ('created', 'updated', 'deleted', 'published', 'unpublished', 'approved', 'rejected', 'processed', 'submitted'))");
+                $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_action_check CHECK (action IN ('created', 'updated', 'deleted', 'published', 'unpublished', 'approved', 'rejected', 'processed', 'completed', 'submitted', 'requested', 're_registered', 'deactivated', 'reactivated'))");
                 log_message('info', 'Successfully updated activity_logs_action_check constraint');
             } catch (\Exception $e) {
                 log_message('error', 'Error adding action constraint: ' . $e->getMessage());
@@ -65,4 +65,3 @@ class UpdateActivityLogsConstraints extends Migration
         }
     }
 }
-

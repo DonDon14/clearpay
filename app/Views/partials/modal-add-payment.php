@@ -37,7 +37,7 @@ $payment = $payment ?? [];
                         <!-- Existing Payer Fields -->
                         <div id="existingPayerFields" class="col-12 mb-3">
             <label for="payerSelect" class="form-label">Search Payer</label>
-                            <div id="existingPayerFields" class="position-relative">
+                            <div id="existingPayerSearchWrap" class="position-relative">
                                 <input type="text" class="form-control" id="payerSelect" placeholder="Type payer name or ID...">
                                 <div id="payerDropdown" class="list-group position-absolute w-100" style="display: none; z-index: 1050;"></div>
             </div>
@@ -427,6 +427,74 @@ document.addEventListener("DOMContentLoaded", function() {
   }
 
   // Payer Search Functionality - Extract as reusable function
+  function selectExistingPayer(payer, inputElement, dropdownElement) {
+    if (inputElement) {
+      inputElement.value = `${payer.payer_name} (${payer.payer_id})`;
+      inputElement.dataset.selectedPayerId = String(payer.id);
+    }
+
+    const existingPayerIdEl = document.getElementById('existingPayerId');
+    if (existingPayerIdEl) {
+      existingPayerIdEl.value = payer.id;
+    }
+
+    if (dropdownElement) {
+      dropdownElement.style.display = 'none';
+    }
+
+    window.selectedPayerId = payer.id;
+
+    const existingAlert = document.getElementById('unpaidContributionsAlert');
+    if (existingAlert) {
+      existingAlert.remove();
+    }
+
+    const contributionField = document.getElementById('contributionId');
+    if (contributionField && contributionField.value && typeof checkSpecificContribution === 'function') {
+      checkSpecificContribution(payer.id, contributionField.value);
+    }
+  }
+
+  function clearExistingPayerSelection(inputElement, dropdownElement) {
+    const existingPayerIdEl = document.getElementById('existingPayerId');
+    if (existingPayerIdEl) {
+      existingPayerIdEl.value = '';
+    }
+
+    if (inputElement) {
+      delete inputElement.dataset.selectedPayerId;
+    }
+
+    if (dropdownElement) {
+      dropdownElement.style.display = 'none';
+    }
+
+    window.selectedPayerId = null;
+  }
+
+  function attachPayerSearchHandler(inputElement, dropdownElement) {
+    if (!inputElement || !dropdownElement) {
+      return;
+    }
+
+    let localSearchTimeout;
+
+    inputElement.addEventListener('input', function() {
+      const searchTerm = this.value.trim();
+
+      clearTimeout(localSearchTimeout);
+      clearExistingPayerSelection(inputElement, dropdownElement);
+
+      if (searchTerm.length < 2) {
+        return;
+      }
+
+      localSearchTimeout = setTimeout(() => {
+        searchPayers(searchTerm, inputElement, dropdownElement);
+      }, 300);
+    });
+  }
+
   function searchPayers(query, inputElement, dropdownElement) {
     // Trigger search after 2 characters (changed from requiring 2+)
     if (!query || query.trim().length < 2) {
@@ -446,36 +514,18 @@ document.addEventListener("DOMContentLoaded", function() {
           if (dropdownElement) {
             dropdownElement.innerHTML = '';
             data.results.forEach(payer => {
-              const item = document.createElement('a');
-              item.className = 'list-group-item list-group-item-action';
-              item.href = '#';
+              const item = document.createElement('button');
+              item.className = 'list-group-item list-group-item-action text-start';
+              item.type = 'button';
               item.innerHTML = `<strong>${payer.payer_name}</strong> (ID: ${payer.payer_id})<br><small class="text-muted">${payer.contact_number || 'N/A'} | ${payer.email_address || 'N/A'}</small>`;
-              item.addEventListener('click', function(e) {
+              const handleSelection = function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                if (inputElement) {
-                  inputElement.value = `${payer.payer_name} (${payer.payer_id})`;
-                }
-                
-                const existingPayerIdEl = document.getElementById('existingPayerId');
-                if (existingPayerIdEl) {
-                  existingPayerIdEl.value = payer.id;
-                }
-                
-                if (dropdownElement) {
-                  dropdownElement.style.display = 'none';
-                }
-                
-                // Store payer ID for later use when contribution is selected
-                window.selectedPayerId = payer.id;
-                
-                // Clear any existing warnings
-                const existingAlert = document.getElementById('unpaidContributionsAlert');
-                if (existingAlert) {
-                  existingAlert.remove();
-                }
-              });
+                selectExistingPayer(payer, inputElement, dropdownElement);
+              };
+
+              item.addEventListener('mousedown', handleSelection);
+              item.addEventListener('click', handleSelection);
               dropdownElement.appendChild(item);
             });
             dropdownElement.style.display = 'block';
@@ -499,22 +549,8 @@ document.addEventListener("DOMContentLoaded", function() {
   window.searchPayers = searchPayers;
   
   // Attach payer search functionality
-  let searchTimeout;
   if (payerSelectInput && payerDropdown) {
-    payerSelectInput.addEventListener('input', function() {
-      const searchTerm = this.value.trim();
-      
-      clearTimeout(searchTimeout);
-      
-      if (searchTerm.length < 2) {
-        payerDropdown.style.display = 'none';
-        return;
-      }
-
-      searchTimeout = setTimeout(function() {
-        searchPayers(searchTerm, payerSelectInput, payerDropdown);
-      }, 300);
-    });
+    attachPayerSearchHandler(payerSelectInput, payerDropdown);
   }
 
   // Close dropdown when clicking outside
@@ -763,22 +799,8 @@ document.addEventListener("DOMContentLoaded", function() {
         // Remove any existing listeners by cloning
         const newPayerInput = modalPayerSelectInput.cloneNode(true);
         modalPayerSelectInput.parentNode.replaceChild(newPayerInput, modalPayerSelectInput);
-        
-        let searchTimeout;
-        newPayerInput.addEventListener('input', function() {
-          const query = this.value.trim();
-          clearTimeout(searchTimeout);
-          
-          if (query.length >= 2) {
-            searchTimeout = setTimeout(() => {
-              if (typeof window.searchPayers === 'function') {
-                window.searchPayers(query, newPayerInput, modalPayerDropdown);
-              }
-            }, 300);
-          } else {
-            modalPayerDropdown.style.display = 'none';
-          }
-        });
+
+        attachPayerSearchHandler(newPayerInput, modalPayerDropdown);
       }
       
       // Re-attach Fully Paid button handlers

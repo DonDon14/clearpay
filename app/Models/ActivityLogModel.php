@@ -39,7 +39,7 @@ class ActivityLogModel extends Model
         'activity_type' => 'required|in_list[announcement,contribution,payment,payer,user,payment_request,refund]',
         'entity_type' => 'required|string',
         'entity_id' => 'required|integer',
-        'action' => 'required|in_list[created,updated,deleted,published,unpublished,approved,rejected,processed,completed]',
+        'action' => 'required|in_list[created,updated,deleted,published,unpublished,approved,rejected,processed,completed,submitted,requested,re_registered,deactivated,reactivated]',
         'title' => 'required|string|max_length[255]',
         'description' => 'required|string',
         'user_id' => 'required|integer',

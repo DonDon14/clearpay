@@ -428,37 +428,79 @@ $(document).ready(function() {
         });
     });
 
-    // Search functionality (by name, contribution, or student ID)
-    $('#searchStudentName').on('input', function() {
-        const query = $(this).val().toLowerCase().trim();
-        $('.payment-group-row').each(function() {
-            const payerName = String($(this).data('payer-name') || '').toLowerCase();
-            const contributionTitle = String($(this).data('contribution-title') || '').toLowerCase();
-            const studentId = String($(this).data('payer-student-id') || '').toLowerCase();
+    function normalizeSearchValue(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
 
-            const matches =
-                query === '' ||
-                payerName.includes(query) ||
-                contributionTitle.includes(query) ||
-                studentId.includes(query);
+    function ensurePaymentsEmptyState() {
+        const tbody = document.getElementById('paymentsTableBody');
+        if (!tbody) {
+            return null;
+        }
 
-            $(this).toggle(matches);
-        });
-    });
+        let emptyRow = document.getElementById('paymentsSearchEmptyState');
+        if (!emptyRow) {
+            emptyRow = document.createElement('tr');
+            emptyRow.id = 'paymentsSearchEmptyState';
+            emptyRow.style.display = 'none';
+            emptyRow.innerHTML = `
+                <td colspan="8" class="text-center py-4">
+                    <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                    <h6 class="text-muted mb-1">No matching payments found</h6>
+                    <p class="text-muted mb-0">Try a different payer name, contribution, student ID, or status.</p>
+                </td>
+            `;
+            tbody.appendChild(emptyRow);
+        }
 
-    // Status filter
-    $('#statusFilter').on('change', function() {
-        const selectedStatus = $(this).val();
-        $('.payment-group-row').each(function() {
-            const status = $(this).data('payment-status');
-            
-            if (selectedStatus === '' || status === selectedStatus) {
-                $(this).show();
-                    } else {
-                $(this).hide();
+        return emptyRow;
+    }
+
+    function applyPaymentsFilters() {
+        const query = normalizeSearchValue($('#searchStudentName').val());
+        const selectedStatus = normalizeSearchValue($('#statusFilter').val());
+        const $rows = $('.payment-group-row');
+        let visibleCount = 0;
+
+        $rows.each(function() {
+            const $row = $(this);
+            const searchableText = normalizeSearchValue([
+                $row.data('payer-name'),
+                $row.data('payer-student-id'),
+                $row.data('payer-id'),
+                $row.data('contribution-title'),
+                $row.data('payment-status'),
+                $row.text()
+            ].join(' '));
+            const status = normalizeSearchValue($row.data('payment-status'));
+
+            const matchesSearch = query === '' || searchableText.includes(query);
+            const matchesStatus = selectedStatus === '' || status === selectedStatus;
+            const isVisible = matchesSearch && matchesStatus;
+
+            $row.toggle(isVisible);
+
+            if (isVisible) {
+                visibleCount++;
             }
         });
-    });
+
+        const emptyRow = ensurePaymentsEmptyState();
+        if (emptyRow) {
+            emptyRow.style.display = visibleCount === 0 && $rows.length > 0 ? '' : 'none';
+        }
+    }
+
+    // Search functionality (by name, contribution, student ID, or visible row text)
+    $('#searchStudentName').on('input', applyPaymentsFilters);
+
+    // Status filter
+    $('#statusFilter').on('change', applyPaymentsFilters);
+
+    applyPaymentsFilters();
 
     // Payer search functionality
     $('#payerSearch').on('input', function() {

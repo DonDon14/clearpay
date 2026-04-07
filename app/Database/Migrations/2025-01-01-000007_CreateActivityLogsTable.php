@@ -116,7 +116,7 @@ class CreateActivityLogsTable extends Migration
             
             // Add updated constraints
             $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_activity_type_check CHECK (activity_type IN ('announcement', 'contribution', 'payment', 'payment_request', 'payer', 'user', 'refund'))");
-            $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_action_check CHECK (action IN ('created', 'updated', 'deleted', 'published', 'unpublished', 'approved', 'rejected', 'processed', 'submitted'))");
+            $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_action_check CHECK (action IN ('created', 'updated', 'deleted', 'published', 'unpublished', 'approved', 'rejected', 'processed', 'completed', 'submitted', 'requested', 're_registered', 'deactivated', 'reactivated'))");
             $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_user_type_check CHECK (user_type IN ('admin', 'payer'))");
             $db->query("ALTER TABLE activity_logs ADD CONSTRAINT activity_logs_target_audience_check CHECK (target_audience IN ('admins', 'payers', 'both', 'all'))");
         }
@@ -127,4 +127,3 @@ class CreateActivityLogsTable extends Migration
         $this->forge->dropTable('activity_logs');
     }
 }
-
