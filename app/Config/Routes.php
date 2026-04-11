@@ -75,6 +75,7 @@ $routes->get('/help/api-documentation', 'Admin\ApiDocumentationController::index
 
 // Sidebar Routes
 $routes->get('/contributions', 'Admin\SidebarController::contributions', ['filter' => 'auth']);
+$routes->get('/products', 'Admin\SidebarController::products', ['filter' => 'auth']);
 $routes->get('/payers', 'Admin\SidebarController::payers', ['filter' => 'auth']);
 $routes->post('/payers/save', 'Admin\SidebarController::savePayer', ['filter' => 'auth']);
 $routes->get('/admins', 'Admin\AdminsController::index', ['filter' => 'auth']);
@@ -199,6 +200,11 @@ $routes->get('/contributions/get/(:num)', 'Admin\ContributionsController::get/$1
 $routes->post('/contributions/update/(:num)', 'Admin\ContributionsController::update/$1', ['filter' => 'auth']);
 $routes->delete('/contributions/delete/(:num)', 'Admin\ContributionsController::delete/$1', ['filter' => 'auth']);
 $routes->post('/contributions/toggle-status/(:num)', 'Admin\ContributionsController::toggleStatus/$1', ['filter' => 'auth']);
+$routes->post('/products/save', 'Admin\ProductsController::save', ['filter' => 'auth']);
+$routes->get('/products/get/(:num)', 'Admin\ProductsController::get/$1', ['filter' => 'auth']);
+$routes->post('/products/update/(:num)', 'Admin\ProductsController::update/$1', ['filter' => 'auth']);
+$routes->delete('/products/delete/(:num)', 'Admin\ProductsController::delete/$1', ['filter' => 'auth']);
+$routes->post('/products/toggle-status/(:num)', 'Admin\ProductsController::toggleStatus/$1', ['filter' => 'auth']);
 
 // Payer Routes
 $routes->get('payer/login', 'Payer\LoginController::index');
@@ -236,6 +242,7 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
         $routes->options('api/payer/payment-history', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/announcements', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/payment-requests', 'Payer\\DashboardController::handleOptions');
+        $routes->options('api/payer/products', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/payment-methods', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/submit-payment-request', 'Payer\\DashboardController::handleOptions');
         $routes->options('api/payer/refund-requests', 'Payer\\DashboardController::handleOptions');
@@ -247,6 +254,7 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
         $routes->get('api/payer/payment-history', 'Payer\\DashboardController::mobilePaymentHistory');
         $routes->get('api/payer/announcements', 'Payer\\DashboardController::mobileAnnouncements');
         $routes->get('api/payer/payment-requests', 'Payer\\DashboardController::mobilePaymentRequests');
+        $routes->get('api/payer/products', 'Payer\\DashboardController::mobileProducts');
         $routes->get('api/payer/refund-requests', 'Payer\\DashboardController::refundRequests');
         $routes->get('api/payer/refund-methods', 'Payer\\DashboardController::getActiveRefundMethods');
         // POST routes
@@ -260,6 +268,8 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
         $routes->get('api/payer/get-contribution-payments/(:num)', 'Payer\\DashboardController::getContributionPayments/$1');
         $routes->options('api/payer/get-contribution-details', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/get-contribution-details', 'Payer\\DashboardController::getContributionDetails');
+        $routes->options('api/payer/get-product-details', 'Payer\\DashboardController::handleOptions');
+        $routes->get('api/payer/get-product-details', 'Payer\\DashboardController::getProductDetails');
         // Refund API endpoints (no auth filter - will check in controller)
         $routes->options('api/payer/refund-details', 'Payer\\DashboardController::handleOptions');
         $routes->get('api/payer/refund-details', 'Payer\\DashboardController::getRefundDetails');
@@ -289,12 +299,14 @@ $routes->post('api/payer/resend-verification', 'Payer\SignupController::mobileRe
             $routes->post('upload-profile-picture', 'Payer\\DashboardController::uploadProfilePicture');
             $routes->get('announcements', 'Payer\\DashboardController::announcements');
             $routes->get('contributions', 'Payer\\DashboardController::contributions');
+            $routes->get('products', 'Payer\\DashboardController::products');
             $routes->get('get-contribution-payments/(:num)', 'Payer\\DashboardController::getContributionPayments/$1');
             $routes->get('payment-history', 'Payer\\DashboardController::paymentHistory');
             $routes->get('payment-requests', 'Payer\\DashboardController::paymentRequests');
             $routes->get('payment-requests/count', 'Payer\\DashboardController::getPaymentRequestsCount');
             $routes->post('submit-payment-request', 'Payer\\DashboardController::submitPaymentRequest');
             $routes->get('get-contribution-details', 'Payer\\DashboardController::getContributionDetails');
+            $routes->get('get-product-details', 'Payer\\DashboardController::getProductDetails');
             $routes->get('check-new-activities', 'Payer\\DashboardController::checkNewActivities');
             $routes->post('mark-activity-read/(:num)', 'Payer\\DashboardController::markActivityAsRead/$1');
             $routes->get('get-all-activities', 'Payer\\DashboardController::getAllActivities');

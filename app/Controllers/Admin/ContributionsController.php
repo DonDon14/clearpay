@@ -20,6 +20,7 @@ class ContributionsController extends BaseController
             // Validation rules
             $rules = [
                 'title' => 'required|min_length[3]|max_length[255]',
+                'contribution_type' => 'required|in_list[contribution,product]',
                 'amount' => 'required|numeric',
                 'grand_total' => 'required|numeric|greater_than[0]',
                 'status' => 'required|in_list[active,inactive]'
@@ -63,6 +64,7 @@ class ContributionsController extends BaseController
             // Gather POST data
             $data = [
                 'title'             => $this->request->getPost('title'),
+                'contribution_type' => $this->request->getPost('contribution_type') ?: 'contribution',
                 'contribution_code' => $this->request->getPost('contribution_code') ?: null,
                 'description'       => $this->request->getPost('description'),
                 'amount'            => round($amountPerPayer, 2), // Auto-calculated from grand_total / number_of_payers
@@ -171,6 +173,7 @@ class ContributionsController extends BaseController
             // Validation rules
             $rules = [
                 'title' => 'required|min_length[3]|max_length[255]',
+                'contribution_type' => 'required|in_list[contribution,product]',
                 'amount' => 'required|numeric',
                 'grand_total' => 'required|numeric|greater_than[0]',
                 'status' => 'required|in_list[active,inactive]'
@@ -198,6 +201,7 @@ class ContributionsController extends BaseController
             // Gather POST data
             $data = [
                 'title'             => $this->request->getPost('title'),
+                'contribution_type' => $this->request->getPost('contribution_type') ?: 'contribution',
                 'contribution_code' => $this->request->getPost('contribution_code') ?: null,
                 'description'       => $this->request->getPost('description'),
                 'amount'            => $this->request->getPost('amount'),

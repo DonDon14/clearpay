@@ -65,18 +65,21 @@ class PaymentsController extends BaseController
 
         $payerId = $this->request->getGet('payer_id');
         $contributionId = $this->request->getGet('contribution_id');
+        $productId = $this->request->getGet('product_id');
         $paymentSequence = $this->request->getGet('payment_sequence') ?? 1;
 
-        if (!$payerId || !$contributionId) {
+        if (!$payerId || (!$contributionId && !$productId)) {
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Payer ID and Contribution ID are required'
+                'message' => 'Payer ID and item ID are required'
             ]);
         }
 
         try {
             $paymentModel = new PaymentModel();
-            $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
+            $payments = $productId
+                ? $paymentModel->getPaymentsByPayerAndProduct($payerId, $productId, null)
+                : $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, null);
 
             // Add refund information for each payment
             $refundModel = new \App\Models\RefundModel();

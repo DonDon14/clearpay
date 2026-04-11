@@ -7,6 +7,7 @@ use App\Models\PayerModel;
 use App\Models\PaymentModel;
 use App\Models\AnnouncementModel;
 use App\Models\ContributionModel;
+use App\Models\ProductModel;
 use App\Models\ActivityLogModel;
 use App\Models\PaymentRequestModel;
 use App\Models\RefundModel;
@@ -18,6 +19,7 @@ class DashboardController extends BaseController
     protected $paymentModel;
     protected $announcementModel;
     protected $contributionModel;
+    protected $productModel;
     protected $activityLogModel;
     protected $paymentRequestModel;
     protected $refundModel;
@@ -28,6 +30,7 @@ class DashboardController extends BaseController
         $this->paymentModel = new PaymentModel();
         $this->announcementModel = new AnnouncementModel();
         $this->contributionModel = new ContributionModel();
+        $this->productModel = new ProductModel();
         $this->activityLogModel = new ActivityLogModel();
         $this->paymentRequestModel = new PaymentRequestModel();
         $this->refundModel = new RefundModel();
@@ -488,6 +491,7 @@ class DashboardController extends BaseController
             payments.id,
             payments.payer_id,
             payments.contribution_id,
+            payments.product_id,
             payments.amount_paid,
             payments.payment_method,
             payments.payment_status,
@@ -500,28 +504,31 @@ class DashboardController extends BaseController
             payers.payer_name,
             payers.contact_number,
             payers.email_address,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description,
-            contributions.amount as contribution_amount,
+            COALESCE(contributions.title, products.title) as contribution_title,
+            COALESCE(contributions.description, products.description) as contribution_description,
+            COALESCE(contributions.amount, products.amount) as contribution_amount,
+            CASE WHEN payments.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type,
             users.username as recorded_by_name
         ')
         ->join('payers', 'payers.id = payments.payer_id', 'left')
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->join('products', 'products.id = payments.product_id', 'left')
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
-        ->orderBy('contributions.title', 'ASC')
+        ->orderBy('COALESCE(contributions.title, products.title)', 'ASC')
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
         
         // Group payments by contribution
         $contributionsWithPayments = [];
         foreach ($payments as $payment) {
-            $contributionId = $payment['contribution_id'];
+            $contributionId = $payment['product_id'] ?: $payment['contribution_id'];
             $contributionTitle = $payment['contribution_title'];
             
             if (!isset($contributionsWithPayments[$contributionId])) {
                 $contributionsWithPayments[$contributionId] = [
                     'id' => $contributionId,
+                    'item_type' => $payment['item_type'],
                     'title' => $contributionTitle,
                     'description' => $payment['contribution_description'],
                     'amount' => $payment['contribution_amount'],
@@ -592,81 +599,30 @@ class DashboardController extends BaseController
             }
         }
         
-        // Get payment data for each contribution with payment groups
+        // Get payment data for each contribution without grouped payment cycles
         foreach ($contributions as &$contribution) {
-            // Get payment groups for this contribution
-            $contributionAmount = $contribution['amount'];
-            $paymentGroups = $this->paymentModel->select('
-                COALESCE(payment_sequence, 1) as payment_sequence,
-                SUM(amount_paid) as total_paid,
-                COUNT(id) as payment_count,
-                MAX(payment_date) as last_payment_date,
-                MIN(payment_date) as first_payment_date,
-                CASE 
-                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN \'fully paid\'
-                    WHEN SUM(amount_paid) > 0 THEN \'partial\'
-                    ELSE \'unpaid\'
-                END as computed_status,
-                ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
-            ')
-            ->where('payer_id', $payerId)
-            ->where('contribution_id', $contribution['id'])
-            ->where('deleted_at', null)
-            ->groupBy('COALESCE(payment_sequence, 1)')
-            ->orderBy('payment_sequence', 'ASC')
-            ->findAll();
-            
-            // Add refund statuses to payment groups
             $refundModel = new \App\Models\RefundModel();
-            foreach ($paymentGroups as &$group) {
-                // Get all payments in this group
-                $groupPayments = $this->paymentModel
-                    ->where('payer_id', $payerId)
-                    ->where('contribution_id', $contribution['id'])
-                    ->where('COALESCE(payment_sequence, 1)', $group['payment_sequence'])
-                    ->where('deleted_at', null)
-                    ->findAll();
-                
-                // Calculate total refunded for this group
-                $totalRefunded = 0;
-                foreach ($groupPayments as $payment) {
-                    $refunds = $refundModel
-                        ->selectSum('refund_amount')
-                        ->where('payment_id', $payment['id'])
-                        ->where('status', 'completed')
-                        ->first();
-                    $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
-                }
-                
-                $group['total_refunded'] = $totalRefunded;
-                
-                // Calculate net paid for this group (payments minus refunds)
-                $groupNetPaid = max(0, (float)$group['total_paid'] - $totalRefunded);
-                $group['net_paid'] = $groupNetPaid;
-                
-                // Recalculate remaining balance for this group accounting for refunds
-                $group['remaining_balance'] = max(0, $contributionAmount - $groupNetPaid);
-                
-                // Determine refund status for the group
-                if ($totalRefunded >= (float)$group['total_paid']) {
-                    $group['refund_status'] = 'fully_refunded';
-                } elseif ($totalRefunded > 0) {
-                    $group['refund_status'] = 'partially_refunded';
-                } else {
-                    $group['refund_status'] = 'no_refund';
-                }
+            $payments = $this->paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contribution['id'])
+                ->where('deleted_at', null)
+                ->findAll();
+
+            $totalPaid = array_sum(array_map(static fn($payment) => (float)($payment['amount_paid'] ?? 0), $payments));
+            $totalRefunded = 0;
+            foreach ($payments as $payment) {
+                $refunds = $refundModel
+                    ->selectSum('refund_amount')
+                    ->where('payment_id', $payment['id'])
+                    ->where('status', 'completed')
+                    ->first();
+                $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
             }
-            
-            $contribution['payment_groups'] = $paymentGroups;
-            
-            // Calculate overall totals
-            $totalPaid = array_sum(array_column($paymentGroups, 'total_paid'));
-            // Calculate total refunded across all payment groups
-            $totalRefunded = array_sum(array_column($paymentGroups, 'total_refunded'));
-            // Net paid amount (payments minus refunds)
+
             $netPaid = max(0, $totalPaid - $totalRefunded);
             $contribution['total_paid'] = $netPaid;
             $contribution['remaining_balance'] = max(0, $contribution['amount'] - $netPaid);
+            $contribution['payment_groups'] = [];
         }
         
         $data = [
@@ -677,6 +633,55 @@ class DashboardController extends BaseController
         ];
         
         return view('payer/contributions', $data);
+    }
+
+    public function products()
+    {
+        $payerId = session('payer_id');
+
+        $allProducts = $this->productModel
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+
+        $products = [];
+        foreach ($allProducts as $product) {
+            if ($product['status'] === 'active') {
+                $products[] = $product;
+                continue;
+            }
+
+            $hasTransactions = $this->paymentModel
+                ->where('payer_id', $payerId)
+                ->where('product_id', $product['id'])
+                ->where('deleted_at', null)
+                ->countAllResults() > 0;
+
+            if ($hasTransactions) {
+                $products[] = $product;
+            }
+        }
+
+        foreach ($products as &$product) {
+            $totals = $this->paymentModel->select('COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(quantity), 0) as total_quantity')
+                ->where('payer_id', $payerId)
+                ->where('product_id', $product['id'])
+                ->where('deleted_at', null)
+                ->first();
+            $product['total_paid'] = (float)($totals['total_paid'] ?? 0);
+            $product['total_quantity'] = (int)($totals['total_quantity'] ?? 0);
+            $product['remaining_balance'] = 0;
+            $product['is_fully_paid'] = false;
+            $product['item_type'] = 'product';
+        }
+
+        $data = [
+            'title' => 'Products',
+            'pageTitle' => 'Products',
+            'pageSubtitle' => 'View optional products and payment status',
+            'products' => $products,
+        ];
+
+        return view('payer/products', $data);
     }
 
     public function getContributionPayments($contributionId)
@@ -1070,6 +1075,10 @@ class DashboardController extends BaseController
         $contributions = $this->contributionModel->where('status', 'active')
             ->orderBy('title', 'ASC')
             ->findAll();
+
+        $products = $this->productModel->where('status', 'active')
+            ->orderBy('title', 'ASC')
+            ->findAll();
         
         // Get payer's payment requests
         $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
@@ -1100,6 +1109,7 @@ class DashboardController extends BaseController
             'pageTitle' => 'Payment Requests',
             'pageSubtitle' => 'Submit online payment requests',
             'contributions' => $contributions,
+            'products' => $products,
             'paymentRequests' => $paymentRequests
         ];
         
@@ -1177,9 +1187,13 @@ class DashboardController extends BaseController
         // Debug: Log valid payment methods
         log_message('info', 'Valid payment methods for payer: ' . $paymentMethodList);
         
+        $itemType = $this->request->getPost('item_type') ?: 'contribution';
+        $contributionId = $this->request->getPost('contribution_id');
+        $productId = $this->request->getPost('product_id');
+
         $validation = \Config\Services::validation();
         $validation->setRules([
-            'contribution_id' => 'required|integer',
+            'item_type' => 'required|in_list[contribution,product]',
             'requested_amount' => 'required|decimal|greater_than[0]',
             'payment_method' => 'required|in_list[' . $paymentMethodList . ']',
             'notes' => 'permit_empty|max_length[500]'
@@ -1198,18 +1212,43 @@ class DashboardController extends BaseController
         log_message('info', 'Payment request validation passed');
 
         try {
-            // Get contribution details
-            $contribution = $this->contributionModel->find($this->request->getPost('contribution_id'));
-            if (!$contribution) {
+            if ($itemType === 'product') {
+                if (!$productId || !is_numeric($productId)) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Product is required'
+                    ]);
+                }
+
+                $item = $this->productModel->find($productId);
+                $itemLabel = 'Product';
+            } else {
+                if (!$contributionId || !is_numeric($contributionId)) {
+                    return $this->response->setJSON([
+                        'success' => false,
+                        'message' => 'Contribution is required'
+                    ]);
+                }
+
+                $item = $this->contributionModel->find($contributionId);
+                $itemLabel = 'Contribution';
+            }
+
+            if (!$item) {
                 return $this->response->setJSON([
                     'success' => false,
-                    'message' => 'Contribution not found'
+                    'message' => $itemLabel . ' not found'
                 ]);
             }
 
+            $contribution = $item;
+            $quantity = max(1, (int) ($this->request->getPost('quantity') ?: 1));
+
             // Check if amount is valid
             $requestedAmount = (float)$this->request->getPost('requested_amount');
-            if ($requestedAmount > $contribution['amount']) {
+            if ($itemType === 'product') {
+                $requestedAmount = (float)$item['amount'] * $quantity;
+            } elseif ($requestedAmount > (float)$item['amount']) {
                 return $this->response->setJSON([
                     'success' => false,
                     'message' => 'Requested amount cannot exceed contribution amount (₱' . number_format($contribution['amount'], 2) . ')'
@@ -1324,8 +1363,10 @@ class DashboardController extends BaseController
             // Create payment request
             $requestData = [
                 'payer_id' => $payerId,
-                'contribution_id' => $this->request->getPost('contribution_id'),
-                'payment_sequence' => $this->request->getPost('payment_sequence') ?: null,
+                'contribution_id' => $itemType === 'contribution' ? $contributionId : null,
+                'product_id' => $itemType === 'product' ? $productId : null,
+                'quantity' => $itemType === 'product' ? $quantity : 1,
+                'payment_sequence' => null,
                 'requested_amount' => $requestedAmount,
                 'payment_method' => $this->request->getPost('payment_method'),
                 'proof_of_payment_path' => $proofOfPaymentPath,
@@ -1485,10 +1526,91 @@ class DashboardController extends BaseController
                     'remaining_amount' => $remainingAmount,
                     'remaining_balance' => $remainingAmount, // Add for consistency
                     'is_fully_paid' => $remainingAmount <= 0,
-                    'payment_sequence' => $activePaymentSequence
+                    'payment_sequence' => null
                 ]
             ]);
 
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function getProductDetails()
+    {
+        $isApiRequest = strpos($this->request->getUri()->getPath(), '/api/') !== false;
+
+        if ($isApiRequest) {
+            $this->response->setHeader('Access-Control-Allow-Origin', '*');
+            $this->response->setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+            $this->response->setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With, Origin');
+            $this->response->setHeader('Access-Control-Allow-Credentials', 'true');
+            $this->response->setHeader('Access-Control-Max-Age', '7200');
+        }
+
+        if (!$isApiRequest && !$this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request method'
+            ]);
+        }
+
+        $productId = $this->request->getGet('product_id');
+
+        if (!$productId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Product ID is required'
+            ]);
+        }
+
+        try {
+            $product = $this->productModel->find($productId);
+
+            if (!$product) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Product not found'
+                ]);
+            }
+
+            $payerId = $isApiRequest
+                ? ($this->request->getGet('payer_id') ?? session('payer_id'))
+                : session('payer_id');
+
+            if (!$payerId) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Payer ID is required'
+                ]);
+            }
+
+            $totals = $this->paymentModel->select('COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(quantity), 0) as total_quantity')
+                ->where('payer_id', $payerId)
+                ->where('product_id', $productId)
+                ->where('deleted_at', null)
+                ->first();
+
+            $totalPaidAmount = (float)($totals['total_paid'] ?? 0);
+            $totalQuantity = (int)($totals['total_quantity'] ?? 0);
+
+            return $this->response->setJSON([
+                'success' => true,
+                'product' => [
+                    'id' => $product['id'],
+                    'title' => $product['title'],
+                    'description' => $product['description'],
+                    'amount' => $product['amount'],
+                    'total_paid' => $totalPaidAmount,
+                    'total_quantity' => $totalQuantity,
+                    'remaining_amount' => 0,
+                    'remaining_balance' => 0,
+                    'is_fully_paid' => false,
+                    'item_type' => 'product'
+                ]
+            ]);
         } catch (\Exception $e) {
             return $this->response->setJSON([
                 'success' => false,
@@ -2157,74 +2279,87 @@ class DashboardController extends BaseController
             }
         }
         
-        // Get payment data for each contribution
+        // Get payment data for each contribution without grouped cycles
         foreach ($contributions as &$contribution) {
-            $contributionAmount = $contribution['amount'];
-            $paymentGroups = $this->paymentModel->select('
-                COALESCE(payment_sequence, 1) as payment_sequence,
-                SUM(amount_paid) as total_paid,
-                COUNT(id) as payment_count,
-                MAX(payment_date) as last_payment_date,
-                MIN(payment_date) as first_payment_date,
-                CASE 
-                    WHEN SUM(amount_paid) >= ' . $contributionAmount . ' THEN \'fully paid\'
-                    WHEN SUM(amount_paid) > 0 THEN \'partial\'
-                    ELSE \'unpaid\'
-                END as computed_status,
-                ' . $contributionAmount . ' - SUM(amount_paid) as remaining_balance
-            ')
-            ->where('payer_id', $payerId)
-            ->where('contribution_id', $contribution['id'])
-            ->where('deleted_at', null)
-            ->groupBy('COALESCE(payment_sequence, 1)')
-            ->orderBy('payment_sequence', 'ASC')
-            ->findAll();
-            
-            // Add refund statuses to payment groups and recalculate remaining balance
             $refundModel = new \App\Models\RefundModel();
-            foreach ($paymentGroups as &$group) {
-                // Get all payments in this group
-                $groupPayments = $this->paymentModel
-                    ->where('payer_id', $payerId)
-                    ->where('contribution_id', $contribution['id'])
-                    ->where('COALESCE(payment_sequence, 1)', $group['payment_sequence'])
-                    ->where('deleted_at', null)
-                    ->findAll();
-                
-                // Calculate total refunded for this group
-                $totalRefunded = 0;
-                foreach ($groupPayments as $payment) {
-                    $refunds = $refundModel
-                        ->selectSum('refund_amount')
-                        ->where('payment_id', $payment['id'])
-                        ->where('status', 'completed')
-                        ->first();
-                    $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
-                }
-                
-                $group['total_refunded'] = $totalRefunded;
-                
-                // Calculate net paid for this group (payments minus refunds)
-                $groupNetPaid = max(0, (float)$group['total_paid'] - $totalRefunded);
-                $group['net_paid'] = $groupNetPaid;
-                
-                // Recalculate remaining balance for this group accounting for refunds
-                $group['remaining_balance'] = max(0, $contributionAmount - $groupNetPaid);
+            $payments = $this->paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contribution['id'])
+                ->where('deleted_at', null)
+                ->findAll();
+
+            $totalPaid = array_sum(array_map(static fn($payment) => (float)($payment['amount_paid'] ?? 0), $payments));
+            $totalRefunded = 0;
+            foreach ($payments as $payment) {
+                $refunds = $refundModel
+                    ->selectSum('refund_amount')
+                    ->where('payment_id', $payment['id'])
+                    ->where('status', 'completed')
+                    ->first();
+                $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
             }
-            
-            $contribution['payment_groups'] = $paymentGroups;
-            $totalPaid = array_sum(array_column($paymentGroups, 'total_paid'));
-            // Calculate total refunded across all payment groups
-            $totalRefunded = array_sum(array_column($paymentGroups, 'total_refunded'));
-            // Net paid amount (payments minus refunds)
+
             $netPaid = max(0, $totalPaid - $totalRefunded);
             $contribution['total_paid'] = $netPaid;
             $contribution['remaining_balance'] = max(0, $contribution['amount'] - $netPaid);
+            $contribution['payment_groups'] = [];
         }
         
         return $this->response->setJSON([
             'success' => true,
             'data' => $contributions
+        ]);
+    }
+
+    public function mobileProducts()
+    {
+        $payerId = $this->request->getGet('payer_id') ?? session('payer_id');
+
+        if (!$payerId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'error' => 'Not authenticated'
+            ]);
+        }
+
+        $allProducts = $this->productModel
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+
+        $products = [];
+        foreach ($allProducts as $product) {
+            if ($product['status'] === 'active') {
+                $products[] = $product;
+                continue;
+            }
+
+            $hasTransactions = $this->paymentModel
+                ->where('payer_id', $payerId)
+                ->where('product_id', $product['id'])
+                ->where('deleted_at', null)
+                ->countAllResults() > 0;
+
+            if ($hasTransactions) {
+                $products[] = $product;
+            }
+        }
+
+        foreach ($products as &$product) {
+            $totals = $this->paymentModel->select('COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(quantity), 0) as total_quantity')
+                ->where('payer_id', $payerId)
+                ->where('product_id', $product['id'])
+                ->where('deleted_at', null)
+                ->first();
+            $product['total_paid'] = (float)($totals['total_paid'] ?? 0);
+            $product['total_quantity'] = (int)($totals['total_quantity'] ?? 0);
+            $product['remaining_balance'] = 0;
+            $product['is_fully_paid'] = false;
+            $product['item_type'] = 'product';
+        }
+
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => $products
         ]);
     }
 
@@ -2247,6 +2382,7 @@ class DashboardController extends BaseController
             payments.id,
             payments.payer_id,
             payments.contribution_id,
+            payments.product_id,
             payments.amount_paid,
             payments.payment_method,
             payments.payment_status,
@@ -2259,26 +2395,29 @@ class DashboardController extends BaseController
             payers.contact_number,
             payers.email_address,
             payers.payer_id as payer_student_id,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description,
-            contributions.amount as contribution_amount
+            COALESCE(contributions.title, products.title) as contribution_title,
+            COALESCE(contributions.description, products.description) as contribution_description,
+            COALESCE(contributions.amount, products.amount) as contribution_amount,
+            CASE WHEN payments.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type
         ')
         ->join('payers', 'payers.id = payments.payer_id', 'left')
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->join('products', 'products.id = payments.product_id', 'left')
         ->where('payments.payer_id', $payerId)
-        ->orderBy('contributions.title', 'ASC')
+        ->orderBy('COALESCE(contributions.title, products.title)', 'ASC')
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
         
         // Group payments by contribution
         $contributionsWithPayments = [];
         foreach ($payments as $payment) {
-            $contributionId = $payment['contribution_id'];
+            $contributionId = $payment['product_id'] ?: $payment['contribution_id'];
             $contributionTitle = $payment['contribution_title'];
             
             if (!isset($contributionsWithPayments[$contributionId])) {
                 $contributionsWithPayments[$contributionId] = [
                     'id' => $contributionId,
+                    'item_type' => $payment['item_type'],
                     'title' => $contributionTitle,
                     'description' => $payment['contribution_description'],
                     'amount' => $payment['contribution_amount'],
@@ -2339,6 +2478,10 @@ class DashboardController extends BaseController
         $contributions = $this->contributionModel->where('status', 'active')
             ->orderBy('title', 'ASC')
             ->findAll();
+
+        $products = $this->productModel->where('status', 'active')
+            ->orderBy('title', 'ASC')
+            ->findAll();
         
         // Get payer's payment requests
         $paymentRequests = $this->paymentRequestModel->getRequestsByPayer($payerId);
@@ -2368,6 +2511,7 @@ class DashboardController extends BaseController
             'success' => true,
             'data' => [
                 'contributions' => $contributions,
+                'products' => $products,
                 'payment_requests' => $paymentRequests
             ]
         ]);

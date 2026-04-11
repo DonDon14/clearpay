@@ -131,11 +131,14 @@ class PythonAnalyticsService extends BaseService
                 py.payer_id as payer_id_number,
                 py.profile_picture,
                 p.contribution_id,
-                c.title as contribution_title,
-                COALESCE(c.amount, 0) as contribution_amount,
-                c.category,
-                COALESCE(c.cost_price, 0) as cost_price,
+                p.product_id,
+                COALESCE(c.title, pr.title) as contribution_title,
+                CASE WHEN p.product_id IS NOT NULL THEN \'product\' ELSE COALESCE(c.contribution_type, \'contribution\') END as contribution_type,
+                COALESCE(c.amount, pr.amount, 0) as contribution_amount,
+                COALESCE(c.category, pr.category) as category,
+                COALESCE(pr.cost_price, c.cost_price, 0) as cost_price,
                 p.amount_paid,
+                COALESCE(p.quantity, 1) as quantity,
                 p.payment_method,
                 p.payment_status,
                 p.created_at,
@@ -145,13 +148,20 @@ class PythonAnalyticsService extends BaseService
             ')
             ->join('payers py', 'py.id = p.payer_id', 'left')
             ->join('contributions c', 'c.id = p.contribution_id', 'left')
+            ->join('products pr', 'pr.id = p.product_id', 'left')
             ->where('p.deleted_at', null)
             ->orderBy('p.created_at', 'DESC')
             ->get()
             ->getResultArray();
 
         $contributions = $db->table('contributions')
-            ->select('id, title, amount, COALESCE(cost_price, 0) as cost_price, category, status, created_at')
+            ->select('id, title, contribution_type, amount, COALESCE(cost_price, 0) as cost_price, category, status, created_at')
+            ->orderBy('created_at', 'DESC')
+            ->get()
+            ->getResultArray();
+
+        $products = $db->table('products')
+            ->select("id, title, 'product' as contribution_type, amount, COALESCE(cost_price, 0) as cost_price, category, status, created_at")
             ->orderBy('created_at', 'DESC')
             ->get()
             ->getResultArray();
@@ -159,7 +169,7 @@ class PythonAnalyticsService extends BaseService
         return [
             'generated_at' => date('c'),
             'payments' => $payments,
-            'contributions' => $contributions,
+            'contributions' => array_merge($contributions, $products),
         ];
     }
 

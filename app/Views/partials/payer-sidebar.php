@@ -39,6 +39,12 @@
                     <span class="menu-text">Contributions</span>
                 </a>
             </li>
+            <li>
+                <a href="<?= base_url('payer/products') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Products') ? 'active' : '' ?>" data-tooltip="Products">
+                    <i class="fas fa-box-open"></i>
+                    <span class="menu-text">Products</span>
+                </a>
+            </li>
             <li><hr></li>
             <li>
                 <a href="<?= base_url('payer/payment-history') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payment History') ? 'active' : '' ?>" data-tooltip="Payment History">

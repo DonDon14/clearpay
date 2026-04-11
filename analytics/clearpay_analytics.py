@@ -110,6 +110,7 @@ def normalize_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], li
         normalized["id"] = as_int(row.get("id"))
         normalized["amount"] = as_float(row.get("amount"))
         normalized["cost_price"] = as_float(row.get("cost_price"))
+        normalized["contribution_type"] = str(row.get("contribution_type") or "contribution").lower()
         normalized["created_at_dt"] = parse_datetime(row.get("created_at"))
         contributions.append(normalized)
 
@@ -147,6 +148,7 @@ def top_profitable(contributions: list[dict[str, Any]], limit: int = 10) -> list
             {
                 "id": row["id"],
                 "title": row.get("title"),
+                "contribution_type": row.get("contribution_type") or "contribution",
                 "amount": row["amount"],
                 "category": row.get("category") or "General",
                 "status": row.get("status"),
@@ -171,6 +173,20 @@ def category_breakdown(contributions: list[dict[str, Any]]) -> list[dict[str, An
         bucket["total_amount"] += row["amount"]
         bucket["total_profit"] += row["amount"] - row["cost_price"]
     return sorted(categories.values(), key=lambda item: item["total_amount"], reverse=True)
+
+
+def type_breakdown(contributions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    types: dict[str, dict[str, float | int | str]] = {}
+    for row in contributions:
+        item_type = str(row.get("contribution_type") or "contribution").lower()
+        bucket = types.setdefault(
+            item_type,
+            {"contribution_type": item_type, "count": 0, "total_amount": 0.0, "total_profit": 0.0},
+        )
+        bucket["count"] += 1
+        bucket["total_amount"] += row["amount"]
+        bucket["total_profit"] += row["amount"] - row["cost_price"]
+    return sorted(types.values(), key=lambda item: item["count"], reverse=True)
 
 
 def detect_duplicates(payments: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -449,6 +465,7 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "summary": profit,
             "top_profitable": top_profitable(contributions),
             "by_category": category_breakdown(contributions),
+            "by_type": type_breakdown(contributions),
         },
         "payments": {
             "by_status": by_status,

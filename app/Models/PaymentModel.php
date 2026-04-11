@@ -13,6 +13,8 @@ class PaymentModel extends Model
     protected $allowedFields = [
         'payer_id', // FK to payers table
         'contribution_id',
+        'product_id',
+        'quantity',
         'amount_paid',
         'payment_method',
         'payment_status',
@@ -58,11 +60,13 @@ class PaymentModel extends Model
                     payments.payment_date,
                     payments.receipt_number,
                     payments.qr_receipt_path,
-                    contributions.title AS contribution_title,
+                    COALESCE(contributions.title, products.title) AS contribution_title,
+                    CASE WHEN payments.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END AS item_type,
                     users.username AS recorded_by_name
                 ')
                 ->join('payers', 'payers.id = payments.payer_id', 'left')
                 ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->join('products', 'products.id = payments.product_id', 'left')
                 ->join('users', 'users.id = payments.recorded_by', 'left')
                 ->orderBy('payments.payment_date', 'DESC')
                 ->limit($limit)
@@ -179,71 +183,82 @@ class PaymentModel extends Model
      */
     public function getGroupedPayments()
     {
-        $db = \Config\Database::connect();
-        
-        // Detect database type for GROUP_CONCAT vs STRING_AGG
-        $dbDriver = $db->getPlatform();
-        $isPostgres = (strpos(strtolower($dbDriver), 'postgre') !== false);
-        
-        // Use database-appropriate aggregation function
-        if ($isPostgres) {
-            // PostgreSQL uses STRING_AGG
-            $concatFunction = "STRING_AGG(DISTINCT p.id::text, ',')";
-        } else {
-            // MySQL uses GROUP_CONCAT
-            $concatFunction = "GROUP_CONCAT(DISTINCT p.id)";
-        }
-        
-        // First, get payment groups
-        $query = $db->query("
-            SELECT 
-                p.payer_id,
-                p.contribution_id,
-                COALESCE(p.payment_sequence, 1) as payment_sequence,
+        $rows = $this->select('
+                payments.*,
                 payers.payer_name,
                 payers.payer_id as payer_student_id,
                 payers.contact_number,
                 payers.email_address,
                 payers.profile_picture,
-                COALESCE(contributions.title, 'Unknown Contribution') as contribution_title,
-                COALESCE(contributions.description, '') as contribution_description,
-                COALESCE(contributions.amount, 0) as contribution_amount,
-                SUM(p.amount_paid) as total_paid,
-                COUNT(DISTINCT p.id) as payment_count,
-                MAX(p.payment_date) as last_payment_date,
-                MIN(p.payment_date) as first_payment_date,
-                CASE 
-                    WHEN SUM(p.amount_paid) >= COALESCE(contributions.amount, 0) THEN 'fully paid'
-                    WHEN SUM(p.amount_paid) > 0 THEN 'partial'
-                    ELSE 'unpaid'
-                END as computed_status,
-                COALESCE(contributions.amount, 0) - SUM(p.amount_paid) as remaining_balance,
-                {$concatFunction} as payment_ids
-            FROM payments p
-            LEFT JOIN payers ON payers.id = p.payer_id
-            LEFT JOIN contributions ON contributions.id = p.contribution_id
-            WHERE p.deleted_at IS NULL
-            GROUP BY p.payer_id, p.contribution_id, COALESCE(p.payment_sequence, 1),
-                     payers.payer_name, payers.payer_id, payers.contact_number, 
-                     payers.email_address, payers.profile_picture,
-                     contributions.title, contributions.description, contributions.amount
-            ORDER BY last_payment_date DESC, payers.payer_name ASC
-        ");
-        
-        if (!$query) {
+                contributions.title as contribution_title,
+                contributions.description as contribution_description,
+                contributions.amount as contribution_amount,
+                contributions.contribution_code,
+                products.title as product_title,
+                products.description as product_description,
+                products.amount as product_amount
+            ')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->join('products', 'products.id = payments.product_id', 'left')
+            ->where('payments.deleted_at', null)
+            ->orderBy('payments.payment_date', 'DESC')
+            ->findAll();
+
+        if (empty($rows)) {
             return [];
         }
-        
-        $groups = $query->getResultArray();
-        
-        // Calculate refund status for each group
+
+        $groups = [];
+        foreach ($rows as $row) {
+            $isProduct = !empty($row['product_id']);
+            $groupKey = $isProduct
+                ? 'product-' . $row['id']
+                : 'contribution-' . $row['payer_id'] . '-' . $row['contribution_id'];
+
+            if (!isset($groups[$groupKey])) {
+                $amount = (float) ($isProduct ? ($row['product_amount'] ?? 0) : ($row['contribution_amount'] ?? 0));
+                $groups[$groupKey] = [
+                    'payer_id' => $row['payer_id'],
+                    'contribution_id' => $row['contribution_id'],
+                    'product_id' => $row['product_id'],
+                    'item_type' => $isProduct ? 'product' : 'contribution',
+                    'payment_sequence' => $isProduct ? null : 1,
+                    'payer_name' => $row['payer_name'],
+                    'payer_student_id' => $row['payer_student_id'],
+                    'contact_number' => $row['contact_number'],
+                    'email_address' => $row['email_address'],
+                    'profile_picture' => $row['profile_picture'],
+                    'contribution_title' => $isProduct ? ($row['product_title'] ?? 'Unknown Product') : ($row['contribution_title'] ?? 'Unknown Contribution'),
+                    'contribution_description' => $isProduct ? ($row['product_description'] ?? '') : ($row['contribution_description'] ?? ''),
+                    'contribution_amount' => $amount,
+                    'payment_count' => 0,
+                    'total_paid' => 0,
+                    'total_quantity' => 0,
+                    'first_payment_date' => $row['payment_date'],
+                    'last_payment_date' => $row['payment_date'],
+                    'payment_ids' => [],
+                ];
+            }
+
+            $groups[$groupKey]['payment_count']++;
+            $groups[$groupKey]['total_paid'] += (float) ($row['amount_paid'] ?? 0);
+            $groups[$groupKey]['total_quantity'] += (int) ($row['quantity'] ?? 1);
+            $groups[$groupKey]['payment_ids'][] = (int) $row['id'];
+
+            if (strtotime((string) $row['payment_date']) < strtotime((string) $groups[$groupKey]['first_payment_date'])) {
+                $groups[$groupKey]['first_payment_date'] = $row['payment_date'];
+            }
+            if (strtotime((string) $row['payment_date']) > strtotime((string) $groups[$groupKey]['last_payment_date'])) {
+                $groups[$groupKey]['last_payment_date'] = $row['payment_date'];
+            }
+        }
+
         $refundModel = new RefundModel();
         foreach ($groups as &$group) {
-            $paymentIds = explode(',', $group['payment_ids']);
             $totalRefunded = 0;
-            
-            foreach ($paymentIds as $paymentId) {
-                $paymentId = (int)trim($paymentId);
+
+            foreach ($group['payment_ids'] as $paymentId) {
                 if ($paymentId > 0) {
                     $refunds = $refundModel
                         ->selectSum('refund_amount')
@@ -254,14 +269,25 @@ class PaymentModel extends Model
                     $totalRefunded += (float)($refunds['refund_amount'] ?? 0);
                 }
             }
-            
+
             $group['total_refunded'] = $totalRefunded;
+            if (($group['item_type'] ?? 'contribution') === 'product') {
+                $group['remaining_balance'] = 0;
+                $group['computed_status'] = 'fully paid';
+            } else {
+                $group['remaining_balance'] = max(0, (float) $group['contribution_amount'] - ((float) $group['total_paid'] - $totalRefunded));
+                $group['computed_status'] = $group['remaining_balance'] <= 0 ? 'fully paid' : (((float) $group['total_paid']) > 0 ? 'partial' : 'unpaid');
+            }
             $group['refund_status'] = ($totalRefunded >= (float)$group['total_paid']) ? 'fully_refunded' : 
                                       (($totalRefunded > 0) ? 'partially_refunded' : 'no_refund');
-            unset($group['payment_ids']); // Remove temp field
+            unset($group['payment_ids']);
         }
-        
-        return $groups;
+
+        usort($groups, static function ($a, $b) {
+            return strtotime((string) $b['last_payment_date']) <=> strtotime((string) $a['last_payment_date']);
+        });
+
+        return array_values($groups);
     }
 
     /**
@@ -276,58 +302,71 @@ class PaymentModel extends Model
             payers.contact_number,
             payers.email_address,
             payers.profile_picture,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description,
-            contributions.amount as contribution_amount,
+            COALESCE(contributions.title, products.title) as contribution_title,
+            COALESCE(contributions.description, products.description) as contribution_description,
+            COALESCE(contributions.amount, products.amount) as contribution_amount,
             contributions.contribution_code,
+            CASE WHEN payments.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type,
             users.username as recorded_by_name
         ')
         ->join('payers', 'payers.id = payments.payer_id', 'left')
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->join('products', 'products.id = payments.product_id', 'left')
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
         ->where('payments.contribution_id', $contributionId)
         ->where('payments.deleted_at', null);
         
-        // Filter by payment sequence if provided
-        if ($paymentSequence !== null) {
-            $builder->where('payments.payment_sequence', $paymentSequence);
+        $payments = $builder->orderBy('payments.payment_date', 'DESC')->findAll();
+
+        if (empty($payments)) {
+            return [];
         }
-        
-        $payments = $builder->orderBy('payments.payment_sequence', 'ASC')
-            ->orderBy('payments.payment_date', 'DESC')
-            ->findAll();
-        
-        // Group payments by sequence
-        $groupedPayments = [];
-        foreach ($payments as $payment) {
-            $sequence = $payment['payment_sequence'];
-            if (!isset($groupedPayments[$sequence])) {
-                $groupedPayments[$sequence] = [
-                    'sequence' => $sequence,
-                    'payments' => [],
-                    'total_amount' => 0,
-                    'payment_count' => 0,
-                    'first_payment_date' => null,
-                    'last_payment_date' => null
-                ];
-            }
-            
-            $groupedPayments[$sequence]['payments'][] = $payment;
-            $groupedPayments[$sequence]['total_amount'] += $payment['amount_paid'];
-            $groupedPayments[$sequence]['payment_count']++;
-            
-            if (!$groupedPayments[$sequence]['first_payment_date'] || 
-                $payment['payment_date'] < $groupedPayments[$sequence]['first_payment_date']) {
-                $groupedPayments[$sequence]['first_payment_date'] = $payment['payment_date'];
-            }
-            
-            if (!$groupedPayments[$sequence]['last_payment_date'] || 
-                $payment['payment_date'] > $groupedPayments[$sequence]['last_payment_date']) {
-                $groupedPayments[$sequence]['last_payment_date'] = $payment['payment_date'];
-            }
-        }
-        
-        return array_values($groupedPayments);
+
+        return [[
+            'sequence' => 1,
+            'payments' => $payments,
+            'total_amount' => array_sum(array_column($payments, 'amount_paid')),
+            'payment_count' => count($payments),
+            'first_payment_date' => min(array_column($payments, 'payment_date')),
+            'last_payment_date' => max(array_column($payments, 'payment_date')),
+        ]];
+    }
+
+    public function getPaymentsByPayerAndProduct($payerId, $productId, $paymentSequence = null)
+    {
+        $builder = $this->select('
+            payments.*,
+            payments.quantity,
+            payers.payer_name,
+            payers.payer_id as payer_student_id,
+            payers.contact_number,
+            payers.email_address,
+            payers.profile_picture,
+            products.title as contribution_title,
+            products.description as contribution_description,
+            products.amount as contribution_amount,
+            \'product\' as item_type,
+            users.username as recorded_by_name
+        ')
+        ->join('payers', 'payers.id = payments.payer_id', 'left')
+        ->join('products', 'products.id = payments.product_id', 'left')
+        ->join('users', 'users.id = payments.recorded_by', 'left')
+        ->where('payments.payer_id', $payerId)
+        ->where('payments.product_id', $productId)
+        ->where('payments.deleted_at', null);
+
+        $payments = $builder->orderBy('payments.payment_date', 'DESC')->findAll();
+
+        return array_map(static function ($payment) {
+            return [
+                'sequence' => $payment['id'],
+                'payments' => [$payment],
+                'total_amount' => $payment['amount_paid'],
+                'payment_count' => 1,
+                'first_payment_date' => $payment['payment_date'],
+                'last_payment_date' => $payment['payment_date'],
+            ];
+        }, $payments);
     }
 }

@@ -4,11 +4,11 @@
 
 // Default values
 $title = $title ?? 'Add Contribution';
-$subtitle = $subtitle ?? 'Add new contribution type';
+$subtitle = $subtitle ?? 'Add a new contribution';
 $icon = $icon ?? 'fas fa-plus-square';
 $bgColor = $bgColor ?? 'bg-info';
 $colClass = $colClass ?? 'col-lg-4 col-md-4 col-sm-6';
-$modalTitle = $modalTitle ?? 'Add New Contribution';
+$modalTitle = $modalTitle ?? 'Add Contribution';
 $action = $action ?? base_url('/contributions/save');
 ?>
 

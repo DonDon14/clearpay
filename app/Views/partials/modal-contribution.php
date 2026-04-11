@@ -11,6 +11,8 @@
                 <div class="modal-body">
                     <input type="hidden" name="id" id="contributionEditId" value="<?= isset($contribution['id']) ? $contribution['id'] : '' ?>">
 
+                    <input type="hidden" id="contributionType" name="contribution_type" value="contribution">
+
                     <div class="mb-3">
                         <label for="contributionTitle" class="form-label">Title</label>
                         <input type="text" class="form-control" id="contributionTitle" name="title" value="<?= isset($contribution['title']) ? $contribution['title'] : '' ?>" required>
@@ -19,7 +21,7 @@
                     <div class="mb-3">
                         <label for="contributionCode" class="form-label">Contribution Code</label>
                         <input type="text" class="form-control" id="contributionCode" name="contribution_code" value="<?= isset($contribution['contribution_code']) ? $contribution['contribution_code'] : '' ?>" placeholder="Enter reference code for campus papers (e.g., CC-2025-001)">
-                        <div class="form-text">Reference code for real papers that the campus needs</div>
+                        <div class="form-text">Optional internal code for this contribution</div>
                     </div>
 
                     <div class="mb-3">

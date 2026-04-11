@@ -5,6 +5,7 @@
             <div class="col-12 contribution-item" 
                  id="contribution-<?= $contribution['id'] ?>"
                  data-category="<?= esc($contribution['category'] ?? 'other') ?>" 
+                 data-type="contribution"
                  data-status="<?= esc($contribution['status'] ?? 'active') ?>"
                  data-title="<?= strtolower(esc($contribution['title'])) ?>"
                  data-amount="<?= esc($contribution['amount']) ?>">
@@ -20,6 +21,9 @@
                             
                             <div class="flex-grow-1">
                                 <h5 class="mb-1 fw-semibold"><?= esc($contribution['title']) ?></h5>
+                                <p class="text-muted mb-1">
+                                    <span class="badge bg-success">Contribution</span>
+                                </p>
                                 <?php if (!empty($contribution['contribution_code'])): ?>
                                     <p class="text-muted mb-1">
                                         <i class="fas fa-hashtag me-1"></i>
@@ -116,8 +120,8 @@
                 <div class="mb-3">
                     <i class="fas fa-hand-holding-usd text-muted" style="font-size: 3rem;"></i>
                 </div>
-                <h5 class="text-muted">No contributions found</h5>
-                <p class="text-muted">Start by adding your first contribution type.</p>
+                <h5 class="text-muted">No items found</h5>
+                <p class="text-muted">Start by adding your first product or contribution.</p>
             </div>
         </div>
     <?php endif; ?>

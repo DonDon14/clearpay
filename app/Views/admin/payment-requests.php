@@ -68,7 +68,7 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>Payer</th>
-                                        <th>Contribution</th>
+                                        <th>Item</th>
                                         <th>Amount</th>
                                         <th>Method</th>
                                         <th>Reference</th>
@@ -101,8 +101,12 @@
                                             </td>
                                             <td>
                                                 <div>
-                                                    <div class="fw-bold"><?= esc($request['contribution_title']) ?></div>
-                                                    <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
+                                                    <div class="fw-bold"><?= esc($request['item_title']) ?></div>
+                                                    <small class="text-muted">
+                                                        <?= ucfirst($request['item_type'] ?? 'contribution') ?>
+                                                        <?php if (($request['item_type'] ?? 'contribution') === 'product'): ?> • Qty <?= (int)($request['quantity'] ?? 1) ?><?php endif; ?>
+                                                        • <?= esc(substr($request['item_description'] ?? '', 0, 50)) ?>...
+                                                    </small>
                                                 </div>
                                             </td>
                                             <td><?= $peso ?><?= number_format($request['requested_amount'], 2) ?></td>
@@ -144,7 +148,7 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>Payer</th>
-                                        <th>Contribution</th>
+                                        <th>Item</th>
                                         <th>Amount</th>
                                         <th>Method</th>
                                         <th>Reference</th>
@@ -181,8 +185,12 @@
                                             </td>
                                             <td>
                                                 <div>
-                                                    <div class="fw-bold"><?= esc($request['contribution_title']) ?></div>
-                                                    <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
+                                                    <div class="fw-bold"><?= esc($request['item_title']) ?></div>
+                                                    <small class="text-muted">
+                                                        <?= ucfirst($request['item_type'] ?? 'contribution') ?>
+                                                        <?php if (($request['item_type'] ?? 'contribution') === 'product'): ?> • Qty <?= (int)($request['quantity'] ?? 1) ?><?php endif; ?>
+                                                        • <?= esc(substr($request['item_description'] ?? '', 0, 50)) ?>...
+                                                    </small>
                                                 </div>
                                             </td>
                                             <td><?= $peso ?><?= number_format($request['requested_amount'], 2) ?></td>
@@ -227,7 +235,7 @@
                                     <tr>
                                         <th>Date</th>
                                         <th>Payer</th>
-                                        <th>Contribution</th>
+                                        <th>Item</th>
                                         <th>Amount</th>
                                         <th>Method</th>
                                         <th>Reference</th>
@@ -261,8 +269,12 @@
                                             </td>
                                             <td>
                                                 <div>
-                                                    <div class="fw-bold"><?= esc($request['contribution_title']) ?></div>
-                                                    <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?>...</small>
+                                                    <div class="fw-bold"><?= esc($request['item_title']) ?></div>
+                                                    <small class="text-muted">
+                                                        <?= ucfirst($request['item_type'] ?? 'contribution') ?>
+                                                        <?php if (($request['item_type'] ?? 'contribution') === 'product'): ?> • Qty <?= (int)($request['quantity'] ?? 1) ?><?php endif; ?>
+                                                        • <?= esc(substr($request['item_description'] ?? '', 0, 50)) ?>...
+                                                    </small>
                                                 </div>
                                             </td>
                                             <td><?= $peso ?><?= number_format($request['requested_amount'], 2) ?></td>
@@ -498,8 +510,10 @@ $(document).ready(function() {
                     </div>
                     <div class="row mt-3">
                         <div class="col-md-6">
-                            <h6 class="text-primary">Contribution Details</h6>
+                            <h6 class="text-primary">Item Details</h6>
+                            <p><strong>Type:</strong> ${request.item_type || 'contribution'}</p>
                             <p><strong>Title:</strong> ${request.contribution_title}</p>
+                            ${(request.item_type || 'contribution') === 'product' ? `<p><strong>Quantity:</strong> ${request.quantity || 1}</p>` : ''}
                             ${request.contribution_code ? `<p><strong>Code:</strong> <code>${request.contribution_code}</code></p>` : ''}
                             <p><strong>Description:</strong> ${request.contribution_description}</p>
                             <p><strong>Total Amount:</strong> ₱${parseFloat(request.contribution_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</p>

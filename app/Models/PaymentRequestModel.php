@@ -15,6 +15,8 @@ class PaymentRequestModel extends Model
     protected $allowedFields = [
         'payer_id',
         'contribution_id',
+        'product_id',
+        'quantity',
         'payment_sequence',
         'requested_amount',
         'payment_method',
@@ -36,7 +38,6 @@ class PaymentRequestModel extends Model
     // Validation rules (payment_method will be set dynamically)
     protected $validationRules = [
         'payer_id' => 'required|integer',
-        'contribution_id' => 'required|integer',
         'requested_amount' => 'required|decimal',
         'payment_method' => 'required', // Will be set dynamically in beforeInsert
         'status' => 'required|in_list[pending,approved,rejected,processed]'
@@ -95,7 +96,7 @@ class PaymentRequestModel extends Model
     }
 
     /**
-     * Get payment requests with payer and contribution details
+     * Get payment requests with payer and item details
      */
     public function getRequestsWithDetails($status = null, $limit = null)
     {
@@ -105,13 +106,15 @@ class PaymentRequestModel extends Model
             payers.contact_number,
             payers.email_address,
             payers.profile_picture,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description,
-            contributions.amount as contribution_amount,
+            COALESCE(contributions.title, products.title) as item_title,
+            COALESCE(contributions.description, products.description) as item_description,
+            COALESCE(contributions.amount, products.amount) as item_amount,
+            CASE WHEN payment_requests.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type,
             users.username as processed_by_name
         ')
         ->join('payers', 'payers.id = payment_requests.payer_id', 'left')
         ->join('contributions', 'contributions.id = payment_requests.contribution_id', 'left')
+        ->join('products', 'products.id = payment_requests.product_id', 'left')
         ->join('users', 'users.id = payment_requests.processed_by', 'left');
 
         if ($status) {
@@ -142,11 +145,13 @@ class PaymentRequestModel extends Model
     {
         $builder = $this->select('
             payment_requests.*,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description,
-            contributions.amount as contribution_amount
+            COALESCE(contributions.title, products.title) as item_title,
+            COALESCE(contributions.description, products.description) as item_description,
+            COALESCE(contributions.amount, products.amount) as item_amount,
+            CASE WHEN payment_requests.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type
         ')
         ->join('contributions', 'contributions.id = payment_requests.contribution_id', 'left')
+        ->join('products', 'products.id = payment_requests.product_id', 'left')
         ->where('payment_requests.payer_id', $payerId);
         
         if ($status) {

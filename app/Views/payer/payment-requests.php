@@ -11,7 +11,7 @@
                         <button type="button" class="btn btn-primary btn-sm" onclick="refreshPaymentRequests()">
                             <i class="fas fa-sync-alt me-1"></i>Refresh
                         </button>
-                        <a href="<?= base_url('payer/contributions') ?>" class="btn btn-success btn-sm">
+                        <a href="<?= base_url('payer/products') ?>" class="btn btn-success btn-sm">
                             <i class="fas fa-plus me-1"></i>Request New Payment
                         </a>
                     </div>
@@ -22,7 +22,7 @@
                             <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
                             <h5 class="text-muted">No Payment Requests</h5>
                             <p class="text-muted">You haven't submitted any payment requests yet.</p>
-                            <a href="<?= base_url('payer/contributions') ?>" class="btn btn-primary">
+                            <a href="<?= base_url('payer/products') ?>" class="btn btn-primary">
                                 <i class="fas fa-plus me-2"></i>Submit Your First Payment Request
                             </a>
                         </div>
@@ -32,7 +32,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Date</th>
-                                        <th>Contribution</th>
+                                        <th>Item</th>
                                         <th>Amount</th>
                                         <th>Method</th>
                                         <th>Status</th>
@@ -50,8 +50,14 @@
                                                 </small>
                                             </td>
                                             <td>
-                                                <strong><?= esc($request['contribution_title']) ?></strong><br>
-                                                <small class="text-muted"><?= esc(substr($request['contribution_description'], 0, 50)) ?><?= strlen($request['contribution_description']) > 50 ? '...' : '' ?></small>
+                                                <strong><?= esc($request['item_title']) ?></strong>
+                                                <span class="badge <?= ($request['item_type'] ?? 'contribution') === 'product' ? 'bg-primary' : 'bg-success' ?> ms-1">
+                                                    <?= ucfirst($request['item_type'] ?? 'contribution') ?>
+                                                </span><br>
+                                                <?php if (($request['item_type'] ?? 'contribution') === 'product'): ?>
+                                                    <small class="text-muted">Qty: <?= (int)($request['quantity'] ?? 1) ?></small><br>
+                                                <?php endif; ?>
+                                                <small class="text-muted"><?= esc(substr($request['item_description'] ?? '', 0, 50)) ?><?= strlen($request['item_description'] ?? '') > 50 ? '...' : '' ?></small>
                                             </td>
                                             <td>
                                                 <strong>₱<?= number_format($request['requested_amount'], 2) ?></strong>

@@ -80,6 +80,8 @@
                                             data-payer-id="<?= esc($group['payer_id']) ?>" 
                                             data-payer-student-id="<?= esc($group['payer_student_id'] ?? $group['payer_id']) ?>" 
                                             data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                            data-product-id="<?= esc($group['product_id'] ?? '') ?>"
+                                            data-item-type="<?= esc($group['item_type'] ?? 'contribution') ?>"
                                             data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
                                             data-payment-status="<?= esc($group['computed_status']) ?>"
                                             data-payer-name="<?= esc($group['payer_name']) ?>"
@@ -110,16 +112,16 @@
                                                 <div>
                                                     <div class="fw-bold">
                                                         <?= esc($group['contribution_title']) ?>
-                                                        <?php if (isset($group['payment_sequence']) && $group['payment_sequence'] > 1): ?>
-                                                            <span class="badge bg-info ms-1">Group <?= $group['payment_sequence'] ?></span>
+                                                        <?php if (($group['item_type'] ?? 'contribution') === 'product'): ?>
+                                                            <span class="badge bg-primary ms-1">Product Purchase</span>
                                                         <?php endif; ?>
                                                     </div>
-                                                    <small class="text-muted">₱<?= number_format($group['contribution_amount'], 2) ?></small>
+                                                    <small class="text-muted">₱<?= number_format($group['contribution_amount'], 2) ?><?php if (($group['item_type'] ?? 'contribution') === 'product'): ?> • Qty <?= (int)($group['total_quantity'] ?? 1) ?><?php endif; ?></small>
                                                 </div>
                                             </td>
                                             <td>
                                                 <div class="fw-bold text-success">₱<?= number_format($group['total_paid'], 2) ?></div>
-                                                <?php if ($group['remaining_balance'] > 0): ?>
+                                                <?php if (($group['item_type'] ?? 'contribution') === 'contribution' && $group['remaining_balance'] > 0): ?>
                                                     <small class="text-muted">Remaining: ₱<?= number_format($group['remaining_balance'], 2) ?></small>
                                                 <?php endif; ?>
                                             </td>
@@ -167,6 +169,7 @@
                                             <td><?= date('M d, Y', strtotime($group['last_payment_date'])) ?></td>
                                 <td>
                                         <div class="btn-group" role="group">
+                                                    <?php if (($group['item_type'] ?? 'contribution') === 'contribution'): ?>
                                                     <button class="btn btn-sm btn-outline-warning refund-payment-group-btn" 
                                                             data-payer-id="<?= esc($group['payer_id']) ?>" 
                                                             data-contribution-id="<?= esc($group['contribution_id']) ?>"
@@ -199,6 +202,7 @@
                                                             title="Delete Payment Group">
                                                         <i class="fas fa-trash me-1"></i>Delete
                                                     </button>
+                                                    <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
@@ -344,8 +348,10 @@ $(document).ready(function() {
         
         const payerId = $(this).data('payer-id');
         const contributionId = $(this).data('contribution-id');
+        const productId = $(this).data('product-id');
+        const itemType = $(this).data('item-type') || 'contribution';
         const paymentSequence = $(this).data('payment-sequence') || 1;
-        viewPaymentHistory(payerId, contributionId, paymentSequence);
+        viewPaymentHistory(payerId, contributionId, productId, itemType, paymentSequence);
     });
 
     // Handle view payment history button click
@@ -353,8 +359,10 @@ $(document).ready(function() {
         e.stopPropagation();
         const payerId = $(this).data('payer-id');
         const contributionId = $(this).data('contribution-id');
+        const productId = $(this).data('product-id');
+        const itemType = $(this).data('item-type') || 'contribution';
         const paymentSequence = $(this).data('payment-sequence') || 1;
-        viewPaymentHistory(payerId, contributionId, paymentSequence);
+        viewPaymentHistory(payerId, contributionId, productId, itemType, paymentSequence);
     });
 
     // Handle add payment button click for partial payments
@@ -512,8 +520,18 @@ $(document).ready(function() {
         }
     });
 
-    function viewPaymentHistory(payerId, contributionId, paymentSequence = 1) {
-        fetch(`<?= base_url('payments/get-payment-history') ?>?payer_id=${payerId}&contribution_id=${contributionId}&payment_sequence=${paymentSequence}`, {
+    function viewPaymentHistory(payerId, contributionId, productId = '', itemType = 'contribution', paymentSequence = 1) {
+        const params = new URLSearchParams({
+            payer_id: payerId,
+            payment_sequence: paymentSequence
+        });
+        if (itemType === 'product') {
+            params.set('product_id', productId);
+        } else {
+            params.set('contribution_id', contributionId);
+        }
+
+        fetch(`<?= base_url('payments/get-payment-history') ?>?${params.toString()}`, {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -548,6 +566,7 @@ $(document).ready(function() {
 
         const payerName = paymentGroups[0].payments[0].payer_name;
         const contributionTitle = paymentGroups[0].payments[0].contribution_title;
+        const itemType = paymentGroups[0].payments[0].item_type || 'contribution';
         
         let html = `
             <div class="mb-3">
@@ -589,18 +608,18 @@ $(document).ready(function() {
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h6 class="mb-0">
                             <i class="fas fa-layer-group me-2"></i>
-                            Payment Group ${group.sequence}
+                            ${itemType === 'product' ? 'Purchase Record' : 'Contribution Payments'}
                             <span class="badge bg-primary ms-2">${group.payment_count} payment${group.payment_count > 1 ? 's' : ''}</span>
                             <span class="badge bg-success ms-1">₱${parseFloat(group.total_amount).toFixed(2)} total</span>
                             ${groupRefundBadge}
                         </h6>
-                        <button type="button" class="btn btn-sm btn-outline-danger refund-group-btn-history"
+                        ${itemType === 'contribution' ? `<button type="button" class="btn btn-sm btn-outline-danger refund-group-btn-history"
                                 data-payer-id="${payerId}"
                                 data-contribution-id="${contributionId}"
                                 data-sequence="${group.sequence}"
                                 title="Refund entire group">
                             <i class="fas fa-undo me-1"></i>Refund Group
-                        </button>
+                        </button>` : ''}
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -644,14 +663,14 @@ $(document).ready(function() {
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
-                                <button type="button" class="btn btn-sm btn-outline-danger refund-payment-btn-history"
+                                ${itemType === 'contribution' ? `<button type="button" class="btn btn-sm btn-outline-danger refund-payment-btn-history"
                                         data-payment-id="${payment.id}"
                                         data-payer-id="${payerId}"
                                         data-contribution-id="${contributionId}"
                                         data-sequence="${group.sequence}"
                                         title="Refund this payment">
                                     <i class="fas fa-undo"></i>
-                                </button>
+                                </button>` : ''}
                                 <button type="button" class="btn btn-sm btn-outline-warning edit-payment-btn" 
                                         data-payment-id="${payment.id}" 
                                         data-payment-data='${JSON.stringify(payment)}'

@@ -11,13 +11,13 @@
             <div class="modal-body">
                 <form id="paymentRequestForm" enctype="multipart/form-data">
                     <div class="row g-3">
-                        <!-- Contribution Info (Read-only) -->
+                        <!-- Item Info (Read-only) -->
                         <div class="col-12">
                             <div class="alert alert-info">
-                                <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Contribution Details</h6>
+                                <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Item Details</h6>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <strong>Contribution:</strong> <span id="modal_contribution_title">-</span><br>
+                                        <strong>Item:</strong> <span id="modal_contribution_title">-</span><br>
                                         <strong>Description:</strong> <span id="modal_contribution_description">-</span>
                                     </div>
                                     <div class="col-md-6">
@@ -28,8 +28,10 @@
                             </div>
                         </div>
 
-                        <!-- Hidden contribution ID and payment sequence -->
+                        <!-- Hidden item fields and payment sequence -->
+                        <input type="hidden" id="modal_item_type" name="item_type" value="contribution">
                         <input type="hidden" id="modal_contribution_id" name="contribution_id">
+                        <input type="hidden" id="modal_product_id" name="product_id">
                         <input type="hidden" id="modal_payment_sequence" name="payment_sequence">
 
                         <div class="col-md-6">
@@ -43,6 +45,12 @@
                             <div class="invalid-feedback" id="modal_requested_amount_error"></div>
                         </div>
                         
+                        <div class="col-md-6 d-none" id="modal_quantity_wrapper">
+                            <label for="modal_quantity" class="form-label">Quantity <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="modal_quantity" name="quantity" min="1" step="1" value="1">
+                            <div class="form-text">For products, total amount is calculated from price x quantity.</div>
+                        </div>
+
                         <div class="col-md-6">
                             <label for="modal_payment_method" class="form-label">Payment Method <span class="text-danger">*</span></label>
                             <?= payment_method_dropdown_with_icons('payment_method', null, [
@@ -487,8 +495,9 @@ function submitPaymentRequest() {
     const requestedAmount = formData.get('requested_amount');
     const paymentMethod = formData.get('payment_method');
     const contributionId = formData.get('contribution_id');
+    const productId = formData.get('product_id');
     
-    if (!requestedAmount || !paymentMethod || !contributionId) {
+    if (!requestedAmount || !paymentMethod || (!contributionId && !productId)) {
         alert('Please fill in all required fields');
         return;
     }
@@ -536,5 +545,91 @@ function submitPaymentRequest() {
         }
         showNotification('An error occurred while submitting the payment request', 'error');
     });
+}
+
+function updateProductRequestAmount() {
+    const itemType = document.getElementById('modal_item_type').value;
+    const quantity = Math.max(1, parseInt(document.getElementById('modal_quantity').value || '1', 10));
+    const unitAmountText = document.getElementById('modal_contribution_amount').textContent || '0';
+    const unitAmount = parseFloat(unitAmountText.replace(/[^\d.]/g, '')) || 0;
+    const amountInput = document.getElementById('modal_requested_amount');
+
+    if (itemType !== 'product' || !amountInput) {
+        return;
+    }
+
+    const total = unitAmount * quantity;
+    amountInput.value = total.toFixed(2);
+    amountInput.setAttribute('readonly', 'readonly');
+    document.getElementById('modal_max_amount').textContent = 'PHP ' + total.toFixed(2);
+    document.getElementById('modal_remaining_balance').textContent = 'PHP ' + total.toFixed(2);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const quantityInput = document.getElementById('modal_quantity');
+    if (quantityInput) {
+        quantityInput.addEventListener('input', updateProductRequestAmount);
+    }
+});
+
+window.openPaymentRequestModal = function(item) {
+    const itemType = item.item_type || 'contribution';
+    const itemId = item.id;
+    const endpoint = itemType === 'product'
+        ? `payer/get-product-details?product_id=${itemId}`
+        : `payer/get-contribution-details?contribution_id=${itemId}`;
+
+    const populateModal = function(details) {
+        document.getElementById('paymentRequestForm').reset();
+        document.getElementById('modal_item_type').value = itemType;
+        document.getElementById('modal_contribution_id').value = itemType === 'contribution' ? (details.id || '') : '';
+        document.getElementById('modal_product_id').value = itemType === 'product' ? (details.id || '') : '';
+        document.getElementById('modal_payment_sequence').value = itemType === 'contribution' && details.payment_sequence !== undefined && details.payment_sequence !== null
+            ? details.payment_sequence
+            : '';
+        document.getElementById('modal_quantity').value = itemType === 'product' ? 1 : 1;
+        document.getElementById('modal_quantity_wrapper').classList.toggle('d-none', itemType !== 'product');
+        document.getElementById('modal_contribution_title').textContent = details.title || 'N/A';
+        document.getElementById('modal_contribution_description').textContent = details.description || 'N/A';
+        document.getElementById('modal_contribution_amount').textContent = 'PHP ' + (parseFloat(details.amount || 0)).toFixed(2);
+
+        const remainingBalance = parseFloat(details.remaining_balance || details.remaining_amount || details.amount || 0);
+        document.getElementById('modal_remaining_balance').textContent = 'PHP ' + remainingBalance.toFixed(2);
+        document.getElementById('modal_max_amount').textContent = 'PHP ' + remainingBalance.toFixed(2);
+
+        const amountInput = document.getElementById('modal_requested_amount');
+        if (amountInput) {
+            amountInput.max = itemType === 'product' ? '' : remainingBalance;
+            amountInput.removeAttribute('readonly');
+            amountInput.value = itemType === 'product' ? (parseFloat(details.amount || 0)).toFixed(2) : remainingBalance.toFixed(2);
+        }
+
+        updateProductRequestAmount();
+
+        if (paymentInstructions) {
+            paymentInstructions.style.display = 'none';
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('paymentRequestModal'));
+        modal.show();
+
+        setTimeout(() => {
+            handlePaymentMethodChange();
+        }, 500);
+    };
+
+    fetch(`${window.APP_BASE_URL || ''}${endpoint}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                populateModal(data.product || data.contribution || item);
+                return;
+            }
+
+            populateModal(item);
+        })
+        .catch(() => {
+            populateModal(item);
+        });
 }
 </script>

@@ -11,6 +11,7 @@
         </div>
         <div class="d-flex flex-wrap gap-2">
             <span class="ui-stat-pill"><i class="fas fa-hand-holding-usd"></i>Total <?= number_format((int)($totalCount ?? 0)) ?></span>
+            <span class="ui-stat-pill"><i class="fas fa-file-invoice-dollar"></i>Contributions <?= number_format((int)($contributionCount ?? $totalCount ?? 0)) ?></span>
         </div>
     </div>
 
@@ -64,8 +65,8 @@
                 <div class="card-body p-2">
                     <div class="row g-2">
                         <?= view('partials/quick-action-add-contribution', [
-                            'title' => 'Add New Contribution',
-                            'subtitle' => 'Add new contribution type',
+                            'title' => 'Add Contribution',
+                            'subtitle' => 'Add a section-wide payable item',
                             'icon' => 'fas fa-plus-square',
                             'bgColor' => 'bg-info',
                             'colClass' => 'col-lg-4 col-md-4 col-sm-6',
@@ -126,6 +127,16 @@
                             ?>
                                 <option value="<?= $category['code'] ?>"><?= htmlspecialchars($category['name']) ?></option>
                             <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filterType" class="form-label">
+                            <i class="fas fa-shapes me-1"></i>Type
+                        </label>
+                        <select id="filterType" class="form-select">
+                            <option value="">All Types</option>
+                            <option value="contribution">Contribution</option>
+                            <option value="product">Product</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -206,6 +217,7 @@ function editContribution(contributionId) {
                 // Populate all form fields with existing data
                 document.getElementById('contributionId').value = contribution.id;
                 document.getElementById('contributionTitle').value = contribution.title || '';
+                document.getElementById('contributionType').value = contribution.contribution_type || 'contribution';
                 document.getElementById('contributionCode').value = contribution.contribution_code || '';
                 document.getElementById('contributionDescription').value = contribution.description || '';
                 document.getElementById('contributionGrandTotal').value = contribution.grand_total || '';
@@ -226,14 +238,14 @@ function editContribution(contributionId) {
                 calculateAmountPerPayer();
                 
                 // Update modal title to indicate edit mode
-                document.getElementById('contributionModalLabel').textContent = 'Edit Contribution';
+                document.getElementById('contributionModalLabel').textContent = 'Edit Item';
                 
                 // Update form action to edit mode
                 document.getElementById('contributionForm').action = `<?= base_url('contributions/update/') ?>${contributionId}`;
                 
                 // Update submit button text
                 const submitBtn = document.querySelector('#contributionForm button[type="submit"]');
-                submitBtn.textContent = 'Update Contribution';
+                submitBtn.textContent = 'Update Item';
                 submitBtn.className = 'btn btn-warning';
                 
                 // Show modal
@@ -344,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('contributionForm').action = '<?= base_url('contributions/save') ?>';
             
             // Reset modal title
-            document.getElementById('contributionModalLabel').textContent = 'Add New Contribution';
+            document.getElementById('contributionModalLabel').textContent = 'Add Contribution';
             
             // Reset submit button
             const submitBtn = document.querySelector('#contributionForm button[type="submit"]');
@@ -363,12 +375,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Search and Filter Functionality
     const searchInput = document.getElementById('searchContribution');
     const categoryFilter = document.getElementById('filterCategory');
+    const typeFilter = document.getElementById('filterType');
     const statusFilter = document.getElementById('filterStatus');
     const resultsCount = document.getElementById('resultsCount');
     
     function filterContributions() {
         const searchTerm = searchInput.value.toLowerCase().trim();
         const selectedCategory = categoryFilter.value;
+        const selectedType = typeFilter.value;
         const selectedStatus = statusFilter.value;
         
         const items = document.querySelectorAll('.contribution-item');
@@ -377,6 +391,7 @@ document.addEventListener('DOMContentLoaded', function() {
         items.forEach(item => {
             const title = item.getAttribute('data-title') || '';
             const category = item.getAttribute('data-category') || '';
+            const type = item.getAttribute('data-type') || '';
             const status = item.getAttribute('data-status') || '';
             
             // Check if item matches search term
@@ -384,12 +399,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Check if item matches category filter
             const matchesCategory = selectedCategory === '' || category === selectedCategory;
+            const matchesType = selectedType === '' || type === selectedType;
             
             // Check if item matches status filter
             const matchesStatus = selectedStatus === '' || status === selectedStatus;
             
             // Show or hide item based on all filters
-            if (matchesSearch && matchesCategory && matchesStatus) {
+            if (matchesSearch && matchesCategory && matchesType && matchesStatus) {
                 item.style.display = '';
                 visibleCount++;
             } else {
@@ -399,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Update results count
         const totalCount = items.length;
-        resultsCount.textContent = `Showing ${visibleCount} of ${totalCount} contributions`;
+        resultsCount.textContent = `Showing ${visibleCount} of ${totalCount} items`;
     }
     
     if (searchInput) {
@@ -409,6 +425,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (categoryFilter) {
         categoryFilter.addEventListener('change', filterContributions);
     }
+
+    if (typeFilter) {
+        typeFilter.addEventListener('change', filterContributions);
+    }
     
     if (statusFilter) {
         statusFilter.addEventListener('change', filterContributions);
@@ -417,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize results count
     if (resultsCount) {
         const items = document.querySelectorAll('.contribution-item');
-        resultsCount.textContent = `Showing ${items.length} of ${items.length} contributions`;
+        resultsCount.textContent = `Showing ${items.length} of ${items.length} items`;
     }
     
     // Handle hash from URL (for search result navigation)
@@ -464,6 +484,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function clearFilters() {
     document.getElementById('searchContribution').value = '';
     document.getElementById('filterCategory').value = '';
+    document.getElementById('filterType').value = '';
     document.getElementById('filterStatus').value = '';
     
     // Show all items
@@ -473,7 +494,7 @@ function clearFilters() {
     
     // Update results count
     const items = document.querySelectorAll('.contribution-item');
-    document.getElementById('resultsCount').textContent = `Showing ${items.length} of ${items.length} contributions`;
+    document.getElementById('resultsCount').textContent = `Showing ${items.length} of ${items.length} items`;
 }
 </script>
 

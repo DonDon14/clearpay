@@ -6,7 +6,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>Contributions</h5>
+                    <h5 class="mb-0"><i class="fas fa-wallet me-2"></i>Contributions</h5>
                     <div class="search-container">
                         <div class="input-group" style="width: 300px;">
                             <span class="input-group-text">
@@ -36,6 +36,7 @@
                                                                <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
                                                                <?= esc($contribution['title']) ?>
                                                            </h6>
+                                                           <span class="badge bg-success ms-2">Contribution</span>
                                                            <?php if ($contribution['status'] === 'inactive'): ?>
                                                                <span class="badge bg-secondary ms-2" title="This contribution is inactive">
                                                                    <i class="fas fa-ban me-1"></i>Inactive
@@ -203,7 +204,7 @@
                                                         <i class="fas fa-ban me-2"></i>Add Payment (Disabled)
                                                     </button>
                                                     <small class="text-muted d-block mt-1 text-center">
-                                                        <i class="fas fa-info-circle me-1"></i>Contribution is inactive. You can still view payments and request refunds.
+                                                        <i class="fas fa-info-circle me-1"></i>This item is inactive. You can still view payments and request refunds.
                                                     </small>
                                                 </div>
                                             <?php endif; ?>
@@ -226,8 +227,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="contributionModalLabel">
-                    <i class="fas fa-file-invoice-dollar text-primary me-2"></i>
-                    <span id="modalTitle">Contribution Details</span>
+                    <i class="fas fa-wallet text-primary me-2"></i>
+                    <span id="modalTitle">Item Details</span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>

@@ -7,6 +7,7 @@ $charts = $charts ?? [];
 $payments = $payments ?? [];
 $contributions = $contributions ?? [];
 $trends = $trends ?? [];
+$typeBreakdown = $contributions['by_type'] ?? [];
 $peso = '&#8369;';
 ?>
 
@@ -123,6 +124,22 @@ $peso = '&#8369;';
             ]) ?>
         </div>
     </div>
+
+    <?php if (!empty($typeBreakdown)): ?>
+        <div class="row mb-4">
+            <?php foreach ($typeBreakdown as $type): ?>
+                <div class="col-lg-6 col-md-6 mb-4">
+                    <?= view('partials/card', [
+                        'title' => ucfirst($type['contribution_type'] ?? 'contribution') . ' Items',
+                        'text' => number_format((int) ($type['count'] ?? 0)),
+                        'icon' => ($type['contribution_type'] ?? 'contribution') === 'product' ? 'box-open' : 'file-invoice-dollar',
+                        'iconColor' => ($type['contribution_type'] ?? 'contribution') === 'product' ? 'text-primary' : 'text-success',
+                        'subtitle' => $peso . number_format((float) ($type['total_amount'] ?? 0), 2) . ' total configured amount'
+                    ]) ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 
     <?php if (!empty($charts)): ?>
         <?= view('partials/container-card', [

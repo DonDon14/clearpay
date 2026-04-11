@@ -102,7 +102,7 @@ $severityClass = static function (?string $label): string {
                                 <thead>
                                     <tr>
                                         <th>Payer</th>
-                                        <th>Contribution</th>
+                                        <th>Item</th>
                                         <th>Amount</th>
                                         <th>Priority</th>
                                         <th>Actions</th>
@@ -116,7 +116,7 @@ $severityClass = static function (?string $label): string {
                                                 <div class="ui-list-meta"><?= esc($request['reference_number'] ?? '-') ?></div>
                                                 <div class="ui-list-meta"><?= !empty($request['requested_at']) ? esc(date('M d, Y h:i A', strtotime($request['requested_at']))) : '-' ?></div>
                                             </td>
-                                            <td><?= esc($request['contribution_title'] ?? 'Unknown Contribution') ?></td>
+                                            <td><?= esc($request['item_title'] ?? 'Unknown Item') ?></td>
                                             <td><?= $peso ?><?= number_format((float) ($request['requested_amount'] ?? 0), 2) ?></td>
                                             <td>
                                                 <span class="badge rounded-pill <?= $severityClass($request['severity_label'] ?? 'Normal') ?>">

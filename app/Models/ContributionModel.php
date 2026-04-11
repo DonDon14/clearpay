@@ -9,7 +9,7 @@ class ContributionModel extends Model
     protected $table = 'contributions';
     protected $primaryKey = 'id';
     protected $allowedFields = [
-        'title', 'description', 'amount', 'grand_total', 'category', 'status', 'created_by', 'cost_price', 'profit_amount', 'contribution_code'
+        'title', 'contribution_type', 'description', 'amount', 'grand_total', 'category', 'status', 'created_by', 'cost_price', 'profit_amount', 'contribution_code'
     ];
     protected $useTimestamps = true; // automatically fill created_at, updated_at
     
@@ -39,7 +39,7 @@ class ContributionModel extends Model
      */
     public function getTopProfitable($limit = 10)
     {
-        $contributions = $this->select('id, title, amount, category, status, cost_price')
+        $contributions = $this->select('id, title, contribution_type, amount, category, status, cost_price')
             ->where('status', 'active')
             ->orderBy('amount', 'DESC')
             ->limit($limit)
@@ -61,5 +61,17 @@ class ContributionModel extends Model
         });
         
         return $contributions;
+    }
+
+    public function getTypeBreakdown(): array
+    {
+        $db = \Config\Database::connect();
+
+        return $db->table('contributions')
+            ->select('contribution_type, COUNT(*) as count, SUM(amount) as total_amount')
+            ->groupBy('contribution_type')
+            ->orderBy('count', 'DESC')
+            ->get()
+            ->getResultArray();
     }
 }

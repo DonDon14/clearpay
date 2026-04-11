@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Models\PaymentModel;
 use App\Models\ContributionModel;
+use App\Models\ProductModel;
 use App\Models\PaymentRequestModel;
 use App\Models\PaymentMethodModel;
 use App\Models\ActivityLogModel;
@@ -429,11 +430,12 @@ class DashboardController extends BaseController
                     payers.payer_name,
                     payers.contact_number,
                     payers.email_address,
-                    contributions.title as contribution_title,
-                    contributions.amount as contribution_amount
+                    COALESCE(contributions.title, products.title) as contribution_title,
+                    COALESCE(contributions.amount, products.amount) as contribution_amount
                 ')
                 ->join('payers', 'payers.id = payments.payer_id', 'left')
                 ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->join('products', 'products.id = payments.product_id', 'left')
                 ->find($paymentId);
                 
                 $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
@@ -451,7 +453,7 @@ class DashboardController extends BaseController
                     // Exclude the newly inserted payment to get accurate count
                     $existingGroupPayments = $paymentModel
                         ->where('payer_id', $request['payer_id'])
-                        ->where('contribution_id', $request['contribution_id'])
+                        ->where($request['product_id'] ? 'product_id' : 'contribution_id', $request['product_id'] ?: $request['contribution_id'])
                         ->where('payment_sequence', $paymentRecord['payment_sequence'])
                         ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
                         ->where('deleted_at', null)
@@ -591,10 +593,11 @@ class DashboardController extends BaseController
                     payment_requests.*,
                     payers.payer_name,
                     payers.email_address,
-                    contributions.title as contribution_title
+                    COALESCE(contributions.title, products.title) as contribution_title
                 ')
                 ->join('payers', 'payers.id = payment_requests.payer_id', 'left')
                 ->join('contributions', 'contributions.id = payment_requests.contribution_id', 'left')
+                ->join('products', 'products.id = payment_requests.product_id', 'left')
                 ->where('payment_requests.id', $requestId)
                 ->first();
                 
@@ -682,11 +685,12 @@ class DashboardController extends BaseController
                     payers.payer_name,
                     payers.contact_number,
                     payers.email_address,
-                    contributions.title as contribution_title,
-                    contributions.amount as contribution_amount
+                    COALESCE(contributions.title, products.title) as contribution_title,
+                    COALESCE(contributions.amount, products.amount) as contribution_amount
                 ')
                 ->join('payers', 'payers.id = payments.payer_id', 'left')
                 ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->join('products', 'products.id = payments.product_id', 'left')
                 ->find($paymentId);
                 
                 $receiptNumber = $paymentRecord['receipt_number'] ?? 'N/A';
@@ -704,7 +708,7 @@ class DashboardController extends BaseController
                     // Exclude the newly inserted payment to get accurate count
                     $existingGroupPayments = $paymentModel
                         ->where('payer_id', $request['payer_id'])
-                        ->where('contribution_id', $request['contribution_id'])
+                        ->where($request['product_id'] ? 'product_id' : 'contribution_id', $request['product_id'] ?: $request['contribution_id'])
                         ->where('payment_sequence', $paymentRecord['payment_sequence'])
                         ->where('payments.id !=', $paymentId) // Exclude the newly inserted payment
                         ->where('deleted_at', null)
@@ -809,14 +813,16 @@ class DashboardController extends BaseController
                 payers.contact_number,
                 payers.email_address,
                 payers.profile_picture,
-                contributions.title as contribution_title,
-                contributions.description as contribution_description,
-                contributions.amount as contribution_amount,
+                COALESCE(contributions.title, products.title) as contribution_title,
+                COALESCE(contributions.description, products.description) as contribution_description,
+                COALESCE(contributions.amount, products.amount) as contribution_amount,
                 contributions.contribution_code,
+                CASE WHEN payment_requests.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type,
                 users.username as processed_by_name
             ')
             ->join('payers', 'payers.id = payment_requests.payer_id', 'left')
             ->join('contributions', 'contributions.id = payment_requests.contribution_id', 'left')
+            ->join('products', 'products.id = payment_requests.product_id', 'left')
             ->join('users', 'users.id = payment_requests.processed_by', 'left')
             ->where('payment_requests.id', $requestId)
             ->first();
@@ -935,72 +941,62 @@ class DashboardController extends BaseController
     {
         $paymentModel = new PaymentModel();
         $contributionModel = new \App\Models\ContributionModel();
+        $productModel = new ProductModel();
         
-        // Get contribution details
-        $contribution = $contributionModel->find($request['contribution_id']);
-        
-        // Check if contribution exists and is active
-        if (!$contribution) {
-            throw new \Exception('Contribution not found');
+        $isProduct = !empty($request['product_id']);
+        $itemId = $isProduct ? $request['product_id'] : $request['contribution_id'];
+        $item = $isProduct ? $productModel->find($itemId) : $contributionModel->find($itemId);
+
+        if (!$item) {
+            throw new \Exception(($isProduct ? 'Product' : 'Contribution') . ' not found');
         }
-        
-        // Check if contribution is inactive - prevent processing payment requests for inactive contributions
-        if ($contribution['status'] === 'inactive') {
-            throw new \Exception('Cannot process payment request for an inactive contribution. This contribution is no longer active.');
+
+        if (($item['status'] ?? 'active') === 'inactive') {
+            throw new \Exception('Cannot process payment request for an inactive ' . ($isProduct ? 'product' : 'contribution') . '.');
         }
-        
-        $contributionAmount = $contribution['amount'];
+
+        $contributionAmount = (float) $item['amount'];
         $amountPaid = (float) $request['requested_amount'];
+        $quantity = max(1, (int) ($request['quantity'] ?? 1));
         
         // Get existing payments to determine proper grouping and status
         $existingPayments = $paymentModel
             ->where('payer_id', $request['payer_id'])
-            ->where('contribution_id', $request['contribution_id'])
+            ->where($isProduct ? 'product_id' : 'contribution_id', $itemId)
             ->where('deleted_at', null)
             ->findAll();
         
-        // Determine payment sequence
         $paymentSequence = null;
-        
-        // If payment request explicitly has a payment_sequence, use it (payer intended to add to existing group)
-        if (!empty($request['payment_sequence']) && is_numeric($request['payment_sequence'])) {
-            $paymentSequence = (int) $request['payment_sequence'];
-        } else {
-            // No payment_sequence specified means this is a NEW payment cycle/group
-            // Create a new payment sequence (next available sequence number)
-            $paymentSequence = $this->getNextPaymentSequence($request['payer_id'], $request['contribution_id']);
-        }
-        
-        // Get existing payments for THIS specific payment_sequence group
-        $groupPayments = array_filter($existingPayments, function($payment) use ($paymentSequence) {
-            $seq = $payment['payment_sequence'] ?? 1;
-            return $seq == $paymentSequence;
-        });
-        
-        // Calculate total paid for THIS specific group (not all payments combined)
-        $groupTotalPaid = array_sum(array_column($groupPayments, 'amount_paid'));
-        $newGroupTotalPaid = $groupTotalPaid + $amountPaid;
-        
-        // Calculate status based on THIS group's total, not all payments combined
-        if ($newGroupTotalPaid >= $contributionAmount) {
+        $currentTotalPaid = array_sum(array_column($existingPayments, 'amount_paid'));
+
+        if ($isProduct) {
             $paymentStatus = 'fully paid';
             $remainingBalance = 0;
             $isPartial = false;
         } else {
-            $paymentStatus = 'partial';
-            $remainingBalance = $contributionAmount - $newGroupTotalPaid;
-            $isPartial = true;
+            $newTotalPaid = $currentTotalPaid + $amountPaid;
+            if ($newTotalPaid >= $contributionAmount) {
+                $paymentStatus = 'fully paid';
+                $remainingBalance = 0;
+                $isPartial = false;
+            } else {
+                $paymentStatus = 'partial';
+                $remainingBalance = $contributionAmount - $newTotalPaid;
+                $isPartial = true;
+            }
         }
         
         $paymentData = [
             'payer_id' => $request['payer_id'],
-            'contribution_id' => $request['contribution_id'],
+            'contribution_id' => $isProduct ? null : $request['contribution_id'],
+            'product_id' => $isProduct ? $request['product_id'] : null,
+            'quantity' => $isProduct ? $quantity : 1,
             'amount_paid' => $request['requested_amount'],
             'payment_method' => $request['payment_method'],
             'payment_status' => $paymentStatus,
             'is_partial_payment' => $isPartial ? true : false,
             'remaining_balance' => $remainingBalance,
-            'payment_sequence' => $paymentSequence,
+            'payment_sequence' => null,
             'reference_number' => 'REQ-' . date('Ymd') . '-' . strtoupper(substr(md5($request['id']), 0, 12)),
             'receipt_number' => 'RCPT-' . date('Ymd') . '-' . strtoupper(substr(md5($request['id'] . time()), 0, 12)),
             'payment_date' => date('Y-m-d H:i:s'),

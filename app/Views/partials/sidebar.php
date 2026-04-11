@@ -52,6 +52,12 @@
                         <span class="menu-text">Contributions</span>
                     </a>
                 </li>
+                <li>
+                    <a href="<?= base_url('products') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Products') ? 'active' : '' ?>" data-tooltip="Products">
+                        <i class="fas fa-box-open"></i>
+                        <span class="menu-text">Products</span>
+                    </a>
+                </li>
                 <li><hr></li>
                 <li>
                     <a href="<?= base_url('analytics') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Analytics') ? 'active' : '' ?>" data-tooltip="Analytics">

@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Models\ContributionModel;
 use App\Models\PaymentModel;
+use App\Models\ProductModel;
 
 class SidebarController extends BaseController
 {
@@ -67,12 +68,20 @@ class SidebarController extends BaseController
         $activeCount = 0;
         $inactiveCount = 0;
         $totalCount = count($allContributions);
+        $productCount = 0;
+        $contributionCount = 0;
 
         foreach ($allContributions as $contrib) {
             if ($contrib['status'] === 'active') {
                 $activeCount++;
             } else {
                 $inactiveCount++;
+            }
+
+            if (($contrib['contribution_type'] ?? 'contribution') === 'product') {
+                $productCount++;
+            } else {
+                $contributionCount++;
             }
         }
 
@@ -118,10 +127,73 @@ class SidebarController extends BaseController
             'activeCount' => $activeCount,
             'inactiveCount' => $inactiveCount,
             'totalCount' => $totalCount,
+            'productCount' => $productCount,
+            'contributionCount' => $contributionCount,
             'categories' => $categories,
         ];
 
         return view('admin/contributions', $data);
+    }
+
+    public function products()
+    {
+        if (!session()->get('isLoggedIn')) {
+            return redirect()->to('/admin/login');
+        }
+
+        $productModel = new ProductModel();
+        $paymentModel = new PaymentModel();
+        $products = $productModel->findAll();
+
+        $activeCount = 0;
+        $inactiveCount = 0;
+        $totalCount = count($products);
+        $totalUnitsSold = 0;
+        $totalIncome = 0;
+
+        foreach ($products as &$product) {
+            if (($product['status'] ?? 'active') === 'active') {
+                $activeCount++;
+            } else {
+                $inactiveCount++;
+            }
+
+            $payments = $paymentModel
+                ->select('COALESCE(SUM(amount_paid), 0) as total_collected, COALESCE(SUM(quantity), 0) as total_quantity_sold')
+                ->where('product_id', $product['id'])
+                ->where('deleted_at', null)
+                ->first();
+
+            $totalCollected = (float) ($payments['total_collected'] ?? 0);
+            $totalQuantitySold = (int) ($payments['total_quantity_sold'] ?? 0);
+            $incomePerUnit = max(0, (float) ($product['amount'] ?? 0) - (float) ($product['cost_price'] ?? 0));
+            $totalIncome += $incomePerUnit * $totalQuantitySold;
+            $totalUnitsSold += $totalQuantitySold;
+            $product['total_collected'] = $totalCollected;
+            $product['total_quantity_sold'] = $totalQuantitySold;
+            $product['income_per_unit'] = $incomePerUnit;
+            $product['total_income'] = $incomePerUnit * $totalQuantitySold;
+        }
+
+        usort($products, function ($a, $b) {
+            if (($a['status'] ?? 'active') === ($b['status'] ?? 'active')) {
+                return strtotime($b['created_at'] ?? 'now') - strtotime($a['created_at'] ?? 'now');
+            }
+            return ($a['status'] ?? 'active') === 'active' ? -1 : 1;
+        });
+
+        return view('admin/products', [
+            'title' => 'Products',
+            'pageTitle' => 'Products',
+            'pageSubtitle' => 'Manage optional individual products and product payments',
+            'username' => session()->get('username'),
+            'products' => $products,
+            'activeCount' => $activeCount,
+            'inactiveCount' => $inactiveCount,
+            'totalCount' => $totalCount,
+            'totalUnitsSold' => $totalUnitsSold,
+            'totalIncome' => $totalIncome,
+        ]);
     }
     
     public function partialPayments()
