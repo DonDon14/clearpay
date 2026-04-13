@@ -32,6 +32,6 @@ class ExampleMigration extends Migration
 
     public function down(): void
     {
-        $this->forge->dropTable('factories');
+        $this->forge->dropTable('factories', true);
     }
 }
