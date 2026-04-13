@@ -101,7 +101,7 @@
                                                 <th>Requested Date</th>
                                                 <th>Payer</th>
                                                 <th>Payment</th>
-                                                <th>Contribution</th>
+                                                <th>Item</th>
                                                 <th>Amount</th>
                                                 <th>Reason</th>
                                                 <th>Actions</th>
@@ -173,7 +173,7 @@
                                                 <th>Date</th>
                                                 <th>Payer</th>
                                                 <th>Payment</th>
-                                                <th>Contribution</th>
+                                                <th>Item</th>
                                                 <th>Amount</th>
                                                 <th>Method</th>
                                                 <th>Status</th>
@@ -326,7 +326,7 @@ $(document).ready(function() {
                                 <h6>Payment Information</h6>
                                     <p><strong>Payer:</strong> ${refund.payer_name}</p>
                                     <p><strong>Receipt #:</strong> ${refund.receipt_number || 'N/A'}</p>
-                                    <p><strong>Contribution:</strong> ${refund.contribution_title}</p>
+                                    <p><strong>Item:</strong> ${refund.contribution_title}</p>
                                     <p><strong>Original Amount:</strong> ₱${parseFloat(refund.amount_paid).toFixed(2)}</p>
                                     ${refund.processed_by_name ? `<p><strong>Processed By:</strong> ${refund.processed_by_name}</p>` : ''}
                                     ${refund.processed_at ? `<p><strong>Processed At:</strong> ${new Date(refund.processed_at).toLocaleString()}</p>` : ''}

@@ -515,7 +515,7 @@ class DashboardController extends BaseController
         ->join('products', 'products.id = payments.product_id', 'left')
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
-        ->orderBy('COALESCE(contributions.title, products.title)', 'ASC')
+        ->orderBy('contribution_title', 'ASC')
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
         
@@ -572,6 +572,10 @@ class DashboardController extends BaseController
         
         // Get all contributions (both active and inactive)
         $allContributions = $this->contributionModel
+            ->groupStart()
+                ->where('contribution_type', 'contribution')
+                ->orWhere('contribution_type', null)
+            ->groupEnd()
             ->orderBy('created_at', 'DESC')
             ->findAll();
         
@@ -601,6 +605,7 @@ class DashboardController extends BaseController
         
         // Get payment data for each contribution without grouped payment cycles
         foreach ($contributions as &$contribution) {
+            $contribution['image_path'] = $this->normalizePublicUploadPath($contribution['image_path'] ?? null, 'contribution_items');
             $refundModel = new \App\Models\RefundModel();
             $payments = $this->paymentModel
                 ->where('payer_id', $payerId)
@@ -662,6 +667,7 @@ class DashboardController extends BaseController
         }
 
         foreach ($products as &$product) {
+            $product['image_path'] = $this->normalizePublicUploadPath($product['image_path'] ?? null, 'product_items');
             $totals = $this->paymentModel->select('COALESCE(SUM(amount_paid), 0) as total_paid, COALESCE(SUM(quantity), 0) as total_quantity')
                 ->where('payer_id', $payerId)
                 ->where('product_id', $product['id'])
@@ -1135,9 +1141,9 @@ class DashboardController extends BaseController
         log_message('info', 'POST data: ' . json_encode($this->request->getPost()));
         
         // Check if it's an AJAX request or if it's a POST request (more flexible)
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
             log_message('error', 'Invalid request method for payment request submission');
-            return $this->response->setJSON([
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -1187,9 +1193,12 @@ class DashboardController extends BaseController
         // Debug: Log valid payment methods
         log_message('info', 'Valid payment methods for payer: ' . $paymentMethodList);
         
-        $itemType = $this->request->getPost('item_type') ?: 'contribution';
+        $rawItemType = $this->request->getPost('item_type');
         $contributionId = $this->request->getPost('contribution_id');
         $productId = $this->request->getPost('product_id');
+        // Backward compatibility: infer item type for older clients that only send IDs.
+        $itemType = $rawItemType ?: (!empty($productId) ? 'product' : 'contribution');
+        $validationData = array_merge($this->request->getPost(), ['item_type' => $itemType]);
 
         $validation = \Config\Services::validation();
         $validation->setRules([
@@ -1199,7 +1208,7 @@ class DashboardController extends BaseController
             'notes' => 'permit_empty|max_length[500]'
         ]);
 
-        if (!$validation->withRequest($this->request)->run()) {
+        if (!$validation->run($validationData)) {
             $errors = $validation->getErrors();
             log_message('error', 'Payment request validation failed: ' . json_encode($errors));
             return $this->response->setJSON([
@@ -1521,6 +1530,7 @@ class DashboardController extends BaseController
                     'id' => $contribution['id'],
                     'title' => $contribution['title'],
                     'description' => $contribution['description'],
+                    'image_path' => $this->normalizePublicUploadPath($contribution['image_path'] ?? null, 'contribution_items'),
                     'amount' => $contribution['amount'],
                     'total_paid' => $netPaid,
                     'remaining_amount' => $remainingAmount,
@@ -1602,6 +1612,7 @@ class DashboardController extends BaseController
                     'id' => $product['id'],
                     'title' => $product['title'],
                     'description' => $product['description'],
+                    'image_path' => $this->normalizePublicUploadPath($product['image_path'] ?? null, 'product_items'),
                     'amount' => $product['amount'],
                     'total_paid' => $totalPaidAmount,
                     'total_quantity' => $totalQuantity,
@@ -1661,14 +1672,17 @@ class DashboardController extends BaseController
         $payments = $this->paymentModel->select('
             payments.id,
             payments.amount_paid,
+            payments.product_id,
             payments.payment_method,
             payments.payment_status,
             payments.receipt_number,
             payments.payment_date,
             payments.contribution_id,
-            contributions.title as contribution_title
+            COALESCE(contributions.title, products.title) as contribution_title,
+            CASE WHEN payments.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type
         ')
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+        ->join('products', 'products.id = payments.product_id', 'left')
         ->where('payments.payer_id', $payerId)
         ->where('payments.deleted_at', null)
         ->where('payments.amount_paid >', 0) // Only payments with amount > 0
@@ -1884,8 +1898,9 @@ class DashboardController extends BaseController
 
             // Get payment details
             $payment = $this->paymentModel
-                ->select('payments.*, contributions.id as contribution_id')
+                ->select('payments.*, contributions.id as contribution_id, products.id as product_id')
                 ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+                ->join('products', 'products.id = payments.product_id', 'left')
                 ->where('payments.id', $paymentId)
                 ->where('payments.payer_id', $payerId)
                 ->where('payments.deleted_at', null)
@@ -1947,7 +1962,8 @@ class DashboardController extends BaseController
             $refundData = [
                 'payment_id' => $paymentId,
                 'payer_id' => $payerId,
-                'contribution_id' => $payment['contribution_id'],
+                'contribution_id' => $payment['contribution_id'] ?: null,
+                'product_id' => $payment['product_id'] ?: null,
                 'refund_amount' => round($refundAmount, 2),
                 'refund_reason' => $refundReason ?: null,
                 'refund_method' => $finalRefundMethod,
@@ -2258,6 +2274,10 @@ class DashboardController extends BaseController
         
         // Get all contributions (both active and inactive)
         $allContributions = $this->contributionModel
+            ->groupStart()
+                ->where('contribution_type', 'contribution')
+                ->orWhere('contribution_type', null)
+            ->groupEnd()
             ->orderBy('created_at', 'DESC')
             ->findAll();
         
@@ -2404,7 +2424,7 @@ class DashboardController extends BaseController
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
         ->join('products', 'products.id = payments.product_id', 'left')
         ->where('payments.payer_id', $payerId)
-        ->orderBy('COALESCE(contributions.title, products.title)', 'ASC')
+        ->orderBy('contribution_title', 'ASC')
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
         

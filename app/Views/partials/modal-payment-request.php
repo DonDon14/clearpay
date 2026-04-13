@@ -16,11 +16,16 @@
                             <div class="alert alert-info">
                                 <h6 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Item Details</h6>
                                 <div class="row">
+                                    <div class="col-md-3 mb-3 mb-md-0">
+                                        <div class="payment-request-image-wrap d-none" id="modal_item_image_wrap">
+                                            <img src="" alt="" id="modal_item_image" class="img-fluid rounded-4 payment-request-image">
+                                        </div>
+                                    </div>
                                     <div class="col-md-6">
                                         <strong>Item:</strong> <span id="modal_contribution_title">-</span><br>
                                         <strong>Description:</strong> <span id="modal_contribution_description">-</span>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-3">
                                         <strong>Total Amount:</strong> <span id="modal_contribution_amount">₱0.00</span><br>
                                         <strong>Remaining Balance:</strong> <span id="modal_remaining_balance" class="text-warning">₱0.00</span>
                                     </div>
@@ -591,6 +596,16 @@ window.openPaymentRequestModal = function(item) {
         document.getElementById('modal_quantity_wrapper').classList.toggle('d-none', itemType !== 'product');
         document.getElementById('modal_contribution_title').textContent = details.title || 'N/A';
         document.getElementById('modal_contribution_description').textContent = details.description || 'N/A';
+        const modalImage = document.getElementById('modal_item_image');
+        const modalImageWrap = document.getElementById('modal_item_image_wrap');
+        if (details.image_path) {
+            modalImage.src = details.image_path;
+            modalImage.alt = details.title || 'Item image';
+            modalImageWrap.classList.remove('d-none');
+        } else {
+            modalImage.src = '';
+            modalImageWrap.classList.add('d-none');
+        }
         document.getElementById('modal_contribution_amount').textContent = 'PHP ' + (parseFloat(details.amount || 0)).toFixed(2);
 
         const remainingBalance = parseFloat(details.remaining_balance || details.remaining_amount || details.amount || 0);
@@ -633,3 +648,11 @@ window.openPaymentRequestModal = function(item) {
         });
 }
 </script>
+<style>
+.payment-request-image {
+    width: 100%;
+    max-height: 110px;
+    object-fit: cover;
+    box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+}
+</style>

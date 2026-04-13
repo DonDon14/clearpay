@@ -56,8 +56,8 @@ class PaymentsController extends BaseController
      */
     public function getPaymentHistory()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'GET') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -69,7 +69,7 @@ class PaymentsController extends BaseController
         $paymentSequence = $this->request->getGet('payment_sequence') ?? 1;
 
         if (!$payerId || (!$contributionId && !$productId)) {
-            return $this->response->setJSON([
+            return $this->response->setStatusCode(422)->setJSON([
                 'success' => false,
                 'message' => 'Payer ID and item ID are required'
             ]);
@@ -77,9 +77,13 @@ class PaymentsController extends BaseController
 
         try {
             $paymentModel = new PaymentModel();
+            $normalizedSequence = $paymentSequence;
+            if ($normalizedSequence !== null && $normalizedSequence !== '') {
+                $normalizedSequence = (int) $normalizedSequence;
+            }
             $payments = $productId
-                ? $paymentModel->getPaymentsByPayerAndProduct($payerId, $productId, null)
-                : $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, null);
+                ? $paymentModel->getPaymentsByPayerAndProduct($payerId, $productId, $normalizedSequence)
+                : $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $normalizedSequence);
 
             // Add refund information for each payment
             $refundModel = new \App\Models\RefundModel();
@@ -117,8 +121,9 @@ class PaymentsController extends BaseController
                 'payments' => $payments
             ]);
 
-        } catch (\Exception $e) {
-            return $this->response->setJSON([
+        } catch (\Throwable $e) {
+            log_message('error', 'getPaymentHistory failed: ' . $e->getMessage());
+            return $this->response->setStatusCode(500)->setJSON([
                 'success' => false,
                 'message' => 'Error: ' . $e->getMessage()
             ]);
@@ -1654,8 +1659,8 @@ class PaymentsController extends BaseController
      */
     public function deletePaymentGroup()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -1766,8 +1771,8 @@ class PaymentsController extends BaseController
      */
     public function deletePayment()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -1897,8 +1902,8 @@ class PaymentsController extends BaseController
      */
     public function checkUnpaidContributions()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'GET') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -1934,8 +1939,8 @@ class PaymentsController extends BaseController
      */
     public function checkFullyPaidContributions()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'GET') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -1971,8 +1976,8 @@ class PaymentsController extends BaseController
      */
     public function checkContributionStatus()
     {
-        if ($this->request->getMethod() !== 'GET') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'GET') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -2117,8 +2122,8 @@ class PaymentsController extends BaseController
     public function getPaymentDetails()
     {
         // Allow both AJAX and regular GET requests
-        if ($this->request->getMethod() !== 'GET') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'GET') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -2327,8 +2332,8 @@ class PaymentsController extends BaseController
      */
     public function getContributionWarningData()
     {
-        if ($this->request->getMethod() !== 'GET') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'GET') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);

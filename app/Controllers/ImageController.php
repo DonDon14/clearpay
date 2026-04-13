@@ -24,11 +24,8 @@ class ImageController extends Controller
      */
     public function serve($subfolder = '', $filename = '')
     {
-        // Log request for debugging (use error level so it shows in Render logs)
-        log_message('error', 'ImageController::serve called - Subfolder: [' . $subfolder . '], Filename: [' . $filename . ']');
-        log_message('error', 'ImageController::serve - Request URI: ' . $this->request->getUri()->getPath());
-        log_message('error', 'ImageController::serve - Request Method: ' . $this->request->getMethod());
-        log_message('error', 'ImageController::serve - Full URI: ' . (string)$this->request->getUri());
+        // Keep request-level logging lightweight to avoid false "error" noise in normal image traffic.
+        log_message('debug', 'ImageController::serve - Subfolder: [' . $subfolder . '], Filename: [' . $filename . ']');
         
         // Set CORS headers for image requests (CRITICAL for Flutter Web)
         $this->response->setHeader('Access-Control-Allow-Origin', '*');
@@ -51,8 +48,16 @@ class ImageController extends Controller
         } elseif ($filename) {
             // Handle two-segment routes: /uploads/profile/filename.png
             // Route: /uploads/profile/filename.png -> $subfolder='profile', $filename='filename.png'
-            $allowedSubfolders = ['profile', 'payment_proofs', 'payment_methods', 'qr_receipts'];
+            $allowedSubfolders = [
+                'profile',
+                'payment_proofs',
+                'payment_methods',
+                'qr_receipts',
+                'contribution_items',
+                'product_items',
+            ];
             if (!in_array($subfolder, $allowedSubfolders)) {
+                log_message('warning', 'ImageController::serve - Invalid subfolder: ' . $subfolder);
                 return $this->response->setStatusCode(403)->setBody('Invalid subfolder: ' . $subfolder);
             }
             
@@ -64,6 +69,7 @@ class ImageController extends Controller
             $filePath = FCPATH . 'uploads' . DIRECTORY_SEPARATOR . $subfolder . DIRECTORY_SEPARATOR . $filename;
         } else {
             // Single segment - invalid format, need either logo.png or subfolder/filename
+            log_message('warning', 'ImageController::serve - Invalid image path format. URI: ' . $this->request->getUri()->getPath());
             return $this->response->setStatusCode(400)->setBody('Invalid image path format. Expected: /uploads/subfolder/filename or /uploads/logo.png');
         }
         
@@ -72,11 +78,13 @@ class ImageController extends Controller
         $realFilePath = realpath($filePath);
         
         if (!$realFilePath || strpos($realFilePath, $realUploadsPath) !== 0) {
+            log_message('warning', 'ImageController::serve - Real path validation failed for file: ' . (string)$filePath);
             return $this->response->setStatusCode(404)->setBody('Image not found');
         }
         
         // Check if file exists
         if (!file_exists($filePath) || !is_file($filePath)) {
+            log_message('notice', 'ImageController::serve - Image not found: ' . (string)$filePath);
             return $this->response->setStatusCode(404)->setBody('Image not found');
         }
         

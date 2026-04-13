@@ -133,12 +133,17 @@ class Email extends BaseConfig
         // Try to load from database first
         try {
             $db = \Config\Database::connect();
-            $settings = $db->table('email_settings')
-                ->where('is_active', true)
-                ->orderBy('id', 'DESC')
-                ->limit(1)
-                ->get()
-                ->getRowArray();
+            $settings = null;
+
+            // Avoid exception-driven flow when the table is not available (common in fresh/test DBs).
+            if ($db->tableExists('email_settings')) {
+                $settings = $db->table('email_settings')
+                    ->where('is_active', true)
+                    ->orderBy('id', 'DESC')
+                    ->limit(1)
+                    ->get()
+                    ->getRowArray();
+            }
             
             if ($settings) {
                 $this->fromEmail = $settings['from_email'] ?? '';

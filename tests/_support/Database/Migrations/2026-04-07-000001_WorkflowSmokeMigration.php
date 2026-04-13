@@ -71,6 +71,21 @@ class WorkflowSmokeMigration extends Migration
 
         $this->forge->addField([
             'id' => ['type' => 'INTEGER', 'auto_increment' => true],
+            'title' => ['type' => 'VARCHAR', 'constraint' => 255],
+            'description' => ['type' => 'TEXT', 'null' => true],
+            'amount' => ['type' => 'DECIMAL', 'constraint' => '10,2', 'default' => '0.00'],
+            'cost_price' => ['type' => 'DECIMAL', 'constraint' => '10,2', 'null' => true],
+            'profit_amount' => ['type' => 'DECIMAL', 'constraint' => '10,2', 'null' => true],
+            'status' => ['type' => 'VARCHAR', 'constraint' => 20, 'default' => 'active'],
+            'created_by' => ['type' => 'INTEGER', 'null' => true],
+            'created_at' => ['type' => 'DATETIME', 'null' => true],
+            'updated_at' => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id', true);
+        $this->forge->createTable('products', true);
+
+        $this->forge->addField([
+            'id' => ['type' => 'INTEGER', 'auto_increment' => true],
             'name' => ['type' => 'VARCHAR', 'constraint' => 100],
             'icon' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
             'description' => ['type' => 'TEXT', 'null' => true],
@@ -103,7 +118,9 @@ class WorkflowSmokeMigration extends Migration
         $this->forge->addField([
             'id' => ['type' => 'INTEGER', 'auto_increment' => true],
             'payer_id' => ['type' => 'INTEGER'],
-            'contribution_id' => ['type' => 'INTEGER'],
+            'contribution_id' => ['type' => 'INTEGER', 'null' => true],
+            'product_id' => ['type' => 'INTEGER', 'null' => true],
+            'quantity' => ['type' => 'INTEGER', 'default' => 1],
             'amount_paid' => ['type' => 'DECIMAL', 'constraint' => '10,2', 'default' => '0.00'],
             'payment_method' => ['type' => 'VARCHAR', 'constraint' => 100],
             'payment_status' => ['type' => 'VARCHAR', 'constraint' => 20],
@@ -126,7 +143,9 @@ class WorkflowSmokeMigration extends Migration
         $this->forge->addField([
             'id' => ['type' => 'INTEGER', 'auto_increment' => true],
             'payer_id' => ['type' => 'INTEGER'],
-            'contribution_id' => ['type' => 'INTEGER'],
+            'contribution_id' => ['type' => 'INTEGER', 'null' => true],
+            'product_id' => ['type' => 'INTEGER', 'null' => true],
+            'quantity' => ['type' => 'INTEGER', 'default' => 1],
             'payment_sequence' => ['type' => 'INTEGER', 'null' => true],
             'requested_amount' => ['type' => 'DECIMAL', 'constraint' => '10,2', 'default' => '0.00'],
             'payment_method' => ['type' => 'VARCHAR', 'constraint' => 100],
@@ -148,7 +167,8 @@ class WorkflowSmokeMigration extends Migration
             'id' => ['type' => 'INTEGER', 'auto_increment' => true],
             'payment_id' => ['type' => 'INTEGER'],
             'payer_id' => ['type' => 'INTEGER'],
-            'contribution_id' => ['type' => 'INTEGER'],
+            'contribution_id' => ['type' => 'INTEGER', 'null' => true],
+            'product_id' => ['type' => 'INTEGER', 'null' => true],
             'refund_amount' => ['type' => 'DECIMAL', 'constraint' => '12,2', 'default' => '0.00'],
             'refund_reason' => ['type' => 'TEXT', 'null' => true],
             'refund_method' => ['type' => 'VARCHAR', 'constraint' => 50],
@@ -202,10 +222,29 @@ class WorkflowSmokeMigration extends Migration
         ]);
         $this->forge->addKey('id', true);
         $this->forge->createTable('user_activities', true);
+
+        $this->forge->addField([
+            'id' => ['type' => 'INTEGER', 'auto_increment' => true],
+            'from_email' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'from_name' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'protocol' => ['type' => 'VARCHAR', 'constraint' => 20, 'null' => true],
+            'smtp_host' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'smtp_user' => ['type' => 'VARCHAR', 'constraint' => 255, 'null' => true],
+            'smtp_pass' => ['type' => 'TEXT', 'null' => true],
+            'smtp_port' => ['type' => 'INTEGER', 'null' => true],
+            'smtp_crypto' => ['type' => 'VARCHAR', 'constraint' => 20, 'null' => true],
+            'mail_type' => ['type' => 'VARCHAR', 'constraint' => 20, 'null' => true],
+            'is_active' => ['type' => 'INTEGER', 'default' => 1],
+            'created_at' => ['type' => 'DATETIME', 'null' => true],
+            'updated_at' => ['type' => 'DATETIME', 'null' => true],
+        ]);
+        $this->forge->addKey('id', true);
+        $this->forge->createTable('email_settings', true);
     }
 
     public function down(): void
     {
+        $this->forge->dropTable('email_settings', true);
         $this->forge->dropTable('user_activities', true);
         $this->forge->dropTable('activity_logs', true);
         $this->forge->dropTable('refunds', true);
@@ -213,6 +252,7 @@ class WorkflowSmokeMigration extends Migration
         $this->forge->dropTable('payments', true);
         $this->forge->dropTable('refund_methods', true);
         $this->forge->dropTable('payment_methods', true);
+        $this->forge->dropTable('products', true);
         $this->forge->dropTable('contributions', true);
         $this->forge->dropTable('payers', true);
         $this->forge->dropTable('users', true);

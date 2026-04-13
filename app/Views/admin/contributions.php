@@ -136,7 +136,6 @@
                         <select id="filterType" class="form-select">
                             <option value="">All Types</option>
                             <option value="contribution">Contribution</option>
-                            <option value="product">Product</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -172,6 +171,20 @@
         'contributions' => $contributions ?? []
     ])
 ]) ?>
+
+<div class="modal fade" id="contributionImagePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contributionImagePreviewTitle">Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img src="" alt="" id="contributionImagePreviewModalImage" class="img-fluid rounded-4">
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Contribution Payments Modal -->
 <?= view('partials/modal-contribution-payments') ?>
@@ -220,6 +233,18 @@ function editContribution(contributionId) {
                 document.getElementById('contributionType').value = contribution.contribution_type || 'contribution';
                 document.getElementById('contributionCode').value = contribution.contribution_code || '';
                 document.getElementById('contributionDescription').value = contribution.description || '';
+                document.getElementById('contributionRemoveImage').value = '0';
+                if (contribution.image_path) {
+                    const imagePath = String(contribution.image_path);
+                    const imageUrl = /^https?:\/\//i.test(imagePath)
+                        ? imagePath
+                        : `<?= rtrim(base_url(), '/') ?>/` + imagePath.replace(/^\/+/, '');
+                    document.getElementById('contributionImagePreview').src = imageUrl;
+                    document.getElementById('contributionImagePreviewWrap').classList.remove('d-none');
+                } else {
+                    document.getElementById('contributionImagePreview').src = '';
+                    document.getElementById('contributionImagePreviewWrap').classList.add('d-none');
+                }
                 document.getElementById('contributionGrandTotal').value = contribution.grand_total || '';
                 document.getElementById('contributionCostPrice').value = contribution.cost_price || '0.00';
                 document.getElementById('contributionCategory').value = contribution.category || '';
@@ -337,6 +362,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners for auto-calculation
     const grandTotalField = document.getElementById('contributionGrandTotal');
     const numPayersField = document.getElementById('contributionNumPayers');
+    const contributionImageInput = document.getElementById('contributionImage');
+    const contributionImagePreview = document.getElementById('contributionImagePreview');
+    const contributionImagePreviewWrap = document.getElementById('contributionImagePreviewWrap');
     
     if (grandTotalField) {
         grandTotalField.addEventListener('input', calculateAmountPerPayer);
@@ -346,6 +374,35 @@ document.addEventListener('DOMContentLoaded', function() {
     if (numPayersField) {
         numPayersField.addEventListener('input', calculateAmountPerPayer);
         numPayersField.addEventListener('change', calculateAmountPerPayer);
+    }
+
+    if (contributionImageInput) {
+        contributionImageInput.addEventListener('change', function() {
+            const file = this.files && this.files[0];
+            if (!file) {
+                return;
+            }
+
+            document.getElementById('contributionRemoveImage').value = '0';
+            contributionImagePreview.src = URL.createObjectURL(file);
+            contributionImagePreviewWrap.classList.remove('d-none');
+        });
+    }
+
+    const contributionRemoveImageBtn = document.getElementById('contributionRemoveImageBtn');
+    if (contributionRemoveImageBtn) {
+        contributionRemoveImageBtn.addEventListener('click', function() {
+            if (contributionImageInput) {
+                contributionImageInput.value = '';
+            }
+            if (contributionImagePreview) {
+                contributionImagePreview.src = '';
+            }
+            if (contributionImagePreviewWrap) {
+                contributionImagePreviewWrap.classList.add('d-none');
+            }
+            document.getElementById('contributionRemoveImage').value = '1';
+        });
     }
 
     const contributionModal = document.getElementById('contributionModal');
@@ -365,6 +422,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Clear hidden ID field
             document.getElementById('contributionId').value = '';
+            document.getElementById('contributionRemoveImage').value = '0';
+            if (contributionImagePreviewWrap) {
+                contributionImagePreviewWrap.classList.add('d-none');
+            }
+            if (contributionImagePreview) {
+                contributionImagePreview.src = '';
+            }
             
             // Reset amount field
             document.getElementById('contributionAmount').value = '0.00';
@@ -495,6 +559,12 @@ function clearFilters() {
     // Update results count
     const items = document.querySelectorAll('.contribution-item');
     document.getElementById('resultsCount').textContent = `Showing ${items.length} of ${items.length} items`;
+}
+
+function openContributionImagePreview(src, title) {
+    document.getElementById('contributionImagePreviewTitle').textContent = title || 'Contribution Image';
+    document.getElementById('contributionImagePreviewModalImage').src = src;
+    new bootstrap.Modal(document.getElementById('contributionImagePreviewModal')).show();
 }
 </script>
 

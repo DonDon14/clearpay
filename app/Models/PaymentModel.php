@@ -222,8 +222,9 @@ class PaymentModel extends Model
                     'payer_id' => $row['payer_id'],
                     'contribution_id' => $row['contribution_id'],
                     'product_id' => $row['product_id'],
+                    'item_id' => $isProduct ? $row['product_id'] : $row['contribution_id'],
                     'item_type' => $isProduct ? 'product' : 'contribution',
-                    'payment_sequence' => $isProduct ? null : 1,
+                    'payment_sequence' => $isProduct ? (int) $row['id'] : 1,
                     'payer_name' => $row['payer_name'],
                     'payer_student_id' => $row['payer_student_id'],
                     'contact_number' => $row['contact_number'],
@@ -316,6 +317,17 @@ class PaymentModel extends Model
         ->where('payments.payer_id', $payerId)
         ->where('payments.contribution_id', $contributionId)
         ->where('payments.deleted_at', null);
+
+        if ($paymentSequence !== null && $paymentSequence !== '') {
+            if ((int) $paymentSequence === 1) {
+                $builder->groupStart()
+                    ->where('payments.payment_sequence', 1)
+                    ->orWhere('payments.payment_sequence IS NULL')
+                    ->groupEnd();
+            } else {
+                $builder->where('payments.payment_sequence', (int) $paymentSequence);
+            }
+        }
         
         $payments = $builder->orderBy('payments.payment_date', 'DESC')->findAll();
 
@@ -355,6 +367,10 @@ class PaymentModel extends Model
         ->where('payments.payer_id', $payerId)
         ->where('payments.product_id', $productId)
         ->where('payments.deleted_at', null);
+
+        if ($paymentSequence !== null && $paymentSequence !== '') {
+            $builder->where('payments.id', $paymentSequence);
+        }
 
         $payments = $builder->orderBy('payments.payment_date', 'DESC')->findAll();
 

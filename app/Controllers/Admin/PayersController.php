@@ -10,8 +10,8 @@ class PayersController extends BaseController
 {
     public function create()
     {
-        if ($this->request->getMethod() !== 'POST') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);

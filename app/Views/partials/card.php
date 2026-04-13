@@ -1,7 +1,7 @@
 <?php
 // Usage variables: $icon, $iconColor, $title, $text
 $iconColor = $iconColor ?? 'text-primary';
-$icon = $icon ?? 'fas fa-info-circle';
+$icon = trim((string) ($icon ?? 'fas fa-info-circle'));
 $title = $title ?? 'Card Title';
 $text = $text ?? 'Card description text';
 $subtitle = $subtitle ?? null;
@@ -9,6 +9,18 @@ $cardClass = $cardClass ?? '';
 $bodyClass = $bodyClass ?? '';
 $textClass = $textClass ?? '';
 $titleClass = $titleClass ?? '';
+
+// Normalize shorthand icon names used across admin cards.
+$iconAliases = [
+    'users-slash' => 'user-slash',
+    'envelope-circle-check' => 'envelope-open-text',
+    'peso-sign' => 'money-bill-wave',
+];
+
+if ($icon !== '' && strpos($icon, ' ') === false) {
+    $resolved = $iconAliases[$icon] ?? $icon;
+    $icon = 'fas fa-' . $resolved;
+}
 ?>
 
 <div class="card border-0 shadow-sm h-100 ui-metric-card <?= esc($cardClass) ?>">

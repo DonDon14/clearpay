@@ -2,14 +2,15 @@
 <div class="modal fade" id="contributionModal" tabindex="-1" aria-labelledby="contributionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form id="contributionForm" method="post" action="<?= isset($action) ? $action : '' ?>">
+            <form id="contributionForm" method="post" enctype="multipart/form-data" action="<?= isset($action) ? $action : '' ?>">
                 <div class="modal-header">
                     <h5 class="modal-title" id="contributionModalLabel"><?= isset($title) ? $title : 'Add Contribution' ?></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
-                    <input type="hidden" name="id" id="contributionEditId" value="<?= isset($contribution['id']) ? $contribution['id'] : '' ?>">
+                    <input type="hidden" name="id" id="contributionId" value="<?= isset($contribution['id']) ? $contribution['id'] : '' ?>">
+                    <input type="hidden" name="remove_image" id="contributionRemoveImage" value="0">
 
                     <input type="hidden" id="contributionType" name="contribution_type" value="contribution">
 
@@ -27,6 +28,16 @@
                     <div class="mb-3">
                         <label for="contributionDescription" class="form-label">Description</label>
                         <textarea class="form-control" id="contributionDescription" name="description" rows="3"><?= isset($contribution['description']) ? $contribution['description'] : '' ?></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="contributionImage" class="form-label">Contribution Image</label>
+                        <input type="file" class="form-control" id="contributionImage" name="image" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif">
+                        <div class="form-text">Optional cover image shown in admin and payer views.</div>
+                        <div class="mt-3 d-none" id="contributionImagePreviewWrap">
+                            <img src="" alt="Contribution preview" id="contributionImagePreview" class="img-fluid rounded-4 border" style="max-height: 220px;">
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="contributionRemoveImageBtn">Remove Image</button>
+                        </div>
                     </div>
 
                     <div class="row">

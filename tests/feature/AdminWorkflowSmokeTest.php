@@ -113,4 +113,73 @@ final class AdminWorkflowSmokeTest extends CIUnitTestCase
         $this->assertSame('partial', $payload['payment']['payment_status']);
         $this->assertSame(50.0, (float) $payload['payment']['amount_paid']);
     }
+
+    public function testAdminCanProcessProductRefundForApprovedProductPayment(): void
+    {
+        $db = db_connect('tests');
+        $now = date('Y-m-d H:i:s');
+
+        $db->table('products')->insert([
+            'id' => 1,
+            'title' => 'Uniform Shirt',
+            'description' => 'Smoke product',
+            'amount' => 500.00,
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $db->table('payments')->insert([
+            'id' => 10,
+            'payer_id' => 1,
+            'contribution_id' => null,
+            'product_id' => 1,
+            'quantity' => 2,
+            'amount_paid' => 1000.00,
+            'payment_method' => 'gcash',
+            'payment_status' => 'fully paid',
+            'is_partial_payment' => 0,
+            'remaining_balance' => 0.00,
+            'payment_sequence' => 10,
+            'reference_number' => 'REF-PROD-10',
+            'receipt_number' => 'RCPT-PROD-10',
+            'recorded_by' => 1,
+            'payment_date' => '2026-04-07 10:00:00',
+            'created_at' => $now,
+            'updated_at' => $now,
+            'deleted_at' => null,
+        ]);
+
+        $result = $this
+            ->withSession($this->adminSession())
+            ->withHeaders(['X-Requested-With' => 'XMLHttpRequest'])
+            ->call('post', 'admin/refunds/process', [
+                'refund_type' => 'group',
+                'payer_id' => '1',
+                'contribution_id' => '',
+                'product_id' => '1',
+                'payment_sequence' => '10',
+                'refund_amount' => '1000.00',
+                'refund_method' => 'cash',
+                'refund_reason' => 'Duplicate product payment',
+            ]);
+
+        $result->assertStatus(200);
+        $payload = json_decode($result->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertTrue($payload['success']);
+        $this->assertSame(1, (int) ($payload['payment_count'] ?? 0));
+        $this->assertSame(1000.0, (float) ($payload['total_refunded'] ?? 0));
+
+        $refund = $db->table('refunds')
+            ->where('payment_id', 10)
+            ->orderBy('id', 'DESC')
+            ->get()
+            ->getRowArray();
+
+        $this->assertNotNull($refund);
+        $this->assertSame(1, (int) $refund['product_id']);
+        $this->assertNull($refund['contribution_id']);
+        $this->assertSame('completed', $refund['status']);
+    }
 }

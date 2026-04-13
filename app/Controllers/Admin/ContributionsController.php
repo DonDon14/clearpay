@@ -35,6 +35,8 @@ class ContributionsController extends BaseController
             }
 
             $model = new ContributionModel();
+            $id = $this->request->getPost('id');
+            $existing = $id ? $model->find($id) : null;
 
             // Get user ID from session with proper fallback - use user-id (hyphen) as per LoginController
             $userId = session()->get('user-id');
@@ -77,7 +79,20 @@ class ContributionsController extends BaseController
                 'updated_at'        => date('Y-m-d H:i:s')
             ];
 
-            $id = $this->request->getPost('id');
+            $imageFile = $this->request->getFile('image');
+            $removeImage = $this->request->getPost('remove_image') === '1';
+            if ($imageFile && $imageFile->isValid() && $imageFile->getError() !== UPLOAD_ERR_NO_FILE) {
+                $data['image_path'] = $this->storePublicImageUpload($imageFile, 'contribution_items', 'contribution', $existing['image_path'] ?? null);
+            } elseif ($removeImage) {
+                $oldImage = $this->normalizePublicUploadPath($existing['image_path'] ?? null, 'contribution_items');
+                if ($oldImage) {
+                    $oldFile = FCPATH . $oldImage;
+                    if (is_file($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+                $data['image_path'] = null;
+            }
 
             if ($id) {
                 // Update existing contribution
@@ -149,6 +164,7 @@ class ContributionsController extends BaseController
             $contribution = $model->find($id);
 
             if ($contribution) {
+                $contribution['image_path'] = $this->normalizePublicUploadPath($contribution['image_path'] ?? null, 'contribution_items');
                 return $this->response->setJSON([
                     'success' => true,
                     'contribution' => $contribution
@@ -211,6 +227,21 @@ class ContributionsController extends BaseController
                 'status'            => $this->request->getPost('status'),
                 'updated_at'        => date('Y-m-d H:i:s')
             ];
+
+            $imageFile = $this->request->getFile('image');
+            $removeImage = $this->request->getPost('remove_image') === '1';
+            if ($imageFile && $imageFile->isValid() && $imageFile->getError() !== UPLOAD_ERR_NO_FILE) {
+                $data['image_path'] = $this->storePublicImageUpload($imageFile, 'contribution_items', 'contribution', $existing['image_path'] ?? null);
+            } elseif ($removeImage) {
+                $oldImage = $this->normalizePublicUploadPath($existing['image_path'] ?? null, 'contribution_items');
+                if ($oldImage) {
+                    $oldFile = FCPATH . $oldImage;
+                    if (is_file($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+                $data['image_path'] = null;
+            }
 
             $result = $model->update($id, $data);
 

@@ -26,6 +26,8 @@ class ProductsController extends BaseController
             }
 
             $model = new ProductModel();
+            $id = $this->request->getPost('id');
+            $existing = $id ? $model->find($id) : null;
             $data = [
                 'title' => $this->request->getPost('title'),
                 'description' => $this->request->getPost('description'),
@@ -34,11 +36,29 @@ class ProductsController extends BaseController
                 'category' => $this->request->getPost('category'),
                 'status' => $this->request->getPost('status'),
                 'created_by' => session()->get('user-id') ?: null,
-                'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
             ];
 
-            $id = $this->request->getPost('id');
+            $imageFile = $this->request->getFile('image');
+            $removeImage = $this->request->getPost('remove_image') === '1';
+
+            if ($imageFile && $imageFile->isValid() && $imageFile->getError() !== UPLOAD_ERR_NO_FILE) {
+                $data['image_path'] = $this->storePublicImageUpload($imageFile, 'product_items', 'product', $existing['image_path'] ?? null);
+            } elseif ($removeImage) {
+                $oldImage = $this->normalizePublicUploadPath($existing['image_path'] ?? null, 'product_items');
+                if ($oldImage) {
+                    $oldFile = FCPATH . $oldImage;
+                    if (is_file($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+                $data['image_path'] = null;
+            }
+
+            if (!$id) {
+                $data['created_at'] = date('Y-m-d H:i:s');
+            }
+
             $result = $id ? $model->update($id, $data) : $model->insert($data);
 
             return $this->response->setJSON([
@@ -56,6 +76,9 @@ class ProductsController extends BaseController
     public function get($id)
     {
         $product = (new ProductModel())->find($id);
+        if ($product) {
+            $product['image_path'] = $this->normalizePublicUploadPath($product['image_path'] ?? null, 'product_items');
+        }
 
         return $this->response->setJSON([
             'success' => (bool) $product,

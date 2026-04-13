@@ -9,164 +9,253 @@ class VerifySetup extends BaseCommand
 {
     protected $group       = 'Setup';
     protected $name        = 'setup:verify';
-    protected $description = 'Verify that the application is properly set up';
+    protected $description = 'Verify that ClearPay local setup is ready for end-to-end workflow testing';
 
     public function run(array $params)
     {
-        CLI::write('Verifying ClearPay Setup...', 'yellow');
+        CLI::write('Verifying ClearPay setup...', 'yellow');
         CLI::newLine();
 
         $errors = [];
         $warnings = [];
+        $db = null;
 
-        // 1. Check database connection
-        CLI::write('1. Checking database connection...', 'cyan');
+        CLI::write('1. Database connection', 'cyan');
         try {
-            $db = \Config\Database::connect();
+            $db = db_connect();
             $db->query('SELECT 1');
-            CLI::write('   ✓ Database connection successful', 'green');
-        } catch (\Exception $e) {
+            CLI::write('   [OK] Database connection successful', 'green');
+        } catch (\Throwable $e) {
             $errors[] = 'Database connection failed: ' . $e->getMessage();
-            CLI::write('   ✗ Database connection failed', 'red');
+            CLI::write('   [FAIL] Database connection failed', 'red');
         }
         CLI::newLine();
 
-        // 2. Check if tables exist
-        CLI::write('2. Checking database tables...', 'cyan');
-        try {
-            $db = \Config\Database::connect();
+        CLI::write('2. Required database tables', 'cyan');
+        if ($db === null) {
+            $errors[] = 'Cannot verify required tables because DB connection failed.';
+            CLI::write('   [FAIL] Skipped (no DB connection)', 'red');
+        } else {
             $tables = $db->listTables();
-            $requiredTables = ['users', 'payers', 'contributions', 'payments', 'payment_methods', 'announcements'];
+            $requiredTables = [
+                'users',
+                'payers',
+                'contributions',
+                'products',
+                'payments',
+                'payment_requests',
+                'refunds',
+                'payment_methods',
+            ];
+
             $missingTables = [];
-            
             foreach ($requiredTables as $table) {
-                if (!in_array($table, $tables)) {
+                if (!in_array($table, $tables, true)) {
                     $missingTables[] = $table;
                 }
             }
-            
+
             if (empty($missingTables)) {
-                CLI::write('   ✓ All required tables exist', 'green');
+                CLI::write('   [OK] All required tables exist', 'green');
             } else {
                 $errors[] = 'Missing tables: ' . implode(', ', $missingTables);
-                CLI::write('   ✗ Missing tables: ' . implode(', ', $missingTables), 'red');
+                CLI::write('   [FAIL] Missing tables: ' . implode(', ', $missingTables), 'red');
             }
-        } catch (\Exception $e) {
-            $errors[] = 'Error checking tables: ' . $e->getMessage();
-            CLI::write('   ✗ Error checking tables', 'red');
         }
         CLI::newLine();
 
-        // 3. Check payment methods (CRITICAL)
-        CLI::write('3. Checking payment methods (CRITICAL)...', 'cyan');
-        try {
-            $db = \Config\Database::connect();
+        CLI::write('3. Payment methods availability', 'cyan');
+        if ($db === null) {
+            $errors[] = 'Cannot verify payment methods because DB connection failed.';
+            CLI::write('   [FAIL] Skipped (no DB connection)', 'red');
+        } else {
             $result = $db->table('payment_methods')
                 ->selectCount('id', 'count')
                 ->where('status', 'active')
                 ->get()
                 ->getRow();
-            $count = (int)$result->count;
-            
-            if ($count >= 4) {
-                CLI::write("   ✓ Found {$count} active payment methods", 'green');
+            $count = (int) ($result->count ?? 0);
+
+            if ($count >= 1) {
+                CLI::write("   [OK] Found {$count} active payment method(s)", 'green');
             } else {
-                $warnings[] = "Only {$count} active payment method(s) found. Expected at least 4.";
-                CLI::write("   ⚠ Only {$count} active payment method(s) found", 'yellow');
+                $errors[] = 'No active payment methods found.';
+                CLI::write('   [FAIL] No active payment methods found', 'red');
                 CLI::write('   Run: php spark db:seed PaymentMethodSeeder', 'yellow');
             }
-        } catch (\Exception $e) {
-            $errors[] = 'Error checking payment methods: ' . $e->getMessage();
-            CLI::write('   ✗ Error checking payment methods', 'red');
         }
         CLI::newLine();
 
-        // 4. Check users
-        CLI::write('4. Checking users...', 'cyan');
-        try {
-            $db = \Config\Database::connect();
-            $result = $db->query('SELECT COUNT(*) as count FROM users')->getRow();
-            $count = (int)$result->count;
-            
-            if ($count > 0) {
-                CLI::write("   ✓ Found {$count} user(s)", 'green');
+        CLI::write('4. Seeded users/payers', 'cyan');
+        if ($db === null) {
+            $errors[] = 'Cannot verify users/payers because DB connection failed.';
+            CLI::write('   [FAIL] Skipped (no DB connection)', 'red');
+        } else {
+            $userCount = (int) ($db->table('users')->countAllResults() ?? 0);
+            $payerCount = (int) ($db->table('payers')->countAllResults() ?? 0);
+
+            if ($userCount > 0) {
+                CLI::write("   [OK] Found {$userCount} user(s)", 'green');
             } else {
                 $warnings[] = 'No users found. Run: php spark db:seed UserSeeder';
-                CLI::write('   ⚠ No users found', 'yellow');
+                CLI::write('   [WARN] No users found', 'yellow');
             }
-        } catch (\Exception $e) {
-            $errors[] = 'Error checking users: ' . $e->getMessage();
-            CLI::write('   ✗ Error checking users', 'red');
-        }
-        CLI::newLine();
 
-        // 5. Check contributions
-        CLI::write('5. Checking contributions...', 'cyan');
-        try {
-            $db = \Config\Database::connect();
-            $result = $db->query('SELECT COUNT(*) as count FROM contributions')->getRow();
-            $count = (int)$result->count;
-            
-            if ($count > 0) {
-                CLI::write("   ✓ Found {$count} contribution(s)", 'green');
+            if ($payerCount > 0) {
+                CLI::write("   [OK] Found {$payerCount} payer(s)", 'green');
             } else {
-                CLI::write('   ⚠ No contributions found (this is OK if you plan to create them)', 'yellow');
+                $warnings[] = 'No payers found. Run your payer seed/setup workflow before E2E tests.';
+                CLI::write('   [WARN] No payers found', 'yellow');
             }
-        } catch (\Exception $e) {
-            $errors[] = 'Error checking contributions: ' . $e->getMessage();
-            CLI::write('   ✗ Error checking contributions', 'red');
         }
         CLI::newLine();
 
-        // 6. Check .env file
-        CLI::write('6. Checking environment configuration...', 'cyan');
+        CLI::write('5. Contributions/products data', 'cyan');
+        if ($db === null) {
+            $errors[] = 'Cannot verify contributions/products because DB connection failed.';
+            CLI::write('   [FAIL] Skipped (no DB connection)', 'red');
+        } else {
+            $contributionCount = (int) ($db->table('contributions')->countAllResults() ?? 0);
+            $productCount = (int) ($db->table('products')->countAllResults() ?? 0);
+
+            if ($contributionCount > 0) {
+                CLI::write("   [OK] Found {$contributionCount} contribution item(s)", 'green');
+            } else {
+                $warnings[] = 'No contributions found.';
+                CLI::write('   [WARN] No contributions found', 'yellow');
+            }
+
+            if ($productCount > 0) {
+                CLI::write("   [OK] Found {$productCount} product item(s)", 'green');
+            } else {
+                $warnings[] = 'No products found.';
+                CLI::write('   [WARN] No products found', 'yellow');
+            }
+        }
+        CLI::newLine();
+
+        CLI::write('6. Upload directories', 'cyan');
+        $uploadRoot = FCPATH . 'uploads' . DIRECTORY_SEPARATOR;
+        $requiredDirs = ['profile', 'payment_proofs', 'contribution_items', 'product_items'];
+
+        if (!is_dir($uploadRoot)) {
+            $errors[] = 'Upload root missing: ' . $uploadRoot;
+            CLI::write('   [FAIL] Upload root folder missing', 'red');
+        } else {
+            CLI::write('   [OK] Upload root exists', 'green');
+        }
+
+        foreach ($requiredDirs as $dir) {
+            $fullPath = $uploadRoot . $dir;
+            if (!is_dir($fullPath)) {
+                $warnings[] = 'Missing upload subfolder: ' . $fullPath;
+                CLI::write("   [WARN] Missing subfolder: {$dir}", 'yellow');
+                continue;
+            }
+
+            if (!is_writable($fullPath)) {
+                $warnings[] = 'Upload subfolder not writable: ' . $fullPath;
+                CLI::write("   [WARN] Not writable: {$dir}", 'yellow');
+                continue;
+            }
+
+            CLI::write("   [OK] {$dir}", 'green');
+        }
+        CLI::newLine();
+
+        CLI::write('7. Environment configuration', 'cyan');
         $envPath = ROOTPATH . '.env';
         if (file_exists($envPath)) {
-            CLI::write('   ✓ .env file exists', 'green');
+            CLI::write('   [OK] .env file exists', 'green');
         } else {
             $warnings[] = '.env file not found. Create one from .env.example or .env.example.postgresql';
-            CLI::write('   ⚠ .env file not found', 'yellow');
+            CLI::write('   [WARN] .env file not found', 'yellow');
+        }
+
+        $brevoKey = getenv('BREVO_API_KEY') ?: ($_ENV['BREVO_API_KEY'] ?? '');
+        if ($brevoKey !== '') {
+            CLI::write('   [OK] BREVO_API_KEY is set', 'green');
+        } else {
+            $warnings[] = 'BREVO_API_KEY is not set. Verification/reset emails will fail unless SMTP fallback is configured.';
+            CLI::write('   [WARN] BREVO_API_KEY is not set', 'yellow');
+        }
+
+        $cloudName = getenv('CLOUDINARY_CLOUD_NAME') ?: ($_ENV['CLOUDINARY_CLOUD_NAME'] ?? '');
+        $apiKey = getenv('CLOUDINARY_API_KEY') ?: ($_ENV['CLOUDINARY_API_KEY'] ?? '');
+        $apiSecret = getenv('CLOUDINARY_API_SECRET') ?: ($_ENV['CLOUDINARY_API_SECRET'] ?? '');
+        if ($cloudName !== '' && $apiKey !== '' && $apiSecret !== '') {
+            CLI::write('   [OK] Cloudinary credentials are set', 'green');
+        } else {
+            $warnings[] = 'Cloudinary credentials are incomplete. App will use local uploads instead.';
+            CLI::write('   [WARN] Cloudinary credentials are incomplete (local upload fallback expected)', 'yellow');
         }
         CLI::newLine();
 
-        // Summary
+        CLI::write('8. Optional email_settings table', 'cyan');
+        if ($db === null) {
+            $warnings[] = 'Could not verify email_settings table because DB connection failed.';
+            CLI::write('   [WARN] Skipped (no DB connection)', 'yellow');
+        } else {
+            if (!$db->tableExists('email_settings')) {
+                $warnings[] = 'email_settings table missing. SMTP UI settings may be unavailable.';
+                CLI::write('   [WARN] email_settings table missing', 'yellow');
+            } else {
+                CLI::write('   [OK] email_settings table exists', 'green');
+            }
+        }
         CLI::newLine();
+
+        CLI::write('9. Activity logging tables', 'cyan');
+        if ($db === null) {
+            $warnings[] = 'Could not verify activity logging tables because DB connection failed.';
+            CLI::write('   [WARN] Skipped (no DB connection)', 'yellow');
+        } else {
+            $hasActivityLogs = $db->tableExists('activity_logs');
+            $hasUserActivities = $db->tableExists('user_activities');
+            if ($hasActivityLogs || $hasUserActivities) {
+                CLI::write('   [OK] Activity logging tables detected', 'green');
+            } else {
+                $warnings[] = 'No activity log table found (expected activity_logs or user_activities).';
+                CLI::write('   [WARN] Activity logging tables not detected', 'yellow');
+            }
+        }
+        CLI::newLine();
+
         CLI::write('========================================', 'yellow');
         CLI::write('Setup Verification Summary', 'yellow');
         CLI::write('========================================', 'yellow');
         CLI::newLine();
 
         if (empty($errors) && empty($warnings)) {
-            CLI::write('✓ Setup is complete! Everything looks good.', 'green');
+            CLI::write('[OK] Setup is complete. All checks passed.', 'green');
             CLI::newLine();
             return 0;
         }
 
         if (!empty($errors)) {
-            CLI::write('✗ ERRORS FOUND:', 'red');
+            CLI::write('[FAIL] Errors:', 'red');
             foreach ($errors as $error) {
-                CLI::write('  - ' . $error, 'red');
+                CLI::write(' - ' . $error, 'red');
             }
             CLI::newLine();
         }
 
         if (!empty($warnings)) {
-            CLI::write('⚠ WARNINGS:', 'yellow');
+            CLI::write('[WARN] Warnings:', 'yellow');
             foreach ($warnings as $warning) {
-                CLI::write('  - ' . $warning, 'yellow');
+                CLI::write(' - ' . $warning, 'yellow');
             }
             CLI::newLine();
         }
 
         if (!empty($errors)) {
-            CLI::write('Please fix the errors above before using the application.', 'red');
+            CLI::write('Fix the errors above before running full workflow tests.', 'red');
             CLI::newLine();
             return 1;
         }
 
-        CLI::write('Setup is mostly complete, but please address the warnings above.', 'yellow');
+        CLI::write('No blocking errors found. Resolve warnings for production readiness.', 'yellow');
         CLI::newLine();
         return 0;
     }
 }
-

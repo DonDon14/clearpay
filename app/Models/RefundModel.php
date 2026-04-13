@@ -16,6 +16,7 @@ class RefundModel extends Model
         'payment_id',
         'payer_id',
         'contribution_id',
+        'product_id',
         'refund_amount',
         'refund_reason',
         'refund_method',
@@ -38,7 +39,8 @@ class RefundModel extends Model
     protected $validationRules = [
         'payment_id' => 'required|integer',
         'payer_id' => 'required|integer',
-        'contribution_id' => 'required|integer',
+        'contribution_id' => 'permit_empty|integer',
+        'product_id' => 'permit_empty|integer',
         'refund_amount' => 'required|decimal',
         'refund_method' => 'required|alpha_dash|max_length[50]', // Dynamic validation happens in controller
         'status' => 'required|in_list[pending,processing,completed,rejected,cancelled]',
@@ -128,14 +130,17 @@ class RefundModel extends Model
             payers.contact_number,
             payers.email_address,
             payers.profile_picture,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description,
+            COALESCE(contributions.title, products.title) as contribution_title,
+            COALESCE(contributions.description, products.description) as contribution_description,
+            refunds.product_id,
+            CASE WHEN refunds.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type,
             users.username as processed_by_username,
             users.name as processed_by_name
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('payers', 'payers.id = refunds.payer_id', 'left')
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+        ->join('products', 'products.id = refunds.product_id', 'left')
         ->join('users', 'users.id = refunds.processed_by', 'left');
 
         if ($status) {
@@ -179,13 +184,16 @@ class RefundModel extends Model
             payers.contact_number,
             payers.email_address,
             payers.profile_picture,
-            contributions.title as contribution_title,
+            COALESCE(contributions.title, products.title) as contribution_title,
+            refunds.product_id,
+            CASE WHEN refunds.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type,
             users.username as processed_by_username,
             users.name as processed_by_name
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('payers', 'payers.id = refunds.payer_id', 'left')
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+        ->join('products', 'products.id = refunds.product_id', 'left')
         ->join('users', 'users.id = refunds.processed_by', 'left')
         ->whereIn('refunds.status', ['completed', 'rejected', 'cancelled']);
 
@@ -213,10 +221,13 @@ class RefundModel extends Model
             payments.amount_paid,
             payments.receipt_number,
             payments.payment_date,
-            contributions.title as contribution_title
+            COALESCE(contributions.title, products.title) as contribution_title,
+            refunds.product_id,
+            CASE WHEN refunds.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+        ->join('products', 'products.id = refunds.product_id', 'left')
         ->where('refunds.payer_id', $payerId);
         
         if ($status) {

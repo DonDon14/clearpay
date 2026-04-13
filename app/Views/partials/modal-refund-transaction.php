@@ -4,8 +4,8 @@
  * 
  * This is an independent modal for processing refunds that can be reused across pages.
  * Supports two refund types:
- * - Group Refund: Refund all payments in a sequence
- * - Sequence Refund: Select specific payments from a sequence to refund
+ * - Item Refund: Refund all payments represented by an item row
+ * - Payment Refund: Select specific payments to refund
  * 
  * Usage:
  * <?= view('partials/modal-refund-transaction', ['refundMethods' => $refundMethods]) ?>
@@ -34,12 +34,12 @@ $refundMethods = $refundMethods ?? [];
                     <label for="refund_type" class="form-label fw-bold">Refund Type <span class="text-danger">*</span></label>
                     <select class="form-select form-select-lg" id="refund_type" name="refund_type" required>
                         <option value="">-- Select Refund Type --</option>
-                        <option value="group">Group Refund (All Payments in Sequence)</option>
-                        <option value="sequence">Sequence Refund (Select Specific Payments)</option>
+                        <option value="group">Item Refund (All Payments for the Selected Item)</option>
+                        <option value="sequence">Payment Refund (Select Specific Payments)</option>
                     </select>
                     <small class="text-muted d-block mt-2">
-                        <strong>Group:</strong> Refund full amount of all payments in a payment sequence | 
-                        <strong>Sequence:</strong> Select specific payments from a sequence to refund
+                        <strong>Item:</strong> Refund the currently selected contribution or product record |
+                        <strong>Payment:</strong> Pick only the payment rows you want refunded
                     </small>
                 </div>
 
@@ -48,18 +48,18 @@ $refundMethods = $refundMethods ?? [];
                     <div class="col-lg-6">
                         <!-- Group Refund View -->
                         <div id="groupRefundView" class="refund-view" style="display: none;">
-                            <h5 class="mb-3">Select Payment Group</h5>
+                            <h5 class="mb-3">Select Item Record</h5>
                             <div class="mb-3">
-                                <label for="groupSearch" class="form-label">Search Groups</label>
-                                <input type="text" class="form-control" id="groupSearch" placeholder="Search by payer name or contribution...">
+                                <label for="groupSearch" class="form-label">Search Items</label>
+                                <input type="text" class="form-control" id="groupSearch" placeholder="Search by payer name, contribution, or product...">
                             </div>
                             <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                                 <table class="table table-hover table-sm">
                                     <thead class="sticky-top bg-light">
                                         <tr>
                                             <th>Payer</th>
-                                            <th>Contribution</th>
-                                            <th>Sequence</th>
+                                            <th>Item</th>
+                                            <th>Reference</th>
                                             <th>Total</th>
                                             <th>Payments</th>
                                             <th>Action</th>
@@ -69,7 +69,7 @@ $refundMethods = $refundMethods ?? [];
                                         <tr>
                                             <td colspan="6" class="text-center text-muted py-4">
                                                 <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                                                Loading payment groups...
+                                                Loading refundable items...
                                             </td>
                                         </tr>
                                     </tbody>
@@ -79,18 +79,18 @@ $refundMethods = $refundMethods ?? [];
 
                         <!-- Sequence Refund View -->
                         <div id="sequenceRefundView" class="refund-view" style="display: none;">
-                            <h5 class="mb-3">Select Payment Sequence</h5>
+                            <h5 class="mb-3">Select Item Payments</h5>
                             <div class="mb-3">
-                                <label for="sequenceSearch" class="form-label">Search Sequences</label>
-                                <input type="text" class="form-control" id="sequenceSearch" placeholder="Search by payer name or contribution...">
+                                <label for="sequenceSearch" class="form-label">Search Items</label>
+                                <input type="text" class="form-control" id="sequenceSearch" placeholder="Search by payer name, contribution, or product...">
                             </div>
                             <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                                 <table class="table table-hover table-sm">
                                     <thead class="sticky-top bg-light">
                                         <tr>
                                             <th>Payer</th>
-                                            <th>Contribution</th>
-                                            <th>Sequence</th>
+                                            <th>Item</th>
+                                            <th>Reference</th>
                                             <th>Total</th>
                                             <th>Action</th>
                                         </tr>
@@ -99,7 +99,7 @@ $refundMethods = $refundMethods ?? [];
                                         <tr>
                                             <td colspan="5" class="text-center text-muted py-4">
                                                 <i class="fas fa-spinner fa-spin fa-2x mb-2"></i><br>
-                                                Loading payment sequences...
+                                                Loading refundable items...
                                             </td>
                                         </tr>
                                     </tbody>
@@ -118,6 +118,7 @@ $refundMethods = $refundMethods ?? [];
                             <input type="hidden" id="refund_payment_sequence" name="payment_sequence">
                             <input type="hidden" id="refund_payer_id" name="payer_id">
                             <input type="hidden" id="refund_contribution_id" name="contribution_id">
+                            <input type="hidden" id="refund_product_id" name="product_id">
                             
                             <div class="mb-3">
                                 <label class="form-label">Payment Information</label>

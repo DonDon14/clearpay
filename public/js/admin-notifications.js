@@ -389,7 +389,8 @@ function markAdminActivityAsRead(activityId) {
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
         },
-        credentials: 'same-origin' // Include cookies for authentication
+        credentials: 'same-origin', // Include cookies for authentication
+        keepalive: true // Ensure request completes even if page unloads
     }).then(response => {
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
@@ -543,7 +544,6 @@ function showAllAdminNotificationsModal() {
                              data-activity-type="${activityType}"
                              data-entity-id="${entityId}"
                              data-click-url="${clickUrl}"
-                             onclick="handleAdminNotificationClick(${activityId}, '${activityType}', ${entityId !== 'null' ? entityId : 'null'}); return false;"
                              style="cursor: pointer;">
                             <div class="d-flex align-items-start">
                                 <div class="me-3">
@@ -577,13 +577,11 @@ function showAllAdminNotificationsModal() {
                 // Add modal to body
                 document.body.insertAdjacentHTML('beforeend', html);
                 
-                // Show modal
-                const modal = new bootstrap.Modal(document.getElementById('allAdminNotificationsModal'));
-                modal.show();
+                const modalElement = document.getElementById('allAdminNotificationsModal');
+                const modal = new bootstrap.Modal(modalElement);
                 
-                // Add event listeners to modal notification items using event delegation
-                // Use setTimeout to ensure modal is fully rendered
-                setTimeout(() => {
+                // Attach event listener when modal is fully shown to avoid race conditions
+                modalElement.addEventListener('shown.bs.modal', function() {
                     const modalBody = document.querySelector('#allAdminNotificationsModal .modal-body');
                     if (modalBody) {
                         // Remove any existing event listeners to avoid duplicates
@@ -611,7 +609,10 @@ function showAllAdminNotificationsModal() {
                             }
                         });
                     }
-                }, 100);
+                });
+                
+                // Show modal
+                modal.show();
                 
                 // Clean up on close
                 document.getElementById('allAdminNotificationsModal').addEventListener('hidden.bs.modal', function() {
@@ -693,4 +694,3 @@ window.showAllAdminNotificationsModal = showAllAdminNotificationsModal;
 window.markAllAdminActivitiesAsRead = markAllAdminActivitiesAsRead;
 window.markAllAdminAsSeen = markAllAdminAsSeen;
 window.closeAdminNotificationDropdown = closeAdminNotificationDropdown;
-

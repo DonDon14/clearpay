@@ -140,4 +140,85 @@ abstract class BaseController extends Controller
         
         return null;
     }
+
+    /**
+     * Normalize a public upload path and verify the file still exists.
+     */
+    protected function normalizePublicUploadPath(?string $path, string $subfolder): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) {
+            return $path;
+        }
+
+        $cleanPath = preg_replace('#^https?://[^/]+/#', '', $path);
+        $cleanPath = preg_replace('#^uploads/' . preg_quote($subfolder, '#') . '/#', '', $cleanPath);
+        $cleanPath = preg_replace('#^' . preg_quote($subfolder, '#') . '/#', '', $cleanPath);
+        $filename = basename((string) $cleanPath);
+
+        if ($filename === '' || $filename === '.' || $filename === '..') {
+            return null;
+        }
+
+        $fullPath = FCPATH . 'uploads/' . $subfolder . '/' . $filename;
+        if (is_file($fullPath)) {
+            return 'uploads/' . $subfolder . '/' . $filename;
+        }
+
+        log_message('warning', 'Uploaded asset not found: ' . $fullPath . ' | Database path: ' . $path);
+        return null;
+    }
+
+    /**
+     * Persist an uploaded image under public/uploads and optionally remove the old local file.
+     *
+     * @throws \RuntimeException
+     */
+    protected function storePublicImageUpload($file, string $subfolder, string $prefix, ?string $oldPath = null): ?string
+    {
+        if (!$file || !$file->isValid() || $file->getError() === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+
+        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+        if (!in_array($file->getMimeType(), $allowedTypes, true)) {
+            throw new \RuntimeException('Invalid image type. Only JPG, PNG, WEBP, and GIF are allowed.');
+        }
+
+        if ($file->getSize() > 4 * 1024 * 1024) {
+            throw new \RuntimeException('Image size must not exceed 4MB.');
+        }
+
+        $uploadPath = FCPATH . 'uploads/' . $subfolder . '/';
+        if (!is_dir($uploadPath) && !mkdir($uploadPath, 0755, true) && !is_dir($uploadPath)) {
+            throw new \RuntimeException('Could not create upload directory.');
+        }
+
+        if (!is_writable($uploadPath)) {
+            @chmod($uploadPath, 0755);
+            if (!is_writable($uploadPath)) {
+                throw new \RuntimeException('Upload directory is not writable.');
+            }
+        }
+
+        $extension = strtolower($file->getExtension() ?: 'jpg');
+        $newName = $prefix . '_' . time() . '_' . substr(md5(uniqid('', true)), 0, 10) . '.' . $extension;
+
+        if (!$file->move($uploadPath, $newName)) {
+            throw new \RuntimeException($file->getErrorString() ?: 'Failed to upload image.');
+        }
+
+        $normalizedOldPath = $this->normalizePublicUploadPath($oldPath, $subfolder);
+        if ($normalizedOldPath && strpos($normalizedOldPath, 'http') !== 0) {
+            $oldFile = FCPATH . $normalizedOldPath;
+            if (is_file($oldFile)) {
+                @unlink($oldFile);
+            }
+        }
+
+        return 'uploads/' . $subfolder . '/' . $newName;
+    }
 }

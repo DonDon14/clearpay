@@ -130,6 +130,81 @@ Should show at least the admin user.
 
 If payment method dropdown is empty, payment methods weren't seeded!
 
+## Release Readiness Gates (Mandatory Before Deploy)
+
+Run these gates after every major merge and before deployment:
+
+### Gate 1: Code Health
+```bash
+# Syntax checks
+php -l app/Config/Routes.php
+php -l app/Controllers/Admin/PaymentsController.php
+php -l app/Controllers/Payer/DashboardController.php
+
+# Full automated suite
+vendor/bin/phpunit --testdox
+```
+Pass condition:
+- `php -l` reports no syntax errors
+- PHPUnit passes with no failures
+
+### Gate 2: Database + Seed Integrity
+```bash
+php spark migrate:status
+php spark db:seed DatabaseSeeder
+```
+Pass condition:
+- All required migrations are applied
+- Core seed data exists (`payment_methods`, `refund_methods`, admin user)
+
+### Gate 3: Critical Admin Workflows (Manual)
+1. Admin login
+2. Contributions page loads with images/fallback icons
+3. Products page loads with images/fallback icons
+4. Payments page:
+   - Add payment
+   - Open payment history modal
+   - Open refund modal from payment history
+5. Refunds page: open request details and process one request
+
+Pass condition:
+- No blocking errors in UI
+- No JSON parsing/network errors in browser console for critical actions
+
+### Gate 4: Critical Payer Workflows (Manual)
+1. Payer login
+2. Submit payment request (contribution path)
+3. Submit refund request from refundable payment
+4. View payer payment history and receipt data
+
+Pass condition:
+- Payment/refund request records are created with `pending` status
+- Admin sees corresponding request entries
+
+### Gate 5: Media/Upload Routes
+Test representative image URLs in browser:
+- `/uploads/logo.png`
+- `/uploads/profile/<existing-file>`
+- `/uploads/contribution_items/<existing-file>`
+- `/uploads/product_items/<existing-file>`
+
+Pass condition:
+- Images load (HTTP 200) or cleanly fall back in UI
+- No false-positive `ERROR` spam for normal image traffic
+
+### Gate 6: Log Hygiene
+Check latest logs:
+```bash
+Get-Content writable/logs/log-YYYY-MM-DD.log -Tail 200
+```
+Pass condition:
+- No new critical exceptions for required tables/routes
+- Any expected warnings (e.g., optional cloud integrations not configured) are documented
+
+---
+
+If any gate fails, do not deploy. Fix, rerun gates, and record the fix in troubleshooting docs.
+
 ## Common Issues and Solutions
 
 ### Issue: Payment method dropdown is empty

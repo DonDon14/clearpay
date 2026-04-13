@@ -388,8 +388,8 @@ class DashboardController extends BaseController
 
     public function approvePaymentRequest()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -539,8 +539,8 @@ class DashboardController extends BaseController
 
     public function rejectPaymentRequest()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -643,8 +643,8 @@ class DashboardController extends BaseController
 
     public function processPaymentRequest()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -787,8 +787,8 @@ class DashboardController extends BaseController
 
     public function getPaymentRequestDetails()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'GET') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'GET') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);
@@ -881,8 +881,8 @@ class DashboardController extends BaseController
      */
     public function deletePaymentRequest()
     {
-        if (!$this->request->isAJAX() && $this->request->getMethod() !== 'POST') {
-            return $this->response->setJSON([
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return $this->response->setStatusCode(405)->setJSON([
                 'success' => false,
                 'message' => 'Invalid request method'
             ]);

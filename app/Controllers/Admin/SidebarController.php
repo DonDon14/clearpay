@@ -58,7 +58,12 @@ class SidebarController extends BaseController
 
         // Fetch contributions from database
         $contributionModel = new ContributionModel();
-        $allContributions = $contributionModel->findAll();
+        $allContributions = $contributionModel
+            ->groupStart()
+                ->where('contribution_type', 'contribution')
+                ->orWhere('contribution_type', null)
+            ->groupEnd()
+            ->findAll();
         
         // Fetch contribution categories for dropdown
         $categoryModel = new \App\Models\ContributionCategoryModel();
@@ -78,16 +83,13 @@ class SidebarController extends BaseController
                 $inactiveCount++;
             }
 
-            if (($contrib['contribution_type'] ?? 'contribution') === 'product') {
-                $productCount++;
-            } else {
-                $contributionCount++;
-            }
+            $contributionCount++;
         }
 
         // Calculate payment totals for each contribution
         $paymentModel = new PaymentModel();
         foreach ($allContributions as &$contribution) {
+            $contribution['image_path'] = $this->normalizePublicUploadPath($contribution['image_path'] ?? null, 'contribution_items');
             // Get all payments for this contribution (excluding soft-deleted)
             $payments = $paymentModel
                 ->selectSum('amount_paid', 'total_collected')
@@ -152,6 +154,7 @@ class SidebarController extends BaseController
         $totalIncome = 0;
 
         foreach ($products as &$product) {
+            $product['image_path'] = $this->normalizePublicUploadPath($product['image_path'] ?? null, 'product_items');
             if (($product['status'] ?? 'active') === 'active') {
                 $activeCount++;
             } else {

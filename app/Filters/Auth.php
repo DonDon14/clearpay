@@ -13,6 +13,13 @@ class Auth implements FilterInterface
     {
         // Check if user is logged in
         if (!session()->get('isLoggedIn')) {
+            // If it's an AJAX request, return JSON error instead of redirecting
+            if ($request->isAJAX()) {
+                return service('response')->setJSON([
+                    'success' => false,
+                    'message' => 'Your session has expired. Please log in again.'
+                ])->setStatusCode(401);
+            }
             // If not logged in, redirect to login page
             return redirect()->to('/');
         }

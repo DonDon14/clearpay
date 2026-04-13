@@ -169,14 +169,15 @@
                                             <td><?= date('M d, Y', strtotime($group['last_payment_date'])) ?></td>
                                 <td>
                                         <div class="btn-group" role="group">
-                                                    <?php if (($group['item_type'] ?? 'contribution') === 'contribution'): ?>
                                                     <button class="btn btn-sm btn-outline-warning refund-payment-group-btn" 
                                                             data-payer-id="<?= esc($group['payer_id']) ?>" 
                                                             data-contribution-id="<?= esc($group['contribution_id']) ?>"
+                                                            data-product-id="<?= esc($group['product_id'] ?? '') ?>"
                                                             data-payment-sequence="<?= esc($group['payment_sequence'] ?? 1) ?>"
-                                                            title="Refund this payment group">
+                                                            title="Refund this item">
                                                         <i class="fas fa-undo me-1"></i>Refund
                                             </button>
+                                                    <?php if (($group['item_type'] ?? 'contribution') === 'contribution'): ?>
                                                     <?php if ($group['computed_status'] === 'partial' && $group['refund_status'] !== 'fully_refunded'): ?>
                                                         <button class="btn btn-sm btn-success add-payment-btn" 
                                                                 data-payer-id="<?= esc($group['payer_id']) ?>" 
@@ -538,21 +539,36 @@ $(document).ready(function() {
                 'Accept': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            return response.text().then(text => {
+                let data = null;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    throw new Error(`Invalid JSON response (HTTP ${response.status})`);
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.message || `HTTP error ${response.status}`);
+                }
+
+                return data;
+            });
+        })
         .then(data => {
             if (data.success) {
-                displayPaymentHistory(data.payments);
+                displayPaymentHistory(data.payments, payerId, contributionId, productId);
                 $('#paymentHistoryModal').modal('show');
             } else {
                 alert('Error: ' + data.message);
             }
         })
         .catch(error => {
-            alert('An error occurred while fetching payment history.');
+            alert('An error occurred while fetching payment history: ' + error.message);
         });
     }
 
-    function displayPaymentHistory(paymentGroups) {
+    function displayPaymentHistory(paymentGroups, payerId = '', contributionId = '', productId = '') {
         if (paymentGroups.length === 0) {
             $('#paymentHistoryContent').html(`
                 <div class="text-center py-4">
@@ -603,6 +619,12 @@ $(document).ready(function() {
                 groupRefundBadge = `<span class="badge bg-warning text-dark ms-2">₱${groupTotalRefunded.toFixed(2)} Refunded</span>`;
             }
             
+            const firstPayment = (group.payments && group.payments.length > 0) ? group.payments[0] : {};
+            const resolvedPayerId = payerId || firstPayment.payer_id || '';
+            const resolvedContributionId = contributionId || firstPayment.contribution_id || '';
+            const resolvedProductId = productId || firstPayment.product_id || '';
+            const resolvedSequence = group.sequence || group.payment_sequence || firstPayment.payment_sequence || firstPayment.id || '';
+
             html += `
                 <div class="card mb-3">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
@@ -613,13 +635,14 @@ $(document).ready(function() {
                             <span class="badge bg-success ms-1">₱${parseFloat(group.total_amount).toFixed(2)} total</span>
                             ${groupRefundBadge}
                         </h6>
-                        ${itemType === 'contribution' ? `<button type="button" class="btn btn-sm btn-outline-danger refund-group-btn-history"
-                                data-payer-id="${payerId}"
-                                data-contribution-id="${contributionId}"
-                                data-sequence="${group.sequence}"
-                                title="Refund entire group">
-                            <i class="fas fa-undo me-1"></i>Refund Group
-                        </button>` : ''}
+                        <button type="button" class="btn btn-sm btn-outline-danger refund-group-btn-history"
+                                data-payer-id="${resolvedPayerId}"
+                                data-contribution-id="${resolvedContributionId}"
+                                data-product-id="${resolvedProductId}"
+                                data-sequence="${resolvedSequence}"
+                                title="Refund this record">
+                            <i class="fas fa-undo me-1"></i>Refund
+                        </button>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -663,14 +686,15 @@ $(document).ready(function() {
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="badge ${statusBadge.class}">${statusBadge.text}</span>
-                                ${itemType === 'contribution' ? `<button type="button" class="btn btn-sm btn-outline-danger refund-payment-btn-history"
+                                <button type="button" class="btn btn-sm btn-outline-danger refund-payment-btn-history"
                                         data-payment-id="${payment.id}"
-                                        data-payer-id="${payerId}"
-                                        data-contribution-id="${contributionId}"
-                                        data-sequence="${group.sequence}"
+                                        data-payer-id="${resolvedPayerId}"
+                                        data-contribution-id="${resolvedContributionId}"
+                                        data-product-id="${resolvedProductId}"
+                                        data-sequence="${resolvedSequence}"
                                         title="Refund this payment">
                                     <i class="fas fa-undo"></i>
-                                </button>` : ''}
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-warning edit-payment-btn" 
                                         data-payment-id="${payment.id}" 
                                         data-payment-data='${JSON.stringify(payment)}'
@@ -1408,11 +1432,12 @@ $(document).ready(function() {
         e.stopPropagation();
         const payerId = $(this).data('payer-id');
         const contributionId = $(this).data('contribution-id');
+        const productId = $(this).data('product-id');
         const sequence = $(this).data('payment-sequence');
 
         // Call the global function from refund-transaction.js
         if (typeof window.openRefundModalForGroup === 'function') {
-            window.openRefundModalForGroup(payerId, contributionId, sequence);
+            window.openRefundModalForGroup(payerId, contributionId, sequence, productId);
         } else {
             alert('Refund functionality not initialized. Please refresh the page.');
         }
@@ -1423,11 +1448,12 @@ $(document).ready(function() {
         e.stopPropagation();
         const payerId = $(this).data('payer-id');
         const contributionId = $(this).data('contribution-id');
+        const productId = $(this).data('product-id');
         const sequence = $(this).data('sequence');
 
         // Call the global function from refund-transaction.js
         if (typeof window.openRefundModalForGroup === 'function') {
-            window.openRefundModalForGroup(payerId, contributionId, sequence);
+            window.openRefundModalForGroup(payerId, contributionId, sequence, productId);
         } else {
             alert('Refund functionality not initialized. Please refresh the page.');
         }
@@ -1445,11 +1471,12 @@ $(document).ready(function() {
         const paymentId = $(this).data('payment-id');
         const payerId = $(this).data('payer-id');
         const contributionId = $(this).data('contribution-id');
+        const productId = $(this).data('product-id');
         const sequence = $(this).data('sequence');
 
         // Call the global function from refund-transaction.js
         if (typeof window.openRefundModalForPayment === 'function') {
-            window.openRefundModalForPayment(paymentId, payerId, contributionId, sequence);
+            window.openRefundModalForPayment(paymentId, payerId, contributionId, sequence, productId);
         } else {
             alert('Refund functionality not initialized. Please refresh the page.');
         }

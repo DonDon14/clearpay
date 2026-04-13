@@ -10,10 +10,11 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/health', 'HealthController::index');
 
 // Compatibility redirects for stale localhost URLs when Apache already points to public/
-$routes->addRedirect('ClearPay/public', '/');
-$routes->addRedirect('ClearPay/public/login', '/login');
-$routes->addRedirect('ClearPay/public/register', '/register');
-$routes->addRedirect('ClearPay/public/forgotPassword', '/forgotPassword');
+// Keep these as GET-only routes to avoid broad method surface.
+$routes->get('ClearPay/public', static fn() => redirect()->to('/'));
+$routes->get('ClearPay/public/login', static fn() => redirect()->to('/login'));
+$routes->get('ClearPay/public/register', static fn() => redirect()->to('/register'));
+$routes->get('ClearPay/public/forgotPassword', static fn() => redirect()->to('/forgotPassword'));
 
 // Test routes for Cloudinary debugging (temporary)
 $routes->get('/test/cloudinary-status', 'TestController::cloudinaryStatus');

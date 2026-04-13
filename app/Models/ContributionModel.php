@@ -9,7 +9,7 @@ class ContributionModel extends Model
     protected $table = 'contributions';
     protected $primaryKey = 'id';
     protected $allowedFields = [
-        'title', 'contribution_type', 'description', 'amount', 'grand_total', 'category', 'status', 'created_by', 'cost_price', 'profit_amount', 'contribution_code'
+        'title', 'contribution_type', 'description', 'image_path', 'amount', 'grand_total', 'category', 'status', 'created_by', 'cost_price', 'profit_amount', 'contribution_code'
     ];
     protected $useTimestamps = true; // automatically fill created_at, updated_at
     

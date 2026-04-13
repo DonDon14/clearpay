@@ -18,7 +18,8 @@
                                         data-amount="<?= $payment['amount_paid'] ?>"
                                         data-available="<?= $payment['available_refund'] ?>"
                                         data-refund-status="<?= $payment['refund_status'] ?>">
-                                    <?= esc($payment['contribution_title']) ?> - 
+                                    <?= esc($payment['contribution_title']) ?> -
+                                    <?= ($payment['item_type'] ?? 'contribution') === 'product' ? '[Product]' : '[Contribution]' ?> -
                                     Receipt: <?= esc($payment['receipt_number'] ?? 'N/A') ?> - 
                                     Amount: ₱<?= number_format($payment['amount_paid'], 2) ?> 
                                     (Available: ₱<?= number_format($payment['available_refund'], 2) ?>)

@@ -55,9 +55,10 @@ class RefundsController extends BaseController
 
         // Get all payments for refund processing (recently paid, not fully refunded)
         $recentPayments = $paymentModel
-            ->select('payments.*, payers.payer_name, payers.payer_id as payer_student_id, contributions.title as contribution_title')
+            ->select('payments.*, payers.payer_name, payers.payer_id as payer_student_id, COALESCE(contributions.title, products.title) as contribution_title, CASE WHEN payments.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->join('products', 'products.id = payments.product_id', 'left')
             ->where('payments.deleted_at', null)
             ->where('payments.payment_status', 'fully paid')
             ->orderBy('payments.payment_date', 'DESC')
@@ -106,7 +107,30 @@ class RefundsController extends BaseController
             ])->setStatusCode(405);
         }
 
-        $refundType = $this->request->getPost('refund_type'); // 'group', 'sequence'
+        $normalizeNullable = static function ($value) {
+            if ($value === null) {
+                return null;
+            }
+
+            $trimmed = trim((string) $value);
+            if ($trimmed === '' || strtolower($trimmed) === 'undefined' || strtolower($trimmed) === 'null') {
+                return null;
+            }
+
+            return $trimmed;
+        };
+
+        $refundType = $normalizeNullable($this->request->getPost('refund_type')); // 'group', 'sequence'
+        $payerId = $normalizeNullable($this->request->getPost('payer_id'));
+        $contributionId = $normalizeNullable($this->request->getPost('contribution_id'));
+        $productId = $normalizeNullable($this->request->getPost('product_id'));
+        $paymentSequence = $normalizeNullable($this->request->getPost('payment_sequence'));
+        $paymentIdsRaw = $normalizeNullable($this->request->getPost('payment_ids'));
+        $refundAmountInput = $normalizeNullable($this->request->getPost('refund_amount'));
+        $refundReason = $normalizeNullable($this->request->getPost('refund_reason'));
+        $refundMethod = $normalizeNullable($this->request->getPost('refund_method'));
+        $refundReference = $normalizeNullable($this->request->getPost('refund_reference'));
+        $adminNotes = $normalizeNullable($this->request->getPost('admin_notes'));
         
         // Get refund method codes from database for validation
         $refundMethodModel = new RefundMethodModel();
@@ -119,37 +143,65 @@ class RefundsController extends BaseController
         $rules = [
             'refund_type' => 'required|in_list[group,sequence]',
             'payer_id' => 'required|integer',
-            'contribution_id' => 'required|integer',
+            'contribution_id' => 'permit_empty|integer',
+            'product_id' => 'permit_empty|integer',
             'refund_amount' => 'required|decimal',
             'refund_reason' => 'permit_empty|string',
             'refund_method' => 'required|alpha_dash|max_length[50]',
             'refund_reference' => 'permit_empty|string|max_length[100]'
         ];
 
-        // Group and sequence refunds require payment_sequence
-        $rules['payment_sequence'] = 'required|integer';
+        if ($refundType === 'group') {
+            $rules['payment_sequence'] = 'required|integer';
+        } else {
+            $rules['payment_sequence'] = 'permit_empty|integer';
+        }
+
         if ($refundType === 'sequence') {
             $rules['payment_ids'] = 'required'; // JSON array of payment IDs
         }
 
-        if (!$this->validate($rules)) {
+        $payload = [
+            'refund_type' => $refundType,
+            'payer_id' => $payerId,
+            'contribution_id' => $contributionId,
+            'product_id' => $productId,
+            'payment_sequence' => $paymentSequence,
+            'payment_ids' => $paymentIdsRaw,
+            'refund_amount' => $refundAmountInput,
+            'refund_reason' => $refundReason,
+            'refund_method' => $refundMethod,
+            'refund_reference' => $refundReference,
+        ];
+
+        $validation = \Config\Services::validation();
+        $validation->setRules($rules);
+        if (!$validation->run($payload)) {
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $this->validator->getErrors()
+                'errors' => $validation->getErrors()
+            ]);
+        }
+
+        if (!$contributionId && !$productId) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => [
+                    'item' => 'A contribution or product reference is required.',
+                ],
             ]);
         }
 
         $paymentModel = new PaymentModel();
         $refundModel = new RefundModel();
         $userId = session()->get('user-id');
-        $payerId = $this->request->getPost('payer_id');
-        $contributionId = $this->request->getPost('contribution_id');
-        $refundAmount = (float)$this->request->getPost('refund_amount');
-        $refundMethod = $this->request->getPost('refund_method');
-        $refundReason = $this->request->getPost('refund_reason');
-        $refundReference = $this->request->getPost('refund_reference');
-        $adminNotes = $this->request->getPost('admin_notes');
+        $payerId = (int) $payerId;
+        $contributionId = $contributionId !== null ? (int) $contributionId : null;
+        $productId = $productId !== null ? (int) $productId : null;
+        $paymentSequence = $paymentSequence !== null ? (int) $paymentSequence : null;
+        $refundAmount = (float) $refundAmountInput;
 
         // Validate refund method against database (must be in refund_methods table or 'original_method')
         if (!in_array($refundMethod, $validRefundMethodCodes)) {
@@ -169,8 +221,9 @@ class RefundsController extends BaseController
         try {
             if ($refundType === 'group') {
                 // Group refund - refund all payments in a payment_sequence
-                $paymentSequence = $this->request->getPost('payment_sequence');
-                $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
+                $payments = $productId
+                    ? $paymentModel->getPaymentsByPayerAndProduct($payerId, $productId, $paymentSequence)
+                    : $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
                 
                 if (empty($payments) || empty($payments[0]['payments'])) {
                     return $this->response->setJSON([
@@ -183,7 +236,7 @@ class RefundsController extends BaseController
                 $groupTotal = $payments[0]['total_amount'];
                 
                 // Validate refund amount
-                $availableGroupAmount = $this->getAvailableGroupRefundAmount($payerId, $contributionId, $paymentSequence);
+                $availableGroupAmount = $this->getAvailableGroupRefundAmount($payerId, $contributionId, $productId, $paymentSequence);
                 if ($refundAmount > $availableGroupAmount) {
                     return $this->response->setJSON([
                         'success' => false,
@@ -252,7 +305,8 @@ class RefundsController extends BaseController
                         $refundData = [
                             'payment_id' => $groupPayment['id'],
                             'payer_id' => $payerId,
-                            'contribution_id' => $contributionId,
+                            'contribution_id' => $contributionId ?: null,
+                            'product_id' => $productId ?: null,
                             'refund_amount' => round($paymentRefundAmount, 2),
                             'refund_reason' => $refundReason ? ($refundReason . " (Group refund for sequence #{$paymentSequence})") : "Group refund for sequence #{$paymentSequence}",
                             'refund_method' => $finalRefundMethod,
@@ -283,8 +337,7 @@ class RefundsController extends BaseController
 
             } elseif ($refundType === 'sequence') {
                 // Custom sequence refund - refund specific payments from a sequence
-                $paymentIds = json_decode($this->request->getPost('payment_ids'), true);
-                $paymentSequence = $this->request->getPost('payment_sequence');
+                $paymentIds = json_decode((string) $paymentIdsRaw, true);
                 
                 if (empty($paymentIds) || !is_array($paymentIds)) {
                     return $this->response->setJSON([
@@ -297,10 +350,14 @@ class RefundsController extends BaseController
                 $payments = $paymentModel
                     ->whereIn('id', $paymentIds)
                     ->where('payer_id', $payerId)
-                    ->where('contribution_id', $contributionId)
-                    ->where('payment_sequence', $paymentSequence)
                     ->where('deleted_at', null)
                     ->findAll();
+
+                if ($productId) {
+                    $payments = array_values(array_filter($payments, static fn($payment) => (int)($payment['product_id'] ?? 0) === (int)$productId));
+                } else {
+                    $payments = array_values(array_filter($payments, static fn($payment) => (int)($payment['contribution_id'] ?? 0) === (int)$contributionId));
+                }
 
                 if (empty($payments)) {
                     return $this->response->setJSON([
@@ -382,7 +439,8 @@ class RefundsController extends BaseController
                         $refundData = [
                             'payment_id' => $payment['id'],
                             'payer_id' => $payerId,
-                            'contribution_id' => $contributionId,
+                            'contribution_id' => $contributionId ?: null,
+                            'product_id' => $productId ?: null,
                             'refund_amount' => round($paymentRefundAmount, 2),
                             'refund_reason' => $refundReason ? ($refundReason . " (Sequence refund)") : "Sequence refund",
                             'refund_method' => $finalRefundMethod,
@@ -447,12 +505,13 @@ class RefundsController extends BaseController
                         payers.contact_number,
                         payers.email_address,
                         payers.profile_picture,
-                        contributions.title as contribution_title,
-                        contributions.description as contribution_description
+                        COALESCE(contributions.title, products.title) as contribution_title,
+                        COALESCE(contributions.description, products.description) as contribution_description
                     ')
                     ->join('payments', 'payments.id = refunds.payment_id', 'left')
                     ->join('payers', 'payers.id = refunds.payer_id', 'left')
                     ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+                    ->join('products', 'products.id = refunds.product_id', 'left')
                     ->where('refunds.id', $refundId)
                     ->first();
                     
@@ -526,17 +585,19 @@ class RefundsController extends BaseController
     /**
      * Get available refund amount for a payment group
      */
-    private function getAvailableGroupRefundAmount($payerId, $contributionId, $paymentSequence)
+    private function getAvailableGroupRefundAmount($payerId, $contributionId, $productId, $paymentSequence)
     {
         $paymentModel = new PaymentModel();
-        $refundModel = new RefundModel();
-
-        $payments = $paymentModel
-            ->where('payer_id', $payerId)
-            ->where('contribution_id', $contributionId)
-            ->where('payment_sequence', $paymentSequence)
-            ->where('deleted_at', null)
-            ->findAll();
+        if ($productId) {
+            $payments = $paymentModel->getPaymentsByPayerAndProduct($payerId, $productId, $paymentSequence);
+            $payments = $payments[0]['payments'] ?? [];
+        } else {
+            $payments = $paymentModel
+                ->where('payer_id', $payerId)
+                ->where('contribution_id', $contributionId)
+                ->where('deleted_at', null)
+                ->findAll();
+        }
 
         $totalAvailable = 0;
         foreach ($payments as $payment) {
@@ -560,17 +621,20 @@ class RefundsController extends BaseController
 
         $payerId = $this->request->getGet('payer_id');
         $contributionId = $this->request->getGet('contribution_id');
+        $productId = $this->request->getGet('product_id');
         $paymentSequence = $this->request->getGet('payment_sequence');
 
-        if (!$payerId || !$contributionId || !$paymentSequence) {
+        if (!$payerId || (!$contributionId && !$productId) || !$paymentSequence) {
             return $this->response->setJSON([
                 'success' => false,
-                'message' => 'Payer ID, Contribution ID, and Payment Sequence are required'
+                'message' => 'Payer ID, item ID, and payment reference are required'
             ]);
         }
 
         $paymentModel = new PaymentModel();
-        $payments = $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
+        $payments = $productId
+            ? $paymentModel->getPaymentsByPayerAndProduct($payerId, $productId, $paymentSequence)
+            : $paymentModel->getPaymentsByPayerAndContribution($payerId, $contributionId, $paymentSequence);
 
         if (empty($payments) || empty($payments[0])) {
             return $this->response->setJSON([
@@ -580,7 +644,7 @@ class RefundsController extends BaseController
         }
 
         $group = $payments[0];
-        $availableAmount = $this->getAvailableGroupRefundAmount($payerId, $contributionId, $paymentSequence);
+        $availableAmount = $this->getAvailableGroupRefundAmount($payerId, $contributionId, $productId, $paymentSequence);
 
         // Get payer and contribution info from first payment
         $payerInfo = null;
@@ -601,6 +665,7 @@ class RefundsController extends BaseController
         // Add payer and contribution info to group
         $group['payer_name'] = $payerInfo['payer_name'] ?? '';
         $group['contribution_title'] = $contributionInfo['contribution_title'] ?? '';
+        $group['product_id'] = $productId ?: ($group['payments'][0]['product_id'] ?? null);
         $group['available_for_refund'] = $availableAmount;
         $group['total_refunded'] = $group['total_amount'] - $availableAmount;
 
@@ -660,9 +725,10 @@ class RefundsController extends BaseController
 
         $paymentModel = new PaymentModel();
         $payment = $paymentModel
-            ->select('payments.*, payers.payer_name, payers.payer_id as payer_student_id, payers.contact_number, payers.email_address, contributions.title as contribution_title')
+            ->select('payments.*, payers.payer_name, payers.payer_id as payer_student_id, payers.contact_number, payers.email_address, COALESCE(contributions.title, products.title) as contribution_title, CASE WHEN payments.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type')
             ->join('payers', 'payers.id = payments.payer_id', 'left')
             ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
+            ->join('products', 'products.id = payments.product_id', 'left')
             ->where('payments.id', $paymentId)
             ->where('payments.deleted_at', null)
             ->first();
@@ -760,12 +826,13 @@ class RefundsController extends BaseController
             payers.contact_number,
             payers.email_address,
             payers.profile_picture,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description
-        ')
-        ->join('payments', 'payments.id = refunds.payment_id', 'left')
-        ->join('payers', 'payers.id = refunds.payer_id', 'left')
-        ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+                        COALESCE(contributions.title, products.title) as contribution_title,
+                        COALESCE(contributions.description, products.description) as contribution_description
+                    ')
+                    ->join('payments', 'payments.id = refunds.payment_id', 'left')
+                    ->join('payers', 'payers.id = refunds.payer_id', 'left')
+                    ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+                    ->join('products', 'products.id = refunds.product_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
         
@@ -881,12 +948,13 @@ class RefundsController extends BaseController
             payers.contact_number,
             payers.email_address,
             payers.profile_picture,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description
+            COALESCE(contributions.title, products.title) as contribution_title,
+            COALESCE(contributions.description, products.description) as contribution_description
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('payers', 'payers.id = refunds.payer_id', 'left')
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+        ->join('products', 'products.id = refunds.product_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
         
@@ -991,12 +1059,13 @@ class RefundsController extends BaseController
             payers.contact_number,
             payers.email_address,
             payers.profile_picture,
-            contributions.title as contribution_title,
-            contributions.description as contribution_description
+            COALESCE(contributions.title, products.title) as contribution_title,
+            COALESCE(contributions.description, products.description) as contribution_description
         ')
         ->join('payments', 'payments.id = refunds.payment_id', 'left')
         ->join('payers', 'payers.id = refunds.payer_id', 'left')
         ->join('contributions', 'contributions.id = refunds.contribution_id', 'left')
+        ->join('products', 'products.id = refunds.product_id', 'left')
         ->where('refunds.id', $refundId)
         ->first();
         

@@ -14,9 +14,24 @@
                     <div class="card-body">
                         <div class="d-flex align-items-center">
                             <div class="contribution-icon me-3">
-                                <div class="icon-wrapper d-flex align-items-center justify-content-center rounded-3" style="width: 64px; height: 64px; background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
-                                    <i class="fas fa-hand-holding-usd text-white fs-3"></i>
-                                </div>
+                                <?php if (!empty($contribution['image_path'])): ?>
+                                    <?php
+                                        $contributionImagePath = (string) $contribution['image_path'];
+                                        $contributionImageUrl = preg_match('#^https?://#i', $contributionImagePath)
+                                            ? $contributionImagePath
+                                            : base_url($contributionImagePath);
+                                    ?>
+                                    <img
+                                        src="<?= esc($contributionImageUrl) ?>"
+                                        alt="<?= esc($contribution['title']) ?>"
+                                        class="contribution-cover"
+                                        onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<div class=&quot;icon-wrapper d-flex align-items-center justify-content-center rounded-3&quot; style=&quot;width:96px;height:96px;background:linear-gradient(135deg,#3b82f6,#0ea5e9);&quot;><i class=&quot;fas fa-hand-holding-usd text-white fs-3&quot;></i></div>');"
+                                        onclick="event.stopPropagation(); openContributionImagePreview('<?= esc($contributionImageUrl) ?>', '<?= esc($contribution['title']) ?>')">
+                                <?php else: ?>
+                                    <div class="icon-wrapper d-flex align-items-center justify-content-center rounded-3" style="width: 96px; height: 96px; background: linear-gradient(135deg, #3b82f6, #0ea5e9);">
+                                        <i class="fas fa-hand-holding-usd text-white fs-3"></i>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             
                             <div class="flex-grow-1">
@@ -139,6 +154,14 @@
 
 .contribution-item:hover .card {
     background-color: #f8f9fa;
+}
+
+.contribution-cover {
+    width: 96px;
+    height: 96px;
+    object-fit: cover;
+    border-radius: 1rem;
+    box-shadow: 0 16px 30px rgba(15, 23, 42, 0.14);
 }
 
 .contribution-actions button {

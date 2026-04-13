@@ -27,7 +27,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Request Date</th>
-                                        <th>Contribution</th>
+                                        <th>Item</th>
                                         <th>Payment Receipt</th>
                                         <th>Refund Amount</th>
                                         <th>Refund Method</th>
@@ -241,7 +241,7 @@ function viewRefundDetails(refundId) {
                 </div>
                 <div class="row mb-3">
                     <div class="col-md-6">
-                        <strong>Contribution:</strong><br>
+                        <strong>Item:</strong><br>
                         ${refund.contribution_title || 'N/A'}
                     </div>
                     <div class="col-md-6">
