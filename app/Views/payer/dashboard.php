@@ -2,31 +2,41 @@
 <?php $peso = '&#8369;'; ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
-    <div class="row mb-4">
+<div class="container-fluid ui-page-shell payer-page-shell">
+    <?= view('partials/payer-page-intro', [
+        'title' => 'Welcome back, ' . ($payer['payer_name'] ?? 'Payer') . '!',
+        'subtitle' => 'Here is your payment summary and latest activity.',
+        'pillsHtml' => sprintf(
+            '<span class="ui-stat-pill"><i class="fas fa-money-bill-wave"></i>Total Paid %s%s</span><span class="ui-stat-pill"><i class="fas fa-receipt"></i>Payments %s</span><span class="ui-stat-pill"><i class="fas fa-bullhorn"></i>Announcements %s</span>',
+            $peso,
+            number_format($totalPaid, 2),
+            number_format(count($recentPayments)),
+            number_format(count($announcements))
+        ),
+    ]) ?>
+
+    <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div>
-                            <h2 class="mb-2">Welcome back, <?= esc($payer['payer_name'] ?? 'Payer') ?>!</h2>
-                            <p class="text-muted mb-0">Here's your payment summary</p>
-                        </div>
-                        <div class="text-end">
-                            <div class="display-4 text-primary mb-1"><?= $peso ?><?= number_format($totalPaid, 2) ?></div>
-                            <small class="text-muted">Total Amount Paid</small>
-                        </div>
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div>
+                        <h5 class="mb-1">Account Snapshot</h5>
+                        <p class="text-muted mb-0">A quick view of your running payments across contributions and products.</p>
+                    </div>
+                    <div class="text-end">
+                        <div class="display-6 text-primary mb-1"><?= $peso ?><?= number_format($totalPaid, 2) ?></div>
+                        <small class="text-muted">Total Amount Paid</small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row mb-4">
+    <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title mb-4">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
+                    <h5 class="card-title mb-3">
                         <i class="fas fa-bolt me-2 text-warning"></i>Quick Actions
                     </h5>
                     <div class="row g-3">
@@ -54,9 +64,9 @@
         </div>
     </div>
 
-    <div class="row mb-4">
+    <div class="row ui-stats-row">
         <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card text-center">
+            <div class="card text-center border-0 ui-metric-card">
                 <div class="card-body">
                     <div class="mb-2">
                         <i class="fas fa-receipt fa-2x text-primary"></i>
@@ -67,7 +77,7 @@
             </div>
         </div>
         <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card text-center">
+            <div class="card text-center border-0 ui-metric-card">
                 <div class="card-body">
                     <div class="mb-2">
                         <i class="fas fa-check-circle fa-2x text-success"></i>
@@ -78,7 +88,7 @@
             </div>
         </div>
         <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card text-center">
+            <div class="card text-center border-0 ui-metric-card">
                 <div class="card-body">
                     <div class="mb-2">
                         <i class="fas fa-money-bill-wave fa-2x text-info"></i>
@@ -89,7 +99,7 @@
             </div>
         </div>
         <div class="col-md-6 col-lg-3 mb-3">
-            <div class="card text-center">
+            <div class="card text-center border-0 ui-metric-card">
                 <div class="card-body">
                     <div class="mb-2">
                         <i class="fas fa-bullhorn fa-2x text-warning"></i>
@@ -103,21 +113,21 @@
 
     <div class="row">
         <div class="col-lg-8 mb-4">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-header ui-surface-card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Payments</h5>
                     <a href="<?= base_url('payer/payment-history') ?>" class="btn btn-sm btn-outline-primary">View All</a>
                 </div>
-                <div class="card-body">
+                <div class="card-body ui-surface-card-body">
                     <?php if (empty($recentPayments)): ?>
                         <div class="text-center py-4">
                             <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                             <p class="text-muted">No payments found</p>
                         </div>
                     <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
+                        <div class="table-responsive ui-table-wrap">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
                                     <tr>
                                         <th>Date</th>
                                         <th>Amount</th>
@@ -147,12 +157,12 @@
         </div>
 
         <div class="col-lg-4 mb-4">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-header ui-surface-card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-bullhorn me-2"></i>Announcements</h5>
                     <a href="<?= base_url('payer/announcements') ?>" class="btn btn-sm btn-outline-primary">View All</a>
                 </div>
-                <div class="card-body">
+                <div class="card-body ui-surface-card-body">
                     <?php if (empty($announcements)): ?>
                         <div class="text-center py-4">
                             <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>

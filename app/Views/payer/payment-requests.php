@@ -1,22 +1,28 @@
 <?= $this->extend('layouts/payer-layout') ?>
+<?php $peso = '&#8369;'; ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<div class="container-fluid ui-page-shell payer-page-shell">
+    <?= view('partials/payer-page-intro', [
+        'title' => 'Your Payment Requests',
+        'subtitle' => 'Track submitted requests, view proof of payment, and check admin feedback.',
+        'actionsHtml' => '
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="refreshPaymentRequests()">
+                <i class="fas fa-sync-alt me-1"></i>Refresh
+            </button>
+            <a href="' . base_url('payer/products') . '" class="btn btn-primary btn-sm">
+                <i class="fas fa-plus me-1"></i>Request New Payment
+            </a>
+        ',
+    ]) ?>
+
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-header ui-surface-card-header">
                     <h5 class="mb-0"><i class="fas fa-paper-plane me-2"></i>Your Payment Requests</h5>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-primary btn-sm" onclick="refreshPaymentRequests()">
-                            <i class="fas fa-sync-alt me-1"></i>Refresh
-                        </button>
-                        <a href="<?= base_url('payer/products') ?>" class="btn btn-success btn-sm">
-                            <i class="fas fa-plus me-1"></i>Request New Payment
-                        </a>
-                    </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body ui-surface-card-body">
                     <?php if (empty($paymentRequests)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
@@ -27,8 +33,8 @@
                             </a>
                         </div>
                     <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
+                        <div class="table-responsive ui-table-wrap">
+                            <table class="table table-hover align-middle">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Date</th>
@@ -60,7 +66,7 @@
                                                 <small class="text-muted"><?= esc(substr($request['item_description'] ?? '', 0, 50)) ?><?= strlen($request['item_description'] ?? '') > 50 ? '...' : '' ?></small>
                                             </td>
                                             <td>
-                                                <strong>₱<?= number_format($request['requested_amount'], 2) ?></strong>
+                                                <strong><?= $peso ?><?= number_format($request['requested_amount'], 2) ?></strong>
                                             </td>
                                             <td>
                                                 <span class="badge bg-info"><?= ucfirst(str_replace('_', ' ', $request['payment_method'])) ?></span>
@@ -69,7 +75,7 @@
                                                 <?php
                                                 $statusClass = 'bg-secondary';
                                                 $statusText = ucfirst($request['status']);
-                                                
+
                                                 switch ($request['status']) {
                                                     case 'pending':
                                                         $statusClass = 'bg-warning text-dark';
@@ -97,7 +103,7 @@
                                                             <i class="fas fa-image"></i>
                                                         </button>
                                                     <?php endif; ?>
-                                                    
+
                                                     <?php if ($request['admin_notes']): ?>
                                                         <button type="button" class="btn btn-outline-warning" onclick="viewAdminNotes('<?= esc($request['admin_notes']) ?>')" title="View Admin Notes">
                                                             <i class="fas fa-sticky-note"></i>
@@ -117,7 +123,6 @@
     </div>
 </div>
 
-<!-- Proof of Payment Modal -->
 <div class="modal fade" id="proofOfPaymentModal" tabindex="-1" aria-labelledby="proofOfPaymentModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -140,7 +145,6 @@
     </div>
 </div>
 
-<!-- Admin Notes Modal -->
 <div class="modal fade" id="adminNotesModal" tabindex="-1" aria-labelledby="adminNotesModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -161,18 +165,12 @@
 </div>
 
 <script>
-// Payment Requests Page JavaScript
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize any page-specific functionality
-});
-
 function refreshPaymentRequests() {
     location.reload();
 }
 
 function viewProofOfPayment(imagePath, referenceNumber) {
     const modal = new bootstrap.Modal(document.getElementById('proofOfPaymentModal'));
-    // Ensure image path is absolute (already includes base_url from PHP)
     const imgElement = document.getElementById('proofImage');
     imgElement.src = imagePath;
     imgElement.onerror = function() {

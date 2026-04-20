@@ -1,15 +1,20 @@
 <?= $this->extend('layouts/payer-layout') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<div class="container-fluid ui-page-shell payer-page-shell">
+    <?= view('partials/payer-page-intro', [
+        'title' => 'My Data',
+        'subtitle' => 'Manage your profile details and account contact information.',
+    ]) ?>
+
     <div class="row">
         <div class="col-lg-8 mx-auto">
             <!-- Profile Picture Section -->
-            <div class="card mb-4">
-                <div class="card-header">
+            <div class="card border-0 ui-surface-card mb-4">
+                <div class="card-header ui-surface-card-header">
                     <h5 class="mb-0"><i class="fas fa-camera me-2"></i>Profile Picture</h5>
                 </div>
-                <div class="card-body text-center">
+                <div class="card-body ui-surface-card-body text-center">
                     <div class="profile-picture-container">
                         <div class="profile-picture-wrapper" id="profilePictureWrapper">
                             <?php if ($payer && !empty($payer['profile_picture'])): ?>
@@ -47,14 +52,14 @@
             </div>
 
             <!-- Personal Information Section -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-header ui-surface-card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-user-circle me-2"></i>Personal Information</h5>
                     <button class="btn btn-outline-primary btn-sm" id="editBtn">
                         <i class="fas fa-edit me-1"></i>Edit
                     </button>
                 </div>
-                <div class="card-body">
+                <div class="card-body ui-surface-card-body">
                     <?php if ($payer): ?>
                         <!-- View Mode -->
                         <div id="viewMode">

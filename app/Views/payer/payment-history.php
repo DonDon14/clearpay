@@ -1,14 +1,21 @@
 <?= $this->extend('layouts/payer-layout') ?>
+<?php $peso = '&#8369;'; ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<div class="container-fluid ui-page-shell payer-page-shell">
+    <?= view('partials/payer-page-intro', [
+        'title' => 'Payment History',
+        'subtitle' => 'Review your paid, partial, and unpaid contribution records with refund status.',
+        'pillsHtml' => '<span class="ui-stat-pill"><i class="fas fa-layer-group"></i>Contributions ' . number_format(count($contributions ?? [])) . '</span>',
+    ]) ?>
+
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-header ui-surface-card-header">
                     <h5 class="mb-0"><i class="fas fa-history me-2"></i>Payment History</h5>
                 </div>
-                <div class="card-body">
+                <div class="card-body ui-surface-card-body">
                     <?php if (empty($contributions)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
@@ -20,11 +27,11 @@
                             <?php foreach ($contributions as $index => $contribution): ?>
                                 <div class="accordion-item">
                                     <h2 class="accordion-header" id="heading<?= $contribution['id'] ?>">
-                                        <button class="accordion-button <?= $index === 0 ? '' : 'collapsed' ?>" 
-                                                type="button" 
-                                                data-bs-toggle="collapse" 
-                                                data-bs-target="#collapse<?= $contribution['id'] ?>" 
-                                                aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>" 
+                                        <button class="accordion-button <?= $index === 0 ? '' : 'collapsed' ?>"
+                                                type="button"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#collapse<?= $contribution['id'] ?>"
+                                                aria-expanded="<?= $index === 0 ? 'true' : 'false' ?>"
                                                 aria-controls="collapse<?= $contribution['id'] ?>">
                                             <div class="d-flex justify-content-between align-items-center w-100 me-3">
                                                 <div class="text-start">
@@ -35,11 +42,11 @@
                                                     <div class="d-flex align-items-center gap-3">
                                                         <div class="text-center">
                                                             <small class="text-muted d-block">Total Amount</small>
-                                                            <strong class="text-primary">₱<?= number_format($contribution['amount'], 2) ?></strong>
+                                                            <strong class="text-primary"><?= $peso ?><?= number_format($contribution['amount'], 2) ?></strong>
                                                         </div>
                                                         <div class="text-center">
                                                             <small class="text-muted d-block">Paid</small>
-                                                            <strong class="text-success">₱<?= number_format($contribution['total_paid'], 2) ?></strong>
+                                                            <strong class="text-success"><?= $peso ?><?= number_format($contribution['total_paid'], 2) ?></strong>
                                                         </div>
                                                         <div class="text-center">
                                                             <small class="text-muted d-block">Status</small>
@@ -56,9 +63,9 @@
                                             </div>
                                         </button>
                                     </h2>
-                                    <div id="collapse<?= $contribution['id'] ?>" 
-                                         class="accordion-collapse collapse <?= $index === 0 ? 'show' : '' ?>" 
-                                         aria-labelledby="heading<?= $contribution['id'] ?>" 
+                                    <div id="collapse<?= $contribution['id'] ?>"
+                                         class="accordion-collapse collapse <?= $index === 0 ? 'show' : '' ?>"
+                                         aria-labelledby="heading<?= $contribution['id'] ?>"
                                          data-bs-parent="#contributionsAccordion">
                                         <div class="accordion-body">
                                             <?php if (empty($contribution['payments'])): ?>
@@ -67,9 +74,9 @@
                                                     <p class="text-muted mb-0">No payments made for this contribution yet</p>
                                                 </div>
                                             <?php else: ?>
-                                                <div class="table-responsive">
-                                                    <table class="table table-hover">
-                                                        <thead>
+                                                <div class="table-responsive ui-table-wrap">
+                                                    <table class="table table-hover align-middle">
+                                                        <thead class="table-light">
                                                             <tr>
                                                                 <th>Date</th>
                                                                 <th>Amount</th>
@@ -82,21 +89,17 @@
                                                         </thead>
                                                         <tbody>
                                                             <?php foreach ($contribution['payments'] as $payment): ?>
-                                                                <tr class="payment-row"
-                                                                    style="cursor: pointer;"
-                                                                    data-payment='<?= json_encode($payment) ?>'
-                                                                    onmouseover="this.style.backgroundColor='#f8f9fa'" 
-                                                                    onmouseout="this.style.backgroundColor=''">
+                                                                <tr class="payment-row payer-click-row" data-payment='<?= json_encode($payment) ?>'>
                                                                     <td><?= date('M d, Y', strtotime($payment['payment_date'] ?? $payment['created_at'])) ?></td>
-                                                                    <td><strong>₱<?= number_format($payment['amount_paid'], 2) ?></strong></td>
+                                                                    <td><strong><?= $peso ?><?= number_format($payment['amount_paid'], 2) ?></strong></td>
                                                                     <td><code><?= esc($payment['reference_number'] ?? 'N/A') ?></code></td>
                                                                     <td><?= esc(ucfirst($payment['payment_method'] ?? 'N/A')) ?></td>
                                                                     <td>
-                                                                        <?php 
+                                                                        <?php
                                                                         $paymentStatus = $payment['payment_status'] ?? 'completed';
                                                                         $statusClass = 'bg-primary text-white';
                                                                         $statusText = 'COMPLETED';
-                                                                        
+
                                                                         if ($paymentStatus === 'pending') {
                                                                             $statusClass = 'bg-warning text-dark';
                                                                             $statusText = 'PENDING';
@@ -112,8 +115,8 @@
                                                                         $refundStatus = $payment['refund_status'] ?? 'no_refund';
                                                                         $refundStatusClass = 'bg-secondary';
                                                                         $refundStatusText = 'NO REFUND';
-                                                                        
-                                                                        switch($refundStatus) {
+
+                                                                        switch ($refundStatus) {
                                                                             case 'fully_refunded':
                                                                                 $refundStatusClass = 'bg-danger';
                                                                                 $refundStatusText = 'FULLY REFUNDED';
@@ -130,11 +133,11 @@
                                                                         ?>
                                                                         <span class="badge <?= $refundStatusClass ?>"><?= $refundStatusText ?></span>
                                                                         <?php if ($refundStatus !== 'no_refund' && isset($payment['total_refunded'])): ?>
-                                                                            <br><small class="text-muted">₱<?= number_format($payment['total_refunded'], 2) ?> refunded</small>
+                                                                            <br><small class="text-muted"><?= $peso ?><?= number_format($payment['total_refunded'], 2) ?> refunded</small>
                                                                         <?php endif; ?>
                                                                     </td>
                                                                     <td>
-                                                                        <button class="btn btn-sm btn-outline-primary" 
+                                                                        <button class="btn btn-sm btn-outline-primary"
                                                                                 onclick="event.stopPropagation(); showPaymentQRReceipt(<?= htmlspecialchars(json_encode($payment)) ?>)">
                                                                             <i class="fas fa-qrcode me-1"></i>View QR
                                                                         </button>
@@ -162,19 +165,16 @@
     </div>
 </div>
 
-<!-- QR Receipt Modal -->
 <?= $this->include('partials/modal-qr-receipt') ?>
 <?= $this->include('partials/modal-request-refund') ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Add click handlers to payment rows
     const paymentRows = document.querySelectorAll('.payment-row');
     paymentRows.forEach(row => {
         row.addEventListener('click', function() {
             const paymentData = JSON.parse(this.getAttribute('data-payment'));
-            
-            // Show QR receipt modal
+
             if (typeof window.showQRReceipt === 'function') {
                 window.showQRReceipt(paymentData);
             } else {
@@ -184,7 +184,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Function to show payment QR receipt (called from button click)
 function showPaymentQRReceipt(paymentData) {
     if (typeof window.showQRReceipt === 'function') {
         window.showQRReceipt(paymentData);
@@ -197,7 +196,7 @@ function openRequestRefundModal(payment) {
     window._refundModalPayment = payment;
     const modalEl = document.getElementById('requestRefundModal');
     if (modalEl) {
-        try { modalEl.dataset.payment = JSON.stringify(payment); } catch(e){}
+        try { modalEl.dataset.payment = JSON.stringify(payment); } catch (e) {}
     }
     const modal = new bootstrap.Modal(modalEl);
     modal.show();

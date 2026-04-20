@@ -15,6 +15,7 @@
   <link href="<?= base_url('css/header.css') ?>" rel="stylesheet">
   <link href="<?= base_url('css/footer.css') ?>" rel="stylesheet">
   <link href="<?= base_url('css/dashboard.css') ?>" rel="stylesheet">  
+  <link href="<?= base_url('css/payer-ui.css') ?>" rel="stylesheet">
   <!-- Sidebar Component - Complete consolidated styles -->
   <link href="<?= base_url('css/sidebar-complete.css') ?>" rel="stylesheet">
 </head>

@@ -1,0 +1,160 @@
+.payer-page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.payer-page-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.payer-page-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.payer-search {
+  min-width: 260px;
+}
+
+.payer-grid-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.payer-item-image {
+  width: 112px;
+  height: 112px;
+  border-radius: 1rem;
+  object-fit: cover;
+  cursor: pointer;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12);
+}
+
+.payer-item-image--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+  color: #2563eb;
+  font-size: 2rem;
+}
+
+.payer-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.payer-stat-card {
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.payer-progress {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.payer-metric-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.payer-metric-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.payer-click-row {
+  cursor: pointer;
+}
+
+.payer-click-row:hover {
+  background: #f8fafc;
+}
+
+.payer-announcement-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.payer-announcement-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.payer-announcement-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.payer-announcement-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.payer-announcement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.payer-announcement-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #1e293b;
+}
+
+.payer-announcement-date {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+@media (max-width: 768px) {
+  .payer-page-intro {
+    align-items: flex-start;
+  }
+
+  .payer-search {
+    min-width: 100%;
+  }
+
+  .payer-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payer-item-image {
+    width: 100%;
+    max-width: 180px;
+    height: 140px;
+  }
+}

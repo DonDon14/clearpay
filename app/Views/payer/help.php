@@ -1,24 +1,17 @@
 <?= $this->extend('layouts/payer-layout') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid mb-4">
-    <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h1 class="h3 mb-1 fw-semibold"><?= $pageTitle ?? 'Help & Support' ?></h1>
-                    <p class="text-muted mb-0"><?= $pageSubtitle ?? 'Get assistance and find answers to common questions' ?></p>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="container-fluid ui-page-shell payer-page-shell">
+    <?= view('partials/payer-page-intro', [
+        'title' => $pageTitle ?? 'Help & Support',
+        'subtitle' => $pageSubtitle ?? 'Get assistance and find answers to common questions',
+    ]) ?>
 
     <!-- Quick Search -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h5 class="card-title mb-3">Search Help</h5>
                     <div class="input-group input-group-lg">
                         <span class="input-group-text bg-white border-end-0">
@@ -38,8 +31,8 @@
     <!-- Quick Links -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h5 class="card-title mb-3">Quick Links</h5>
                     <div class="row g-3">
                         <div class="col-md-6 col-lg-3">
@@ -103,8 +96,8 @@
     <!-- Getting Started -->
     <div class="row mb-4" id="getting-started">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Getting Started</h4>
                     <div class="accordion" id="gettingStartedAccordion">
                         <div class="accordion-item border-0 shadow-sm mb-3">
@@ -185,8 +178,8 @@
     <!-- Payment Requests -->
     <div class="row mb-4" id="payment-requests">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Submitting Payment Requests</h4>
                     <div class="accordion" id="paymentRequestsAccordion">
                         <div class="accordion-item border-0 shadow-sm mb-3">
@@ -243,8 +236,8 @@
     <!-- Refund Requests -->
     <div class="row mb-4" id="refund-requests">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Submitting Refund Requests</h4>
                     <div class="accordion" id="refundRequestsAccordion">
                         <div class="accordion-item border-0 shadow-sm mb-3">
@@ -282,8 +275,8 @@
     <!-- Payment History -->
     <div class="row mb-4" id="payment-history">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Viewing Payment History</h4>
                     <p>To view your payment history:</p>
                     <ol>
@@ -309,8 +302,8 @@
     <!-- My Data / Profile -->
     <div class="row mb-4" id="my-data">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Managing Your Profile</h4>
                     <p>To update your profile information:</p>
                     <ol>
@@ -336,8 +329,8 @@
     <!-- Announcements -->
     <div class="row mb-4" id="announcements">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Viewing Announcements</h4>
                     <p>To view announcements:</p>
                     <ol>
@@ -355,8 +348,8 @@
     <!-- Mobile App -->
     <div class="row mb-4" id="mobile-app">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Using the Mobile App</h4>
                     <p>ClearPay has a mobile app available for Android and iOS devices. The mobile app provides the same features as the web portal:</p>
                     <ul>
@@ -378,8 +371,8 @@
     <!-- FAQ -->
     <div class="row mb-4" id="faq">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Frequently Asked Questions</h4>
                     <div class="accordion" id="faqAccordion">
                         <div class="accordion-item border-0 shadow-sm mb-3">
@@ -490,8 +483,8 @@
     <!-- Contact Support -->
     <div class="row mb-4" id="contact">
         <div class="col-12">
-            <div class="card">
-                <div class="card-body">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-body ui-surface-card-body">
                     <h4 class="mb-3">Contact Support</h4>
                     <div class="row g-4">
                         <div class="col-md-6">
@@ -606,4 +599,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 </style>
 
 <?= $this->endSection() ?>
+
+
 

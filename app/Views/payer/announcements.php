@@ -1,26 +1,31 @@
 <?= $this->extend('layouts/payer-layout') ?>
 
 <?= $this->section('content') ?>
-<div class="container-fluid">
+<div class="container-fluid ui-page-shell payer-page-shell">
+    <?= view('partials/payer-page-intro', [
+        'title' => 'Announcements',
+        'subtitle' => 'Stay updated on section-wide notices, reminders, and urgent alerts.',
+        'actionsHtml' => '
+            <div class="input-group payer-search">
+                <span class="input-group-text bg-white border-end-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text"
+                       class="form-control border-start-0"
+                       id="announcementSearch"
+                       placeholder="Search announcements..."
+                       style="box-shadow: none;">
+            </div>
+        ',
+    ]) ?>
+
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card border-0 ui-surface-card">
+                <div class="card-header ui-surface-card-header">
                     <h5 class="mb-0"><i class="fas fa-bullhorn me-2"></i>Announcements</h5>
-                    <div class="search-container">
-                        <div class="input-group" style="width: 300px;">
-                            <span class="input-group-text bg-white border-end-0">
-                                <i class="fas fa-search text-muted"></i>
-                            </span>
-                            <input type="text" 
-                                   class="form-control border-start-0" 
-                                   id="announcementSearch" 
-                                   placeholder="Search announcements..."
-                                   style="box-shadow: none;">
-                        </div>
-                    </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body ui-surface-card-body">
                     <?php if (empty($announcements)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-bell-slash fa-4x text-muted mb-3"></i>
@@ -30,21 +35,21 @@
                     <?php else: ?>
                         <div class="announcements-list" id="announcementsList">
                             <?php foreach ($announcements as $announcement): ?>
-                                <div class="announcement-item" 
+                                <div class="payer-announcement-item"
                                      data-title="<?= esc(strtolower($announcement['title'])) ?>"
                                      data-content="<?= esc(strtolower($announcement['text'])) ?>"
                                      onclick="showAnnouncementModal(<?= htmlspecialchars(json_encode($announcement)) ?>)">
-                                    <div class="announcement-icon">
+                                    <div class="payer-announcement-icon">
                                         <i class="fas fa-<?= $announcement['type'] === 'urgent' ? 'exclamation-triangle text-warning' : 'info-circle text-info' ?>"></i>
                                     </div>
-                                    <div class="announcement-content">
-                                        <div class="announcement-header">
-                                            <h6 class="announcement-title"><?= esc($announcement['title']) ?></h6>
+                                    <div class="payer-announcement-content">
+                                        <div class="payer-announcement-header">
+                                            <h6 class="payer-announcement-title"><?= esc($announcement['title']) ?></h6>
                                             <span class="badge bg-<?= $announcement['priority'] === 'critical' ? 'danger' : ($announcement['priority'] === 'high' ? 'warning' : 'info') ?>">
                                                 <?= esc(ucfirst($announcement['priority'])) ?>
                                             </span>
                                         </div>
-                                        <div class="announcement-date">
+                                        <div class="payer-announcement-date">
                                             <i class="fas fa-calendar me-1"></i>
                                             <?= date('M d, Y g:i A', strtotime($announcement['created_at'])) ?>
                                         </div>
@@ -94,78 +99,20 @@
     overflow-y: auto;
 }
 
-.announcement-item {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    margin-bottom: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background: #ffffff;
-}
-
-.announcement-item:hover {
-    background: #f8f9fa;
-    border-color: #3b82f6;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.announcement-icon {
-    width: 40px;
-    height: 40px;
-    background: #f8f9fa;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-right: 1rem;
-    flex-shrink: 0;
-}
-
-.announcement-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.announcement-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.25rem;
-}
-
-.announcement-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #374151;
-    margin: 0;
-    line-height: 1.3;
-}
-
-.announcement-date {
-    font-size: 0.875rem;
-    color: #6b7280;
-    display: flex;
-    align-items: center;
-}
-
 .announcement-arrow {
     margin-left: 1rem;
     flex-shrink: 0;
 }
 
-.search-container .input-group-text {
+.payer-search .input-group-text {
     border-color: #d1d5db;
 }
 
-.search-container .form-control {
+.payer-search .form-control {
     border-color: #d1d5db;
 }
 
-.search-container .form-control:focus {
+.payer-search .form-control:focus {
     border-color: #3b82f6;
     box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
 }
@@ -188,16 +135,12 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .search-container .input-group {
-        width: 100% !important;
-    }
-    
-    .announcement-header {
+    .payer-announcement-header {
         flex-direction: column;
         align-items: flex-start;
     }
     
-    .announcement-header .badge {
+    .payer-announcement-header .badge {
         margin-top: 0.25rem;
     }
 }
@@ -209,10 +152,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const announcementsList = document.getElementById('announcementsList');
     const noResults = document.getElementById('noResults');
     
-    if (searchInput) {
+    if (searchInput && announcementsList && noResults) {
         searchInput.addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase().trim();
-            const announcementItems = announcementsList.querySelectorAll('.announcement-item');
+            const announcementItems = announcementsList.querySelectorAll('.payer-announcement-item');
             let visibleCount = 0;
             
             announcementItems.forEach(item => {
