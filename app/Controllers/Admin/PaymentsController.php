@@ -6,7 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\ContributionModel;
 use App\Models\PaymentModel;
 use App\Services\ActivityLogger;
-use App\Services\EmailConfigService;
+use App\Services\EmailDeliveryService;
 // use App\Services\QRReceiptService; // Disabled for now
 
 class PaymentsController extends BaseController
@@ -2532,9 +2532,6 @@ class PaymentsController extends BaseController
                 log_message('info', 'No email address for payer, skipping receipt email');
                 return false;
             }
-
-            // Get email settings from database or config
-            $emailConfig = $this->getEmailConfig();
             
             // Format payment method
             $paymentMethod = ucwords(str_replace('_', ' ', $paymentData['payment_method']));
@@ -2575,98 +2572,16 @@ class PaymentsController extends BaseController
             
             $textMessage = strip_tags($htmlMessage);
             $subject = 'Payment Receipt - ' . ($paymentData['receipt_number'] ?? 'ClearPay');
-            
-            // Try Brevo API first (works on Render, bypasses port blocking)
-            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
-            
-            if (!empty($brevoApiKey)) {
-                try {
-                    log_message('info', 'Attempting to send receipt email via Brevo API to: ' . $paymentData['email_address']);
-                    
-                    // Check if BrevoEmailService class exists
-                    if (!class_exists('\App\Services\BrevoEmailService')) {
-                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
-                    } else {
-                        $brevoService = new \App\Services\BrevoEmailService(
-                            $brevoApiKey,
-                            $emailConfig['fromEmail'],
-                            $emailConfig['fromName'] ?? 'ClearPay'
-                        );
-                        
-                        $result = $brevoService->send($paymentData['email_address'], $subject, $htmlMessage, $textMessage);
-                        
-                        if ($result['success']) {
-                            log_message('info', 'Receipt email sent successfully via Brevo API to: ' . $paymentData['email_address']);
-                            return true;
-                        } else {
-                            log_message('error', 'Brevo API failed to send receipt email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
-                            // Fall through to SMTP attempt
-                        }
-                    }
-                } catch (\Exception $apiException) {
-                    log_message('error', 'Brevo API exception while sending receipt email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
-                    // Fall through to SMTP attempt
-                }
-            }
-            
-            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
-            // Validate SMTP credentials
-            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
-                log_message('error', 'SMTP configuration incomplete for receipt email');
-                return false;
-            }
-            
-            // Get a fresh email service instance
-            $emailService = \Config\Services::email();
-            
-            // Clear any previous configuration
-            $emailService->clear();
-            
-            // Manually configure SMTP settings to ensure they're current
-            $smtpConfig = [
-                'protocol' => $emailConfig['protocol'] ?? 'smtp',
-                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
-                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
-                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
-                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
-                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
-                'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
-                'charset' => $emailConfig['charset'] ?? 'UTF-8',
-                'newline' => "\r\n", // Required for SMTP
-                'CRLF' => "\r\n", // Required for SMTP
-                'wordWrap' => true,
-                'validate' => false, // Don't validate email addresses
-            ];
-            
-            // Validate configuration before initializing
-            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
-                log_message('error', 'SMTP configuration validation failed for receipt email - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
-                return false;
-            }
-            
-            $emailService->initialize($smtpConfig);
-            
-            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
-            $emailService->setTo($paymentData['email_address']);
-            $emailService->setSubject($subject);
-            $emailService->setMessage($htmlMessage);
-            
-            // Log email attempt
-            log_message('info', "Attempting to send receipt email to: {$paymentData['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
-            
-            // Send email
-            $result = $emailService->send();
-            
-            if ($result) {
-                log_message('info', "Receipt email sent successfully to: {$paymentData['email_address']}");
-                return true;
-            } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
-                log_message('error', "Failed to send receipt email: {$error}");
-                return false;
-            }
+
+            $emailDeliveryService = new EmailDeliveryService();
+
+            return $emailDeliveryService->sendTemplateEmail(
+                $paymentData['email_address'],
+                $subject,
+                $htmlMessage,
+                $textMessage,
+                'receipt email'
+            );
         } catch (\Exception $e) {
             // Log error but don't fail the payment
             log_message('error', 'Failed to send receipt email: ' . $e->getMessage());
@@ -2677,14 +2592,6 @@ class PaymentsController extends BaseController
             log_message('error', 'Exception details: ' . $e->getTraceAsString());
             return false;
         }
-    }
-    
-    /**
-     * Get email configuration from database or fallback to config/environment
-     */
-    private function getEmailConfig()
-    {
-        return (new EmailConfigService())->getConfig();
     }
 }
 

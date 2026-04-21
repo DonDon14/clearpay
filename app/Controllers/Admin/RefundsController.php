@@ -10,6 +10,7 @@ use App\Models\ContributionModel;
 use App\Models\UserModel;
 use App\Models\RefundMethodModel;
 use App\Services\ActivityLogger;
+use App\Services\EmailDeliveryService;
 
 class RefundsController extends BaseController
 {
@@ -1188,9 +1189,6 @@ class RefundsController extends BaseController
                 return false;
             }
 
-            // Get email settings from database or config
-            $emailConfig = $this->getEmailConfig();
-            
             // Format refund method
             $refundMethod = ucwords(str_replace('_', ' ', $refundDetails['refund_method'] ?? 'N/A'));
             
@@ -1219,98 +1217,16 @@ class RefundsController extends BaseController
             
             $textMessage = strip_tags($htmlMessage);
             $subject = 'Refund Approved - ClearPay';
-            
-            // Try Brevo API first (works on Render, bypasses port blocking)
-            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
-            
-            if (!empty($brevoApiKey)) {
-                try {
-                    log_message('info', 'Attempting to send refund approval email via Brevo API to: ' . $refundDetails['email_address']);
-                    
-                    // Check if BrevoEmailService class exists
-                    if (!class_exists('\App\Services\BrevoEmailService')) {
-                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
-                    } else {
-                        $brevoService = new \App\Services\BrevoEmailService(
-                            $brevoApiKey,
-                            $emailConfig['fromEmail'],
-                            $emailConfig['fromName'] ?? 'ClearPay'
-                        );
-                        
-                        $result = $brevoService->send($refundDetails['email_address'], $subject, $htmlMessage, $textMessage);
-                        
-                        if ($result['success']) {
-                            log_message('info', 'Refund approval email sent successfully via Brevo API to: ' . $refundDetails['email_address']);
-                            return true;
-                        } else {
-                            log_message('error', 'Brevo API failed to send refund approval email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
-                            // Fall through to SMTP attempt
-                        }
-                    }
-                } catch (\Exception $apiException) {
-                    log_message('error', 'Brevo API exception while sending refund approval email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
-                    // Fall through to SMTP attempt
-                }
-            }
-            
-            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
-            // Validate SMTP credentials
-            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
-                log_message('error', 'SMTP configuration incomplete for refund approval email');
-                return false;
-            }
-            
-            // Get a fresh email service instance
-            $emailService = \Config\Services::email();
-            
-            // Clear any previous configuration
-            $emailService->clear();
-            
-            // Manually configure SMTP settings to ensure they're current
-            $smtpConfig = [
-                'protocol' => $emailConfig['protocol'] ?? 'smtp',
-                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
-                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
-                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
-                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
-                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
-                'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
-                'charset' => $emailConfig['charset'] ?? 'UTF-8',
-                'newline' => "\r\n", // Required for SMTP
-                'CRLF' => "\r\n", // Required for SMTP
-                'wordWrap' => true,
-                'validate' => false, // Don't validate email addresses
-            ];
-            
-            // Validate configuration before initializing
-            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
-                log_message('error', 'SMTP configuration validation failed for refund approval - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
-                return false;
-            }
-            
-            $emailService->initialize($smtpConfig);
-            
-            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
-            $emailService->setTo($refundDetails['email_address']);
-            $emailService->setSubject($subject);
-            $emailService->setMessage($htmlMessage);
-            
-            // Log email attempt
-            log_message('info', "Attempting to send refund approval email to: {$refundDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
-            
-            // Send email
-            $result = $emailService->send();
-            
-            if ($result) {
-                log_message('info', "Refund approval email sent successfully to: {$refundDetails['email_address']}");
-                return true;
-            } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
-                log_message('error', "Failed to send refund approval email: {$error}");
-                return false;
-            }
+
+            $emailDeliveryService = new EmailDeliveryService();
+
+            return $emailDeliveryService->sendTemplateEmail(
+                $refundDetails['email_address'],
+                $subject,
+                $htmlMessage,
+                $textMessage,
+                'refund approval email'
+            );
         } catch (\Exception $e) {
             // Log error but don't fail the refund approval
             log_message('error', 'Failed to send refund approval email: ' . $e->getMessage());
@@ -1335,9 +1251,6 @@ class RefundsController extends BaseController
                 return false;
             }
 
-            // Get email settings from database or config
-            $emailConfig = $this->getEmailConfig();
-            
             // Format dates
             $paymentDate = $refundDetails['payment_date'] ?? date('Y-m-d H:i:s');
             $formattedPaymentDate = date('F j, Y \a\t g:i A', strtotime($paymentDate));
@@ -1361,98 +1274,16 @@ class RefundsController extends BaseController
             
             $textMessage = strip_tags($htmlMessage);
             $subject = 'Refund Request Rejected - ClearPay';
-            
-            // Try Brevo API first (works on Render, bypasses port blocking)
-            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
-            
-            if (!empty($brevoApiKey)) {
-                try {
-                    log_message('info', 'Attempting to send refund rejection email via Brevo API to: ' . $refundDetails['email_address']);
-                    
-                    // Check if BrevoEmailService class exists
-                    if (!class_exists('\App\Services\BrevoEmailService')) {
-                        log_message('error', 'BrevoEmailService class not found. Falling back to SMTP.');
-                    } else {
-                        $brevoService = new \App\Services\BrevoEmailService(
-                            $brevoApiKey,
-                            $emailConfig['fromEmail'],
-                            $emailConfig['fromName'] ?? 'ClearPay'
-                        );
-                        
-                        $result = $brevoService->send($refundDetails['email_address'], $subject, $htmlMessage, $textMessage);
-                        
-                        if ($result['success']) {
-                            log_message('info', 'Refund rejection email sent successfully via Brevo API to: ' . $refundDetails['email_address']);
-                            return true;
-                        } else {
-                            log_message('error', 'Brevo API failed to send refund rejection email: ' . ($result['error'] ?? 'Unknown error') . '. Falling back to SMTP.');
-                            // Fall through to SMTP attempt
-                        }
-                    }
-                } catch (\Exception $apiException) {
-                    log_message('error', 'Brevo API exception while sending refund rejection email: ' . $apiException->getMessage() . '. Falling back to SMTP.');
-                    // Fall through to SMTP attempt
-                }
-            }
-            
-            // Fallback to SMTP (for localhost or if Brevo API fails/unavailable)
-            // Validate SMTP credentials
-            if (empty($emailConfig['SMTPUser']) || empty($emailConfig['SMTPPass']) || empty($emailConfig['SMTPHost'])) {
-                log_message('error', 'SMTP configuration incomplete for refund rejection email');
-                return false;
-            }
-            
-            // Get a fresh email service instance
-            $emailService = \Config\Services::email();
-            
-            // Clear any previous configuration
-            $emailService->clear();
-            
-            // Manually configure SMTP settings to ensure they're current
-            $smtpConfig = [
-                'protocol' => $emailConfig['protocol'] ?? 'smtp',
-                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
-                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '', // Don't trim password - may contain spaces
-                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
-                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
-                'SMTPTimeout' => (int)($emailConfig['SMTPTimeout'] ?? 30),
-                'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html', // CodeIgniter uses lowercase
-                'charset' => $emailConfig['charset'] ?? 'UTF-8',
-                'newline' => "\r\n", // Required for SMTP
-                'CRLF' => "\r\n", // Required for SMTP
-                'wordWrap' => true,
-                'validate' => false, // Don't validate email addresses
-            ];
-            
-            // Validate configuration before initializing
-            if (empty($smtpConfig['SMTPHost']) || empty($smtpConfig['SMTPUser']) || empty($smtpConfig['SMTPPass'])) {
-                log_message('error', 'SMTP configuration validation failed for refund rejection - Host: ' . ($smtpConfig['SMTPHost'] ? 'SET' : 'EMPTY') . ', User: ' . ($smtpConfig['SMTPUser'] ? 'SET' : 'EMPTY') . ', Pass: ' . ($smtpConfig['SMTPPass'] ? 'SET' : 'EMPTY'));
-                return false;
-            }
-            
-            $emailService->initialize($smtpConfig);
-            
-            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName']);
-            $emailService->setTo($refundDetails['email_address']);
-            $emailService->setSubject($subject);
-            $emailService->setMessage($htmlMessage);
-            
-            // Log email attempt
-            log_message('info', "Attempting to send refund rejection email to: {$refundDetails['email_address']} using SMTP: {$emailConfig['SMTPHost']}:{$emailConfig['SMTPPort']}");
-            
-            // Send email
-            $result = $emailService->send();
-            
-            if ($result) {
-                log_message('info', "Refund rejection email sent successfully to: {$refundDetails['email_address']}");
-                return true;
-            } else {
-                $error = $emailService->printDebugger(['headers', 'subject']);
-                log_message('error', "Failed to send refund rejection email: {$error}");
-                return false;
-            }
+
+            $emailDeliveryService = new EmailDeliveryService();
+
+            return $emailDeliveryService->sendTemplateEmail(
+                $refundDetails['email_address'],
+                $subject,
+                $htmlMessage,
+                $textMessage,
+                'refund rejection email'
+            );
         } catch (\Exception $e) {
             // Log error but don't fail the refund rejection
             log_message('error', 'Failed to send refund rejection email: ' . $e->getMessage());
@@ -1465,60 +1296,6 @@ class RefundsController extends BaseController
         }
     }
     
-    /**
-     * Get email configuration from database or fallback to config/environment
-     */
-    private function getEmailConfig()
-    {
-        try {
-            $db = \Config\Database::connect();
-            
-            // Try to load from database first
-            if ($db->tableExists('email_settings')) {
-                $settings = $db->table('email_settings')
-                    ->where('is_active', true)
-                    ->orderBy('id', 'DESC')
-                    ->limit(1)
-                    ->get()
-                    ->getRowArray();
-                
-                if ($settings) {
-                    return [
-                        'fromEmail' => $settings['from_email'] ?? '',
-                        'fromName' => $settings['from_name'] ?? 'ClearPay',
-                        'protocol' => $settings['protocol'] ?? 'smtp',
-                        'SMTPHost' => $settings['smtp_host'] ?? '',
-                        'SMTPUser' => $settings['smtp_user'] ?? '',
-                        'SMTPPass' => $settings['smtp_pass'] ?? '',
-                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
-                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
-                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
-                        'mailType' => $settings['mail_type'] ?? 'html',
-                        'charset' => $settings['charset'] ?? 'UTF-8',
-                    ];
-                }
-            }
-        } catch (\Exception $e) {
-            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
-        }
-        
-        // Fallback to config
-        $config = config('Email');
-        return [
-            'fromEmail' => $config->fromEmail,
-            'fromName' => $config->fromName,
-            'protocol' => $config->protocol,
-            'SMTPHost' => $config->SMTPHost,
-            'SMTPUser' => $config->SMTPUser,
-            'SMTPPass' => $config->SMTPPass,
-            'SMTPPort' => $config->SMTPPort,
-            'SMTPCrypto' => $config->SMTPCrypto,
-            'SMTPTimeout' => $config->SMTPTimeout,
-            'mailType' => $config->mailType,
-            'charset' => $config->charset,
-        ];
-    }
-
     /**
      * Log user activity to user_activities table for admin dashboard
      */
