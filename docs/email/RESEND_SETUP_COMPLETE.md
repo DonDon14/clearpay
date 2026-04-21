@@ -25,7 +25,7 @@
 
 ## 📝 Your Resend API Key (Saved for Reference)
 
-**API Key**: `re_N7RDfQjN_8cDMqnNj4HK7uF9aP9WTZuxv`
+**API Key**: `re_your_resend_api_key_here`
 
 ⚠️ **Note**: This key is saved locally in `resend-api-key.txt` (not in git) for your reference, but **Resend won't work with Gmail addresses**.
 
@@ -76,7 +76,7 @@ Resend may automatically prompt you to verify the email when you first try to se
    ```
    email.SMTPHost = smtp.resend.com
    email.SMTPUser = resend
-   email.SMTPPass = re_N7RDfQjN_8cDMqnNj4HK7uF9aP9WTZuxv
+   email.SMTPPass = re_your_resend_api_key_here
    email.SMTPPort = 587
    email.SMTPCrypto = tls
    email.fromEmail = project.clearpay@gmail.com
@@ -98,7 +98,7 @@ Resend may automatically prompt you to verify the email when you first try to se
    - **SMTP Host**: `smtp.resend.com`
    - **Port**: `587`
    - **SMTP Username**: `resend`
-   - **SMTP Password**: `re_N7RDfQjN_8cDMqnNj4HK7uF9aP9WTZuxv` (use toggle to see it)
+   - **SMTP Password**: `re_your_resend_api_key_here` (use toggle to see it)
    - **Encryption**: `TLS`
    - **Timeout**: `30`
    - **Mail Type**: `HTML`
@@ -114,7 +114,7 @@ Resend may automatically prompt you to verify the email when you first try to se
 |---------|-------|
 | **SMTP Host** | `smtp.resend.com` |
 | **SMTP User** | `resend` |
-| **SMTP Password** | `re_N7RDfQjN_8cDMqnNj4HK7uF9aP9WTZuxv` |
+| **SMTP Password** | `re_your_resend_api_key_here` |
 | **Port** | `587` |
 | **Encryption** | `TLS` |
 | **From Email** | `project.clearpay@gmail.com` |
@@ -175,4 +175,5 @@ After configuration:
 4. ⏳ **Test email sending**
 
 **You're all set!** Once configured, emails should work perfectly on Render! 🎉
+
 

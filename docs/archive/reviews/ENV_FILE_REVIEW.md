@@ -105,7 +105,7 @@ encryption.key = base64:glopwYz9SdGqmSyLPycepUYdbOJW5JQZWJ5NZ3K+TE4=
 database.default.hostname = sql111.infinityfree.com
 database.default.database = if0_40363851_clearpaydb
 database.default.username = if0_40363851
-database.default.password = xU6FMGUwmIA6L
+database.default.password = your_database_password_here
 database.default.DBDriver = MySQLi
 database.default.DBPrefix = 
 database.default.port = 3306
@@ -121,7 +121,7 @@ email.fromName = 'ClearPay'
 email.protocol = 'smtp'
 email.SMTPHost = 'smtp.gmail.com'
 email.SMTPUser = 'project.clearpay@gmail.com'
-email.SMTPPass = 'htvr lzek hons forj'
+email.SMTPPass = 'your_app_password_here'
 email.SMTPPort = 587
 email.SMTPCrypto = 'tls'
 email.mailType = 'html'
@@ -204,4 +204,5 @@ After updating the `.env` file:
 3. Add `database.default.DBPrefix = ` (empty)
 
 Once these changes are made, your `.env` file should work perfectly with InfinityFree! ✅
+
 

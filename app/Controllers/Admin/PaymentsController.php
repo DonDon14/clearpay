@@ -6,6 +6,7 @@ use App\Controllers\BaseController;
 use App\Models\ContributionModel;
 use App\Models\PaymentModel;
 use App\Services\ActivityLogger;
+use App\Services\EmailConfigService;
 // use App\Services\QRReceiptService; // Disabled for now
 
 class PaymentsController extends BaseController
@@ -2683,53 +2684,7 @@ class PaymentsController extends BaseController
      */
     private function getEmailConfig()
     {
-        try {
-            $db = \Config\Database::connect();
-            
-            // Try to load from database first
-            if ($db->tableExists('email_settings')) {
-                $settings = $db->table('email_settings')
-                    ->where('is_active', true)
-                    ->orderBy('id', 'DESC')
-                    ->limit(1)
-                    ->get()
-                    ->getRowArray();
-                
-                if ($settings) {
-                    return [
-                        'fromEmail' => $settings['from_email'] ?? '',
-                        'fromName' => $settings['from_name'] ?? 'ClearPay',
-                        'protocol' => $settings['protocol'] ?? 'smtp',
-                        'SMTPHost' => $settings['smtp_host'] ?? '',
-                        'SMTPUser' => $settings['smtp_user'] ?? '',
-                        'SMTPPass' => $settings['smtp_pass'] ?? '',
-                        'SMTPPort' => (int)($settings['smtp_port'] ?? 587),
-                        'SMTPCrypto' => $settings['smtp_crypto'] ?? 'tls',
-                        'SMTPTimeout' => (int)($settings['smtp_timeout'] ?? 30),
-                        'mailType' => $settings['mail_type'] ?? 'html',
-                        'charset' => $settings['charset'] ?? 'UTF-8',
-                    ];
-                }
-            }
-        } catch (\Exception $e) {
-            log_message('debug', 'Email settings table not found, using config: ' . $e->getMessage());
-        }
-        
-        // Fallback to config
-        $config = config('Email');
-        return [
-            'fromEmail' => $config->fromEmail,
-            'fromName' => $config->fromName,
-            'protocol' => $config->protocol,
-            'SMTPHost' => $config->SMTPHost,
-            'SMTPUser' => $config->SMTPUser,
-            'SMTPPass' => $config->SMTPPass,
-            'SMTPPort' => $config->SMTPPort,
-            'SMTPCrypto' => $config->SMTPCrypto,
-            'SMTPTimeout' => $config->SMTPTimeout,
-            'mailType' => $config->mailType,
-            'charset' => $config->charset,
-        ];
+        return (new EmailConfigService())->getConfig();
     }
 }
 
