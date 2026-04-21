@@ -42,13 +42,13 @@ class DashboardController extends BaseController
                     strpos($profilePic, 'https://') === 0) {
                     session()->set('profile_picture', $profilePic);
                 } else {
-                    // Normalize local path
-                    $path = $profilePic;
-                    $path = preg_replace('#^uploads/profile/#', '', $path);
-                    $path = preg_replace('#^profile/#', '', $path);
-                    $filename = basename($path);
-                    $normalizedPath = 'uploads/profile/' . $filename;
-                    session()->set('profile_picture', $normalizedPath);
+                    // Normalize local path and only keep it if file exists.
+                    $normalizedPath = $this->normalizeProfilePicturePath($profilePic, null, $userId, 'admin');
+                    if (!empty($normalizedPath)) {
+                        session()->set('profile_picture', $normalizedPath);
+                    } else {
+                        session()->remove('profile_picture');
+                    }
                 }
             } else if ($currentUser && empty($currentUser['profile_picture'])) {
                 // Clear profile picture from session if it's empty in database

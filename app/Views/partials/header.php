@@ -58,7 +58,8 @@
                   ? $headerProfilePic 
                   : base_url($headerProfilePic);
               ?>
-              <img src="<?= $headerPicUrl ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              <img src="<?= $headerPicUrl ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.style.display='none'; var fallback=this.nextElementSibling; if(fallback){fallback.style.display='flex';}">
+              <span class="avatar-fallback-icon" style="display:none;align-items:center;justify-content:center;width:100%;height:100%;"><i class="fas fa-user"></i></span>
             <?php else: ?>
               <i class="fas fa-user"></i>
             <?php endif; ?>
@@ -84,7 +85,8 @@
                   ? $headerProfilePic 
                   : base_url($headerProfilePic);
               ?>
-              <img src="<?= $headerPicUrl ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+              <img src="<?= $headerPicUrl ?>" alt="Profile" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.style.display='none'; var fallback=this.nextElementSibling; if(fallback){fallback.style.display='flex';}">
+              <span class="avatar-fallback-icon" style="display:none;align-items:center;justify-content:center;width:100%;height:100%;"><i class="fas fa-user"></i></span>
             <?php else: ?>
               <i class="fas fa-user"></i>
             <?php endif; ?>
