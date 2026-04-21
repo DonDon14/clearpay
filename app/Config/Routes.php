@@ -16,9 +16,11 @@ $routes->get('ClearPay/public/login', static fn() => redirect()->to('/login'));
 $routes->get('ClearPay/public/register', static fn() => redirect()->to('/register'));
 $routes->get('ClearPay/public/forgotPassword', static fn() => redirect()->to('/forgotPassword'));
 
-// Test routes for Cloudinary debugging (temporary)
-$routes->get('/test/cloudinary-status', 'TestController::cloudinaryStatus');
-$routes->get('/test/cloudinary-upload', 'TestController::testCloudinaryUpload');
+// Test routes for Cloudinary debugging (non-production only)
+if (ENVIRONMENT !== 'production') {
+    $routes->get('/test/cloudinary-status', 'TestController::cloudinaryStatus');
+    $routes->get('/test/cloudinary-upload', 'TestController::testCloudinaryUpload');
+}
 
 // Image serving route with CORS headers (must be before other routes to catch image requests)
 // This route handles image requests with proper CORS headers for Flutter Web
