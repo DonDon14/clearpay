@@ -357,8 +357,12 @@ class Analytics extends BaseController
             return redirect()->back()->with('error', 'Invalid export format');
         }
 
-        $report = $this->pythonAnalyticsService->generateReport($type);
+        if ($type === 'pdf') {
+            $analysis = $this->pythonAnalyticsService->generateAnalytics();
+            return $this->exportPDF($analysis);
+        }
 
+        $report = $this->pythonAnalyticsService->generateReport($type);
         return $this->response->download($report['path'], null)->setFileName($report['filename']);
     }
 
@@ -367,14 +371,34 @@ class Analytics extends BaseController
      */
     private function exportPDF($data)
     {
-        // Generate HTML report that can be printed to PDF from browser
         $html = $this->generatePDFHTML($data);
-        
-        // Return HTML that browsers can print to PDF
-        return $this->response
-            ->setHeader('Content-Type', 'text/html; charset=utf-8')
-            ->setHeader('Content-Disposition', 'inline; filename="ClearPay_Analytics_Report_' . date('Y-m-d_H-i-s') . '.html"')
-            ->setBody($html);
+
+        if (class_exists('\TCPDF')) {
+            $pdf = new \TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+            $pdf->SetCreator('ClearPay');
+            $pdf->SetAuthor('ClearPay');
+            $pdf->SetTitle('ClearPay Analytics Report');
+            $pdf->SetSubject('Analytics Export');
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->SetMargins(10, 10, 10);
+            $pdf->SetAutoPageBreak(true, 12);
+            $pdf->SetFont('helvetica', '', 10);
+            $pdf->AddPage();
+            $pdf->writeHTML($html, true, false, true, false, '');
+
+            $filename = 'ClearPay_Analytics_Report_' . date('Y-m-d_H-i-s') . '.pdf';
+            $binary = $pdf->Output($filename, 'S');
+
+            return $this->response
+                ->setHeader('Content-Type', 'application/pdf')
+                ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->setBody($binary);
+        }
+
+        // Fallback if TCPDF is unavailable in runtime.
+        $report = $this->pythonAnalyticsService->generateReport('pdf');
+        return $this->response->download($report['path'], null)->setFileName($report['filename']);
     }
 
     /**
@@ -590,207 +614,112 @@ class Analytics extends BaseController
     {
         ob_start();
         ?>
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>ClearPay Analytics Report</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body {
-                    font-family: 'Arial', sans-serif;
-                    padding: 20px;
-                    color: #333;
-                    line-height: 1.6;
-                }
-                .header {
-                    text-align: center;
-                    margin-bottom: 30px;
-                    padding-bottom: 20px;
-                    border-bottom: 3px solid #3b82f6;
-                }
-                .header h1 {
-                    color: #3b82f6;
-                    font-size: 28px;
-                    margin-bottom: 5px;
-                }
-                .header p {
-                    color: #666;
-                    font-size: 14px;
-                }
-                .section {
-                    margin-bottom: 30px;
-                }
-                .section-title {
-                    background-color: #f8f9fa;
-                    padding: 10px 15px;
-                    border-left: 4px solid #3b82f6;
-                    margin-bottom: 15px;
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #333;
-                }
-                .stats-grid {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 15px;
-                    margin-bottom: 20px;
-                }
-                .stat-card {
-                    background-color: #f8f9fa;
-                    padding: 15px;
-                    border-radius: 5px;
-                    border-left: 4px solid #3b82f6;
-                }
-                .stat-label {
-                    font-size: 12px;
-                    color: #666;
-                    text-transform: uppercase;
-                    margin-bottom: 5px;
-                }
-                .stat-value {
-                    font-size: 24px;
-                    font-weight: bold;
-                    color: #333;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-bottom: 20px;
-                }
-                table th {
-                    background-color: #3b82f6;
-                    color: white;
-                    padding: 12px;
-                    text-align: left;
-                    font-weight: bold;
-                }
-                table td {
-                    padding: 10px 12px;
-                    border-bottom: 1px solid #ddd;
-                }
-                table tr:nth-child(even) {
-                    background-color: #f8f9fa;
-                }
-                .text-right {
-                    text-align: right;
-                }
-                .footer {
-                    margin-top: 40px;
-                    padding-top: 20px;
-                    border-top: 2px solid #ddd;
-                    text-align: center;
-                    color: #666;
-                    font-size: 12px;
-                }
-                @media print {
-                    body { padding: 0; }
-                    .no-print { display: none; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>ClearPay Analytics Report</h1>
-                <p>Generated on <?= date('F j, Y \a\t g:i A', strtotime($data['generated_at'])) ?></p>
-            </div>
+        <style>
+            body { font-family: helvetica, sans-serif; font-size: 10px; color: #1f2937; }
+            .title { font-size: 20px; font-weight: bold; color: #1d4ed8; }
+            .sub { color: #4b5563; font-size: 10px; margin-bottom: 10px; }
+            .section-title { font-size: 12px; font-weight: bold; background-color: #e5e7eb; padding: 6px; margin-top: 10px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 8px; }
+            th { background-color: #2563eb; color: #ffffff; font-weight: bold; font-size: 9px; padding: 5px; border: 1px solid #d1d5db; }
+            td { font-size: 9px; padding: 5px; border: 1px solid #d1d5db; }
+            .right { text-align: right; }
+            .muted { color: #6b7280; font-size: 8px; }
+        </style>
 
-            <!-- Overview Statistics -->
-            <div class="section">
-                <div class="section-title">Overview Statistics</div>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Revenue</div>
-                        <div class="stat-value">₱<?= number_format($data['overview']['total_revenue'], 2) ?></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Profit</div>
-                        <div class="stat-value">₱<?= number_format($data['overview']['total_profit'], 2) ?></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Active Contributors</div>
-                        <div class="stat-value"><?= number_format($data['overview']['active_contributors']) ?></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Total Contributions</div>
-                        <div class="stat-value"><?= number_format($data['overview']['total_contributions']) ?></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Average Profit Margin</div>
-                        <div class="stat-value"><?= number_format($data['overview']['avg_profit_margin'], 1) ?>%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Monthly Growth</div>
-                        <div class="stat-value"><?= $data['overview']['monthly_growth'] ?>%</div>
-                    </div>
-                </div>
-            </div>
+        <div class="title">ClearPay Analytics Report</div>
+        <div class="sub">Generated on <?= esc(date('F j, Y \a\t g:i A', strtotime($data['generated_at'] ?? date('c')))) ?></div>
 
-            <!-- Top Payers -->
-            <?php if (!empty($data['payments']['top_payers'])): ?>
-            <div class="section">
-                <div class="section-title">Top Payers (Top 10)</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Name</th>
-                            <th>ID</th>
-                            <th class="text-right">Total Paid</th>
-                            <th class="text-right">Transactions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($data['payments']['top_payers'] as $index => $payer): ?>
+        <div class="section-title">Overview Statistics</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th class="right">Value</th>
+                    <th>Metric</th>
+                    <th class="right">Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Total Revenue</td>
+                    <td class="right">&#8369;<?= number_format((float)($data['overview']['total_revenue'] ?? 0), 2) ?></td>
+                    <td>Total Profit</td>
+                    <td class="right">&#8369;<?= number_format((float)($data['overview']['total_profit'] ?? 0), 2) ?></td>
+                </tr>
+                <tr>
+                    <td>Monthly Revenue</td>
+                    <td class="right">&#8369;<?= number_format((float)($data['overview']['monthly_revenue'] ?? 0), 2) ?></td>
+                    <td>Monthly Growth</td>
+                    <td class="right"><?= number_format((float)($data['overview']['monthly_growth'] ?? 0), 1) ?>%</td>
+                </tr>
+                <tr>
+                    <td>Active Contributors</td>
+                    <td class="right"><?= number_format((int)($data['overview']['active_contributors'] ?? 0)) ?></td>
+                    <td>Total Contributions</td>
+                    <td class="right"><?= number_format((int)($data['overview']['total_contributions'] ?? 0)) ?></td>
+                </tr>
+                <tr>
+                    <td>Average Profit Margin</td>
+                    <td class="right"><?= number_format((float)($data['overview']['avg_profit_margin'] ?? 0), 1) ?>%</td>
+                    <td>Outstanding Balance</td>
+                    <td class="right">&#8369;<?= number_format((float)($data['overview']['total_outstanding_balance'] ?? 0), 2) ?></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <?php if (!empty($data['payments']['top_payers'])): ?>
+            <div class="section-title">Top Payers</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:8%;">#</th>
+                        <th style="width:36%;">Name</th>
+                        <th style="width:18%;">ID</th>
+                        <th style="width:20%;" class="right">Total Paid</th>
+                        <th style="width:18%;" class="right">Transactions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (array_slice($data['payments']['top_payers'], 0, 10) as $index => $payer): ?>
                         <tr>
                             <td><?= $index + 1 ?></td>
-                            <td><?= htmlspecialchars($payer['payer_name']) ?></td>
-                            <td><?= htmlspecialchars($payer['payer_id_number']) ?></td>
-                            <td class="text-right">₱<?= number_format($payer['total_paid'], 2) ?></td>
-                            <td class="text-right"><?= $payer['total_transactions'] ?></td>
+                            <td><?= esc((string)($payer['payer_name'] ?? 'Unknown')) ?></td>
+                            <td><?= esc((string)($payer['payer_id_number'] ?? '-')) ?></td>
+                            <td class="right">&#8369;<?= number_format((float)($payer['total_paid'] ?? 0), 2) ?></td>
+                            <td class="right"><?= number_format((int)($payer['total_transactions'] ?? 0)) ?></td>
                         </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php endif; ?>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
 
-            <!-- Top Contributions -->
-            <?php if (!empty($data['contributions']['top_profitable'])): ?>
-            <div class="section">
-                <div class="section-title">Top Performing Contributions</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Title</th>
-                            <th>Category</th>
-                            <th class="text-right">Profit</th>
-                            <th class="text-right">Margin</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($data['contributions']['top_profitable'] as $index => $contribution): ?>
+        <?php if (!empty($data['contributions']['top_profitable'])): ?>
+            <div class="section-title">Top Performing Contributions</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:8%;">#</th>
+                        <th style="width:44%;">Title</th>
+                        <th style="width:20%;">Category</th>
+                        <th style="width:14%;" class="right">Profit</th>
+                        <th style="width:14%;" class="right">Margin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (array_slice($data['contributions']['top_profitable'], 0, 10) as $index => $contribution): ?>
                         <tr>
                             <td><?= $index + 1 ?></td>
-                            <td><?= htmlspecialchars($contribution['title']) ?></td>
-                            <td><?= htmlspecialchars($contribution['category'] ?? 'General') ?></td>
-                            <td class="text-right">₱<?= number_format($contribution['profit_amount'] ?? 0, 2) ?></td>
-                            <td class="text-right"><?= number_format($contribution['profit_margin'] ?? 0, 1) ?>%</td>
+                            <td><?= esc((string)($contribution['title'] ?? 'Untitled')) ?></td>
+                            <td><?= esc((string)($contribution['category'] ?? 'General')) ?></td>
+                            <td class="right">&#8369;<?= number_format((float)($contribution['profit_amount'] ?? 0), 2) ?></td>
+                            <td class="right"><?= number_format((float)($contribution['profit_margin'] ?? 0), 1) ?>%</td>
                         </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <?php endif; ?>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
 
-            <div class="footer">
-                <p>This report was generated by ClearPay Analytics System</p>
-                <p>For questions or concerns, please contact the system administrator</p>
-            </div>
-        </body>
-        </html>
+        <div class="muted">Generated by ClearPay Analytics</div>
         <?php
         return ob_get_clean();
     }
