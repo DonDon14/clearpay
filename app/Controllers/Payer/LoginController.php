@@ -334,8 +334,7 @@ class LoginController extends BaseController
         return $this->response->setJSON([
             'success' => true,
             'message' => 'Verification code has been sent to your email.',
-            'email_sent' => $emailSent,
-            'reset_code' => $resetCode // For testing purposes - remove in production
+            'email_sent' => $emailSent
         ]);
     }
 
@@ -691,8 +690,7 @@ class LoginController extends BaseController
             'success' => true,
             'message' => 'If an account with that email exists, you will receive a password reset verification code.',
             'email_sent' => $emailSent,
-            'email' => $payer['email_address'],
-            'reset_code' => $resetCode // For testing purposes
+            'email' => $payer['email_address']
         ]);
     }
 

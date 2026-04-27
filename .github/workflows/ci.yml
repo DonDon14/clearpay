@@ -16,8 +16,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  test:
+  test-sqlite:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ["8.2", "8.4"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,7 +29,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.2"
+          php-version: ${{ matrix.php-version }}
           extensions: intl, mbstring, json, curl, pdo, pdo_sqlite, sqlite3
           tools: composer:v2
           coverage: none
@@ -41,4 +45,53 @@ jobs:
           find app tests -type f -name "*.php" -print0 | xargs -0 -n1 php -l
 
       - name: Run tests
+        run: vendor/bin/phpunit --testdox
+
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: clearpay_test
+          POSTGRES_USER: clearpay
+          POSTGRES_PASSWORD: clearpay
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clearpay -d clearpay_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DB_DRIVER: Postgre
+      TEST_DB_HOST: 127.0.0.1
+      TEST_DB_PORT: 5432
+      TEST_DB_DATABASE: clearpay_test
+      TEST_DB_USERNAME: clearpay
+      TEST_DB_PASSWORD: clearpay
+      TEST_DB_SCHEMA: public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: intl, mbstring, json, curl, pdo, pdo_pgsql, pgsql
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate composer
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHP lint (app/tests)
+        run: |
+          find app tests -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - name: Run tests (PostgreSQL)
         run: vendor/bin/phpunit --testdox

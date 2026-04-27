@@ -812,8 +812,7 @@ class LoginController extends Controller
         return $this->response->setJSON([
             'success' => true,
             'message' => 'If an account with that email exists, you will receive a password reset verification code.',
-            'email_sent' => $emailSent,
-            'reset_code' => $resetCode // For testing purposes - remove in production
+            'email_sent' => $emailSent
         ]);
     }
 

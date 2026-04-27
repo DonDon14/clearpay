@@ -189,6 +189,61 @@ class Database extends Config
         ],
     ];
 
+    private function applyTestingDatabaseOverrides(): void
+    {
+        $driver = env('database.tests.DBDriver') ?: getenv('TEST_DB_DRIVER');
+        $host = env('database.tests.hostname') ?: getenv('TEST_DB_HOST');
+        $port = env('database.tests.port') ?: getenv('TEST_DB_PORT');
+        $database = env('database.tests.database') ?: getenv('TEST_DB_DATABASE');
+        $username = env('database.tests.username') ?: getenv('TEST_DB_USERNAME');
+        $password = env('database.tests.password') ?: getenv('TEST_DB_PASSWORD');
+        $schema = env('database.tests.schema') ?: getenv('TEST_DB_SCHEMA');
+
+        if (!empty($driver)) {
+            $this->tests['DBDriver'] = $driver;
+        }
+
+        if (!empty($host)) {
+            $this->tests['hostname'] = $host;
+        }
+
+        if (!empty($port)) {
+            $this->tests['port'] = (int) $port;
+        }
+
+        if (!empty($database)) {
+            $this->tests['database'] = $database;
+        }
+
+        if (!empty($username)) {
+            $this->tests['username'] = $username;
+        }
+
+        if ($password !== false && $password !== null && $password !== '') {
+            $this->tests['password'] = $password;
+        }
+
+        if (!empty($schema)) {
+            $this->tests['schema'] = $schema;
+        }
+
+        if (($this->tests['DBDriver'] ?? null) === 'Postgre') {
+            $this->tests['charset'] = 'UTF8';
+
+            if (empty($this->tests['schema'])) {
+                $this->tests['schema'] = 'public';
+            }
+
+            if (empty($this->tests['port']) || (int) $this->tests['port'] === 3306) {
+                $this->tests['port'] = 5432;
+            }
+
+            unset($this->tests['DBCollat']);
+            unset($this->tests['numberNative']);
+            unset($this->tests['foundRows']);
+        }
+    }
+
     public function __construct()
     {
         // Call parent constructor FIRST - this loads .env values
@@ -320,6 +375,7 @@ class Database extends Config
         // we are currently running an automated test suite, so that
         // we don't overwrite live data on accident.
         if (ENVIRONMENT === 'testing') {
+            $this->applyTestingDatabaseOverrides();
             $this->defaultGroup = 'tests';
         }
     }

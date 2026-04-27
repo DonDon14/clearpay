@@ -45,11 +45,19 @@ final class PayerWorkflowSmokeTest extends CIUnitTestCase
         $sendPayload = json_decode($sendReset->getJSON(), true, 512, JSON_THROW_ON_ERROR);
 
         $this->assertTrue($sendPayload['success']);
-        $this->assertNotEmpty($sendPayload['reset_code']);
+        $this->assertArrayNotHasKey('reset_code', $sendPayload);
+
+        $payer = db_connect('tests')
+            ->table('payers')
+            ->where('email_address', 'lianne@example.com')
+            ->get()
+            ->getRowArray();
+        $this->assertNotNull($payer);
+        $this->assertNotEmpty($payer['reset_token']);
 
         $verify = $this->call('post', 'payer/verifyResetCode', [
             'email' => 'lianne@example.com',
-            'reset_code' => (string) $sendPayload['reset_code'],
+            'reset_code' => (string) $payer['reset_token'],
         ]);
 
         $verify->assertStatus(200);

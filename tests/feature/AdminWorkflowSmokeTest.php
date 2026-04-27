@@ -42,6 +42,29 @@ final class AdminWorkflowSmokeTest extends CIUnitTestCase
         $result->assertRedirectTo('/dashboard');
     }
 
+    public function testAdminForgotPasswordResponseDoesNotExposeResetCode(): void
+    {
+        $result = $this->call('post', 'forgotPasswordPost', [
+            'email' => 'adminsmoke@example.com',
+        ]);
+
+        $result->assertStatus(200);
+        $payload = json_decode($result->getJSON(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertTrue($payload['success']);
+        $this->assertArrayNotHasKey('reset_code', $payload);
+
+        $admin = db_connect('tests')
+            ->table('users')
+            ->where('email', 'adminsmoke@example.com')
+            ->get()
+            ->getRowArray();
+
+        $this->assertNotNull($admin);
+        $this->assertNotEmpty($admin['reset_token']);
+        $this->assertNotEmpty($admin['reset_expires']);
+    }
+
     public function testAuthenticatedPayerSearchReturnsMatchingResults(): void
     {
         $result = $this
