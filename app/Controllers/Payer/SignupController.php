@@ -248,7 +248,7 @@ class SignupController extends BaseController
                 'SMTPPass' => $emailConfig['SMTPPass'] ?? '',
                 'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
                 'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
-                'SMTPTimeout' => (int) min((int) ($emailConfig['SMTPTimeout'] ?? 30), 10),
+                'SMTPTimeout' => max(10, (int) ($emailConfig['SMTPTimeout'] ?? 30)),
                 'mailType' => $emailConfig['mailType'] ?? 'html',
                 'mailtype' => $emailConfig['mailType'] ?? 'html',
                 'charset' => $emailConfig['charset'] ?? 'UTF-8',
