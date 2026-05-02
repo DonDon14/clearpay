@@ -87,6 +87,9 @@
           <div class="forgot-password-link">
             <a href="<?= base_url('payer/forgotPassword') ?>" class="forgot-link">Forgot Password?</a>
           </div>
+          <div class="forgot-password-link" style="margin-top: 0.35rem;">
+            <a href="#" class="forgot-link" id="resendVerificationLink">Resend Verification Code</a>
+          </div>
 
           <button type="submit" class="btn-login">
             <i class="fas fa-sign-in-alt"></i>
@@ -159,6 +162,8 @@
       const passwordInput = document.getElementById('password');
       const passwordToggle = document.getElementById('passwordToggle');
       const passwordToggleIcon = document.getElementById('passwordToggleIcon');
+      const resendLink = document.getElementById('resendVerificationLink');
+      const payerIdInput = document.getElementById('payer_id');
 
       if (passwordToggle && passwordInput) {
         passwordToggle.addEventListener('click', function() {
@@ -172,6 +177,46 @@
           } else {
             passwordToggleIcon.classList.remove('fa-eye-slash');
             passwordToggleIcon.classList.add('fa-eye');
+          }
+        });
+      }
+
+      if (resendLink) {
+        resendLink.addEventListener('click', async function(e) {
+          e.preventDefault();
+
+          const payerId = (payerIdInput?.value || '').trim();
+          const email = window.prompt('Enter your account email (optional). If you leave this blank, Student ID will be used.');
+          const emailValue = (email || '').trim();
+
+          if (!payerId && !emailValue) {
+            alert('Enter your Student ID first or provide your email in the prompt.');
+            return;
+          }
+
+          const payload = new URLSearchParams();
+          if (payerId) payload.set('payer_id', payerId);
+          if (emailValue) payload.set('email_address', emailValue);
+
+          resendLink.style.pointerEvents = 'none';
+          resendLink.textContent = 'Sending...';
+
+          try {
+            const response = await fetch('<?= base_url('payer/resendVerificationCode') ?>', {
+              method: 'POST',
+              headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+              },
+              body: payload.toString()
+            });
+            const data = await response.json();
+            alert(data.message || data.error || 'Request finished.');
+          } catch (err) {
+            alert('Failed to resend verification code. Please try again.');
+          } finally {
+            resendLink.style.pointerEvents = '';
+            resendLink.textContent = 'Resend Verification Code';
           }
         });
       }

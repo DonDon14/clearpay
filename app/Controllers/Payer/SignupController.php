@@ -400,11 +400,58 @@ class SignupController extends BaseController
         $payerId = $session->get('pending_verification_payer_id');
         $email = $session->get('pending_verification_email');
 
+        // Fallback flow for login page: allow resend by identity when no signup session exists.
         if (!$payerId || !$email) {
-            return $this->response->setJSON([
-                'success' => false,
-                'error' => 'Session expired. Please sign up again.'
-            ]);
+            $identityEmail = trim((string) ($this->request->getPost('email_address') ?? ''));
+            $identityPayerId = trim((string) ($this->request->getPost('payer_id') ?? ''));
+
+            if ($identityEmail === '' && $identityPayerId === '') {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Provide Student ID or email to resend verification code.'
+                ]);
+            }
+
+            $db = \Config\Database::connect();
+            $builder = $db->table('payers');
+
+            if ($identityEmail !== '' && $identityPayerId !== '') {
+                $builder->groupStart()
+                    ->where('LOWER(TRIM(email_address))', strtolower($identityEmail))
+                    ->orWhere('LOWER(TRIM(payer_id))', strtolower($identityPayerId))
+                    ->groupEnd();
+            } elseif ($identityEmail !== '') {
+                $builder->where('LOWER(TRIM(email_address))', strtolower($identityEmail));
+            } else {
+                $builder->where('LOWER(TRIM(payer_id))', strtolower($identityPayerId));
+            }
+
+            $payer = $builder->limit(1)->get()->getRowArray();
+            if (!$payer) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'Account not found.'
+                ]);
+            }
+
+            if ((int) ($payer['email_verified'] ?? 0) === 1) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'This account is already verified. You can log in now.'
+                ]);
+            }
+
+            $payerId = (int) $payer['id'];
+            $email = (string) ($payer['email_address'] ?? '');
+            if ($email === '') {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'No email is set for this account. Please contact admin.'
+                ]);
+            }
+
+            $session->set('pending_verification_payer_id', $payerId);
+            $session->set('pending_verification_email', $email);
         }
 
         $payer = $this->payerModel->find($payerId);
