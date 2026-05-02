@@ -397,6 +397,14 @@ $(document).ready(function() {
     let currentRequestId = null;
     let currentAction = null;
 
+    (function autoOpenRequestFromUrl() {
+        const params = new URLSearchParams(window.location.search || '');
+        const requestId = parseInt(params.get('request_id') || '0', 10);
+        if (requestId > 0) {
+            viewRequestDetails(requestId);
+        }
+    })();
+
     // Initialize DataTables
     $('#pendingTable').DataTable({
         "order": [[0, "desc"]], // Order by date descending

@@ -244,21 +244,28 @@
                             $clickUrl = null;
                             $entityType = strtolower($activity['entity_type'] ?? '');
                             $activityType = strtolower($activity['activity_type'] ?? '');
+                            $entityId = (int) ($activity['entity_id'] ?? 0);
 
                             if ($entityType === 'payment_request') {
-                                $clickUrl = base_url('payment-requests');
+                                $clickUrl = $entityId > 0
+                                    ? base_url('payment-requests') . '?request_id=' . $entityId
+                                    : base_url('payment-requests');
                             } elseif ($entityType === 'refund') {
                                 $clickUrl = in_array($activityType, ['rejected', 'completed', 'processed'], true)
                                     ? base_url('refunds') . '#history'
                                     : base_url('refunds');
                             } elseif ($entityType === 'payment') {
-                                $clickUrl = base_url('payments');
+                                $clickUrl = $entityId > 0
+                                    ? base_url('payments') . '?focus_payment=' . $entityId
+                                    : base_url('payments');
                             } elseif ($entityType === 'contribution') {
                                 $clickUrl = base_url('contributions');
                             } elseif ($entityType === 'announcement') {
                                 $clickUrl = base_url('announcements');
                             } elseif ($entityType === 'payer') {
-                                $clickUrl = base_url('payers');
+                                $clickUrl = $entityId > 0
+                                    ? base_url('payers') . '?focus_payer=' . $entityId
+                                    : base_url('payers');
                             } elseif ($entityType === 'user') {
                                 $clickUrl = base_url('settings/users');
                             }
@@ -316,11 +323,6 @@
                                 <div class="flex-grow-1">
                                     <h6 class="mb-1 fw-semibold"><?= esc($activity['user_name']) ?? esc($activity['username']) ?></h6>
                                     <div class="ui-list-meta"><?= esc($activity['description'] ?? 'No description') ?></div>
-                                    <?php if (!empty($activity['entity_type'])): ?>
-                                        <div class="ui-list-meta mt-1">
-                                            <span class="badge bg-secondary"><?= esc(strtoupper($activity['entity_type'])) ?></span>
-                                        </div>
-                                    <?php endif; ?>
                                     <div class="ui-list-meta mt-1">
                                         <?= date('M d, Y h:i A', strtotime($activity['created_at'])) ?>
                                     </div>
