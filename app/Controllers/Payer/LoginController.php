@@ -80,15 +80,10 @@ class LoginController extends BaseController
             // Store payer info in session for resend verification
             session()->set('pending_verification_payer_id', $payer['id']);
             session()->set('pending_verification_email', $payer['email_address']);
-
-            // Always attempt to send a fresh verification code on login for unverified accounts.
-            $emailSent = $this->dispatchFreshVerificationCode($payer);
             
             return redirect()->back()
                 ->withInput()
-                ->with('error', $emailSent
-                    ? 'Please verify your email address before logging in. A new verification code was sent to your email.'
-                    : 'Please verify your email address before logging in. We could not send the verification code right now; please try again in a moment.');
+                ->with('error', 'Please verify your email address before logging in. Use the resend verification option if needed.');
         }
 
         // Set session data
@@ -195,14 +190,10 @@ class LoginController extends BaseController
         $hasEmail = !empty(trim((string)($payer['email_address'] ?? '')));
         $isEmailVerified = isset($payer['email_verified']) && (int)$payer['email_verified'] === 1;
         if ($hasEmail && !$isEmailVerified) {
-            $emailSent = $this->dispatchFreshVerificationCode($payer);
             return $this->response->setJSON([
                 'success' => false,
-                'error' => $emailSent
-                    ? 'Please verify your email address before logging in. A new verification code was sent to your email.'
-                    : 'Please verify your email address before logging in. We could not send the verification code right now; please try again in a moment.',
-                'requires_verification' => true,
-                'email_sent' => $emailSent
+                'error' => 'Please verify your email address before logging in. Use resend verification from signup if needed.',
+                'requires_verification' => true
             ]);
         }
 
@@ -237,26 +228,6 @@ class LoginController extends BaseController
         }
 
         return view('payer/forgot_password');
-    }
-
-    private function dispatchFreshVerificationCode(array $payer): bool
-    {
-        try {
-            $verificationCode = (string) rand(100000, 999999);
-            $this->payerModel->update($payer['id'], [
-                'verification_token' => $verificationCode
-            ]);
-
-            $signupController = new \App\Controllers\Payer\SignupController();
-            return $signupController->sendVerificationEmail(
-                (string) ($payer['email_address'] ?? ''),
-                (string) ($payer['payer_name'] ?? 'Payer'),
-                $verificationCode
-            );
-        } catch (\Throwable $e) {
-            log_message('error', 'Failed to dispatch payer verification code: ' . $e->getMessage());
-            return false;
-        }
     }
 
     public function forgotPasswordPost()
