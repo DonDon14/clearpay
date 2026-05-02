@@ -10,7 +10,7 @@
             <button type="button" class="btn btn-outline-primary btn-sm" onclick="refreshPaymentRequests()">
                 <i class="fas fa-sync-alt me-1"></i>Refresh
             </button>
-            <a href="' . base_url('payer/products') . '" class="btn btn-primary btn-sm">
+            <a href="' . base_url('payer/contributions') . '" class="btn btn-primary btn-sm">
                 <i class="fas fa-plus me-1"></i>Request New Payment
             </a>
         ',
@@ -28,7 +28,7 @@
                             <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
                             <h5 class="text-muted">No Payment Requests</h5>
                             <p class="text-muted">You haven't submitted any payment requests yet.</p>
-                            <a href="<?= base_url('payer/products') ?>" class="btn btn-primary">
+                            <a href="<?= base_url('payer/contributions') ?>" class="btn btn-primary">
                                 <i class="fas fa-plus me-2"></i>Submit Your First Payment Request
                             </a>
                         </div>

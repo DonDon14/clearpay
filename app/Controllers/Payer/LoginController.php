@@ -73,8 +73,10 @@ class LoginController extends BaseController
                 ->with('error', 'Invalid Username or Password');
         }
 
-        // Check if email is verified (only if email exists)
-        if (!empty($payer['email_address']) && isset($payer['email_verified']) && !$payer['email_verified']) {
+        // Email verification is required for accounts with an email.
+        $hasEmail = !empty(trim((string)($payer['email_address'] ?? '')));
+        $isEmailVerified = isset($payer['email_verified']) && (int)$payer['email_verified'] === 1;
+        if ($hasEmail && !$isEmailVerified) {
             // Store payer info in session for resend verification
             session()->set('pending_verification_payer_id', $payer['id']);
             session()->set('pending_verification_email', $payer['email_address']);
@@ -197,8 +199,9 @@ class LoginController extends BaseController
             ]);
         }
 
-        // Check if email is verified (only if email exists)
-        if (!empty($payer['email_address']) && isset($payer['email_verified']) && !$payer['email_verified']) {
+        $hasEmail = !empty(trim((string)($payer['email_address'] ?? '')));
+        $isEmailVerified = isset($payer['email_verified']) && (int)$payer['email_verified'] === 1;
+        if ($hasEmail && !$isEmailVerified) {
             return $this->response->setJSON([
                 'success' => false,
                 'error' => 'Please verify your email address before logging in. Please check your email for the verification code or sign up again to receive a new code.',
@@ -397,57 +400,56 @@ class LoginController extends BaseController
     private function sendPasswordResetEmail($email, $name, $code)
     {
         try {
-            // Get email settings from database or config
             $emailConfig = $this->getEmailConfig();
-            
-            // Use Brevo API for password reset emails (bypasses Render port blocking)
-            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
-            
-            if (empty($brevoApiKey)) {
-                log_message('error', 'BREVO_API_KEY not found. Password reset emails require Brevo API key. Set BREVO_API_KEY environment variable.');
-                log_message('info', 'Get API key from Brevo → Settings → SMTP & API → API Keys');
+
+            $missingFields = [];
+            if (empty($emailConfig['SMTPUser'])) $missingFields[] = 'SMTPUser';
+            if (empty($emailConfig['SMTPPass'])) $missingFields[] = 'SMTPPass';
+            if (empty($emailConfig['SMTPHost'])) $missingFields[] = 'SMTPHost';
+            if (empty($emailConfig['fromEmail'])) $missingFields[] = 'fromEmail';
+
+            if (!empty($missingFields)) {
+                log_message('error', 'SMTP configuration incomplete for password reset email - Missing: ' . implode(', ', $missingFields));
                 return false;
             }
-            
-            // Get email template
+
             $htmlMessage = view('emails/password_reset', [
                 'name' => $name,
                 'code' => $code
             ]);
-            
-            // Extract text version from HTML
-            $textMessage = strip_tags($htmlMessage);
-            
-            // Use Brevo API only (no SMTP fallback for password reset emails)
-            try {
-                log_message('info', 'Attempting to send password reset email via Brevo API to payer: ' . $email);
-                
-                // Check if BrevoEmailService class exists
-                if (!class_exists('\App\Services\BrevoEmailService')) {
-                    log_message('error', 'BrevoEmailService class not found. Code may not be deployed yet.');
-                    return false;
-                }
-                
-                $brevoService = new \App\Services\BrevoEmailService(
-                    $brevoApiKey,
-                    $emailConfig['fromEmail'],
-                    $emailConfig['fromName'] ?? 'ClearPay'
-                );
-                
-                $result = $brevoService->send($email, 'Password Reset Request - ClearPay Payer Portal', $htmlMessage, $textMessage);
-                
-                if ($result['success']) {
-                    log_message('info', 'Password reset email sent successfully via Brevo API to payer: ' . $email);
-                    return true;
-                } else {
-                    log_message('error', 'Brevo API failed to send password reset email: ' . ($result['error'] ?? 'Unknown error'));
-                    return false;
-                }
-            } catch (\Exception $apiException) {
-                log_message('error', 'Brevo API exception while sending password reset email: ' . $apiException->getMessage());
-                log_message('error', 'Exception trace: ' . $apiException->getTraceAsString());
-                return false;
+
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '',
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int) min((int) ($emailConfig['SMTPTimeout'] ?? 30), 10),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html',
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "`r`n",
+                'CRLF' => "`r`n",
+                'wordWrap' => true,
+                'validate' => false,
+            ];
+
+            $emailService = \Config\Services::email();
+            $emailService->clear();
+            $emailService->initialize($smtpConfig);
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
+            $emailService->setTo($email);
+            $emailService->setSubject('Password Reset Request - ClearPay Payer Portal');
+            $emailService->setMessage($htmlMessage);
+
+            if ($emailService->send()) {
+                log_message('info', 'Password reset email sent successfully via SMTP to payer: ' . $email);
+                return true;
             }
+
+            log_message('error', 'SMTP failed to send password reset email: ' . $emailService->printDebugger(['headers', 'subject']));
+            return false;
         } catch (\Exception $e) {
             log_message('error', 'Failed to send password reset email to payer: ' . $e->getMessage());
             log_message('error', 'Exception trace: ' . $e->getTraceAsString());

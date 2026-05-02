@@ -9,6 +9,9 @@
             <p>Browse registered payers, filter by status or course, and jump into exports or account management quickly.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importPayersCsvModal">
+                <i class="fas fa-file-import"></i> Import CSV
+            </button>
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
                 <i class="fas fa-plus"></i> Add New Payer
             </button>
@@ -73,6 +76,9 @@
                 </div>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPayerModal">
                     <i class="fas fa-plus"></i> Add New Payer
+                </button>
+                <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importPayersCsvModal">
+                    <i class="fas fa-file-import"></i> Import CSV
                 </button>
             </div>
         </div>
@@ -278,6 +284,26 @@
     </div>
 </div>
 
+<div class="modal fade" id="importPayersCsvModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import Payers from CSV</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-2">Required columns: <code>payer_id,payer_name,email_address,contact_number</code></p>
+                <p class="small text-muted">Optional column: <code>course_department</code></p>
+                <input type="file" class="form-control" id="payersCsvFile" accept=".csv">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="importPayersCsvBtn" onclick="importPayersCsv()">Import</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Search, Filter, and Sort functionality for payers list
 (function() {
@@ -452,6 +478,39 @@
     
     // Initial sort
     sortRows();
+})();
+
+(function focusPayerFromQueryParam() {
+    const params = new URLSearchParams(window.location.search || '');
+    const focusPayerId = parseInt(params.get('focus_payer') || '0', 10);
+    if (!focusPayerId) return;
+
+    const searchInput = document.getElementById('searchPayerInput');
+    const rowSelector = `tr[data-payer-db-id="${focusPayerId}"]`;
+
+    const highlightRow = () => {
+        const row = document.querySelector(rowSelector);
+        if (!row) return;
+        row.style.outline = '2px solid #0d6efd';
+        row.style.boxShadow = '0 0 0 0.25rem rgba(13, 110, 253, 0.2)';
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+            row.style.outline = '';
+            row.style.boxShadow = '';
+        }, 4500);
+    };
+
+    const row = document.querySelector(rowSelector);
+    if (row) {
+        highlightRow();
+        return;
+    }
+
+    if (searchInput) {
+        searchInput.value = String(focusPayerId);
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        setTimeout(highlightRow, 200);
+    }
 })();
 
 function viewPayerDetails(payerId) {
@@ -808,6 +867,43 @@ function exportPayers(format) {
     
     // Redirect to export endpoint
     window.location.href = url;
+}
+
+function importPayersCsv() {
+    const fileInput = document.getElementById('payersCsvFile');
+    const button = document.getElementById('importPayersCsvBtn');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        showNotification('Please choose a CSV file first.', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('csv_file', fileInput.files[0]);
+    button.disabled = true;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Importing...';
+
+    fetch(`<?= base_url('payers/import/csv') ?>`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message || 'CSV import complete.', 'success');
+            setTimeout(() => window.location.reload(), 1200);
+            return;
+        }
+        showNotification(data.message || 'CSV import failed.', 'error');
+    })
+    .catch(() => showNotification('CSV import failed.', 'error'))
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    });
 }
 </script>
 

@@ -49,7 +49,7 @@ class SignupController extends BaseController
             'password' => 'required|min_length[6]|max_length[255]',
             'confirm_password' => 'required|matches[password]',
             'payer_name' => 'required|min_length[3]|max_length[255]',
-            'email_address' => 'permit_empty|valid_email|max_length[100]',
+            'email_address' => 'required|valid_email|max_length[100]',
             'contact_number' => 'permit_empty',
             'course_department' => 'permit_empty|max_length[100]'
         ]);
@@ -64,23 +64,18 @@ class SignupController extends BaseController
         }
 
         try {
-            // Check if payer_id already exists (case-sensitive)
-            // Get all payers and check for exact case-sensitive match
-            $allPayers = $this->payerModel->findAll();
-            foreach ($allPayers as $p) {
-                if ($p['payer_id'] === $data['payer_id']) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'error' => 'A payer with this Student ID already exists'
-                    ]);
-                }
-                // Only check email if provided
-                if (!empty($data['email_address']) && $p['email_address'] === $data['email_address']) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'error' => 'A payer with this email address already exists'
-                    ]);
-                }
+            // Enforce case-insensitive uniqueness for payer ID and email.
+            if ($this->recordExistsCaseInsensitive('payer_id', $data['payer_id'])) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'A payer with this Student ID already exists'
+                ]);
+            }
+            if ($this->recordExistsCaseInsensitive('email_address', $data['email_address'])) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'A payer with this email address already exists'
+                ]);
             }
             
             // Hash password
@@ -162,20 +157,10 @@ class SignupController extends BaseController
                 $data['profile_picture'] = $profilePicturePath;
             }
 
-            // Handle email verification only if email is provided
-            $verificationCode = null;
-            if (!empty($data['email_address'])) {
-                // Generate verification code
-                $verificationCode = rand(100000, 999999);
-                
-                // Add email verification fields
-                $data['email_verified'] = false;
-                $data['verification_token'] = (string) $verificationCode;
-            } else {
-                // No email provided - auto-verify (no email verification needed)
-                $data['email_verified'] = true;
-                $data['verification_token'] = null;
-            }
+            // Email verification is mandatory for signup.
+            $verificationCode = rand(100000, 999999);
+            $data['email_verified'] = false;
+            $data['verification_token'] = (string) $verificationCode;
 
             // Save to database
             $result = $this->payerModel->insert($data);
@@ -185,20 +170,17 @@ class SignupController extends BaseController
                 
                 $emailSent = false;
                 
-                // Only send verification email if email is provided
-                if (!empty($data['email_address']) && $verificationCode) {
-                    // Store payer ID in session for verification
-                    session()->set('pending_verification_payer_id', $payerId);
-                    session()->set('pending_verification_email', $data['email_address']);
-                    
-                    // Send verification email - wrap in try-catch to prevent registration failure
-                    try {
-                        $emailSent = $this->sendVerificationEmail($data['email_address'], $data['payer_name'], $verificationCode);
-                    } catch (\Exception $e) {
-                        log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
-                    } catch (\Error $e) {
-                        log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
-                    }
+                // Store payer ID in session for verification
+                session()->set('pending_verification_payer_id', $payerId);
+                session()->set('pending_verification_email', $data['email_address']);
+
+                // Send verification email - wrap in try-catch to prevent registration failure
+                try {
+                    $emailSent = $this->sendVerificationEmail($data['email_address'], $data['payer_name'], $verificationCode);
+                } catch (\Exception $e) {
+                    log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
+                } catch (\Error $e) {
+                    log_message('error', 'Error while sending verification email (non-fatal): ' . $e->getMessage());
                 }
                 
                 // Log payer signup activity for admin notification
@@ -215,26 +197,14 @@ class SignupController extends BaseController
                 // Log success
                 log_message('info', 'New payer signed up: ' . $data['payer_name'] . ' (ID: ' . $data['payer_id'] . ')');
                 
-                // Return JSON response
-                if (!empty($data['email_address']) && $verificationCode) {
-                    // Email provided - show verification modal
-                    return $this->response->setJSON([
-                        'success' => true,
-                        'message' => 'Account created successfully! Please verify your email.',
-                        'email_sent' => $emailSent,
-                        'email' => $data['email_address'],
-                        'verification_code' => $verificationCode, // For testing purposes
-                        'requires_verification' => true
-                    ]);
-                } else {
-                    // No email - account created successfully
-                    return $this->response->setJSON([
-                        'success' => true,
-                        'message' => 'Account created successfully! You can now login.',
-                        'requires_verification' => false,
-                        'redirect' => base_url('payer/login')
-                    ]);
-                }
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Account created successfully! Please verify your email.',
+                    'email_sent' => $emailSent,
+                    'email' => $data['email_address'],
+                    'verification_code' => $verificationCode, // For testing purposes
+                    'requires_verification' => true
+                ]);
             } else {
                 return $this->response->setJSON([
                     'success' => false,
@@ -253,84 +223,56 @@ class SignupController extends BaseController
     public function sendVerificationEmail($email, $name, $code)
     {
         try {
-            // Get email settings from database or config
             $emailConfig = $this->getEmailConfig();
-            
-            // Validate SMTP credentials - check all required fields
+
             $missingFields = [];
             if (empty($emailConfig['SMTPUser'])) $missingFields[] = 'SMTPUser';
             if (empty($emailConfig['SMTPPass'])) $missingFields[] = 'SMTPPass';
             if (empty($emailConfig['SMTPHost'])) $missingFields[] = 'SMTPHost';
             if (empty($emailConfig['fromEmail'])) $missingFields[] = 'fromEmail';
-            
+
             if (!empty($missingFields)) {
-                $missingStr = implode(', ', $missingFields);
-                log_message('error', 'SMTP configuration incomplete for verification email - Missing: ' . $missingStr);
-                log_message('error', 'SMTP Config check - Host: ' . ($emailConfig['SMTPHost'] ?: 'EMPTY') . 
-                    ', User: ' . ($emailConfig['SMTPUser'] ?: 'EMPTY') . 
-                    ', Pass: ' . ($emailConfig['SMTPPass'] ? 'SET (' . strlen($emailConfig['SMTPPass']) . ' chars)' : 'EMPTY') .
-                    ', FromEmail: ' . ($emailConfig['fromEmail'] ?: 'EMPTY'));
-                
-                // Check if environment variables are accessible
-                $envCheck = [
-                    'email.SMTPHost' => getenv('email.SMTPHost') ?: 'NOT SET',
-                    'email.SMTPUser' => getenv('email.SMTPUser') ?: 'NOT SET',
-                    'email.SMTPPass' => getenv('email.SMTPPass') ? 'SET (' . strlen(getenv('email.SMTPPass')) . ' chars)' : 'NOT SET',
-                    'email.fromEmail' => getenv('email.fromEmail') ?: 'NOT SET',
-                ];
-                log_message('error', 'Environment variables check: ' . json_encode($envCheck));
-                
+                log_message('error', 'SMTP configuration incomplete for verification email - Missing: ' . implode(', ', $missingFields));
                 return false;
             }
-            
-            // Use Brevo API only for verification emails (bypasses Render port blocking)
-            $brevoApiKey = $_ENV['BREVO_API_KEY'] ?? getenv('BREVO_API_KEY') ?: null;
-            
-            if (empty($brevoApiKey)) {
-                log_message('error', 'BREVO_API_KEY not found. Verification emails require Brevo API key. Set BREVO_API_KEY environment variable.');
-                log_message('info', 'Get API key from Brevo → Settings → SMTP & API → API Keys');
-                return false;
-            }
-            
-            // Get email template
+
             $htmlMessage = view('emails/verification', [
                 'name' => $name,
                 'code' => $code
             ]);
-            
-            // Extract text version from HTML
-            $textMessage = strip_tags($htmlMessage);
-            
-            // Use Brevo API only (no SMTP fallback for verification emails)
-            try {
-                log_message('info', 'Attempting to send verification email via Brevo API to payer: ' . $email);
-                
-                // Check if BrevoEmailService class exists
-                if (!class_exists('\App\Services\BrevoEmailService')) {
-                    log_message('error', 'BrevoEmailService class not found. Code may not be deployed yet.');
-                    return false;
-                }
-                
-                $brevoService = new \App\Services\BrevoEmailService(
-                    $brevoApiKey,
-                    $emailConfig['fromEmail'],
-                    $emailConfig['fromName'] ?? 'ClearPay'
-                );
-                
-                $result = $brevoService->send($email, 'Email Verification - ClearPay Payer Portal', $htmlMessage, $textMessage);
-                
-                if ($result['success']) {
-                    log_message('info', 'Verification email sent successfully via Brevo API to payer: ' . $email);
-                    return true;
-                } else {
-                    log_message('error', 'Brevo API failed to send verification email: ' . ($result['error'] ?? 'Unknown error'));
-                    return false;
-                }
-            } catch (\Exception $apiException) {
-                log_message('error', 'Brevo API exception while sending verification email: ' . $apiException->getMessage());
-                log_message('error', 'Exception trace: ' . $apiException->getTraceAsString());
-                return false;
+
+            $smtpConfig = [
+                'protocol' => $emailConfig['protocol'] ?? 'smtp',
+                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
+                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
+                'SMTPPass' => $emailConfig['SMTPPass'] ?? '',
+                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
+                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
+                'SMTPTimeout' => (int) min((int) ($emailConfig['SMTPTimeout'] ?? 30), 10),
+                'mailType' => $emailConfig['mailType'] ?? 'html',
+                'mailtype' => $emailConfig['mailType'] ?? 'html',
+                'charset' => $emailConfig['charset'] ?? 'UTF-8',
+                'newline' => "`r`n",
+                'CRLF' => "`r`n",
+                'wordWrap' => true,
+                'validate' => false,
+            ];
+
+            $emailService = \Config\Services::email();
+            $emailService->clear();
+            $emailService->initialize($smtpConfig);
+            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
+            $emailService->setTo($email);
+            $emailService->setSubject('Email Verification - ClearPay Payer Portal');
+            $emailService->setMessage($htmlMessage);
+
+            if ($emailService->send()) {
+                log_message('info', 'Verification email sent successfully via SMTP to payer: ' . $email);
+                return true;
             }
+
+            log_message('error', 'SMTP failed to send verification email: ' . $emailService->printDebugger(['headers', 'subject']));
+            return false;
         } catch (\Exception $e) {
             log_message('error', 'Failed to send verification email to payer: ' . $e->getMessage());
             log_message('error', 'Exception trace: ' . $e->getTraceAsString());
@@ -546,7 +488,7 @@ class SignupController extends BaseController
             'password' => 'required|min_length[6]|max_length[255]',
             'confirm_password' => 'required|matches[password]',
             'payer_name' => 'required|min_length[3]|max_length[255]',
-            'email_address' => 'permit_empty|valid_email|max_length[100]',
+            'email_address' => 'required|valid_email|max_length[100]',
             'contact_number' => 'permit_empty',
             'course_department' => 'permit_empty|max_length[100]'
         ]);
@@ -560,22 +502,17 @@ class SignupController extends BaseController
         }
 
         try {
-            // Check if payer_id already exists (case-sensitive)
-            $allPayers = $this->payerModel->findAll();
-            foreach ($allPayers as $p) {
-                if ($p['payer_id'] === $formData['payer_id']) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'error' => 'A payer with this Student ID already exists'
-                    ]);
-                }
-                // Only check email if provided
-                if (!empty($formData['email_address']) && $p['email_address'] === $formData['email_address']) {
-                    return $this->response->setJSON([
-                        'success' => false,
-                        'error' => 'A payer with this email address already exists'
-                    ]);
-                }
+            if ($this->recordExistsCaseInsensitive('payer_id', $formData['payer_id'])) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'A payer with this Student ID already exists'
+                ]);
+            }
+            if ($this->recordExistsCaseInsensitive('email_address', $formData['email_address'])) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'error' => 'A payer with this email address already exists'
+                ]);
             }
             
             // Hash password
@@ -603,16 +540,10 @@ class SignupController extends BaseController
                 ]);
             }
 
-            // Handle email verification
-            $verificationCode = null;
-            if (!empty($formData['email_address'])) {
-                $verificationCode = rand(100000, 999999);
-                $formData['email_verified'] = false;
-                $formData['verification_token'] = (string) $verificationCode;
-            } else {
-                $formData['email_verified'] = true;
-                $formData['verification_token'] = null;
-            }
+            // Handle email verification (mandatory)
+            $verificationCode = rand(100000, 999999);
+            $formData['email_verified'] = false;
+            $formData['verification_token'] = (string) $verificationCode;
 
             // Save to database
             $result = $this->payerModel->insert($formData);
@@ -622,18 +553,15 @@ class SignupController extends BaseController
                 
                 $emailSent = false;
                 
-                // Only send verification email if email is provided
-                if (!empty($formData['email_address']) && $verificationCode) {
-                    // Store payer ID in session for verification
-                    session()->set('pending_verification_payer_id', $payerId);
-                    session()->set('pending_verification_email', $formData['email_address']);
-                    
-                    // Send verification email
-                    try {
-                        $emailSent = $this->sendVerificationEmail($formData['email_address'], $formData['payer_name'], $verificationCode);
-                    } catch (\Exception $e) {
-                        log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
-                    }
+                // Store payer ID in session for verification
+                session()->set('pending_verification_payer_id', $payerId);
+                session()->set('pending_verification_email', $formData['email_address']);
+
+                // Send verification email
+                try {
+                    $emailSent = $this->sendVerificationEmail($formData['email_address'], $formData['payer_name'], $verificationCode);
+                } catch (\Exception $e) {
+                    log_message('error', 'Exception while sending verification email (non-fatal): ' . $e->getMessage());
                 }
                 
                 // Log payer signup activity
@@ -646,23 +574,14 @@ class SignupController extends BaseController
                     log_message('error', 'Failed to log payer signup activity: ' . $e->getMessage());
                 }
                 
-                // Return JSON response
-                if (!empty($formData['email_address']) && $verificationCode) {
-                    return $this->response->setJSON([
-                        'success' => true,
-                        'message' => 'Account created successfully! Please verify your email.',
-                        'email_sent' => $emailSent,
-                        'email' => $formData['email_address'],
-                        'verification_code' => $verificationCode, // For testing purposes
-                        'requires_verification' => true
-                    ]);
-                } else {
-                    return $this->response->setJSON([
-                        'success' => true,
-                        'message' => 'Account created successfully! You can now login.',
-                        'requires_verification' => false
-                    ]);
-                }
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Account created successfully! Please verify your email.',
+                    'email_sent' => $emailSent,
+                    'email' => $formData['email_address'],
+                    'verification_code' => $verificationCode, // For testing purposes
+                    'requires_verification' => true
+                ]);
             } else {
                 return $this->response->setJSON([
                     'success' => false,
@@ -820,6 +739,21 @@ class SignupController extends BaseController
                 'verification_code' => $verificationCode // For testing purposes
             ]);
         }
+    }
+
+    private function recordExistsCaseInsensitive(string $column, ?string $value): bool
+    {
+        $needle = strtolower(trim((string) $value));
+        if ($needle === '') {
+            return false;
+        }
+
+        $db = \Config\Database::connect();
+        $table = 'payers';
+        $sql = "SELECT id FROM {$table} WHERE LOWER(TRIM({$column})) = ? LIMIT 1";
+        $row = $db->query($sql, [$needle])->getRowArray();
+
+        return !empty($row);
     }
 }
 

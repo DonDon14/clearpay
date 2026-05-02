@@ -8,6 +8,139 @@ use App\Models\PaymentModel;
 
 class PayersController extends BaseController
 {
+    public function importCsv()
+    {
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setStatusCode(401)->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized access'
+            ]);
+        }
+
+        $file = $this->request->getFile('csv_file');
+        if (!$file || !$file->isValid()) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Please upload a valid CSV file.'
+            ]);
+        }
+
+        $ext = strtolower($file->getClientExtension() ?? '');
+        if ($ext !== 'csv') {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Only CSV files are allowed.'
+            ]);
+        }
+
+        $path = $file->getTempName();
+        $handle = @fopen($path, 'r');
+        if (!$handle) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unable to read the uploaded file.'
+            ]);
+        }
+
+        $payerModel = new PayerModel();
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'CSV file is empty.'
+            ]);
+        }
+
+        $normalizedHeader = array_map(static fn($h) => strtolower(trim((string)$h)), $header);
+        $required = ['payer_id', 'payer_name', 'email_address', 'contact_number'];
+        foreach ($required as $requiredCol) {
+            if (!in_array($requiredCol, $normalizedHeader, true)) {
+                fclose($handle);
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => "Missing required column: {$requiredCol}"
+                ]);
+            }
+        }
+
+        $idx = array_flip($normalizedHeader);
+        $rowNo = 1;
+        $created = 0;
+        $skipped = 0;
+        $errors = [];
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNo++;
+            if (count(array_filter($row, static fn($v) => trim((string)$v) !== '')) === 0) {
+                continue;
+            }
+
+            $payerId = trim((string)($row[$idx['payer_id']] ?? ''));
+            $payerName = trim((string)($row[$idx['payer_name']] ?? ''));
+            $email = trim((string)($row[$idx['email_address']] ?? ''));
+            $contact = trim((string)($row[$idx['contact_number']] ?? ''));
+            $course = trim((string)($row[$idx['course_department']] ?? ''));
+
+            if ($payerId === '' || $payerName === '' || $email === '' || $contact === '') {
+                $skipped++;
+                $errors[] = "Row {$rowNo}: required fields are missing.";
+                continue;
+            }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $skipped++;
+                $errors[] = "Row {$rowNo}: invalid email address.";
+                continue;
+            }
+
+            $contact = sanitize_phone_number($contact);
+            if (!validate_phone_number($contact)) {
+                $skipped++;
+                $errors[] = "Row {$rowNo}: contact number must be 11 digits.";
+                continue;
+            }
+
+            $dupPayerId = $payerModel->where('LOWER(payer_id)', strtolower($payerId))->first();
+            $dupEmail = $payerModel->where('LOWER(email_address)', strtolower($email))->first();
+            if ($dupPayerId || $dupEmail) {
+                $skipped++;
+                $errors[] = "Row {$rowNo}: duplicate payer ID or email.";
+                continue;
+            }
+
+            $inserted = $payerModel->insert([
+                'payer_id' => $payerId,
+                'payer_name' => $payerName,
+                'email_address' => $email,
+                'contact_number' => $contact,
+                'course_department' => $course !== '' ? $course : null,
+                'password' => password_hash($payerId, PASSWORD_DEFAULT),
+                'email_verified' => 1,
+                'verification_token' => null,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            if ($inserted) {
+                $created++;
+            } else {
+                $skipped++;
+                $errors[] = "Row {$rowNo}: failed to insert record.";
+            }
+        }
+
+        fclose($handle);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => "Import complete. Created {$created}, skipped {$skipped}.",
+            'created' => $created,
+            'skipped' => $skipped,
+            'errors' => array_slice($errors, 0, 20)
+        ]);
+    }
+
     public function create()
     {
         if (strtoupper($this->request->getMethod()) !== 'POST') {

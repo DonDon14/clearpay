@@ -19,6 +19,24 @@
                                 <small class="text-muted"><?= esc($item['payment_day'] ?? '') ?></small>
                             </div>
                         </div>
+                        <div class="d-flex gap-2 mt-3 flex-wrap">
+                            <a class="btn btn-sm btn-outline-primary" href="<?= base_url('payments') ?>?focus_payment=<?= (int)($item['payment_id'] ?? $item['id'] ?? 0) ?>">
+                                View Payment
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?= base_url('payers') ?>?focus_payer=<?= (int)($item['payer_db_id'] ?? 0) ?>">
+                                Open Payer
+                            </a>
+                            <a class="btn btn-sm btn-outline-danger" href="<?= base_url('refunds') ?>?payment_id=<?= (int)($item['payment_id'] ?? $item['id'] ?? 0) ?>">
+                                Create Refund
+                            </a>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-success"
+                                onclick="markAnalyticsFindingReviewed('suspicious', <?= (int)($item['payment_id'] ?? $item['id'] ?? 0) ?>, this)"
+                            >
+                                Mark Reviewed
+                            </button>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             <?php else: ?>
@@ -49,6 +67,24 @@
                                 <div class="fw-semibold text-danger">&#8369;<?= number_format($item['amount_paid'] ?? 0, 2) ?></div>
                                 <small class="text-muted"><?= esc($item['payment_day'] ?? '') ?></small>
                             </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3 flex-wrap">
+                            <a class="btn btn-sm btn-outline-primary" href="<?= base_url('payments') ?>?focus_payment=<?= (int)($item['payment_id'] ?? $item['id'] ?? 0) ?>">
+                                View Payment
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?= base_url('payers') ?>?focus_payer=<?= (int)($item['payer_db_id'] ?? 0) ?>">
+                                Open Payer
+                            </a>
+                            <a class="btn btn-sm btn-outline-danger" href="<?= base_url('refunds') ?>?payment_id=<?= (int)($item['payment_id'] ?? $item['id'] ?? 0) ?>">
+                                Create Refund
+                            </a>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-success"
+                                onclick="markAnalyticsFindingReviewed('duplicate', <?= (int)($item['payment_id'] ?? $item['id'] ?? 0) ?>, this)"
+                            >
+                                Mark Reviewed
+                            </button>
                         </div>
                     </div>
                 <?php endforeach; ?>

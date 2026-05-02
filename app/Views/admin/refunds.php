@@ -94,10 +94,19 @@
                                     <p class="text-muted">Refund requests from payers will appear here</p>
                                 </div>
                             <?php else: ?>
+                                <div class="d-flex gap-2 mb-3">
+                                    <button type="button" class="btn btn-success btn-sm" onclick="runBulkRefundAction('approve')">
+                                        <i class="fas fa-check me-1"></i>Bulk Approve
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="runBulkRefundAction('reject')">
+                                        <i class="fas fa-times me-1"></i>Bulk Reject
+                                    </button>
+                                </div>
                                 <div class="table-responsive ui-table-wrap">
                                     <table class="table table-hover" id="requestsTable">
                                         <thead>
                                             <tr>
+                                                <th><input type="checkbox" id="selectAllRefundRequests"></th>
                                                 <th>Requested Date</th>
                                                 <th>Payer</th>
                                                 <th>Payment</th>
@@ -110,6 +119,7 @@
                                         <tbody>
                                             <?php foreach ($pendingRequests as $request): ?>
                                                 <tr>
+                                                    <td><input type="checkbox" class="refund-request-checkbox" value="<?= $request['id'] ?>"></td>
                                                     <td><?= date('M d, Y H:i', strtotime($request['requested_at'])) ?></td>
                                                     <td>
                                                         <div class="d-flex align-items-center">
@@ -301,6 +311,42 @@
 <?= $this->section('scripts') ?>
 <script>
 $(document).ready(function() {
+    (async function focusRefundFromQuery() {
+        const params = new URLSearchParams(window.location.search || '');
+        const paymentId = parseInt(params.get('payment_id') || '0', 10);
+        if (!paymentId) return;
+
+        try {
+            const response = await fetch(`${window.APP_BASE_URL}/admin/refunds/get-payment-details?payment_id=${paymentId}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+            const data = await response.json();
+            if (!data.success || !data.payment) return;
+
+            const p = data.payment;
+            const payerId = p.payer_id || '';
+            const contributionId = p.contribution_id || '';
+            const productId = p.product_id || '';
+            const paymentSequence = p.payment_sequence || 1;
+
+            if (typeof window.openRefundModalForPayment === 'function') {
+                setTimeout(() => {
+                    window.openRefundModalForPayment(paymentId, payerId, contributionId, paymentSequence, productId);
+                }, 300);
+            }
+        } catch (e) {
+            // keep normal page flow
+        }
+    })();
+
+    $('#selectAllRefundRequests').on('change', function() {
+        $('.refund-request-checkbox').prop('checked', $(this).is(':checked'));
+    });
+
     // View refund details
     $('.view-request-btn, .view-refund-btn').on('click', function() {
         const refundId = $(this).data('id');
@@ -524,6 +570,40 @@ $(document).ready(function() {
         });
     }
 });
+
+function runBulkRefundAction(action) {
+    const selected = Array.from(document.querySelectorAll('.refund-request-checkbox:checked')).map(cb => parseInt(cb.value, 10));
+    if (selected.length === 0) {
+        showNotification('Select at least one pending request first.', 'error');
+        return;
+    }
+
+    const confirmed = window.confirm(`Proceed with bulk ${action} for ${selected.length} request(s)?`);
+    if (!confirmed) return;
+
+    const formData = new URLSearchParams();
+    formData.set('action', action);
+    formData.set('refund_ids', JSON.stringify(selected));
+
+    fetch(`${window.APP_BASE_URL}/admin/refunds/bulk-action`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData.toString()
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message || 'Bulk action complete.', 'success');
+            setTimeout(() => location.reload(), 1200);
+            return;
+        }
+        showNotification(data.message || 'Bulk action failed.', 'error');
+    })
+    .catch(() => showNotification('Bulk action failed.', 'error'));
+}
 </script>
 
 <?= view('partials/modal-refund-transaction', ['refundMethods' => $refundMethods]) ?>

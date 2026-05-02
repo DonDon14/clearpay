@@ -1118,6 +1118,72 @@ class RefundsController extends BaseController
     }
 
     /**
+     * Bulk approve/reject pending refund requests.
+     */
+    public function bulkAction()
+    {
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized access'
+            ])->setStatusCode(401);
+        }
+
+        $action = strtolower((string)$this->request->getPost('action'));
+        if (!in_array($action, ['approve', 'reject'], true)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid action.'
+            ]);
+        }
+
+        $refundIdsRaw = $this->request->getPost('refund_ids');
+        $refundIds = is_array($refundIdsRaw) ? $refundIdsRaw : json_decode((string)$refundIdsRaw, true);
+        if (!is_array($refundIds) || empty($refundIds)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'No refund IDs were provided.'
+            ]);
+        }
+
+        $refundIds = array_values(array_unique(array_map('intval', $refundIds)));
+        $refundModel = new RefundModel();
+        $userId = (int)(session()->get('user-id') ?? 0);
+        $adminNotes = trim((string)$this->request->getPost('admin_notes'));
+        $processed = 0;
+        $skipped = 0;
+        $failed = [];
+
+        foreach ($refundIds as $refundId) {
+            $refund = $refundModel->find($refundId);
+            if (!$refund || ($refund['status'] ?? '') !== 'pending') {
+                $skipped++;
+                continue;
+            }
+
+            try {
+                if ($action === 'approve') {
+                    $refundModel->completeRefund($refundId, $userId, $adminNotes !== '' ? $adminNotes : null, null);
+                } else {
+                    $refundModel->rejectRequest($refundId, $userId, $adminNotes !== '' ? $adminNotes : null);
+                }
+                $processed++;
+            } catch (\Throwable $e) {
+                $failed[] = $refundId;
+            }
+        }
+
+        $verb = $action === 'approve' ? 'approved' : 'rejected';
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => "Bulk action complete: {$processed} {$verb}, {$skipped} skipped.",
+            'processed' => $processed,
+            'skipped' => $skipped,
+            'failed' => $failed
+        ]);
+    }
+
+    /**
      * Get refund request details
      */
     public function getRefundDetails()

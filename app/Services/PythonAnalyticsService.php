@@ -166,10 +166,33 @@ class PythonAnalyticsService extends BaseService
             ->get()
             ->getResultArray();
 
+        $refunds = $db->table('refunds r')
+            ->select('
+                r.id,
+                r.payment_id,
+                r.payer_id,
+                r.contribution_id,
+                r.product_id,
+                COALESCE(c.title, pr.title) as item_title,
+                CASE WHEN r.product_id IS NOT NULL THEN \'product\' ELSE \'contribution\' END as item_type,
+                r.refund_amount,
+                r.refund_method,
+                r.status,
+                r.request_type,
+                r.created_at,
+                r.updated_at
+            ')
+            ->join('contributions c', 'c.id = r.contribution_id', 'left')
+            ->join('products pr', 'pr.id = r.product_id', 'left')
+            ->orderBy('r.created_at', 'DESC')
+            ->get()
+            ->getResultArray();
+
         return [
             'generated_at' => date('c'),
             'payments' => $payments,
             'contributions' => array_merge($contributions, $products),
+            'refunds' => $refunds,
         ];
     }
 

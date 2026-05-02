@@ -515,7 +515,6 @@ class DashboardController extends BaseController
         ->join('products', 'products.id = payments.product_id', 'left')
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
-        ->orderBy('contribution_title', 'ASC')
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
         
@@ -2424,7 +2423,6 @@ class DashboardController extends BaseController
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
         ->join('products', 'products.id = payments.product_id', 'left')
         ->where('payments.payer_id', $payerId)
-        ->orderBy('contribution_title', 'ASC')
         ->orderBy('payments.payment_date', 'DESC')
         ->findAll();
         

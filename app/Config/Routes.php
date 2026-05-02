@@ -94,6 +94,7 @@ $routes->get('/announcements/get/(:num)', 'Admin\AnnouncementsController::get/$1
 $routes->post('/announcements/delete/(:num)', 'Admin\AnnouncementsController::delete/$1', ['filter' => 'auth']);
 $routes->post('/announcements/update-status/(:num)', 'Admin\AnnouncementsController::updateStatus/$1', ['filter' => 'auth']);
 $routes->get('/analytics', 'Admin\Analytics::index', ['filter' => 'auth']);
+$routes->post('/admin/analytics/mark-finding-reviewed', 'Admin\Analytics::markFindingReviewed', ['filter' => 'auth']);
 $routes->get('/admin/analytics/export/(:any)', 'Admin\Analytics::export/$1', ['filter' => 'auth']);
 $routes->get('/profile', 'Admin\SidebarController::profile', ['filter' => 'auth']);
 $routes->post('/profile/update', 'Admin\SidebarController::update', ['filter' => 'auth']);
@@ -167,6 +168,7 @@ $routes->get('/admin/refunds/get-payment-details', 'Admin\RefundsController::get
 $routes->post('/admin/refunds/approve', 'Admin\RefundsController::approveRequest', ['filter' => 'auth']);
 $routes->post('/admin/refunds/complete', 'Admin\RefundsController::completeRefund', ['filter' => 'auth']);
 $routes->post('/admin/refunds/reject', 'Admin\RefundsController::rejectRequest', ['filter' => 'auth']);
+$routes->post('/admin/refunds/bulk-action', 'Admin\RefundsController::bulkAction', ['filter' => 'auth']);
 $routes->get('/admin/refunds/get-details', 'Admin\RefundsController::getRefundDetails', ['filter' => 'auth']);
 
     // Payments Management Routes
@@ -194,6 +196,7 @@ $routes->get('/payments/get-details/(:num)', 'Admin\PaymentsController::getDetai
 
 // Payers Management Routes
 $routes->post('/payers/create', 'Admin\PayersController::create', ['filter' => 'auth']);
+$routes->post('/payers/import/csv', 'Admin\PayersController::importCsv', ['filter' => 'auth']);
 $routes->get('/payers/export/pdf', 'Admin\PayersController::exportPDF', ['filter' => 'auth']);
 $routes->get('/payers/export/csv', 'Admin\PayersController::exportCSV', ['filter' => 'auth']);
 

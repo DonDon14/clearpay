@@ -4,6 +4,7 @@ namespace App\Controllers\Admin;
 
 use App\Controllers\BaseController;
 use App\Models\ContributionModel;
+use App\Models\AnalyticsFindingReviewModel;
 use App\Services\PythonAnalyticsService;
 
 class Analytics extends BaseController
@@ -42,6 +43,7 @@ class Analytics extends BaseController
         }
 
         $analysis = $this->pythonAnalyticsService->generateAnalytics();
+        $analysis = $this->applyFindingReviewFilters($analysis, (int)$userId);
 
         $data = [
             'pageTitle' => 'Analytics',
@@ -50,8 +52,10 @@ class Analytics extends BaseController
             'overview' => $analysis['overview'] ?? [],
             'contributions' => $analysis['contributions'] ?? [],
             'payments' => $analysis['payments'] ?? [],
+            'refunds' => $analysis['refunds'] ?? [],
             'trends' => $analysis['trends'] ?? [],
             'charts' => $analysis['charts'] ?? [],
+            'predictions' => $analysis['predictions'] ?? [],
             'generatedAt' => $analysis['generated_at'] ?? date('c'),
             'profilePictureUrl' => $profilePictureUrl,
             'name' => $session->get('name'),
@@ -59,6 +63,81 @@ class Analytics extends BaseController
         ];
 
         return view('admin/analytics', $data);
+    }
+
+    public function markFindingReviewed()
+    {
+        if (!session()->get('isLoggedIn')) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ])->setStatusCode(401);
+        }
+
+        $paymentId = (int)$this->request->getPost('payment_id');
+        $findingType = strtolower(trim((string)$this->request->getPost('finding_type')));
+        if ($paymentId <= 0 || !in_array($findingType, ['suspicious', 'duplicate'], true)) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'Invalid request.',
+            ])->setStatusCode(422);
+        }
+
+        $reviewModel = new AnalyticsFindingReviewModel();
+        $reviewModel->ignore(true)->insert([
+            'admin_user_id' => (int)session()->get('user-id'),
+            'finding_type' => $findingType,
+            'payment_id' => $paymentId,
+        ]);
+
+        return $this->response->setJSON([
+            'success' => true,
+            'message' => 'Finding marked as reviewed.',
+        ]);
+    }
+
+    private function applyFindingReviewFilters(array $analysis, int $adminUserId): array
+    {
+        if (empty($analysis['payments']) || $adminUserId <= 0) {
+            return $analysis;
+        }
+
+        $reviewModel = new AnalyticsFindingReviewModel();
+        $rows = $reviewModel
+            ->select('finding_type,payment_id')
+            ->where('admin_user_id', $adminUserId)
+            ->findAll();
+
+        if (empty($rows)) {
+            return $analysis;
+        }
+
+        $reviewed = [
+            'suspicious' => [],
+            'duplicate' => [],
+        ];
+        foreach ($rows as $row) {
+            $type = strtolower((string)($row['finding_type'] ?? ''));
+            if (!isset($reviewed[$type])) {
+                continue;
+            }
+            $reviewed[$type][] = (int)$row['payment_id'];
+        }
+        $reviewed['suspicious'] = array_unique($reviewed['suspicious']);
+        $reviewed['duplicate'] = array_unique($reviewed['duplicate']);
+
+        $analysis['payments']['suspicious'] = array_values(array_filter(
+            $analysis['payments']['suspicious'] ?? [],
+            static fn($item) => !in_array((int)($item['id'] ?? 0), $reviewed['suspicious'], true)
+        ));
+        $analysis['payments']['duplicates'] = array_values(array_filter(
+            $analysis['payments']['duplicates'] ?? [],
+            static fn($item) => !in_array((int)($item['id'] ?? 0), $reviewed['duplicate'], true)
+        ));
+
+        $analysis['overview']['suspicious_records'] = count($analysis['payments']['suspicious']);
+        $analysis['overview']['duplicate_records'] = count($analysis['payments']['duplicates']);
+        return $analysis;
     }
 
     /**

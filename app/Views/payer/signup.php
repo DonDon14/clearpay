@@ -243,19 +243,20 @@
           </div>
 
           <div class="form-group">
-            <label for="email_address">Email Address</label>
+            <label for="email_address">Email Address <span class="text-danger">*</span></label>
             <input 
               type="email" 
               name="email_address" 
               id="email_address" 
               class="form-control" 
-              placeholder="Enter your email address (optional)"
+              placeholder="Enter your email address"
               value="<?= old('email_address') ?>"
+              required
             >
             <i class="fas fa-envelope input-icon"></i>
             <small class="form-text text-warning">
-              <i class="fas fa-info-circle me-1"></i>
-              <strong>Recommended:</strong> Having an email helps you receive important updates and notifications
+                <i class="fas fa-info-circle me-1"></i>
+              Email verification is required before login.
             </small>
             <div class="invalid-feedback"></div>
           </div>
@@ -473,7 +474,7 @@
       let isValid = true;
       
       // Check required fields
-      const requiredFields = ['payer_id', 'payer_name', 'password', 'confirm_password'];
+      const requiredFields = ['payer_id', 'payer_name', 'password', 'confirm_password', 'email_address'];
       requiredFields.forEach(function(fieldId) {
         const field = document.getElementById(fieldId);
         if (!field.value.trim()) {

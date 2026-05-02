@@ -17,7 +17,7 @@ $status_counts = $stats ?? [
     <div class="ui-page-intro">
         <div>
             <h6>Announcements</h6>
-            <p>Create and manage system announcements with consistent filters, priorities, and publishing controls.</p>
+            <p>Create and manage system announcements for payers.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal"><i class="fas fa-plus"></i> Add Announcement</button>
@@ -76,16 +76,6 @@ $status_counts = $stats ?? [
                     </div>
                 </div>
                     <!-- Status filter removed - announcements are always published -->
-                <div class="col-md-2 mb-3">
-                    <label class="form-label">Priority</label>
-                    <select class="form-select" id="priorityFilter">
-                        <option value="">All Priority</option>
-                        <option value="critical">Critical</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                    </select>
-                </div>
                 <!-- Audience filter removed - always payers -->
                 <div class="col-md-3 mb-3">
                     <label class="form-label">&nbsp;</label>
@@ -98,38 +88,20 @@ $status_counts = $stats ?? [
             <!-- Announcements List -->
             <div id="announcementsList" class="w-100">
                 ' . implode('', array_map(function($announcement) {
-                    $priorityColors = [
-                        'critical' => 'danger',
-                        'high' => 'warning', 
-                        'medium' => 'info',
-                        'low' => 'secondary'
-                    ];
-                    
                     $statusColors = [
                         'published' => 'success',
                         'draft' => 'warning',
                         'archived' => 'secondary'
                     ];
-                    
-                    $typeIcons = [
-                        'general' => 'info-circle',
-                        'urgent' => 'exclamation-triangle',
-                        'maintenance' => 'tools',
-                        'event' => 'calendar',
-                        'deadline' => 'clock'
-                    ];
-                    
-                    $priorityColor = $priorityColors[$announcement['priority']] ?? 'secondary';
                     $statusColor = $statusColors[$announcement['status']] ?? 'secondary';
-                    $typeIcon = $typeIcons[$announcement['type']] ?? 'bullhorn';
                     
                     return '
                         <div class="card mb-3 announcement-card w-100" data-status="' . $announcement['status'] . '" 
-                             data-priority="' . $announcement['priority'] . '" data-audience="' . $announcement['target_audience'] . '" style="max-width: 100%;">
+                             data-audience="' . $announcement['target_audience'] . '" style="max-width: 100%;">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <div>
                                     <h5 class="card-title mb-1">
-                                        <i class="fas fa-' . $typeIcon . ' me-2"></i>
+                                        <i class="fas fa-bullhorn me-2"></i>
                                         ' . htmlspecialchars($announcement['title']) . '
                                     </h5>
                                     <div class="text-muted small">
@@ -157,10 +129,7 @@ $status_counts = $stats ?? [
                                     ' . nl2br(htmlspecialchars($announcement['text'] ?? '')) . '
                                 </div>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <span class="badge bg-' . $priorityColor . '">' . ucfirst($announcement['priority']) . ' Priority</span>
                                     <span class="badge bg-' . $statusColor . '">' . ucfirst($announcement['status']) . '</span>
-                                    <!-- Target audience badge removed - always payers -->
-                                    <span class="badge bg-info">' . ucfirst($announcement['type']) . '</span>
                                 </div>
                             </div>
                         </div>
@@ -200,31 +169,6 @@ $status_counts = $stats ?? [
                         <textarea class="form-control" id="content" name="content" rows="4" required></textarea>
                     </div>
                     
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="type" class="form-label">Type <span class="text-danger">*</span></label>
-                            <select class="form-select" id="type" name="type" required>
-                                <option value="">Select Type</option>
-                                <option value="general">General</option>
-                                <option value="urgent">Urgent</option>
-                                <option value="maintenance">Maintenance</option>
-                                <option value="event">Event</option>
-                                <option value="deadline">Deadline</option>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="priority" class="form-label">Priority <span class="text-danger">*</span></label>
-                            <select class="form-select" id="priority" name="priority" required>
-                                <option value="">Select Priority</option>
-                                <option value="low">Low</option>
-                                <option value="medium">Medium</option>
-                                <option value="high">High</option>
-                                <option value="critical">Critical</option>
-                            </select>
-                        </div>
-                    </div>
-                    
                     <!-- Status field removed - announcements are always published immediately -->
                     
                     <div class="mb-3">
@@ -247,7 +191,6 @@ $status_counts = $stats ?? [
 function filterAnnouncements() {
     const searchTerm = document.getElementById('searchInput').value.toLowerCase();
     const statusFilter = ''; // Status filter removed - all announcements are published
-    const priorityFilter = document.getElementById('priorityFilter').value;
     const audienceFilter = ''; // Always empty since audience is always payers
     
     const cards = document.querySelectorAll('.announcement-card');
@@ -257,15 +200,13 @@ function filterAnnouncements() {
         const title = card.querySelector('.card-title').textContent.toLowerCase();
         const content = card.querySelector('.announcement-content').textContent.toLowerCase();
         const status = card.dataset.status;
-        const priority = card.dataset.priority;
         const audience = card.dataset.audience;
         
         const matchesSearch = !searchTerm || title.includes(searchTerm) || content.includes(searchTerm);
         const matchesStatus = !statusFilter || status === statusFilter;
-        const matchesPriority = !priorityFilter || priority === priorityFilter;
         const matchesAudience = !audienceFilter || audience === audienceFilter;
         
-        if (matchesSearch && matchesStatus && matchesPriority && matchesAudience) {
+        if (matchesSearch && matchesStatus && matchesAudience) {
             card.style.display = 'block';
             visibleCount++;
         } else {
@@ -285,7 +226,6 @@ function filterAnnouncements() {
 function clearFilters() {
     document.getElementById('searchInput').value = '';
     // Status filter removed
-    document.getElementById('priorityFilter').value = '';
     // audienceFilter is always empty (payers only)
     filterAnnouncements();
 }
@@ -294,7 +234,6 @@ function clearFilters() {
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('searchInput').addEventListener('input', filterAnnouncements);
     // Status filter removed - no event listener needed
-    document.getElementById('priorityFilter').addEventListener('change', filterAnnouncements);
     // audienceFilter removed - always payers
     
     // Form submission
@@ -371,8 +310,6 @@ function editAnnouncement(id) {
                 document.getElementById('announcementId').value = announcement.id;
                 document.getElementById('title').value = announcement.title;
                 document.getElementById('content').value = announcement.text; // Note: DB uses 'text', form uses 'content'
-                document.getElementById('type').value = announcement.type;
-                document.getElementById('priority').value = announcement.priority;
                 // target_audience is always 'payers', no need to set it
                 // Status is always 'published' - no need to set it
                 document.getElementById('expires_at').value = announcement.expires_at ? announcement.expires_at.substring(0, 16) : '';

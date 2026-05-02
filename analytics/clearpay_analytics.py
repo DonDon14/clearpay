@@ -85,7 +85,7 @@ def quantile(values: list[float], fraction: float) -> float:
     return ordered[lower] * (1 - weight) + ordered[upper] * weight
 
 
-def normalize_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def normalize_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     # The PHP service passes raw database rows as JSON. Normalize the fields here
     # once so the rest of the analytics pipeline can treat amounts, ids, and
     # dates as typed values instead of repeatedly coercing them.
@@ -114,7 +114,16 @@ def normalize_payload(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], li
         normalized["created_at_dt"] = parse_datetime(row.get("created_at"))
         contributions.append(normalized)
 
-    return payments, contributions
+    refunds: list[dict[str, Any]] = []
+    for row in payload.get("refunds", []):
+        normalized = dict(row)
+        normalized["refund_amount"] = as_float(row.get("refund_amount"))
+        normalized["created_at_dt"] = parse_datetime(row.get("created_at"))
+        normalized["item_title"] = str(row.get("item_title") or "Unknown")
+        normalized["item_type"] = str(row.get("item_type") or "contribution").lower()
+        refunds.append(normalized)
+
+    return payments, contributions, refunds
 
 
 def profit_summary(contributions: list[dict[str, Any]]) -> dict[str, float]:
@@ -219,6 +228,8 @@ def detect_duplicates(payments: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for row in group:
             duplicate_map[row["id"]] = {
                 "id": row["id"],
+                "payment_id": row["id"],
+                "payer_db_id": row["payer_db_id"],
                 "payer_name": row.get("payer_name"),
                 "payer_id_number": row.get("payer_id_number"),
                 "contribution_title": row.get("contribution_title"),
@@ -238,6 +249,8 @@ def detect_duplicates(payments: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 row["id"],
                 {
                     "id": row["id"],
+                    "payment_id": row["id"],
+                    "payer_db_id": row["payer_db_id"],
                     "payer_name": row.get("payer_name"),
                     "payer_id_number": row.get("payer_id_number"),
                     "contribution_title": row.get("contribution_title"),
@@ -284,6 +297,8 @@ def detect_suspicious(payments: list[dict[str, Any]], duplicates: list[dict[str,
             suspicious.append(
                 {
                     "id": row["id"],
+                    "payment_id": row["id"],
+                    "payer_db_id": row["payer_db_id"],
                     "payer_name": row.get("payer_name"),
                     "payer_id_number": row.get("payer_id_number"),
                     "contribution_title": row.get("contribution_title"),
@@ -298,7 +313,10 @@ def detect_suspicious(payments: list[dict[str, Any]], duplicates: list[dict[str,
     return sorted(suspicious, key=lambda item: (item["payment_day"], item["id"]), reverse=True)
 
 
-def build_trends(payments: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+def build_trends(
+    payments: list[dict[str, Any]],
+    refunds: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     # Trend series are split into table-ready rows and Chart.js-ready payloads
     # so PHP can send them directly to the analytics view with minimal reshaping.
     now = datetime.now()
@@ -307,6 +325,7 @@ def build_trends(payments: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
 
     daily_revenue: dict[str, float] = defaultdict(float)
     daily_transactions: dict[str, int] = defaultdict(int)
+    daily_refunds: dict[str, float] = defaultdict(float)
     monthly_revenue: dict[tuple[int, int], float] = defaultdict(float)
 
     for row in payments:
@@ -324,6 +343,13 @@ def build_trends(payments: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
 
     daily_revenue_rows = [{"date": key, "total": round(value, 2)} for key, value in sorted(daily_revenue.items())]
     daily_transactions_rows = [{"date": key, "count": value} for key, value in sorted(daily_transactions.items())]
+    for row in refunds:
+        created_at = row.get("created_at_dt")
+        if not created_at or created_at < daily_cutoff:
+            continue
+        key = created_at.strftime("%Y-%m-%d")
+        daily_refunds[key] += as_float(row.get("refund_amount"))
+    daily_refund_rows = [{"date": key, "total": round(value, 2)} for key, value in sorted(daily_refunds.items())]
 
     monthly_revenue_rows = []
     for (year, month), total in sorted(monthly_revenue.items()):
@@ -349,9 +375,60 @@ def build_trends(payments: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], 
             "labels": [row["date"] for row in daily_transactions_rows],
             "data": [row["count"] for row in daily_transactions_rows],
         },
+        "daily_refunds": {
+            "labels": [row["date"] for row in daily_refund_rows],
+            "data": [row["total"] for row in daily_refund_rows],
+        },
     }
 
-    return daily_revenue_rows, monthly_revenue_rows, daily_transactions_rows, charts
+    return daily_revenue_rows, monthly_revenue_rows, daily_transactions_rows, daily_refund_rows, charts
+
+
+def build_predictions(daily_revenue_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    # Lightweight forecasting: use recent daily momentum (last 14 points)
+    # and project the next 7 days with a floor at zero.
+    if not daily_revenue_rows:
+        return {
+            "method": "moving_average_with_momentum",
+            "confidence_note": "Low confidence: not enough historical payments.",
+            "next_7_days": [],
+            "next_30_days_total": 0.0,
+        }
+
+    recent = daily_revenue_rows[-14:]
+    values = [as_float(row.get("total")) for row in recent]
+    base_avg = mean(values) if values else 0.0
+
+    momentum = 0.0
+    if len(values) >= 2:
+        momentum = (values[-1] - values[0]) / max(len(values) - 1, 1)
+
+    try:
+        last_date = datetime.strptime(daily_revenue_rows[-1]["date"], "%Y-%m-%d")
+    except Exception:
+        last_date = datetime.now()
+
+    next_7_days = []
+    for day_index in range(1, 8):
+        projected = max(0.0, base_avg + (momentum * day_index))
+        next_7_days.append(
+            {
+                "date": (last_date + timedelta(days=day_index)).strftime("%Y-%m-%d"),
+                "projected_total": round(projected, 2),
+            }
+        )
+
+    # For a quick 30-day estimate, continue the same projection curve.
+    next_30_total = 0.0
+    for day_index in range(1, 31):
+        next_30_total += max(0.0, base_avg + (momentum * day_index))
+
+    return {
+        "method": "moving_average_with_momentum",
+        "confidence_note": "Estimate only. Use for planning, not final commitments.",
+        "next_7_days": next_7_days,
+        "next_30_days_total": round(next_30_total, 2),
+    }
 
 
 def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -360,7 +437,7 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
     # - the review center alert summaries
     #
     # The returned structure is the contract expected by the PHP app.
-    payments, contributions = normalize_payload(payload)
+    payments, contributions, refunds = normalize_payload(payload)
     valid_payments = [row for row in payments if str(row.get("payment_status") or "").lower() in VALID_PAYMENT_STATUSES]
 
     now = datetime.now()
@@ -406,6 +483,38 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
         by_method_counter[method]["total_amount"] += row["amount_paid"]
     by_method = [{"payment_method": method, **values} for method, values in by_method_counter.items()]
 
+    refund_status_counter: dict[str, dict[str, Any]] = defaultdict(lambda: {"count": 0, "total_amount": 0.0})
+    refund_method_counter: dict[str, dict[str, Any]] = defaultdict(lambda: {"count": 0, "total_amount": 0.0})
+    for row in refunds:
+        status = str(row.get("status") or "unknown")
+        method = str(row.get("refund_method") or "unknown")
+        refund_status_counter[status]["count"] += 1
+        refund_status_counter[status]["total_amount"] += row["refund_amount"]
+        refund_method_counter[method]["count"] += 1
+        refund_method_counter[method]["total_amount"] += row["refund_amount"]
+
+    refund_by_status = [{"status": status, **values} for status, values in refund_status_counter.items()]
+    refund_by_method = [{"refund_method": method, **values} for method, values in refund_method_counter.items()]
+    top_refunded_items_counter: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in refunds:
+        key = (row.get("item_title") or "Unknown", row.get("item_type") or "contribution")
+        bucket = top_refunded_items_counter.setdefault(
+            key,
+            {
+                "item_title": key[0],
+                "item_type": key[1],
+                "refund_count": 0,
+                "total_refunded": 0.0,
+            },
+        )
+        bucket["refund_count"] += 1
+        bucket["total_refunded"] += row["refund_amount"]
+    top_refunded_items = sorted(
+        top_refunded_items_counter.values(),
+        key=lambda item: item["total_refunded"],
+        reverse=True,
+    )[:10]
+
     # Recent payments are trimmed here so the PHP UI can render a lightweight
     # "latest activity" section without extra sorting.
     recent_payments = sorted(valid_payments, key=lambda row: row["created_at_dt"] or datetime.min, reverse=True)[:10]
@@ -444,8 +553,14 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
     duplicates = detect_duplicates(valid_payments)
     suspicious = detect_suspicious(valid_payments, duplicates)
-    daily_revenue_rows, monthly_revenue_rows, daily_transactions_rows, charts = build_trends(valid_payments)
+    daily_revenue_rows, monthly_revenue_rows, daily_transactions_rows, daily_refund_rows, charts = build_trends(valid_payments, refunds)
+    predictions = build_predictions(daily_revenue_rows)
     profit = profit_summary(contributions)
+
+    charts["forecast_revenue"] = {
+        "labels": [row["date"] for row in predictions.get("next_7_days", [])],
+        "data": [row["projected_total"] for row in predictions.get("next_7_days", [])],
+    }
 
     return {
         "generated_at": payload.get("generated_at") or datetime.now().isoformat(),
@@ -476,12 +591,29 @@ def analyze_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "duplicates": duplicates[:20],
             "suspicious": suspicious[:20],
         },
+        "refunds": {
+            "total_refunds": round(sum(row["refund_amount"] for row in refunds), 2),
+            "total_count": len(refunds),
+            "by_status": refund_by_status,
+            "by_method": refund_by_method,
+            "top_refunded_items": [
+                {
+                    "item_title": item["item_title"],
+                    "item_type": item["item_type"],
+                    "refund_count": item["refund_count"],
+                    "total_refunded": round(item["total_refunded"], 2),
+                }
+                for item in top_refunded_items
+            ],
+        },
         "trends": {
             "daily_revenue": daily_revenue_rows,
             "monthly_revenue": monthly_revenue_rows,
             "daily_transactions": daily_transactions_rows,
+            "daily_refunds": daily_refund_rows,
         },
         "charts": charts,
+        "predictions": predictions,
     }
 
 
@@ -491,6 +623,8 @@ def build_report_lines(analysis: dict[str, Any]) -> list[str]:
     overview = analysis["overview"]
     payments = analysis["payments"]
     contributions = analysis["contributions"]
+    refunds = analysis.get("refunds", {})
+    predictions = analysis.get("predictions", {})
     lines = [
         "ClearPay Analytics Report",
         f"Generated: {analysis['generated_at']}",
@@ -504,6 +638,9 @@ def build_report_lines(analysis: dict[str, Any]) -> list[str]:
         f"Outstanding Balance: PHP {overview['total_outstanding_balance']:.2f}",
         f"Duplicate Records: {overview['duplicate_records']}",
         f"Suspicious Records: {overview['suspicious_records']}",
+        f"Refund Total: PHP {as_float(refunds.get('total_refunds')):.2f}",
+        f"Refund Count: {as_int(refunds.get('total_count'))}",
+        f"Forecast (Next 30 Days): PHP {as_float(predictions.get('next_30_days_total')):.2f}",
         "",
         "Top Payers",
     ]
@@ -547,6 +684,9 @@ def build_report_lines(analysis: dict[str, Any]) -> list[str]:
 def write_delimited_report(analysis: dict[str, Any], output_path: Path, delimiter: str) -> None:
     # CSV and Excel exports share the same tabular content. The only difference
     # is the delimiter: comma for CSV, tab for Excel-friendly output.
+    refunds = analysis.get("refunds", {})
+    predictions = analysis.get("predictions", {})
+
     rows = [
         ["ClearPay Analytics Report"],
         ["Generated", analysis["generated_at"]],
@@ -561,6 +701,9 @@ def write_delimited_report(analysis: dict[str, Any], output_path: Path, delimite
         ["Outstanding Balance", analysis["overview"]["total_outstanding_balance"]],
         ["Duplicate Records", analysis["overview"]["duplicate_records"]],
         ["Suspicious Records", analysis["overview"]["suspicious_records"]],
+        ["Refund Total", as_float(refunds.get("total_refunds"))],
+        ["Refund Count", as_int(refunds.get("total_count"))],
+        ["Forecast (Next 30 Days)", as_float(predictions.get("next_30_days_total"))],
         [],
         ["Top Payers"],
         ["Rank", "Name", "ID", "Total Paid", "Transactions"],
@@ -580,6 +723,18 @@ def write_delimited_report(analysis: dict[str, Any], output_path: Path, delimite
     rows.extend([[], ["Duplicate Records"], ["Payment ID", "Payer", "Contribution", "Reason"]])
     for item in analysis["payments"].get("duplicates", []):
         rows.append([item.get("id"), item.get("payer_name"), item.get("contribution_title"), item.get("duplicate_reason")])
+
+    rows.extend([[], ["Refund Status"], ["Status", "Count", "Total Amount"]])
+    for item in refunds.get("by_status", []):
+        rows.append([item.get("status"), as_int(item.get("count")), as_float(item.get("total_amount"))])
+
+    rows.extend([[], ["Refund Methods"], ["Method", "Count", "Total Amount"]])
+    for item in refunds.get("by_method", []):
+        rows.append([item.get("refund_method"), as_int(item.get("count")), as_float(item.get("total_amount"))])
+
+    rows.extend([[], ["Forecast Next 7 Days"], ["Date", "Projected Total"]])
+    for item in predictions.get("next_7_days", []):
+        rows.append([item.get("date"), as_float(item.get("projected_total"))])
 
     with output_path.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.writer(handle, delimiter=delimiter)

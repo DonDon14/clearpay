@@ -9,6 +9,11 @@
         top: 0;
         z-index: 1000;
     }
+    .focus-highlight {
+        outline: 2px solid #0d6efd !important;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.2);
+        transition: box-shadow 0.3s ease, outline 0.3s ease;
+    }
 </style>
 
 <?= $this->section('content') ?>
@@ -511,6 +516,77 @@ $(document).ready(function() {
 
     applyPaymentsFilters();
 
+    function highlightAndScrollToElement(el) {
+        if (!el) return;
+        el.classList.add('focus-highlight');
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => el.classList.remove('focus-highlight'), 4500);
+    }
+
+    async function focusPaymentFromQueryParams() {
+        const params = new URLSearchParams(window.location.search || '');
+        const focusPaymentId = parseInt(params.get('focus_payment') || '0', 10);
+        if (!focusPaymentId) return;
+
+        try {
+            const response = await fetch(`<?= base_url('payments/get-payment-details') ?>?payment_id=${focusPaymentId}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            });
+            const payload = await response.json();
+            if (!payload.success || !payload.payment) return;
+
+            const payment = payload.payment;
+            const payerId = String(payment.payer_id ?? '');
+            const contributionId = String(payment.contribution_id ?? '');
+            const productId = String(payment.product_id ?? '');
+            const paymentSequence = String(payment.payment_sequence ?? 1);
+
+            let targetRow = null;
+            document.querySelectorAll('.payment-group-row').forEach(row => {
+                const rowPayer = String(row.getAttribute('data-payer-id') || '');
+                const rowContribution = String(row.getAttribute('data-contribution-id') || '');
+                const rowProduct = String(row.getAttribute('data-product-id') || '');
+                const rowSequence = String(row.getAttribute('data-payment-sequence') || '1');
+                const matchProduct = productId !== '' ? rowProduct === productId : rowContribution === contributionId;
+                if (rowPayer === payerId && matchProduct && rowSequence === paymentSequence) {
+                    targetRow = row;
+                }
+            });
+
+            if (!targetRow) return;
+
+            const payerLabel = targetRow.getAttribute('data-payer-student-id')
+                || targetRow.getAttribute('data-payer-name')
+                || '';
+            const searchInput = document.getElementById('searchStudentName');
+            if (searchInput && payerLabel) {
+                searchInput.value = payerLabel;
+                applyPaymentsFilters();
+            }
+
+            highlightAndScrollToElement(targetRow);
+            window.__focusPaymentInHistoryId = focusPaymentId;
+
+            const targetPayerId = targetRow.getAttribute('data-payer-id') || '';
+            const targetContributionId = targetRow.getAttribute('data-contribution-id') || '';
+            const targetProductId = targetRow.getAttribute('data-product-id') || '';
+            const targetItemType = targetRow.getAttribute('data-item-type') || 'contribution';
+            const targetSequence = targetRow.getAttribute('data-payment-sequence') || '1';
+
+            setTimeout(() => {
+                viewPaymentHistory(targetPayerId, targetContributionId, targetProductId, targetItemType, targetSequence);
+            }, 350);
+        } catch (error) {
+            // Keep normal page behavior when focus lookup fails.
+        }
+    }
+
+    focusPaymentFromQueryParams();
+
     // Payer search functionality
     $('#payerSearch').on('input', function() {
         const query = $(this).val();
@@ -559,6 +635,16 @@ $(document).ready(function() {
             if (data.success) {
                 displayPaymentHistory(data.payments, payerId, contributionId, productId);
                 $('#paymentHistoryModal').modal('show');
+                if (window.__focusPaymentInHistoryId) {
+                    setTimeout(() => {
+                        const row = document.querySelector(`.payment-item-row[data-payment-id="${window.__focusPaymentInHistoryId}"]`);
+                        if (row) {
+                            row.classList.add('focus-highlight');
+                            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            setTimeout(() => row.classList.remove('focus-highlight'), 4500);
+                        }
+                    }, 350);
+                }
             } else {
                 alert('Error: ' + data.message);
             }
