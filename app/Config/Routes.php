@@ -34,6 +34,17 @@ $routes->get('uploads/(:segment)', 'ImageController::serve/$1');
 
 // Default route - redirect to admin login
 
+// Demo safety: the mobile API is not used for the browser-based school demo.
+// Keep it disabled in production unless ENABLE_MOBILE_API=true is set.
+if (ENVIRONMENT === 'production' && !filter_var(env('ENABLE_MOBILE_API', false), FILTER_VALIDATE_BOOLEAN)) {
+    $routes->match(['get', 'post', 'put', 'patch', 'delete', 'options'], 'api/payer/(:any)', static function () {
+        return service('response')->setStatusCode(404)->setJSON([
+            'success' => false,
+            'error' => 'Mobile API is disabled',
+        ]);
+    });
+}
+
 // Super Admin Routes (must be before admin routes to avoid conflicts)
 $routes->get('/super-admin/login', 'SuperAdmin\LoginController::index');
 $routes->post('/super-admin/loginPost', 'SuperAdmin\LoginController::loginPost');

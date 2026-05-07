@@ -181,3 +181,6 @@ unlinked.ds
 unlinked_spec.ds
 
 writable/tests.sqlite
+
+# Local demo tunneling tools
+tools/ngrok/

@@ -538,6 +538,10 @@ function submitPaymentRequest() {
             modal.hide();
             // Reset form
             form.reset();
+            // Send payer to their request history so the new entry is immediately visible.
+            setTimeout(() => {
+                window.location.href = '<?= base_url('payer/payment-requests') ?>';
+            }, 600);
         } else {
             showNotification(data.message || 'Failed to submit payment request', 'error');
         }

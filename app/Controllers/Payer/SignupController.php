@@ -225,54 +225,17 @@ class SignupController extends BaseController
         try {
             $emailConfig = $this->getEmailConfig();
 
-            $missingFields = [];
-            if (empty($emailConfig['SMTPUser'])) $missingFields[] = 'SMTPUser';
-            if (empty($emailConfig['SMTPPass'])) $missingFields[] = 'SMTPPass';
-            if (empty($emailConfig['SMTPHost'])) $missingFields[] = 'SMTPHost';
-            if (empty($emailConfig['fromEmail'])) $missingFields[] = 'fromEmail';
-
-            if (!empty($missingFields)) {
-                log_message('error', 'SMTP configuration incomplete for verification email - Missing: ' . implode(', ', $missingFields));
-                return false;
-            }
-
             $htmlMessage = view('emails/verification', [
                 'name' => $name,
                 'code' => $code
             ]);
 
-            $smtpConfig = [
-                'protocol' => $emailConfig['protocol'] ?? 'smtp',
-                'SMTPHost' => trim($emailConfig['SMTPHost'] ?? ''),
-                'SMTPUser' => trim($emailConfig['SMTPUser'] ?? ''),
-                'SMTPPass' => $emailConfig['SMTPPass'] ?? '',
-                'SMTPPort' => (int)($emailConfig['SMTPPort'] ?? 587),
-                'SMTPCrypto' => $emailConfig['SMTPCrypto'] ?? 'tls',
-                'SMTPTimeout' => max(10, (int) ($emailConfig['SMTPTimeout'] ?? 30)),
-                'mailType' => $emailConfig['mailType'] ?? 'html',
-                'mailtype' => $emailConfig['mailType'] ?? 'html',
-                'charset' => $emailConfig['charset'] ?? 'UTF-8',
-                'newline' => "`r`n",
-                'CRLF' => "`r`n",
-                'wordWrap' => true,
-                'validate' => false,
-            ];
-
-            $emailService = \Config\Services::email();
-            $emailService->clear();
-            $emailService->initialize($smtpConfig);
-            $emailService->setFrom($emailConfig['fromEmail'], $emailConfig['fromName'] ?? 'ClearPay');
-            $emailService->setTo($email);
-            $emailService->setSubject('Email Verification - ClearPay Payer Portal');
-            $emailService->setMessage($htmlMessage);
-
-            if ($emailService->send()) {
-                log_message('info', 'Verification email sent successfully via SMTP to payer: ' . $email);
-                return true;
-            }
-
-            log_message('error', 'SMTP failed to send verification email: ' . $emailService->printDebugger(['headers', 'subject']));
-            return false;
+            return (new \App\Services\EmailDeliveryService())->send(
+                $emailConfig,
+                $email,
+                'Email Verification - ClearPay Payer Portal',
+                $htmlMessage
+            );
         } catch (\Exception $e) {
             log_message('error', 'Failed to send verification email to payer: ' . $e->getMessage());
             log_message('error', 'Exception trace: ' . $e->getTraceAsString());

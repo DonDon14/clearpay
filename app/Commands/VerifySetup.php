@@ -173,11 +173,18 @@ class VerifySetup extends BaseCommand
         }
 
         $brevoKey = getenv('BREVO_API_KEY') ?: ($_ENV['BREVO_API_KEY'] ?? '');
-        if ($brevoKey !== '') {
-            CLI::write('   [OK] BREVO_API_KEY is set', 'green');
+        $emailConfig = config('Email');
+        $smtpReady = !empty($emailConfig->fromEmail)
+            && !empty($emailConfig->SMTPHost)
+            && !empty($emailConfig->SMTPUser)
+            && !empty($emailConfig->SMTPPass);
+
+        if ($brevoKey !== '' || $smtpReady) {
+            $method = $brevoKey !== '' ? 'Brevo API' : 'SMTP';
+            CLI::write("   [OK] Email delivery configured ({$method})", 'green');
         } else {
-            $warnings[] = 'BREVO_API_KEY is not set. Verification/reset emails will fail unless SMTP fallback is configured.';
-            CLI::write('   [WARN] BREVO_API_KEY is not set', 'yellow');
+            $warnings[] = 'Email delivery is not configured. Verification, receipt, and refund emails will fail.';
+            CLI::write('   [WARN] Email delivery is not configured', 'yellow');
         }
 
         $cloudName = getenv('CLOUDINARY_CLOUD_NAME') ?: ($_ENV['CLOUDINARY_CLOUD_NAME'] ?? '');
