@@ -5,6 +5,7 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\ContributionModel;
 use App\Models\PaymentModel;
+use App\Models\ProductModel;
 use App\Services\ActivityLogger;
 use App\Services\EmailConfigService;
 // use App\Services\QRReceiptService; // Disabled for now
@@ -817,6 +818,60 @@ class PaymentsController extends BaseController
             return $this->response->setJSON([
                 'success' => false,
                 'message' => 'An error occurred: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get payments by product ID
+     */
+    public function byProduct($productId)
+    {
+        try {
+            $paymentModel = new PaymentModel();
+
+            $payments = $paymentModel->select('
+                payments.id,
+                payments.receipt_number,
+                payments.payment_date,
+                payments.amount_paid,
+                payments.payment_method,
+                payments.payment_status,
+                payments.remaining_balance,
+                payments.product_id,
+                payments.quantity,
+                payments.id as payment_sequence,
+                payers.payer_id as payer_student_id,
+                payers.payer_id as payer_id,
+                payers.payer_name,
+                payers.contact_number,
+                payers.email_address,
+                products.title as contribution_title,
+                products.amount as contribution_amount,
+                products.description as contribution_description,
+                \'product\' as item_type
+            ')
+            ->join('payers', 'payers.id = payments.payer_id', 'left')
+            ->join('products', 'products.id = payments.product_id', 'left')
+            ->where('payments.product_id', $productId)
+            ->where('payments.deleted_at', null)
+            ->orderBy('payments.payment_date', 'DESC')
+            ->findAll();
+
+            foreach ($payments as &$payment) {
+                $payment['computed_status'] = 'fully paid';
+                $payment['remaining_balance'] = 0;
+            }
+
+            return $this->response->setJSON([
+                'success' => true,
+                'payments' => $payments,
+                'count' => count($payments),
+            ]);
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'success' => false,
+                'message' => 'An error occurred: ' . $e->getMessage(),
             ]);
         }
     }

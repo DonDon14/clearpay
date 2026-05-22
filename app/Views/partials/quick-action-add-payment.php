@@ -15,9 +15,10 @@ $passedColClass = $colClass ?? null;
 $passedModalTitle = $modalTitle ?? null;
 $passedAction = $action ?? null;
 $passedContributions = $contributions ?? null;
+$passedTone = $tone ?? null;
 
 // NOW clear everything to prevent leakage
-unset($title, $subtitle, $icon, $bgColor, $colClass, $modalTitle, $action, $contributions);
+unset($title, $subtitle, $icon, $bgColor, $colClass, $modalTitle, $action, $contributions, $tone);
 
 // Restore only what was explicitly passed, with defaults
 $title = $passedTitle ?? 'New Payment';
@@ -28,23 +29,29 @@ $colClass = $passedColClass ?? 'col-lg-4 col-md-6';
 $modalTitle = $passedModalTitle ?? 'Add Payment';
 $action = $passedAction ?? base_url('/payments/save'); // CRITICAL: Always default to payments/save
 $contributions = $passedContributions ?? [];
+$toneMap = [
+    'bg-primary' => 'primary',
+    'bg-success' => 'success',
+    'bg-info' => 'cyan',
+    'bg-secondary' => 'slate',
+    'bg-danger' => 'rose',
+    'bg-warning' => 'amber',
+];
+$tone = $passedTone ?? ($toneMap[$bgColor] ?? 'primary');
 ?>
 
 <!-- Add Payment Quick Action Button -->
 <div class="<?= esc($colClass) ?>">
-    <div class="card <?= esc($bgColor) ?> text-white shadow-sm rounded-3 hover-scale h-100 ui-quick-action-card" 
-         data-bs-toggle="modal" 
-         data-bs-target="#addPaymentModal">
-        <div class="card-body d-flex align-items-center gap-3 h-100">
-            <div class="icon-circle d-flex align-items-center justify-content-center">
-                <i class="<?= esc($icon) ?> fs-4"></i>
-            </div>
-            <div class="flex-grow-1">
-                <p class="ui-quick-action-title mb-1"><?= esc($title) ?></p>
-                <small class="text-white-75 ui-quick-action-subtitle"><?= esc($subtitle) ?></small>
-            </div>
-        </div>
-    </div>
+    <button type="button"
+            class="ui-admin-action-card ui-admin-action-<?= esc($tone) ?> h-100"
+            data-bs-toggle="modal"
+            data-bs-target="#addPaymentModal">
+        <span class="ui-admin-action-icon"><i class="<?= esc($icon) ?>"></i></span>
+        <span class="ui-admin-action-copy">
+            <span class="ui-admin-action-title"><?= esc($title) ?></span>
+            <span class="ui-admin-action-subtitle"><?= esc($subtitle) ?></span>
+        </span>
+    </button>
 </div>
 
 <!-- Include the payment modal (only once per page) -->

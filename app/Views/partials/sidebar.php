@@ -19,12 +19,7 @@
                         <span class="menu-text">Dashboard</span>
                     </a>
                 </li>
-                <li>
-                    <a href="<?= base_url('payments') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payments') ? 'active' : '' ?>" data-tooltip="Payments">
-                        <i class="fas fa-money-bill-wave"></i> 
-                        <span class="menu-text">Payments</span>
-                    </a>
-                </li>
+                <li class="sidebar-section-label"><span>Operations</span></li>
                 <li>
                     <a href="<?= base_url('review-center') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Review Center') ? 'active' : '' ?>" data-tooltip="Review Center">
                         <i class="fas fa-list-check"></i>
@@ -47,6 +42,13 @@
                     </a>
                 </li>
                 <li>
+                    <a href="<?= base_url('payments') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payments') ? 'active' : '' ?>" data-tooltip="Payments">
+                        <i class="fas fa-money-bill-wave"></i> 
+                        <span class="menu-text">Payments</span>
+                    </a>
+                </li>
+                <li class="sidebar-section-label"><span>Catalog</span></li>
+                <li>
                     <a href="<?= base_url('contributions') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Contributions') ? 'active' : '' ?>" data-tooltip="Contributions">
                         <i class="fas fa-hand-holding-usd"></i> 
                         <span class="menu-text">Contributions</span>
@@ -58,32 +60,33 @@
                         <span class="menu-text">Products</span>
                     </a>
                 </li>
-                <li><hr></li>
-                <li>
-                    <a href="<?= base_url('analytics') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Analytics') ? 'active' : '' ?>" data-tooltip="Analytics">
-                        <i class="fas fa-chart-bar"></i> 
-                        <span class="menu-text">Analytics</span>
-                    </a>
-                </li>
                 <li>
                     <a href="<?= base_url('payers') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Payers') ? 'active' : '' ?>" data-tooltip="Payers">
                         <i class="fas fa-users"></i> 
                         <span class="menu-text">Payers</span>
                     </a>
                 </li>
-                <li>
-                    <a href="<?= base_url('admins') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Admins') ? 'active' : '' ?>" data-tooltip="Admins">
-                        <i class="fas fa-user-shield"></i> 
-                        <span class="menu-text">Admins</span>
-                    </a>
-                </li>
+                <li class="sidebar-section-label"><span>Communication</span></li>
                 <li>
                     <a href="<?= base_url('announcements') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Announcements') ? 'active' : '' ?>" data-tooltip="Announcements">
                         <i class="fas fa-bullhorn"></i> 
                         <span class="menu-text">Announcements</span>
                     </a>
                 </li>
-                <li><hr></li>
+                <li class="sidebar-section-label"><span>Insights</span></li>
+                <li>
+                    <a href="<?= base_url('analytics') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Analytics') ? 'active' : '' ?>" data-tooltip="Analytics">
+                        <i class="fas fa-chart-bar"></i> 
+                        <span class="menu-text">Analytics</span>
+                    </a>
+                </li>
+                <li class="sidebar-section-label"><span>Administration</span></li>
+                <li>
+                    <a href="<?= base_url('admins') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Admins') ? 'active' : '' ?>" data-tooltip="Admins">
+                        <i class="fas fa-user-shield"></i> 
+                        <span class="menu-text">Admins</span>
+                    </a>
+                </li>
                 <li>
                     <a href="<?= base_url('settings') ?>" class="sidebar-item <?= (($pageTitle ?? '') === 'Settings') ? 'active' : '' ?>" data-tooltip="Settings">
                         <i class="fas fa-cog"></i> 

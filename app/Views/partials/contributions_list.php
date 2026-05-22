@@ -2,12 +2,22 @@
 <div class="row g-3" id="contributionsContainer">
     <?php if (!empty($contributions)): ?>
         <?php foreach ($contributions as $contribution): ?>
+            <?php
+                $searchText = strtolower(trim(implode(' ', [
+                    $contribution['title'] ?? '',
+                    $contribution['description'] ?? '',
+                    $contribution['contribution_code'] ?? '',
+                    $contribution['category'] ?? '',
+                    $contribution['status'] ?? '',
+                ])));
+            ?>
             <div class="col-12 contribution-item" 
                  id="contribution-<?= $contribution['id'] ?>"
                  data-category="<?= esc($contribution['category'] ?? 'other') ?>" 
                  data-type="contribution"
                  data-status="<?= esc($contribution['status'] ?? 'active') ?>"
                  data-title="<?= strtolower(esc($contribution['title'])) ?>"
+                 data-search="<?= esc($searchText) ?>"
                  data-amount="<?= esc($contribution['amount']) ?>">
                 <div class="card border-0 shadow-sm" style="transition: transform 0.2s, box-shadow 0.2s; cursor: pointer;" 
                      onclick="showContributionPayments(<?= $contribution['id'] ?>, '<?= esc($contribution['title']) ?>', <?= esc($contribution['amount']) ?>)">
@@ -129,6 +139,14 @@
                 </div>
             </div>
         <?php endforeach; ?>
+        <div class="col-12 d-none" id="noContributionResults">
+            <div class="ui-empty-filter-state">
+                <div class="ui-empty-filter-icon"><i class="fas fa-search"></i></div>
+                <h5>No contributions found</h5>
+                <p>Try changing your search or clearing filters.</p>
+                <button type="button" class="btn btn-primary btn-sm" onclick="clearFilters()">Clear filters</button>
+            </div>
+        </div>
     <?php else: ?>
         <div class="col-12">
             <div class="text-center py-5">

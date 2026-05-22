@@ -83,60 +83,50 @@
             </div>
         </div>
         <div class="card-body">
-            <!-- Search Bar -->
-            <div class="mb-3 ui-toolbar-shell p-3">
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="fas fa-search"></i>
-                            </span>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="searchPayerInput" 
-                                   placeholder="Search by Student ID, Name, Email, or Contact Number..."
-                                   autocomplete="off">
-                            <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" style="display: none;">
-                                <i class="fas fa-times"></i> Clear
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-6 text-md-end">
-                        <small class="text-muted" id="searchResultsCount">
-                            Showing <?= !empty($payers) ? count($payers) : '0' ?> of <?= !empty($payers) ? count($payers) : '0' ?> payers
-                        </small>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-4 mb-2">
-                        <label for="filterCourse" class="form-label small text-muted mb-1">Filter by Course/Department</label>
-                        <select class="form-select form-select-sm" id="filterCourse">
-                            <option value="">All Courses/Departments</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <label for="sortBy" class="form-label small text-muted mb-1">Sort By</label>
-                        <select class="form-select form-select-sm" id="sortBy">
-                            <option value="name_asc">Name (A-Z)</option>
-                            <option value="name_desc">Name (Z-A)</option>
-                            <option value="amount_desc">Payment Total (High to Low)</option>
-                            <option value="amount_asc">Payment Total (Low to High)</option>
-                            <option value="course_asc">Course/Department (A-Z)</option>
-                            <option value="payments_desc">Total Payments (High to Low)</option>
-                            <option value="payments_asc">Total Payments (Low to High)</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <label for="filterStatus" class="form-label small text-muted mb-1">Filter by Status</label>
-                        <select class="form-select form-select-sm" id="filterStatus">
-                            <option value="">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="pending">Pending</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
+            <?php
+            $payerCourses = [];
+            foreach (($payers ?? []) as $payerForCourse) {
+                $course = trim((string) ($payerForCourse['course_department'] ?? ''));
+                if ($course !== '') {
+                    $payerCourses[strtolower($course)] = $course;
+                }
+            }
+            asort($payerCourses);
+            ?>
+            <?= view('partials/list-controls', [
+                'controlId' => 'payerControls',
+                'searchId' => 'searchPayerInput',
+                'searchLabel' => 'Search payers',
+                'placeholder' => 'ID, name, email, contact...',
+                'resultId' => 'searchResultsCount',
+                'chipsId' => 'payerFilterChips',
+                'clearId' => 'clearSearchBtn',
+                'filters' => [
+                    [
+                        'id' => 'filterCourse',
+                        'label' => 'Course',
+                        'options' => ['' => 'All courses'] + $payerCourses,
+                    ],
+                    [
+                        'id' => 'filterStatus',
+                        'label' => 'Status',
+                        'options' => ['' => 'All statuses', 'active' => 'Active', 'pending' => 'Pending', 'inactive' => 'Inactive'],
+                    ],
+                ],
+                'sort' => [
+                    'id' => 'sortBy',
+                    'label' => 'Sort',
+                    'options' => [
+                        'name_asc' => 'Name A-Z',
+                        'name_desc' => 'Name Z-A',
+                        'amount_desc' => 'Amount high-low',
+                        'amount_asc' => 'Amount low-high',
+                        'course_asc' => 'Course A-Z',
+                        'payments_desc' => 'Payments high-low',
+                        'payments_asc' => 'Payments low-high',
+                    ],
+                ],
+            ]) ?>
             
             <div class="table-responsive ui-table-wrap">
                 <table class="table table-hover">
@@ -173,7 +163,8 @@
                                     data-course="<?= esc(strtolower($payer['course_department'] ?? '')) ?>"
                                     data-total-paid="<?= $payer['total_paid'] ?>"
                                     data-total-payments="<?= $payer['total_payments'] ?>"
-                                    data-status="<?= esc($payer['status']) ?>">
+                                    data-status="<?= esc($payer['status']) ?>"
+                                    data-search="<?= esc(strtolower(trim(($payer['payer_id'] ?? '') . ' ' . ($payer['payer_name'] ?? '') . ' ' . ($payer['email_address'] ?? '') . ' ' . ($payer['contact_number'] ?? '') . ' ' . ($payer['course_department'] ?? '') . ' ' . ($payer['status'] ?? '')))) ?>">
                                     <td><strong><?= esc($payer['payer_id']) ?></strong></td>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
@@ -228,7 +219,7 @@
                             </tr>
                         <?php endif; ?>
                         <!-- No Results Row (hidden by default) -->
-                        <tr id="noResultsRow" style="display: none;">
+                        <tr id="noResultsRow" class="d-none">
                             <td colspan="9" class="text-center text-muted py-4">
                                 <i class="fas fa-search fa-2x mb-2 d-block"></i>
                                 <p class="mb-0">No payers found matching your search criteria</p>
@@ -304,180 +295,44 @@
     </div>
 </div>
 
+<script src="<?= base_url('js/list-controls.js') ?>"></script>
 <script>
 // Search, Filter, and Sort functionality for payers list
 (function() {
     'use strict';
-    
-    const searchInput = document.getElementById('searchPayerInput');
-    const clearBtn = document.getElementById('clearSearchBtn');
-    const searchResultsCount = document.getElementById('searchResultsCount');
+
     const paginationInfo = document.getElementById('paginationInfo');
-    const noResultsRow = document.getElementById('noResultsRow');
-    const filterCourse = document.getElementById('filterCourse');
-    const filterStatus = document.getElementById('filterStatus');
-    const sortBy = document.getElementById('sortBy');
-    const tbody = document.querySelector('tbody');
-    const totalPayers = <?= !empty($payers) ? count($payers) : 0 ?>;
-    
-    if (!searchInput || !tbody) return;
-    
-    // Populate course/department filter dropdown
-    function populateCourseFilter() {
-        const courses = new Set();
-        document.querySelectorAll('.payer-row').forEach(row => {
-            const course = row.getAttribute('data-course')?.trim();
-            if (course && course !== '' && course !== 'n/a') {
-                courses.add(course);
-            }
-        });
-        
-        // Clear existing options except "All"
-        while (filterCourse.options.length > 1) {
-            filterCourse.remove(1);
-        }
-        
-        // Add unique courses sorted alphabetically
-        Array.from(courses).sort().forEach(course => {
-            const option = document.createElement('option');
-            option.value = course;
-            option.textContent = course.charAt(0).toUpperCase() + course.slice(1);
-            filterCourse.appendChild(option);
-        });
-    }
-    
-    // Get all visible rows
-    function getVisibleRows() {
-        return Array.from(document.querySelectorAll('.payer-row')).filter(row => {
-            return row.style.display !== 'none';
-        });
-    }
-    
-    // Function to sort rows
-    function sortRows() {
-        const sortValue = sortBy.value;
-        const rows = getVisibleRows();
-        const tbody = document.querySelector('tbody');
-        
-        rows.sort((a, b) => {
-            switch (sortValue) {
-                case 'name_asc':
-                    return (a.getAttribute('data-payer-name') || '').localeCompare(b.getAttribute('data-payer-name') || '');
-                case 'name_desc':
-                    return (b.getAttribute('data-payer-name') || '').localeCompare(a.getAttribute('data-payer-name') || '');
-                case 'amount_desc':
-                    return parseFloat(b.getAttribute('data-total-paid') || 0) - parseFloat(a.getAttribute('data-total-paid') || 0);
-                case 'amount_asc':
-                    return parseFloat(a.getAttribute('data-total-paid') || 0) - parseFloat(b.getAttribute('data-total-paid') || 0);
-                case 'course_asc':
-                    const courseA = a.getAttribute('data-course') || '';
-                    const courseB = b.getAttribute('data-course') || '';
-                    return courseA.localeCompare(courseB);
-                case 'payments_desc':
-                    return parseInt(b.getAttribute('data-total-payments') || 0) - parseInt(a.getAttribute('data-total-payments') || 0);
-                case 'payments_asc':
-                    return parseInt(a.getAttribute('data-total-payments') || 0) - parseInt(b.getAttribute('data-total-payments') || 0);
-                default:
-                    return 0;
-            }
-        });
-        
-        // Reorder rows in DOM
-        rows.forEach(row => tbody.appendChild(row));
-    }
-    
-    // Function to filter and search payers
-    function filterPayers() {
-        const searchTerm = searchInput.value.trim().toLowerCase();
-        const filterCourseValue = filterCourse.value.toLowerCase();
-        const filterStatusValue = filterStatus.value.toLowerCase();
-        const payerRows = document.querySelectorAll('.payer-row');
-        let visibleCount = 0;
-        
-        payerRows.forEach(row => {
-            const payerId = row.getAttribute('data-payer-id') || '';
-            const payerName = row.getAttribute('data-payer-name') || '';
-            const email = row.getAttribute('data-email') || '';
-            const contact = row.getAttribute('data-contact') || '';
-            const course = row.getAttribute('data-course') || '';
-            const status = row.getAttribute('data-status') || '';
-            
-            // Search filter
-            const matchesSearch = searchTerm === '' || 
-                payerId.includes(searchTerm) || 
-                payerName.includes(searchTerm) || 
-                email.includes(searchTerm) || 
-                contact.includes(searchTerm) ||
-                course.includes(searchTerm);
-            
-            // Course filter
-            const matchesCourse = filterCourseValue === '' || course === filterCourseValue;
-            
-            // Status filter
-            const matchesStatus = filterStatusValue === '' || status === filterStatusValue;
-            
-            if (matchesSearch && matchesCourse && matchesStatus) {
-                row.style.display = '';
-                visibleCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-        
-        // Show/hide no results message
-        if (visibleCount === 0) {
-            noResultsRow.style.display = '';
-        } else {
-            noResultsRow.style.display = 'none';
-        }
-        
-        // Show/hide clear button
-        if (searchTerm !== '' || filterCourseValue !== '' || filterStatusValue !== '') {
-            clearBtn.style.display = 'inline-block';
-        } else {
-            clearBtn.style.display = 'none';
-        }
-        
-        updateCounts(visibleCount);
-        sortRows(); // Re-sort after filtering
-    }
-    
-    // Function to update result counts
-    function updateCounts(count) {
-        if (searchResultsCount) {
-            searchResultsCount.textContent = `Showing ${count} of ${totalPayers} payers`;
-        }
+    window.payerListControls = createListControls({
+        searchId: 'searchPayerInput',
+        resultId: 'searchResultsCount',
+        chipsId: 'payerFilterChips',
+        clearId: 'clearSearchBtn',
+        itemSelector: '.payer-row',
+        containerSelector: 'tbody',
+        emptySelector: '#noResultsRow',
+        label: 'payers',
+        filters: [
+            { id: 'filterCourse', key: 'course', label: 'Course', attribute: 'data-course' },
+            { id: 'filterStatus', key: 'status', label: 'Status', attribute: 'data-status' },
+        ],
+        sort: {
+            id: 'sortBy',
+            options: {
+                name_asc: { attribute: 'data-payer-name', direction: 'asc' },
+                name_desc: { attribute: 'data-payer-name', direction: 'desc' },
+                amount_desc: { attribute: 'data-total-paid', direction: 'desc', type: 'number' },
+                amount_asc: { attribute: 'data-total-paid', direction: 'asc', type: 'number' },
+                course_asc: { attribute: 'data-course', direction: 'asc' },
+                payments_desc: { attribute: 'data-total-payments', direction: 'desc', type: 'number' },
+                payments_asc: { attribute: 'data-total-payments', direction: 'asc', type: 'number' },
+            },
+        },
+        onAfterApply: function({ visible, total }) {
         if (paginationInfo) {
-            paginationInfo.textContent = `Showing ${count > 0 ? '1 to ' + count : '0'} of ${totalPayers} entries`;
+                paginationInfo.textContent = `Showing ${visible > 0 ? '1 to ' + visible : '0'} of ${total} entries`;
         }
-    }
-    
-    // Event listeners
-    searchInput.addEventListener('input', filterPayers);
-    searchInput.addEventListener('keyup', function(e) {
-        if (e.key === 'Escape') {
-            searchInput.value = '';
-            filterPayers();
-        }
+        },
     });
-    
-    clearBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        filterCourse.value = '';
-        filterStatus.value = '';
-        filterPayers();
-        searchInput.focus();
-    });
-    
-    filterCourse.addEventListener('change', filterPayers);
-    filterStatus.addEventListener('change', filterPayers);
-    sortBy.addEventListener('change', sortRows);
-    
-    // Initialize course filter dropdown
-    populateCourseFilter();
-    
-    // Initial sort
-    sortRows();
 })();
 
 (function focusPayerFromQueryParam() {

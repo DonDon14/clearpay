@@ -4,6 +4,14 @@
   gap: 1.25rem;
 }
 
+body.payer-sidebar-navigating .notification-dropdown,
+body.payer-sidebar-navigating .user-dropdown {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-10px) !important;
+  transition: none !important;
+}
+
 .payer-page-intro {
   display: flex;
   justify-content: space-between;
@@ -50,6 +58,123 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.75rem;
+}
+
+.payer-quick-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.payer-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.payer-action-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 104px;
+  padding: 1.05rem 1.1rem;
+  color: #0f172a;
+  text-decoration: none;
+  border: 1px solid #dbe5f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.payer-action-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--payer-action-accent, #2563eb);
+}
+
+.payer-action-card:hover,
+.payer-action-card:focus {
+  color: #0f172a;
+  border-color: var(--payer-action-accent, #2563eb);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.11);
+  transform: translateY(-2px);
+}
+
+.payer-action-card:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.2);
+  outline-offset: 3px;
+}
+
+.payer-action-card--payment {
+  --payer-action-accent: #2563eb;
+  --payer-action-soft: #eff6ff;
+}
+
+.payer-action-card--refund {
+  --payer-action-accent: #d97706;
+  --payer-action-soft: #fff7ed;
+}
+
+.payer-action-icon,
+.payer-action-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.payer-action-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--payer-action-soft, #eff6ff);
+  color: var(--payer-action-accent, #2563eb);
+  font-size: 1.35rem;
+}
+
+.payer-action-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.payer-action-title {
+  font-size: 1rem;
+  line-height: 1.2;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.payer-action-copy {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.payer-action-arrow {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.85rem;
+  transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.payer-action-card:hover .payer-action-arrow,
+.payer-action-card:focus .payer-action-arrow {
+  color: #ffffff;
+  background: var(--payer-action-accent, #2563eb);
+  transform: translateX(2px);
 }
 
 .payer-stat-card {
@@ -150,6 +275,15 @@
 
   .payer-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .payer-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .payer-action-card {
+    min-height: 96px;
+    padding: 1rem;
   }
 
   .payer-item-image {

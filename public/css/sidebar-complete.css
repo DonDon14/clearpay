@@ -206,6 +206,30 @@ body.sidebar-loading .main-content {
     min-height: 40px;
 }
 
+.sidebar-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin: 14px 10px 6px;
+    color: #94a3b8;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.sidebar-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e5e7eb;
+}
+
+.sidebar-section-label:first-of-type {
+    margin-top: 16px;
+}
+
 .sidebar-item:hover {
     color: #1f2937;
     background: #f9fafb;
@@ -284,13 +308,24 @@ body.sidebar-loading .main-content {
 
 .sidebar.collapsed .menu-text,
 .sidebar.collapsed .logo-text,
-.sidebar.collapsed .help-text {
+.sidebar.collapsed .help-text,
+.sidebar.collapsed .sidebar-section-label span {
     opacity: 0;
     transform: translateX(-10px);
     width: 0;
     overflow: hidden;
     pointer-events: none;
     transition: all 0.2s ease;
+}
+
+.sidebar.collapsed .sidebar-section-label {
+    justify-content: center;
+    margin: 12px 16px 6px;
+}
+
+.sidebar.collapsed .sidebar-section-label::after {
+    width: 24px;
+    flex: 0 0 24px;
 }
 
 .sidebar.collapsed .sidebar-item {

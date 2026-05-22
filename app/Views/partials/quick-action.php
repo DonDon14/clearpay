@@ -11,9 +11,10 @@ $passedTitle = $title ?? 'Action';
 $passedSubtitle = $subtitle ?? '';
 $passedBgColor = $bgColor ?? 'bg-primary';
 $passedColClass = $colClass ?? 'col-6';
+$passedTone = $tone ?? null;
 
 // NOW clear everything to prevent leakage
-unset($modalTarget, $link, $icon, $title, $subtitle, $bgColor, $colClass);
+unset($modalTarget, $link, $icon, $title, $subtitle, $bgColor, $colClass, $tone);
 
 // Restore only what was explicitly passed
 $modalTarget = $passedModalTarget;
@@ -23,39 +24,40 @@ $title = $passedTitle;
 $subtitle = $passedSubtitle;
 $bgColor = $passedBgColor;
 $colClass = $passedColClass;
+$toneMap = [
+    'bg-primary' => 'primary',
+    'bg-success' => 'success',
+    'bg-info' => 'cyan',
+    'bg-secondary' => 'slate',
+    'bg-danger' => 'rose',
+    'bg-warning' => 'amber',
+];
+$tone = $passedTone ?? ($toneMap[$bgColor] ?? 'primary');
 ?>
 
 <!-- partials/quick-action.php -->
-<!-- DEBUG: title=<?= htmlspecialchars($title) ?> modalTarget=<?= var_export($modalTarget, true) ?> link=<?= var_export($link, true) ?> -->
 <div class="<?= esc($colClass) ?>">
     <?php if (isset($modalTarget) && !empty($modalTarget)): ?>
         <!-- Modal Trigger Button -->
-        <div class="card <?= esc($bgColor) ?> text-white shadow-sm rounded-3 hover-scale h-100 ui-quick-action-card" 
-             data-bs-toggle="modal" 
-             data-bs-target="#<?= esc($modalTarget) ?>">
-            <div class="card-body d-flex align-items-center gap-3 h-100">
-                <div class="icon-circle d-flex align-items-center justify-content-center">
-                    <i class="<?= esc($icon ?? 'fas fa-cog') ?> fs-4"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <p class="ui-quick-action-title mb-1"><?= esc($title ?? 'Action') ?></p>
-                    <small class="text-white-75 ui-quick-action-subtitle"><?= esc($subtitle ?? '') ?></small>
-                </div>
-            </div>
-        </div>
+        <button type="button"
+                class="ui-admin-action-card ui-admin-action-<?= esc($tone) ?> h-100"
+                data-bs-toggle="modal"
+                data-bs-target="#<?= esc($modalTarget) ?>">
+            <span class="ui-admin-action-icon"><i class="<?= esc($icon ?? 'fas fa-cog') ?>"></i></span>
+            <span class="ui-admin-action-copy">
+                <span class="ui-admin-action-title"><?= esc($title ?? 'Action') ?></span>
+                <span class="ui-admin-action-subtitle"><?= esc($subtitle ?? '') ?></span>
+            </span>
+        </button>
     <?php else: ?>
         <!-- Regular Link -->
-        <a href="<?= esc($link ?? '#') ?>" 
-           class="card <?= esc($bgColor) ?> text-white shadow-sm rounded-3 hover-scale h-100 text-decoration-none ui-quick-action-card">
-            <div class="card-body d-flex align-items-center gap-3 h-100">
-                <div class="icon-circle d-flex align-items-center justify-content-center">
-                    <i class="<?= esc($icon ?? 'fas fa-cog') ?> fs-4"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <p class="ui-quick-action-title mb-1"><?= esc($title ?? 'Action') ?></p>
-                    <small class="text-white-75 ui-quick-action-subtitle"><?= esc($subtitle ?? '') ?></small>
-                </div>
-            </div>
+        <a href="<?= esc($link ?? '#') ?>"
+           class="ui-admin-action-card ui-admin-action-<?= esc($tone) ?> h-100">
+            <span class="ui-admin-action-icon"><i class="<?= esc($icon ?? 'fas fa-cog') ?>"></i></span>
+            <span class="ui-admin-action-copy">
+                <span class="ui-admin-action-title"><?= esc($title ?? 'Action') ?></span>
+                <span class="ui-admin-action-subtitle"><?= esc($subtitle ?? '') ?></span>
+            </span>
         </a>
     <?php endif; ?>
 </div>

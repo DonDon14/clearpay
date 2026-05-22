@@ -342,6 +342,33 @@
       
       // Setup tooltips
       setupTooltips();
+
+      // Sidebar navigation should never leave header dropdowns visible while the
+      // next page is loading. Use capture so this runs before link navigation.
+      document.querySelectorAll('.sidebar-item[href]').forEach(function(item) {
+        item.addEventListener('click', function(e) {
+          if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) {
+            return;
+          }
+
+          document.body.classList.add('payer-sidebar-navigating');
+
+          const notificationDropdown = document.getElementById('notificationDropdown');
+          if (notificationDropdown) {
+            notificationDropdown.classList.remove('active');
+          }
+
+          const userDropdown = document.getElementById('userDropdown');
+          if (userDropdown) {
+            userDropdown.classList.remove('active');
+          }
+
+          const tooltip = document.querySelector('.collapsed-tooltip');
+          if (tooltip) {
+            tooltip.remove();
+          }
+        }, true);
+      });
       
       // Re-setup tooltips when sidebar state changes
       if (sidebar) {

@@ -167,18 +167,51 @@
 // Store contribution and payer data (make them global)
 window.currentContributionId = null;
 window.currentContributionData = {};
+window.currentPaymentItemType = 'contribution';
 
 // Function to show contribution payments modal with aggregated data
 function showContributionPayments(contributionId, contributionTitle, contributionAmount) {
-    window.currentContributionId = contributionId;
+    showItemPayments('contribution', contributionId, contributionTitle, contributionAmount);
+}
+
+function showProductPayments(productId, productTitle, productAmount) {
+    showItemPayments('product', productId, productTitle, productAmount);
+}
+
+function showItemPayments(itemType, itemId, itemTitle, itemAmount) {
+    const normalizedType = itemType === 'product' ? 'product' : 'contribution';
+    window.currentContributionId = itemId;
+    window.currentPaymentItemType = normalizedType;
     window.currentContributionData = {
-        id: contributionId,
-        title: contributionTitle,
-        amount: contributionAmount
+        id: itemId,
+        title: itemTitle,
+        amount: itemAmount,
+        type: normalizedType
     };
     
     // Update modal title
-    document.getElementById('contributionModalTitle').textContent = contributionTitle;
+    document.getElementById('contributionModalTitle').textContent = itemTitle;
+    const modalHint = document.querySelector('#contributionPaymentsModalLabel + small');
+    if (modalHint) {
+        modalHint.innerHTML = `<i class="fas fa-mouse-pointer me-1"></i>Click any payer to view ${normalizedType === 'product' ? 'purchase' : 'payment'} history`;
+    }
+    const modalTitleIcon = document.querySelector('#contributionPaymentsModalLabel i');
+    if (modalTitleIcon) {
+        modalTitleIcon.className = `${normalizedType === 'product' ? 'fas fa-box-open' : 'fas fa-hand-holding-usd'} me-2`;
+    }
+    const tableHeaders = document.querySelectorAll('#contributionPaymentsTable thead th');
+    if (tableHeaders.length >= 5) {
+        tableHeaders[2].textContent = normalizedType === 'product' ? 'Purchase' : 'Payment Group';
+        tableHeaders[4].textContent = normalizedType === 'product' ? 'Balance' : 'Remaining Balance';
+    }
+    const emptyTitle = document.querySelector('#contributionPaymentsEmpty h5');
+    const emptyText = document.querySelector('#contributionPaymentsEmpty p');
+    if (emptyTitle && emptyText) {
+        emptyTitle.textContent = normalizedType === 'product' ? 'No purchases found' : 'No payments found';
+        emptyText.textContent = normalizedType === 'product'
+            ? 'No purchases have been recorded for this product yet.'
+            : 'No payments have been recorded for this contribution yet.';
+    }
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('contributionPaymentsModal'));
@@ -196,8 +229,8 @@ function showContributionPayments(contributionId, contributionTitle, contributio
     // Clear previous data
     document.getElementById('contributionPaymentsTableBody').innerHTML = '';
     
-    // Fetch payments for this contribution
-    fetch(`${window.APP_BASE_URL || ''}/payments/by-contribution/${contributionId}`)
+    // Fetch payments for this item
+    fetch(`${window.APP_BASE_URL || ''}/payments/by-${normalizedType}/${itemId}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('contributionPaymentsLoading').style.display = 'none';
@@ -208,7 +241,7 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                 
                 data.payments.forEach(payment => {
                     const payerId = payment.payer_id;
-                    const sequence = payment.payment_sequence || 1;
+                    const sequence = normalizedType === 'product' ? (payment.payment_sequence || payment.id) : (payment.payment_sequence || 1);
                     const key = payerId + '_' + sequence; // Unique key for payer+sequence combination
                     
                     if (!payerMap[key]) {
@@ -224,16 +257,21 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                             last_payment_date: null,
                             payments: [],
                             contribution_amount: null,
-                            contribution_title: null
+                            contribution_title: null,
+                            quantity: 0,
+                            item_type: normalizedType
                         };
                     }
                     
                     payerMap[key].total_paid += parseFloat(payment.amount_paid);
                     payerMap[key].payments.push(payment);
+                    payerMap[key].quantity += parseInt(payment.quantity || 0, 10);
                     
                     // Store contribution amount from the first payment
                     if (!payerMap[key].contribution_amount && payment.contribution_amount) {
-                        payerMap[key].contribution_amount = parseFloat(payment.contribution_amount);
+                        payerMap[key].contribution_amount = normalizedType === 'product'
+                            ? parseFloat(payment.amount_paid || 0)
+                            : parseFloat(payment.contribution_amount);
                     }
                     
                     // Store contribution title from the first payment
@@ -258,6 +296,12 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                 
                 // Determine final status for each payer based on totals
                 Object.values(payerMap).forEach(payerData => {
+                    if (normalizedType === 'product') {
+                        payerData.status = 'fully paid';
+                        payerData.contribution_amount = payerData.total_paid;
+                        return;
+                    }
+
                     // If we have contribution amount, check if fully paid
                     if (payerData.contribution_amount) {
                         if (payerData.total_paid >= payerData.contribution_amount) {
@@ -313,7 +357,7 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                     
                     // Actions column
                     let actionsHTML = '';
-                    if (payerData.status === 'partial' && typeof openAddPaymentToPartialModal === 'function') {
+                    if (normalizedType === 'contribution' && payerData.status === 'partial' && typeof openAddPaymentToPartialModal === 'function') {
                         // Find a partial payment to pass to the modal
                         const partialPayment = payerData.payments.find(p => p.payment_status === 'partial');
                         if (partialPayment) {
@@ -330,7 +374,7 @@ function showContributionPayments(contributionId, contributionTitle, contributio
                     row.innerHTML = `
                         <td>${payerData.payer_student_id}</td>
                         <td>${payerData.payer_name}</td>
-                        <td><span class="badge bg-secondary">Group ${payerData.payment_sequence || 1}</span></td>
+                        <td><span class="badge bg-secondary">${normalizedType === 'product' ? 'Purchase' : 'Group'} ${payerData.payment_sequence || 1}</span></td>
                         <td class="fw-semibold">₱${payerData.total_paid.toFixed(2)}</td>
                         <td class="fw-semibold ${remainingBalance > 0 ? 'text-danger' : 'text-success'}">
                             ₱${remainingBalance.toFixed(2)}
@@ -373,7 +417,8 @@ window.showPayerPaymentHistory = function(payerData) {
     
     // Update modal title with payer name and contribution name
     const contributionName = payerData.contribution_title || window.currentContributionData?.title || 'N/A';
-    document.getElementById('payerHistoryTitle').textContent = `Payment History - ${payerData.payer_name} - ${contributionName}`;
+    const historyLabel = payerData.item_type === 'product' ? 'Purchase History' : 'Payment History';
+    document.getElementById('payerHistoryTitle').textContent = `${historyLabel} - ${payerData.payer_name} - ${contributionName}`;
     
     // Show modal
     const modal = new bootstrap.Modal(document.getElementById('payerPaymentHistoryModal'));
@@ -434,6 +479,7 @@ window.showPayerPaymentHistory = function(payerData) {
                             </p>
                             <p class="mb-0 small">
                                 <i class="fas fa-credit-card me-1"></i>${payment.payment_method.toUpperCase()}
+                                ${payment.quantity ? ` • Qty: ${parseInt(payment.quantity, 10)}` : ''}
                                 ${payment.remaining_balance > 0 ? ` • Remaining: ₱${parseFloat(payment.remaining_balance).toFixed(2)}` : ''}
                             </p>
                         </div>
@@ -455,7 +501,8 @@ window.showPayerPaymentHistory = function(payerData) {
                             // Get payer contact info from the payment if available
                             contact_number: payment.contact_number || payerData.contact_number || 'N/A',
                             email_address: payment.email_address || payerData.email_address || 'N/A',
-                            contribution_title: payment.contribution_title || payerData.contribution_title || 'N/A'
+                            contribution_title: payment.contribution_title || payerData.contribution_title || 'N/A',
+                            item_type: payment.item_type || payerData.item_type || window.currentPaymentItemType
                         };
                         showQRReceipt(completePaymentData);
                     } else {
@@ -535,7 +582,8 @@ window.showPayerPaymentHistory = function(payerData) {
      
      // CSV headers with UTF-8 BOM for Excel compatibility
      let csvContent = 'data:text/csv;charset=utf-8,\uFEFF';
-     csvContent += 'Payer ID,Payer Name,Payment Group,Total Paid,Remaining Balance,Status,Last Payment\n';
+     const itemType = window.currentPaymentItemType === 'product' ? 'product' : 'contribution';
+     csvContent += `Payer ID,Payer Name,${itemType === 'product' ? 'Purchase' : 'Payment Group'},Total Paid,Remaining Balance,Status,Last Payment\n`;
      
      // Add data rows
      rows.forEach(row => {
@@ -543,7 +591,7 @@ window.showPayerPaymentHistory = function(payerData) {
          if (cells.length >= 8) {
              const payerId = cells[0].textContent.trim();
              const payerName = cells[1].textContent.trim();
-             const paymentGroup = cells[2].textContent.trim().replace(/Group\s+/gi, ''); // Remove "Group " text
+             const paymentGroup = cells[2].textContent.trim().replace(/Group\s+|Purchase\s+/gi, '');
              const totalPaid = cells[3].textContent.trim();
              const remainingBalance = cells[4].textContent.trim();
              const status = cells[5].textContent.trim();
@@ -561,9 +609,9 @@ window.showPayerPaymentHistory = function(payerData) {
      const link = document.createElement('a');
      link.setAttribute('href', encodedUri);
      
-     // Generate filename with contribution title and current date
+     // Generate filename with item title and current date
      const date = new Date().toISOString().split('T')[0];
-     const filename = `Contribution_${contributionTitle.replace(/[^a-z0-9]/gi, '_')}_${date}.csv`;
+     const filename = `${itemType === 'product' ? 'Product' : 'Contribution'}_${contributionTitle.replace(/[^a-z0-9]/gi, '_')}_${date}.csv`;
      link.setAttribute('download', filename);
      
      // Trigger download
@@ -577,7 +625,13 @@ window.showPayerPaymentHistory = function(payerData) {
  // Function to export contribution payments to PDF
  function exportContributionPaymentsPDF() {
      if (!window.currentContributionId) {
-         showNotification('No contribution selected', 'warning');
+         showNotification('No item selected', 'warning');
+         return;
+     }
+
+     if (window.currentPaymentItemType === 'product') {
+         exportContributionPayments();
+         showNotification('Product purchases exported as CSV. PDF export is available for contributions only.', 'info');
          return;
      }
      

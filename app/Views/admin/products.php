@@ -4,6 +4,16 @@
 <link rel="stylesheet" href="<?= base_url('css/dashboard.css') ?>" />
 
 <div class="container-fluid ui-page-shell">
+    <?php
+    $productCategories = [];
+    foreach (($products ?? []) as $productForCategory) {
+        $category = trim((string) ($productForCategory['category'] ?? ''));
+        if ($category !== '') {
+            $productCategories[$category] = $category;
+        }
+    }
+    ksort($productCategories);
+    ?>
     <div class="ui-page-intro">
         <div>
             <h6>Products</h6>
@@ -24,12 +34,43 @@
         <div class="col-md-3"><?= view('partials/card', ['icon' => 'fas fa-coins', 'iconColor' => 'text-warning', 'title' => 'Income', 'text' => 'PHP ' . number_format((float)($totalIncome ?? 0), 2)]) ?></div>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Products</h5>
-            <input type="text" class="form-control" id="productSearch" placeholder="Search products..." style="max-width: 280px;">
+    <div class="card shadow-sm border-0 ui-surface-card">
+        <div class="card-header ui-surface-card-header">
+            <h5 class="card-title mb-1">Products</h5>
+            <small class="text-muted d-block ui-surface-subtitle">Search, filter, and open product purchase history.</small>
         </div>
-        <div class="card-body">
+        <div class="card-body p-3 ui-surface-card-body">
+            <?= view('partials/list-controls', [
+                'controlId' => 'productControls',
+                'searchId' => 'productSearch',
+                'searchLabel' => 'Search products',
+                'placeholder' => 'Title, description, category...',
+                'resultId' => 'productResultsCount',
+                'chipsId' => 'productFilterChips',
+                'clearId' => 'clearProductFilters',
+                'filters' => [
+                    [
+                        'id' => 'productCategoryFilter',
+                        'label' => 'Category',
+                        'options' => ['' => 'All categories'] + $productCategories,
+                    ],
+                    [
+                        'id' => 'productStatusFilter',
+                        'label' => 'Status',
+                        'options' => ['' => 'All statuses', 'active' => 'Active', 'inactive' => 'Inactive'],
+                    ],
+                ],
+                'sort' => [
+                    'id' => 'productSort',
+                    'label' => 'Sort',
+                    'options' => [
+                        'newest' => 'Newest',
+                        'name_asc' => 'Name A-Z',
+                        'sales_desc' => 'Sales high-low',
+                        'income_desc' => 'Income high-low',
+                    ],
+                ],
+            ]) ?>
             <?php if (empty($products)): ?>
                 <div class="text-center py-5 text-muted">
                     <i class="fas fa-box-open fa-3x mb-3"></i>
@@ -38,8 +79,24 @@
             <?php else: ?>
                 <div class="row g-3" id="productsContainer">
                     <?php foreach ($products as $product): ?>
-                        <div class="col-12 product-item" data-title="<?= strtolower(esc($product['title'])) ?>">
-                            <div class="card border-0 shadow-sm overflow-hidden ui-product-card">
+                        <?php
+                            $productSearchText = strtolower(trim(implode(' ', [
+                                $product['title'] ?? '',
+                                $product['description'] ?? '',
+                                $product['category'] ?? '',
+                                $product['status'] ?? '',
+                            ])));
+                        ?>
+                        <div class="col-12 product-item"
+                             data-search="<?= esc($productSearchText) ?>"
+                             data-title="<?= strtolower(esc($product['title'])) ?>"
+                             data-category="<?= strtolower(esc($product['category'] ?? '')) ?>"
+                             data-status="<?= strtolower(esc($product['status'] ?? 'active')) ?>"
+                             data-created="<?= esc($product['created_at'] ?? '') ?>"
+                             data-sales="<?= esc((string) ($product['total_collected'] ?? 0)) ?>"
+                             data-income="<?= esc((string) ($product['total_income'] ?? 0)) ?>">
+                            <div class="card border-0 shadow-sm overflow-hidden ui-product-card"
+                                 onclick="showProductPayments(<?= (int) $product['id'] ?>, <?= htmlspecialchars(json_encode($product['title']), ENT_QUOTES, 'UTF-8') ?>, <?= (float) ($product['amount'] ?? 0) ?>)">
                                 <div class="card-body d-flex justify-content-between align-items-start gap-3 flex-wrap">
                                     <div class="d-flex align-items-start gap-3 flex-grow-1">
                                         <div class="ui-item-media">
@@ -55,7 +112,7 @@
                                                     alt="<?= esc($product['title']) ?>"
                                                     class="ui-item-thumb"
                                                     onerror="this.onerror=null; this.style.display='none'; this.parentElement.insertAdjacentHTML('beforeend', '<div class=&quot;ui-item-thumb ui-item-thumb--placeholder&quot;><i class=&quot;fas fa-box-open&quot;></i></div>');"
-                                                    onclick="openImagePreview('<?= esc($productImageUrl) ?>', '<?= esc($product['title']) ?>')">
+                                                    onclick="event.stopPropagation(); openImagePreview('<?= esc($productImageUrl) ?>', '<?= esc($product['title']) ?>')">
                                             <?php else: ?>
                                                 <div class="ui-item-thumb ui-item-thumb--placeholder">
                                                     <i class="fas fa-box-open"></i>
@@ -77,7 +134,7 @@
                                         </div>
                                     </div>
                                     </div>
-                                    <div class="d-flex gap-2">
+                                    <div class="d-flex gap-2" onclick="event.stopPropagation();">
                                         <button class="btn btn-sm btn-outline-warning" onclick="editProduct(<?= (int)$product['id'] ?>)"><i class="fas fa-edit"></i></button>
                                         <button class="btn btn-sm <?= ($product['status'] ?? 'active') === 'active' ? 'btn-outline-success' : 'btn-outline-secondary' ?>" onclick="toggleProductStatus(<?= (int)$product['id'] ?>)"><i class="fas fa-toggle-<?= ($product['status'] ?? 'active') === 'active' ? 'on' : 'off' ?>"></i></button>
                                         <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct(<?= (int)$product['id'] ?>)"><i class="fas fa-trash"></i></button>
@@ -86,6 +143,14 @@
                             </div>
                         </div>
                     <?php endforeach; ?>
+                    <div class="col-12 d-none" id="noProductResults">
+                        <div class="ui-empty-filter-state">
+                            <div class="ui-empty-filter-icon"><i class="fas fa-search"></i></div>
+                            <h5>No products found</h5>
+                            <p>Try changing your search or clearing filters.</p>
+                            <button type="button" class="btn btn-primary btn-sm" id="clearProductEmptyFilters">Clear filters</button>
+                        </div>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -93,6 +158,11 @@
 </div>
 
 <?= view('partials/modal-product', ['title' => 'Add Product', 'action' => base_url('products/save')]) ?>
+<?= view('partials/modal-contribution-payments') ?>
+<?= view('partials/modal-add-payment-to-partial') ?>
+<?= view('partials/modal-qr-receipt', [
+    'title' => 'Payment Receipt',
+]) ?>
 <div class="modal fade" id="itemImagePreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
@@ -107,20 +177,42 @@
     </div>
 </div>
 
+<script src="<?= base_url('js/list-controls.js') ?>"></script>
 <script>
+window.APP_BASE_URL = '<?= base_url() ?>';
+
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('productSearch');
     const previewWrap = document.getElementById('productImagePreviewWrap');
     const previewImage = document.getElementById('productImagePreview');
     const imageInput = document.getElementById('productImage');
     const removeImageInput = document.getElementById('productRemoveImage');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const term = this.value.toLowerCase().trim();
-            document.querySelectorAll('.product-item').forEach(item => {
-                const title = item.getAttribute('data-title') || '';
-                item.style.display = term === '' || title.includes(term) ? '' : 'none';
-            });
+    const productListControls = createListControls({
+        searchId: 'productSearch',
+        resultId: 'productResultsCount',
+        chipsId: 'productFilterChips',
+        clearId: 'clearProductFilters',
+        itemSelector: '.product-item',
+        containerSelector: '#productsContainer',
+        emptySelector: '#noProductResults',
+        label: 'products',
+        filters: [
+            { id: 'productCategoryFilter', key: 'category', label: 'Category', attribute: 'data-category' },
+            { id: 'productStatusFilter', key: 'status', label: 'Status', attribute: 'data-status' },
+        ],
+        sort: {
+            id: 'productSort',
+            options: {
+                newest: { attribute: 'data-created', direction: 'desc' },
+                name_asc: { attribute: 'data-title', direction: 'asc' },
+                sales_desc: { attribute: 'data-sales', direction: 'desc', type: 'number' },
+                income_desc: { attribute: 'data-income', direction: 'desc', type: 'number' },
+            },
+        },
+    });
+    const clearProductEmptyFilters = document.getElementById('clearProductEmptyFilters');
+    if (clearProductEmptyFilters) {
+        clearProductEmptyFilters.addEventListener('click', function() {
+            document.getElementById('clearProductFilters')?.click();
         });
     }
 
@@ -248,6 +340,14 @@ function deleteProduct(id) {
 .ui-product-card {
     background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
     border: 1px solid rgba(12, 82, 145, 0.08);
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.ui-product-card:hover {
+    border-color: rgba(59, 130, 246, 0.18);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1) !important;
+    transform: translateY(-2px);
 }
 
 .ui-item-thumb {

@@ -117,9 +117,16 @@
                                         <i class="fas fa-check-circle me-2"></i><?= $remaining <= 0 ? 'Fully Paid' : 'Unavailable' ?>
                                     </button>
                                 <?php endif; ?>
-                                <a class="btn btn-outline-dark" href="<?= base_url('payer/payment-history') ?>">
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-dark"
+                                    onclick='openContributionPaymentHistory(<?= json_encode([
+                                        'id' => (int)$contribution['id'],
+                                        'title' => $contribution['title'],
+                                        'amount' => (float)$contribution['amount'],
+                                    ]) ?>)'>
                                     <i class="fas fa-history me-2"></i>Payment History
-                                </a>
+                                </button>
                                 <a class="btn btn-outline-danger" href="<?= base_url('payer/refund-requests') ?>">
                                     <i class="fas fa-undo me-2"></i>Refunds
                                 </a>
@@ -133,6 +140,7 @@
 </div>
 
 <?= $this->include('partials/modal-payment-request') ?>
+<?= $this->include('partials/modal-qr-receipt') ?>
 
 <div class="modal fade" id="payerItemImagePreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -143,6 +151,29 @@
             </div>
             <div class="modal-body text-center">
                 <img src="" alt="" id="payerItemImagePreviewImage" class="img-fluid rounded-4">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="contributionPaymentHistoryModal" tabindex="-1" aria-labelledby="contributionPaymentHistoryTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="contributionPaymentHistoryTitle">
+                        <i class="fas fa-history me-2"></i>Payment History
+                    </h5>
+                    <p class="text-muted mb-0 small" id="contributionPaymentHistorySubtitle">Contribution payment records</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="contributionPaymentHistoryBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -168,6 +199,166 @@ function openPayerImagePreview(src, title) {
     document.getElementById('payerItemImagePreviewTitle').textContent = title || 'Item Image';
     document.getElementById('payerItemImagePreviewImage').src = src;
     new bootstrap.Modal(document.getElementById('payerItemImagePreviewModal')).show();
+}
+
+function openContributionPaymentHistory(contribution) {
+    const modalEl = document.getElementById('contributionPaymentHistoryModal');
+    const titleEl = document.getElementById('contributionPaymentHistoryTitle');
+    const subtitleEl = document.getElementById('contributionPaymentHistorySubtitle');
+    const bodyEl = document.getElementById('contributionPaymentHistoryBody');
+
+    if (!modalEl || !bodyEl || !contribution || !contribution.id) {
+        return;
+    }
+
+    titleEl.innerHTML = '<i class="fas fa-history me-2"></i>' + escapeHtml(contribution.title || 'Payment History');
+    subtitleEl.textContent = 'Per payer amount: PHP ' + formatAmount(contribution.amount || 0);
+    bodyEl.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+
+    new bootstrap.Modal(modalEl).show();
+
+    fetch('<?= base_url('payer/get-contribution-payments') ?>/' + encodeURIComponent(contribution.id), {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Unable to load payment history.');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (!data.success) {
+            throw new Error(data.message || 'Unable to load payment history.');
+        }
+
+        renderContributionPaymentHistory(bodyEl, data.payments || []);
+    })
+    .catch(error => {
+        bodyEl.innerHTML = `
+            <div class="alert alert-danger mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>${escapeHtml(error.message || 'Unable to load payment history.')}
+            </div>
+        `;
+    });
+}
+
+function renderContributionPaymentHistory(container, payments) {
+    if (!payments.length) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Payments Yet</h5>
+                <p class="text-muted mb-0">Payments for this contribution will appear here once recorded.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.amount_paid || 0), 0);
+    const rows = payments.map(payment => {
+        const status = String(payment.payment_status || 'pending');
+        const statusClass = status === 'fully paid' ? 'bg-success' : (status === 'partial' ? 'bg-warning text-dark' : 'bg-secondary');
+        const dateText = formatDate(payment.payment_date || payment.created_at);
+
+        return `
+            <tr class="payer-click-row contribution-history-payment-row" data-payment='${escapeHtml(JSON.stringify(payment))}' onclick="showContributionHistoryReceipt(this)">
+                <td>
+                    <div class="fw-semibold">${escapeHtml(dateText.date)}</div>
+                    <small class="text-muted">${escapeHtml(dateText.time)}</small>
+                </td>
+                <td><code>${escapeHtml(payment.receipt_number || 'N/A')}</code></td>
+                <td>${escapeHtml(payment.payment_method || 'N/A')}</td>
+                <td><span class="badge ${statusClass}">${escapeHtml(status.toUpperCase())}</span></td>
+                <td class="text-end fw-semibold">PHP ${formatAmount(payment.amount_paid || 0)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+            <div>
+                <div class="payer-metric-label">Total Paid</div>
+                <div class="h4 mb-0">PHP ${formatAmount(totalPaid)}</div>
+            </div>
+            <span class="badge bg-light text-dark border">${payments.length} payment${payments.length === 1 ? '' : 's'}</span>
+        </div>
+        <div class="table-responsive ui-table-wrap">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Receipt</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th class="text-end">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function showContributionHistoryReceipt(row) {
+    if (!row) {
+        return;
+    }
+
+    try {
+        const paymentData = JSON.parse(row.getAttribute('data-payment') || '{}');
+        if (typeof window.showQRReceipt === 'function') {
+            window.showQRReceipt(paymentData);
+            return;
+        }
+    } catch (error) {
+        // Fall through to the user-facing message below.
+    }
+
+    alert('Receipt view is not available. Please refresh the page.');
+}
+
+function formatAmount(value) {
+    return Number(value || 0).toLocaleString('en-PH', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+function formatDate(value) {
+    if (!value) {
+        return { date: 'N/A', time: '' };
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return { date: String(value), time: '' };
+    }
+
+    return {
+        date: date.toLocaleDateString('en-PH', { month: 'short', day: '2-digit', year: 'numeric' }),
+        time: date.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })
+    };
+}
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function(char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
 }
 </script>
 

@@ -255,10 +255,9 @@ window.showQRReceipt = function(paymentData) {
     const modalEl = document.getElementById('qrReceiptModal');
     const modal = new bootstrap.Modal(modalEl);
     
-    // Find any open parent modal (All Payments, Payment History, etc.)
-    const allPaymentsModal = document.getElementById('allPaymentsModal');
-    const paymentHistoryModal = document.getElementById('paymentHistoryModal');
-    const parentModal = allPaymentsModal || paymentHistoryModal;
+    // Find any open parent modal (All Payments, Payment History, contribution history, etc.)
+    const parentModal = Array.from(document.querySelectorAll('.modal.show'))
+        .find(openModal => openModal.id !== 'qrReceiptModal');
     const parentModalDialog = parentModal ? parentModal.querySelector('.modal-dialog') : null;
     
     // Fade parent modal itself (not backdrop) when QR modal is shown

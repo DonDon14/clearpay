@@ -75,7 +75,7 @@ class LoginController extends BaseController
 
         // Email verification is required for accounts with an email.
         $hasEmail = !empty(trim((string)($payer['email_address'] ?? '')));
-        $isEmailVerified = isset($payer['email_verified']) && (int)$payer['email_verified'] === 1;
+        $isEmailVerified = $this->isTruthy($payer['email_verified'] ?? false);
         if ($hasEmail && !$isEmailVerified) {
             // Store payer info in session for resend verification
             session()->set('pending_verification_payer_id', $payer['id']);
@@ -188,7 +188,7 @@ class LoginController extends BaseController
         }
 
         $hasEmail = !empty(trim((string)($payer['email_address'] ?? '')));
-        $isEmailVerified = isset($payer['email_verified']) && (int)$payer['email_verified'] === 1;
+        $isEmailVerified = $this->isTruthy($payer['email_verified'] ?? false);
         if ($hasEmail && !$isEmailVerified) {
             return $this->response->setJSON([
                 'success' => false,
@@ -410,6 +410,21 @@ class LoginController extends BaseController
             log_message('error', 'Error trace: ' . $e->getTraceAsString());
             return false;
         }
+    }
+
+    private function isTruthy($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value === 1;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+
+        return in_array($normalized, ['1', 'true', 't', 'yes', 'y', 'on'], true);
     }
     
     /**

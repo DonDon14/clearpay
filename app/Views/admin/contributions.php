@@ -57,13 +57,13 @@
 <div class="row mb-4">
         <!-- Quick Actions -->
         <div class="col-12">
-            <div class="card h-100 shadow-sm ui-surface-card">
-                <div class="card-header">
+            <div class="card h-100 shadow-sm border-0 ui-surface-card">
+                <div class="card-header ui-surface-card-header">
                     <h5 class="ui-section-title">Quick Actions</h5>
                     <small class="ui-section-subtitle">Frequently used contribution operations</small>
                 </div>
-                <div class="card-body p-2">
-                    <div class="row g-2">
+                <div class="card-body ui-surface-card-body pt-2">
+                    <div class="row g-3">
                         <?= view('partials/quick-action-add-contribution', [
                             'title' => 'Add Contribution',
                             'subtitle' => 'Add a section-wide payable item',
@@ -102,75 +102,49 @@
                 </div>
             </div>
         </div>
-
-<!-- Search and Filter Section -->
-<div class="row mb-3">
-    <div class="col-12">
-        <div class="card shadow-sm border-0 ui-toolbar-shell">
-            <div class="card-body">
-                <div class="row g-2">
-                    <div class="col-md-6">
-                        <label for="searchContribution" class="form-label">
-                            <i class="fas fa-search me-1"></i>Search
-                        </label>
-                        <input type="text" id="searchContribution" class="form-control" placeholder="Search by title or description...">
-                    </div>
-                    <div class="col-md-3">
-                        <label for="filterCategory" class="form-label">
-                            <i class="fas fa-filter me-1"></i>Category
-                        </label>
-                        <select id="filterCategory" class="form-select">
-                            <option value="">All Categories</option>
-                            <?php 
-                            $categories = $categories ?? [];
-                            foreach ($categories as $category): 
-                            ?>
-                                <option value="<?= $category['code'] ?>"><?= htmlspecialchars($category['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="filterType" class="form-label">
-                            <i class="fas fa-shapes me-1"></i>Type
-                        </label>
-                        <select id="filterType" class="form-select">
-                            <option value="">All Types</option>
-                            <option value="contribution">Contribution</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="filterStatus" class="form-label">
-                            <i class="fas fa-toggle-on me-1"></i>Status
-                        </label>
-                        <select id="filterStatus" class="form-select">
-                            <option value="">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col-12">
-                        <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">
-                            <i class="fas fa-times me-1"></i>Clear Filters
-                        </button>
-                        <span class="ms-2 text-muted" id="resultsCount"></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Active Contributions Section -->
-<?= view('partials/container-card', [
-    'title' => '<i class="fas fa-hand-holding-usd me-2"></i>Active Contributions',
-    'cardClass' => 'shadow-sm border-0',
-    'bodyClass' => 'p-3',
-    'content' => view('partials/contributions_list', [
-        'contributions' => $contributions ?? []
-    ])
-]) ?>
+<div class="card border-0 shadow-sm mb-3 ui-surface-card">
+    <div class="card-header ui-surface-card-header">
+        <h5 class="card-title mb-1"><i class="fas fa-hand-holding-usd me-2"></i>Active Contributions</h5>
+        <small class="text-muted d-block ui-surface-subtitle">Search, filter, and open contribution history.</small>
+    </div>
+    <div class="card-body p-3 ui-surface-card-body">
+        <?= view('partials/list-controls', [
+            'controlId' => 'contributionControls',
+            'searchId' => 'searchContribution',
+            'searchLabel' => 'Search contributions',
+            'placeholder' => 'Title, description, code...',
+            'resultId' => 'resultsCount',
+            'chipsId' => 'activeFilterChips',
+            'clearId' => 'clearContributionFilters',
+            'filters' => [
+                [
+                    'id' => 'filterCategory',
+                    'label' => 'Category',
+                    'options' => ['' => 'All categories'] + array_column($categories ?? [], 'name', 'code'),
+                ],
+                [
+                    'id' => 'filterType',
+                    'label' => 'Type',
+                    'options' => ['' => 'All types', 'contribution' => 'Contribution'],
+                ],
+                [
+                    'id' => 'filterStatus',
+                    'label' => 'Status',
+                    'options' => ['' => 'All statuses', 'active' => 'Active', 'inactive' => 'Inactive'],
+                ],
+            ],
+        ]) ?>
+
+        <?= view('partials/contributions_list', [
+            'contributions' => $contributions ?? []
+        ]) ?>
+    </div>
+</div>
+
+</div>
 
 <div class="modal fade" id="contributionImagePreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -197,6 +171,7 @@
     'title' => 'Payment Receipt',
 ]) ?>
 
+<script src="<?= base_url('js/list-controls.js') ?>"></script>
 <script>
 // Define base URL for API calls
 window.APP_BASE_URL = '<?= base_url() ?>';
@@ -436,73 +411,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     // Form submission is handled by contribution.js
     
-    // Search and Filter Functionality
-    const searchInput = document.getElementById('searchContribution');
-    const categoryFilter = document.getElementById('filterCategory');
-    const typeFilter = document.getElementById('filterType');
-    const statusFilter = document.getElementById('filterStatus');
-    const resultsCount = document.getElementById('resultsCount');
-    
-    function filterContributions() {
-        const searchTerm = searchInput.value.toLowerCase().trim();
-        const selectedCategory = categoryFilter.value;
-        const selectedType = typeFilter.value;
-        const selectedStatus = statusFilter.value;
-        
-        const items = document.querySelectorAll('.contribution-item');
-        let visibleCount = 0;
-        
-        items.forEach(item => {
-            const title = item.getAttribute('data-title') || '';
-            const category = item.getAttribute('data-category') || '';
-            const type = item.getAttribute('data-type') || '';
-            const status = item.getAttribute('data-status') || '';
-            
-            // Check if item matches search term
-            const matchesSearch = searchTerm === '' || title.includes(searchTerm);
-            
-            // Check if item matches category filter
-            const matchesCategory = selectedCategory === '' || category === selectedCategory;
-            const matchesType = selectedType === '' || type === selectedType;
-            
-            // Check if item matches status filter
-            const matchesStatus = selectedStatus === '' || status === selectedStatus;
-            
-            // Show or hide item based on all filters
-            if (matchesSearch && matchesCategory && matchesType && matchesStatus) {
-                item.style.display = '';
-                visibleCount++;
-            } else {
-                item.style.display = 'none';
-            }
-        });
-        
-        // Update results count
-        const totalCount = items.length;
-        resultsCount.textContent = `Showing ${visibleCount} of ${totalCount} items`;
-    }
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', filterContributions);
-    }
-    
-    if (categoryFilter) {
-        categoryFilter.addEventListener('change', filterContributions);
-    }
-
-    if (typeFilter) {
-        typeFilter.addEventListener('change', filterContributions);
-    }
-    
-    if (statusFilter) {
-        statusFilter.addEventListener('change', filterContributions);
-    }
-    
-    // Initialize results count
-    if (resultsCount) {
-        const items = document.querySelectorAll('.contribution-item');
-        resultsCount.textContent = `Showing ${items.length} of ${items.length} items`;
-    }
+    window.contributionListControls = createListControls({
+        searchId: 'searchContribution',
+        resultId: 'resultsCount',
+        chipsId: 'activeFilterChips',
+        clearId: 'clearContributionFilters',
+        itemSelector: '.contribution-item',
+        containerSelector: '#contributionsContainer',
+        emptySelector: '#noContributionResults',
+        label: 'contributions',
+        filters: [
+            { id: 'filterCategory', key: 'category', label: 'Category', attribute: 'data-category' },
+            { id: 'filterType', key: 'type', label: 'Type', attribute: 'data-type' },
+            { id: 'filterStatus', key: 'status', label: 'Status', attribute: 'data-status' },
+        ],
+    });
     
     // Handle hash from URL (for search result navigation)
     const hash = window.location.hash;
@@ -543,23 +466,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-
-// Clear filters function
-function clearFilters() {
-    document.getElementById('searchContribution').value = '';
-    document.getElementById('filterCategory').value = '';
-    document.getElementById('filterType').value = '';
-    document.getElementById('filterStatus').value = '';
-    
-    // Show all items
-    document.querySelectorAll('.contribution-item').forEach(item => {
-        item.style.display = '';
-    });
-    
-    // Update results count
-    const items = document.querySelectorAll('.contribution-item');
-    document.getElementById('resultsCount').textContent = `Showing ${items.length} of ${items.length} items`;
-}
 
 function openContributionImagePreview(src, title) {
     document.getElementById('contributionImagePreviewTitle').textContent = title || 'Contribution Image';

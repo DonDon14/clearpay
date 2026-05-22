@@ -36,28 +36,39 @@
         <div class="col-12">
             <div class="card border-0 ui-surface-card">
                 <div class="card-body ui-surface-card-body">
-                    <h5 class="card-title mb-3">
-                        <i class="fas fa-bolt me-2 text-warning"></i>Quick Actions
-                    </h5>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <a href="<?= base_url('payer/payment-requests') ?>" class="btn btn-lg btn-primary w-100 d-flex align-items-center justify-content-center ui-action-tile">
-                                <div class="text-center">
-                                    <i class="fas fa-money-bill-wave fa-3x mb-2 d-block"></i>
-                                    <h6 class="mb-1">Payment Request</h6>
-                                    <small class="d-block text-white-50">Submit an online payment</small>
-                                </div>
-                            </a>
+                    <div class="payer-quick-header">
+                        <div>
+                            <h5 class="card-title mb-1">
+                                <i class="fas fa-bolt me-2 text-warning"></i>Quick Actions
+                            </h5>
+                            <p class="text-muted mb-0">Start a request or review your pending activity.</p>
                         </div>
-                        <div class="col-md-6">
-                            <a href="<?= base_url('payer/refund-requests') ?>" class="btn btn-lg btn-warning w-100 d-flex align-items-center justify-content-center ui-action-tile">
-                                <div class="text-center">
-                                    <i class="fas fa-undo fa-3x mb-2 d-block"></i>
-                                    <h6 class="mb-1">Refund Request</h6>
-                                    <small class="d-block text-white-50">Request a refund for your payment</small>
-                                </div>
-                            </a>
-                        </div>
+                    </div>
+                    <div class="payer-action-grid">
+                        <a href="<?= base_url('payer/payment-requests') ?>" class="payer-action-card payer-action-card--payment">
+                            <span class="payer-action-icon">
+                                <i class="fas fa-paper-plane"></i>
+                            </span>
+                            <span class="payer-action-content">
+                                <span class="payer-action-title">Payment Request</span>
+                                <span class="payer-action-copy">Submit proof of payment and track approval status.</span>
+                            </span>
+                            <span class="payer-action-arrow" aria-hidden="true">
+                                <i class="fas fa-arrow-right"></i>
+                            </span>
+                        </a>
+                        <a href="<?= base_url('payer/refund-requests') ?>" class="payer-action-card payer-action-card--refund">
+                            <span class="payer-action-icon">
+                                <i class="fas fa-rotate-left"></i>
+                            </span>
+                            <span class="payer-action-content">
+                                <span class="payer-action-title">Refund Request</span>
+                                <span class="payer-action-copy">Request a refund for eligible payments.</span>
+                            </span>
+                            <span class="payer-action-arrow" aria-hidden="true">
+                                <i class="fas fa-arrow-right"></i>
+                            </span>
+                        </a>
                     </div>
                 </div>
             </div>

@@ -25,8 +25,8 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-xl-3 col-lg-6 col-md-6">
+    <div class="ui-admin-metrics mb-4">
+        <div>
             <?= view('partials/card', [
                 'icon' => 'fas fa-database',
                 'iconColor' => 'text-primary',
@@ -35,7 +35,7 @@
                 'subtitle' => 'All recorded collections',
             ]) ?>
         </div>
-        <div class="col-xl-3 col-lg-6 col-md-6">
+        <div>
             <?= view('partials/card', [
                 'icon' => 'fas fa-check-square',
                 'iconColor' => 'text-success',
@@ -44,7 +44,7 @@
                 'subtitle' => 'Fully paid records',
             ]) ?>
         </div>
-        <div class="col-xl-3 col-lg-6 col-md-6">
+        <div>
             <?= view('partials/card', [
                 'icon' => 'fas fa-clock',
                 'iconColor' => 'text-warning',
@@ -53,7 +53,7 @@
                 'subtitle' => 'Still has remaining balances',
             ]) ?>
         </div>
-        <div class="col-xl-3 col-lg-6 col-md-6">
+        <div>
             <?= view('partials/card', [
                 'icon' => 'fas fa-calendar-alt',
                 'iconColor' => 'text-info',
@@ -62,22 +62,17 @@
                 'subtitle' => 'Payments posted today',
             ]) ?>
         </div>
-        <div class="col-xl-4 col-lg-6 col-md-6">
+        <div>
             <div class="card border-0 shadow-sm h-100 ui-metric-card">
                 <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div>
-                            <p class="ui-metric-label">Payment Requests</p>
-                            <div class="ui-metric-value"><?= number_format((int) ($pendingPaymentRequests ?? 0)) ?></div>
-                            <p class="ui-metric-subtitle mb-0">
-                                <?= ($pendingPaymentRequests ?? 0) > 0 ? 'Pending admin review' : 'No pending requests right now' ?>
-                            </p>
-                        </div>
-                        <span class="ui-stat-pill <?= ($pendingPaymentRequests ?? 0) > 0 ? 'is-warning' : '' ?>">
-                            <i class="fas fa-clock"></i>
-                            <?= ($pendingPaymentRequests ?? 0) > 0 ? 'Action required' : 'Up to date' ?>
-                        </span>
+                    <div class="<?= ($pendingPaymentRequests ?? 0) > 0 ? 'text-warning' : 'text-success' ?> ui-metric-icon mb-3">
+                        <i class="fas fa-paper-plane fa-2x"></i>
                     </div>
+                    <p class="ui-metric-label">Payment Requests</p>
+                    <div class="ui-metric-value"><?= number_format((int) ($pendingPaymentRequests ?? 0)) ?></div>
+                    <p class="ui-metric-subtitle mb-0">
+                        <?= ($pendingPaymentRequests ?? 0) > 0 ? 'Pending admin review' : 'No pending requests right now' ?>
+                    </p>
                 </div>
             </div>
         </div>
@@ -91,66 +86,76 @@
                     <small class="text-muted ui-surface-subtitle">Most-used tasks for daily payment operations</small>
                 </div>
                 <div class="card-body ui-surface-card-body">
-                    <div class="ui-dashboard-grid">
-                        <?= view('partials/quick-action-add-payment', [
+                    <?php
+                    $dashboardActions = [
+                        [
                             'title' => 'Record Payment',
-                            'subtitle' => 'Add new payment record',
-                            'icon' => 'fas fa-plus-circle',
-                            'bgColor' => 'bg-primary',
-                            'colClass' => '',
-                            'contributions' => $contributions ?? []
-                        ]) ?>
-                        <?php unset($modalTarget, $link); ?>
-                        <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-qrcode',
+                            'subtitle' => 'Add a new payment record',
+                            'icon' => 'fas fa-plus',
+                            'tone' => 'primary',
+                            'modalTarget' => 'addPaymentModal',
+                        ],
+                        [
                             'title' => 'Verify Payments',
-                            'subtitle' => 'Scan QR codes to verify',
-                            'bgColor' => 'bg-success',
-                            'link' => null,
+                            'subtitle' => 'Scan payment receipt QR codes',
+                            'icon' => 'fas fa-qrcode',
+                            'tone' => 'success',
                             'modalTarget' => 'qrScannerModal',
-                            'colClass' => ''
-                        ]) ?>
-                        <?php unset($modalTarget, $link); ?>
-                        <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-hand-holding-usd',
+                        ],
+                        [
                             'title' => 'Manage Contributions',
                             'subtitle' => 'Add or edit fee types',
-                            'bgColor' => 'bg-info',
-                            'link' => base_url('/contributions'),
-                            'modalTarget' => null,
-                            'colClass' => ''
-                        ]) ?>
-                        <?php unset($modalTarget, $link); ?>
-                        <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-chart-bar',
+                            'icon' => 'fas fa-hand-holding-usd',
+                            'tone' => 'cyan',
+                            'link' => base_url('contributions'),
+                        ],
+                        [
                             'title' => 'View Analytics',
-                            'subtitle' => 'System performance reports',
-                            'bgColor' => 'bg-secondary',
-                            'link' => base_url('/analytics'),
-                            'modalTarget' => null,
-                            'colClass' => ''
-                        ]) ?>
-                        <?php unset($modalTarget, $link); ?>
-                        <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-bullhorn',
+                            'subtitle' => 'Open performance reports',
+                            'icon' => 'fas fa-chart-bar',
+                            'tone' => 'slate',
+                            'link' => base_url('analytics'),
+                        ],
+                        [
                             'title' => 'Add Announcement',
-                            'subtitle' => 'Create system updates',
-                            'bgColor' => 'bg-danger',
+                            'subtitle' => 'Create a system update',
+                            'icon' => 'fas fa-bullhorn',
+                            'tone' => 'rose',
                             'link' => base_url('announcements') . '?open_modal=true',
-                            'modalTarget' => null,
-                            'colClass' => ''
-                        ]) ?>
-                        <?php unset($modalTarget, $link); ?>
-                        <?= view('partials/quick-action', [
-                            'icon' => 'fas fa-user-plus',
+                        ],
+                        [
                             'title' => 'Add New Payer',
-                            'subtitle' => 'Register a new payer',
-                            'bgColor' => 'bg-warning',
-                            'link' => null,
+                            'subtitle' => 'Register a payer profile',
+                            'icon' => 'fas fa-user-plus',
+                            'tone' => 'amber',
                             'modalTarget' => 'addPayerModal',
-                            'colClass' => ''
-                        ]) ?>
-                        <?php unset($modalTarget, $link); ?>
+                        ],
+                    ];
+                    ?>
+                    <div class="ui-admin-action-grid">
+                        <?php foreach ($dashboardActions as $action): ?>
+                            <?php if (!empty($action['modalTarget'])): ?>
+                                <button type="button"
+                                        class="ui-admin-action-card ui-admin-action-<?= esc($action['tone']) ?>"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#<?= esc($action['modalTarget']) ?>">
+                                    <span class="ui-admin-action-icon"><i class="<?= esc($action['icon']) ?>"></i></span>
+                                    <span class="ui-admin-action-copy">
+                                        <span class="ui-admin-action-title"><?= esc($action['title']) ?></span>
+                                        <span class="ui-admin-action-subtitle"><?= esc($action['subtitle']) ?></span>
+                                    </span>
+                                </button>
+                            <?php else: ?>
+                                <a href="<?= esc($action['link']) ?>"
+                                   class="ui-admin-action-card ui-admin-action-<?= esc($action['tone']) ?>">
+                                    <span class="ui-admin-action-icon"><i class="<?= esc($action['icon']) ?>"></i></span>
+                                    <span class="ui-admin-action-copy">
+                                        <span class="ui-admin-action-title"><?= esc($action['title']) ?></span>
+                                        <span class="ui-admin-action-subtitle"><?= esc($action['subtitle']) ?></span>
+                                    </span>
+                                </a>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
@@ -354,6 +359,11 @@
 ]) ?>
 
 <?= view('partials/modal-qr-scanner') ?>
+<?= view('partials/modal-add-payment', [
+    'title' => 'Add Payment',
+    'action' => base_url('payments/save'),
+    'contributions' => $contributions ?? [],
+]) ?>
 <?= view('partials/modal-add-payer') ?>
 <?= view('partials/modal-contribution-payments') ?>
 <?= view('partials/modal-edit-payment') ?>

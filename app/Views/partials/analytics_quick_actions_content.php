@@ -1,41 +1,29 @@
 <div class="row g-3">
     <div class="col-md-4">
-        <div class="card bg-primary text-white h-100 quick-action-card" onclick="refreshAnalytics()" style="cursor: pointer;">
-            <div class="card-body d-flex align-items-center gap-3 h-100">
-                <div class="icon-circle">
-                    <i class="fas fa-sync-alt fs-4"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1 fw-semibold">Refresh Data</h6>
-                    <small class="text-white-75">Update analytics</small>
-                </div>
-            </div>
-        </div>
+        <button type="button" class="ui-admin-action-card ui-admin-action-primary h-100" onclick="refreshAnalytics()">
+            <span class="ui-admin-action-icon"><i class="fas fa-sync-alt"></i></span>
+            <span class="ui-admin-action-copy">
+                <span class="ui-admin-action-title">Refresh Data</span>
+                <span class="ui-admin-action-subtitle">Update analytics</span>
+            </span>
+        </button>
     </div>
     <div class="col-md-4">
-        <div class="card bg-success text-white h-100 quick-action-card" onclick="exportAnalytics()" style="cursor: pointer;">
-            <div class="card-body d-flex align-items-center gap-3 h-100">
-                <div class="icon-circle">
-                    <i class="fas fa-download fs-4"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1 fw-semibold">Export Report</h6>
-                    <small class="text-white-75">Download PDF/CSV</small>
-                </div>
-            </div>
-        </div>
+        <button type="button" class="ui-admin-action-card ui-admin-action-success h-100" onclick="exportAnalytics()">
+            <span class="ui-admin-action-icon"><i class="fas fa-download"></i></span>
+            <span class="ui-admin-action-copy">
+                <span class="ui-admin-action-title">Export Report</span>
+                <span class="ui-admin-action-subtitle">Download PDF/CSV</span>
+            </span>
+        </button>
     </div>
     <div class="col-md-4">
-        <div class="card bg-info text-white h-100 quick-action-card" onclick="viewDetailedReports()" style="cursor: pointer;">
-            <div class="card-body d-flex align-items-center gap-3 h-100">
-                <div class="icon-circle">
-                    <i class="fas fa-chart-line fs-4"></i>
-                </div>
-                <div class="flex-grow-1">
-                    <h6 class="mb-1 fw-semibold">Detailed Reports</h6>
-                    <small class="text-white-75">Advanced insights</small>
-                </div>
-            </div>
-        </div>
+        <button type="button" class="ui-admin-action-card ui-admin-action-cyan h-100" onclick="viewDetailedReports()">
+            <span class="ui-admin-action-icon"><i class="fas fa-chart-line"></i></span>
+            <span class="ui-admin-action-copy">
+                <span class="ui-admin-action-title">Detailed Reports</span>
+                <span class="ui-admin-action-subtitle">Advanced insights</span>
+            </span>
+        </button>
     </div>
 </div>

@@ -35,6 +35,21 @@ final class PayerWorkflowSmokeTest extends CIUnitTestCase
         $result->assertRedirectTo('/payer/dashboard');
     }
 
+    public function testPayerLoginAcceptsPostgresBooleanVerifiedValue(): void
+    {
+        db_connect('tests')
+            ->table('payers')
+            ->where('id', 1)
+            ->update(['email_verified' => 't']);
+
+        $result = $this->call('post', 'payer/loginPost', [
+            'payer_id' => '2024-0001',
+            'password' => 'payer-one',
+        ]);
+
+        $result->assertRedirectTo('/payer/dashboard');
+    }
+
     public function testPayerPasswordResetFlowIssuesCodeVerifiesAndResetsPassword(): void
     {
         $sendReset = $this->call('post', 'payer/sendResetCode', [

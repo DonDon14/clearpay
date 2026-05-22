@@ -753,7 +753,8 @@ class DashboardController extends BaseController
         ->join('contributions', 'contributions.id = payments.contribution_id', 'left')
         ->join('users', 'users.id = payments.recorded_by', 'left')
         ->where('payments.payer_id', $payerId)
-        ->where('payments.contribution_id', $contributionId);
+        ->where('payments.contribution_id', $contributionId)
+        ->where('payments.deleted_at', null);
         
         // Filter by payment sequence if provided
         if ($paymentSequence) {

@@ -397,7 +397,7 @@ class SignupController extends BaseController
                 ]);
             }
 
-            if ((int) ($payer['email_verified'] ?? 0) === 1) {
+            if ($this->isTruthy($payer['email_verified'] ?? false)) {
                 return $this->response->setJSON([
                     'success' => false,
                     'error' => 'This account is already verified. You can log in now.'
@@ -764,6 +764,21 @@ class SignupController extends BaseController
         $row = $db->query($sql, [$needle])->getRowArray();
 
         return !empty($row);
+    }
+
+    private function isTruthy($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value === 1;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+
+        return in_array($normalized, ['1', 'true', 't', 'yes', 'y', 'on'], true);
     }
 }
 
